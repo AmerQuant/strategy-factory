@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_utc": "2026-09-19 10:31:17 UTC",
-    "elapsed_s": 58.7,
+    "generated_utc": "2026-09-19 10:43:28 UTC",
+    "elapsed_s": 56.7,
     "roots": {
       "QuantPlatform": "D:\\AmerAndish\\Projects\\Trade\\SourceCodes\\QuantPlatform\\data",
       "MarketScanner candles": "D:\\AmerAndish\\Projects\\Trade\\SourceCodes\\MarketScanner\\data\\candles",
@@ -2606,7 +2606,7 @@
           "missing_bar_gaps": 12724
         }
       },
-      "elapsed_s": 17.3,
+      "elapsed_s": 16.8,
       "conclusions": {
         "format": "parquet",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -6667,7 +6667,7 @@
           "missing_bar_gaps": 131751
         }
       },
-      "elapsed_s": 9.9,
+      "elapsed_s": 9.7,
       "conclusions": {
         "format": "parquet",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -8214,7 +8214,7 @@
         "files_with_high_lt_low": 0,
         "files_in_sample": 31
       },
-      "elapsed_s": 0.7,
+      "elapsed_s": 0.8,
       "conclusions": {
         "format": "parquet",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -13467,7 +13467,7 @@
           "missing_bar_gaps": 80731
         }
       },
-      "elapsed_s": 6.4,
+      "elapsed_s": 6.1,
       "conclusions": {
         "format": "txt (CSV)",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -15773,7 +15773,7 @@
           "missing_bar_gaps": 0
         }
       },
-      "elapsed_s": 3.2,
+      "elapsed_s": 2.7,
       "conclusions": {
         "format": "csv",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -21828,7 +21828,7 @@
           "missing_bar_gaps": 68443
         }
       },
-      "elapsed_s": 1.1,
+      "elapsed_s": 1.2,
       "conclusions": {
         "format": "csv",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -29387,7 +29387,7 @@
           "missing_bar_gaps": 161049
         }
       },
-      "elapsed_s": 10.2,
+      "elapsed_s": 10.1,
       "conclusions": {
         "format": "txt (CSV + 7-line header)",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",
@@ -36923,7 +36923,7 @@
           "missing_bar_gaps": 23226
         }
       },
-      "elapsed_s": 3.7,
+      "elapsed_s": 3.6,
       "conclusions": {
         "format": "txt (CSV + 7-line header)",
         "price_type": "trade (last-trade OHLC); no bid/ask/spread columns",

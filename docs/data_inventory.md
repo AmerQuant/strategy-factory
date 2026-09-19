@@ -1,6 +1,6 @@
 # Data inventory (T00 · F-0.1.12)
 
-Generated 2026-09-19 10:31:17 UTC by `scripts/data_inventory.py` in 58.7 s. Read-only scan.
+Generated 2026-09-19 10:43:28 UTC by `scripts/data_inventory.py` in 56.7 s. Read-only scan.
 
 **Source integrity check:** 34899 source files stat-ed before and after the run (+ 14 evidence files outside the roots: logs, manifests, downloader code); changed: 0, added: 0, removed: 0 → **no source file was modified**.
 

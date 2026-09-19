@@ -2516,7 +2516,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     md = render_markdown(results, cross, ovl, meta, questions, extra)
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
-    args.out_md.write_text(md, encoding="utf-8")
+    args.out_md.write_text(md, encoding="utf-8", newline="\n")
     payload = {
         "meta": meta,
         "groups": jsonable(results),
@@ -2526,7 +2526,9 @@ def main(argv: list[str] | None = None) -> int:
         "questions_for_user": questions,
     }
     args.out_json.write_text(
-        json.dumps(jsonable(payload), indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        json.dumps(jsonable(payload), indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+        newline="\n",
     )
     print(
         f"[done] {args.out_md} and {args.out_json} written in {meta['elapsed_s']} s; integrity ok={meta['integrity']['ok']}; errors={len(errors)}"

@@ -457,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
     data_root.mkdir(parents=True, exist_ok=True)
     write_manifest(rows, raw_root / "_manifests")
     (raw_root / "README.md").write_text(
-        readme_text(inventory, raw_root, plan, stats), encoding="utf-8"
+        readme_text(inventory, raw_root, plan, stats), encoding="utf-8", newline="\n"
     )
 
     # verify the manifest against the files on disk (acceptance: every sha256 matches)
@@ -486,7 +486,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     rep_dir = raw_root / "_reports"
     rep_path = rep_dir / f"organize_raw_store_{now.replace(':', '').replace('-', '')}.json"
-    rep_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    rep_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n"
+    )
 
     print(
         f"[copy] copied {counts['copied']}, already present+identical {counts['identical']}, errors {len(errors)}"
