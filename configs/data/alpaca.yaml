@@ -1,0 +1,29 @@
+# Alpaca SIP downloader / adapter settings (T04a). Validated by
+# strategy_factory.data.config.AlpacaConfig; every value here has a documented default there.
+history_start: 2016-01-01
+feed: sip            # decision: SIP for daily and hourly
+adjustment: split    # decision: split-adjusted only (TradingView-like)
+
+rate_limit:
+  requests_per_minute: 180   # hard budget: never more requests in any 60 s window
+  burst: 10                  # token-bucket capacity (refill = (budget - burst) / 60 s)
+
+retry:
+  max_retries: 5
+  backoff_base_seconds: 2.0
+  backoff_max_seconds: 60.0
+
+batch_size:          # symbols per multi-symbol request (one calendar year per request)
+  1D: 100
+  1H: 10
+
+hourly_session:      # keep hour-aligned bars labelled 09:00..15:00 New York
+  timezone: America/New_York
+  first_bar: "09:00"
+  regular_close: "16:00"
+  early_closes_file: configs/calendars/nyse_early_closes.yaml
+
+split_check:
+  jump_threshold: 0.40        # |close_t / close_{t-1} - 1| above this is a jump
+  match_tolerance: 0.02       # |ln(ratio_alpaca / ratio_crosscheck)| below this = same move
+  known_splits_file: configs/data/known_splits.csv

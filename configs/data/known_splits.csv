@@ -1,0 +1,12 @@
+symbol,date,ratio,source
+AAPL,2020-08-31,4,Apple Inc. press release 2020-07-30 (4-for-1)
+TSLA,2020-08-31,5,Tesla Inc. announcement 2020-08-11 (5-for-1)
+NVDA,2021-07-20,4,NVIDIA press release 2021-05-21 (4-for-1)
+AMZN,2022-06-06,20,Amazon.com press release 2022-03-09 (20-for-1)
+GOOGL,2022-07-18,20,Alphabet Q4-2021 earnings release 2022-02-01 (20-for-1)
+TSLA,2022-08-25,3,Tesla Inc. announcement 2022-08-05 (3-for-1)
+WMT,2024-02-26,3,Walmart press release 2024-01-30 (3-for-1)
+NVDA,2024-06-10,10,NVIDIA press release 2024-05-22 (10-for-1)
+CMG,2024-06-26,50,Chipotle press release 2024-03-19 (50-for-1)
+AVGO,2024-07-15,10,Broadcom press release 2024-06-12 (10-for-1)
+SMCI,2024-10-01,10,Super Micro Computer press release 2024-08-06 (10-for-1)

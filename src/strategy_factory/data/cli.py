@@ -83,3 +83,14 @@ def show_cmd(
                 typer.echo(f"{'':<17}{ref.sha256[:12]}  {ref.path}")
             continue
         typer.echo(f"{key:<15}: {value}")
+
+
+def _register_subcommands() -> None:
+    from strategy_factory.data.cli_alpaca import download_app, ingest_app, universe_app
+
+    data_app.add_typer(download_app, name="download")
+    data_app.add_typer(ingest_app, name="ingest")
+    data_app.add_typer(universe_app, name="universe")
+
+
+_register_subcommands()
