@@ -1,0 +1,23 @@
+# Registry database only (PostgreSQL). Tables are created by Alembic migrations (T03).
+services:
+  postgres:
+    image: postgres:16
+    container_name: sfac-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SFAC_DB_USER:-sfac}
+      POSTGRES_PASSWORD: ${SFAC_DB_PASSWORD:-sfac}
+      POSTGRES_DB: ${SFAC_DB_NAME:-sfac}
+    ports:
+      - "${SFAC_DB_PORT:-5432}:5432"
+    volumes:
+      - sfac_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  sfac_pgdata:

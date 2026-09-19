@@ -1,0 +1,4 @@
+# Strategy Factory — research universe
+#
+# Symbols (with source, asset class and timeframes) that the pipeline may run on.
+# Schema and content are defined in later tasks (T02/T04); intentionally empty for now.

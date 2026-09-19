@@ -1,0 +1,11 @@
+# Root-anchored so the `strategy_factory/data` package is not ignored.
+.venv/
+__pycache__/
+.env
+/data/
+/artifacts/
+*.parquet
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/

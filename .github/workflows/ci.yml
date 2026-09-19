@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 2 * * *" # nightly 02:00 UTC: slow self-tests
+  workflow_dispatch:
+
+env:
+  HYPOTHESIS_PROFILE: ci
+
+jobs:
+  checks:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy src
+      - name: Tests (fast suite, incl. parity and leakage)
+        run: uv run pytest -m "not slow"
+
+  nightly-slow:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync
+      - name: Slow self-tests
+        # Exit code 5 = no tests collected: accepted here only, while no slow tests exist.
+        # Every other job and local run fails when nothing is collected.
+        run: uv run pytest -m slow || [ $? -eq 5 ]

@@ -1,0 +1,92 @@
+[project]
+name = "strategy-factory"
+version = "0.1.0"
+description = "Standard, reproducible, auditable funnel for trading-strategy research"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+]
+
+[project.scripts]
+sfac = "strategy_factory.cli:app"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "mypy>=1.11",
+    "pytest>=8.2",
+    "ruff>=0.6",
+    "types-PyYAML>=6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "strategy_factory"
+
+# --------------------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# One-off inventory tools: long report-template strings and intentional unicode (–, ≈, μ).
+"scripts/*" = ["E501", "RUF001"]
+
+[tool.ruff.format]
+
+# --------------------------------------------------------------------------- mypy
+# strict for core, data, registry, gates; normal checking elsewhere.
+# `strict` is a global-only mypy flag, so it is enabled globally and relaxed below
+# for every package that is not in the strict set.
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+strict = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "strategy_factory.cli",
+    "strategy_factory.costs.*",
+    "strategy_factory.engine.*",
+    "strategy_factory.components.*",
+    "strategy_factory.metrics.*",
+    "strategy_factory.baseline.*",
+    "strategy_factory.diagnostics.*",
+    "strategy_factory.robustness.*",
+    "strategy_factory.stats.*",
+    "strategy_factory.stages.*",
+    "strategy_factory.pipeline.*",
+    "strategy_factory.reports.*",
+    "strategy_factory.evidence.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+warn_return_any = false
+no_implicit_reexport = false
+strict_equality = false
+extra_checks = false
+
+# --------------------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "-m", "not slow"]
+markers = [
+    "slow: long-running self-tests (random walk, planted edge); nightly only",
+    "parity: TradingView parity tests (mandatory gate)",
+    "leakage: data-truncation / look-ahead tests (mandatory gate)",
+    "oracle: comparison against the vectorbt oracle (test-only dependency)",
+]
