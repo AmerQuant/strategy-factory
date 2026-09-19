@@ -11,7 +11,7 @@
 | `src/strategy_factory/data/store.py` | `SnapshotStore` (`write_snapshot`, `read_snapshot`, `scan_snapshot`, `read_metadata`), module-level `write_snapshot`/`read_snapshot`, `data_root()` (→ `ConfigError`), `safe_component` |
 | `src/strategy_factory/data/catalog.py` | `Catalog` (`register`, `list_snapshots`, `set_reference`, `get_reference`, `has_reference`), events log; single-writer assumption documented in the module docstring |
 | `src/strategy_factory/data/cli.py` + `cli.py` | `sfac data list [--symbol --timeframe --source]`, `sfac data show <symbol> <timeframe>` |
-| tests | `tests/fixtures/bars.py`, `tests/unit/test_F_0_1_1_schema.py` (35), `test_F_0_1_8_store.py` (28), `test_F_0_1_8_cli_data.py` (4) |
+| tests | `tests/fixtures/bars.py`, `tests/unit/test_F_0_1_1_schema.py` (41 incl. parametrized cases), `test_F_0_1_8_store.py` (33), `test_F_0_1_8_cli_data.py` (4) |
 
 ## Dependencies
 - **polars 1.44.2** (runtime) — expected by the task; data-layer DataFrame, Parquet I/O and the IPC stream for hashing.
