@@ -1,0 +1,9 @@
+# Normalize text to LF in the repo and in every working copy (Windows dev, Ubuntu CI).
+* text=auto eol=lf
+
+# Binary formats: never touch line endings, never diff/merge as text.
+*.docx binary
+*.xlsx binary
+*.zip binary
+*.parquet binary
+*.png binary
