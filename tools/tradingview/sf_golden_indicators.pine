@@ -1,0 +1,105 @@
+//@version=6
+// Strategy Factory — golden reference values for indicator tests (T07).
+// Add to chart, then File/Layout menu → "Export chart data…" (time format: UNIX timestamp).
+// Plot titles are column names in the export: DO NOT rename them.
+// Conventions notes (the Python tests must match these exactly):
+//   * Ichimoku spans are exported UNSHIFTED (value computed on this bar). Displacement is applied by the strategy, not the indicator.
+//   * Supertrend direction: TradingView convention (-1 = up-trend, +1 = down-trend).
+//   * KAMA is seeded with close for bar_index < length (our convention, defined here).
+//   * Z-score uses ta.stdev (population standard deviation, biased=true).
+indicator("SF Golden Indicators v1", overlay = false, max_bars_back = 5000)
+
+// ---------- helpers
+donchianMid(len) => math.avg(ta.lowest(low, len), ta.highest(high, len))
+
+zscore(src, len) =>
+    m = ta.sma(src, len)
+    s = ta.stdev(src, len)
+    s != 0 ? (src - m) / s : na
+
+kama(src, len, fastLen, slowLen) =>
+    change = math.abs(src - src[len])
+    vol = math.sum(math.abs(src - src[1]), len)
+    er = vol != 0 ? change / vol : 0.0
+    fastSC = 2.0 / (fastLen + 1)
+    slowSC = 2.0 / (slowLen + 1)
+    sc = math.pow(er * (fastSC - slowSC) + slowSC, 2)
+    var float k = na
+    k := bar_index < len ? src : k[1] + sc * (src - k[1])
+    k
+
+updown(s) =>
+    var int ud = 0
+    ud := s == s[1] ? 0 : s > s[1] ? (ud[1] <= 0 ? 1 : ud[1] + 1) : (ud[1] >= 0 ? -1 : ud[1] - 1)
+    ud
+
+// ---------- moving averages & slope
+plot(ta.sma(close, 20), "SMA_20")
+plot(ta.sma(close, 50), "SMA_50")
+plot(ta.sma(close, 100), "SMA_100")
+plot(ta.sma(close, 200), "SMA_200")
+plot(ta.ema(close, 20), "EMA_20")
+plot(ta.ema(close, 50), "EMA_50")
+plot(ta.ema(close, 100), "EMA_100")
+sma50 = ta.sma(close, 50)
+plot(sma50 - sma50[1], "SMA_50_SLOPE")
+plot(ta.hma(close, 20), "HMA_20")
+plot(kama(close, 10, 2, 30), "KAMA_10_2_30")
+
+// ---------- volatility
+plot(ta.atr(14), "ATR_14")
+[bbMid, bbUp, bbLo] = ta.bb(close, 20, 2)
+plot(bbMid, "BB_20_2_MID")
+plot(bbUp, "BB_20_2_UP")
+plot(bbLo, "BB_20_2_LO")
+[kcMid, kcUp, kcLo] = ta.kc(close, 20, 2)
+plot(kcMid, "KC_20_2_MID")
+plot(kcUp, "KC_20_2_UP")
+plot(kcLo, "KC_20_2_LO")
+
+// ---------- channels
+plot(ta.highest(high, 10), "DC_10_HI")
+plot(ta.lowest(low, 10), "DC_10_LO")
+plot(ta.highest(high, 20), "DC_20_HI")
+plot(ta.lowest(low, 20), "DC_20_LO")
+plot(ta.highest(high, 55), "DC_55_HI")
+plot(ta.lowest(low, 55), "DC_55_LO")
+plot(ta.lowest(close, 7), "LOWEST_CLOSE_7")
+
+// ---------- oscillators
+plot(ta.rsi(close, 2), "RSI_2")
+plot(ta.rsi(close, 5), "RSI_5")
+plot(ta.rsi(close, 14), "RSI_14")
+plot((high - low) != 0 ? (close - low) / (high - low) : na, "IBS")
+plot(zscore(close, 20), "ZSCORE_20")
+[macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+plot(macdLine, "MACD_12_26_9_LINE")
+plot(macdSignal, "MACD_12_26_9_SIGNAL")
+plot(macdHist, "MACD_12_26_9_HIST")
+plot(ta.roc(close, 20), "ROC_20")
+plot(ta.wpr(14), "WPR_14")
+stochK = ta.sma(ta.stoch(close, high, low, 14), 3)
+plot(stochK, "STOCH_14_3_K")
+plot(ta.sma(stochK, 3), "STOCH_14_3_3_D")
+crsi = math.avg(ta.rsi(close, 3), ta.rsi(updown(close), 2), ta.percentrank(ta.roc(close, 1), 100))
+plot(crsi, "CONNORS_RSI_3_2_100")
+
+// ---------- trend
+[diPlus, diMinus, adx] = ta.dmi(14, 14)
+plot(diPlus, "DI_PLUS_14")
+plot(diMinus, "DI_MINUS_14")
+plot(adx, "ADX_14")
+[st, stDir] = ta.supertrend(3, 10)
+plot(st, "SUPERTREND_10_3")
+plot(stDir, "SUPERTREND_10_3_DIR")
+plot(ta.sar(0.02, 0.02, 0.2), "PSAR_002_02")
+plot(100 * (ta.highestbars(high, 26) + 25) / 25, "AROON_25_UP")
+plot(100 * (ta.lowestbars(low, 26) + 25) / 25, "AROON_25_DOWN")
+
+// ---------- ichimoku (unshifted)
+tenkan = donchianMid(9)
+kijun = donchianMid(26)
+plot(tenkan, "ICHI_TENKAN_9")
+plot(kijun, "ICHI_KIJUN_26")
+plot(math.avg(tenkan, kijun), "ICHI_SPAN_A_RAW")
+plot(donchianMid(52), "ICHI_SPAN_B_52_RAW")
