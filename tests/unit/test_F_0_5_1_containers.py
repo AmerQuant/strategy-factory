@@ -27,6 +27,7 @@ from strategy_factory.metrics.containers import (
     ContainerError,
     EquityCurve,
     ExitReason,
+    RunMeta,
     RunResult,
     TradeLog,
 )
@@ -280,3 +281,40 @@ def test_F_0_5_1_parquet_round_trip_empty_trades(tmp_path: Path) -> None:
     back = read_run_result(write_run_result(run, tmp_path / "a"))
     assert len(back.trades) == 0
     np.testing.assert_array_equal(back.equity.ts, ts)
+
+
+# -- T08 follow-up: exit and re-entry at the same open with the position open at the end ------
+def _curve_and_log(in_position: list[bool], exits: list[int], entries: list[int]) -> Any:
+    import datetime as _dt
+
+    n = len(in_position)
+    ts = np.array(
+        [np.datetime64(_dt.datetime(2024, 1, 1) + _dt.timedelta(hours=i), "ns") for i in range(n)]
+    )
+    k = len(entries)
+    z = np.zeros(k)
+    log = TradeLog(
+        entry_idx=np.array(entries), exit_idx=np.array(exits), entry_ts=ts[entries],
+        exit_ts=ts[exits], direction=np.ones(k, np.int64), qty=np.ones(k),
+        entry_price=np.full(k, 100.0), exit_price=np.full(k, 100.0), pnl_gross=z,
+        cost_spread=z, cost_slippage=z, cost_commission=z, cost_swap=z, pnl_net=z,
+        exit_reason=np.zeros(k, np.int64), mae=z, mfe=z, atr_at_entry=np.ones(k),
+        bars_held=np.array(exits) - np.array(entries),
+    )  # fmt: skip
+    curve = EquityCurve(
+        ts=ts, equity_mtm=np.full(n, 100_000.0), in_position=np.array(in_position),
+        realized_pnl=np.zeros(n), initial_capital=100_000.0, notional=100_000.0,
+    )  # fmt: skip
+    return log, curve
+
+
+def test_F_0_5_1_open_position_reentered_at_the_last_exit_open() -> None:
+    """D-336: a trade exits at the open of bar 4 and a new position opens at that open and is
+    still open at the end: in_position has no flat bar between them (T08 validator fix)."""
+    meta = RunMeta(symbol="X", timeframe="1H", spec_hash="h", cost_status="verified",
+                   intrabar_mode="pessimistic")  # fmt: skip
+    log, curve = _curve_and_log([False, False, True, True, True, True, True], [4], [2])
+    RunResult(trades=log, equity=curve, meta=meta)  # accepted
+    bad_log, bad_curve = _curve_and_log([False, True, True, True, False, True, True], [4], [2])
+    with pytest.raises(ContainerError, match="in_position"):
+        RunResult(trades=bad_log, equity=bad_curve, meta=meta)  # bar 1 is not occupied

@@ -36,7 +36,7 @@ from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from strategy_factory.core.errors import SfacError
 
@@ -297,6 +297,13 @@ class RunMeta(BaseModel):
     cost_status: CostStatus
     intrabar_mode: IntrabarMode
     stress: str | None = None
+    # T08 additions (defaults keep older results valid): D-313 entries skipped below the
+    # broker's minimum volume; D-314 volume step assumed (no broker profile); D-329 futures
+    # sized with the fixed contract count; D-307 HKD converted with the fixed peg.
+    n_skipped_min_volume: int = Field(default=0, ge=0)
+    volume_step_assumed: bool = False
+    contracts_fixed: bool = False
+    fx_peg: bool = False
 
 
 @dataclass(frozen=True, eq=False)
@@ -339,8 +346,10 @@ class RunResult:
         """``in_position`` must be True exactly on the bars occupied by trades.
 
         A closed trade occupies bars ``entry_idx .. exit_idx - 1``; a position still open at
-        the end occupies the final run of True bars, which must start at or after the last
-        exit.
+        the end occupies the bars from its entry to the end, and its entry is at or after the
+        last exit. When it was entered at the open where the last trade exited (exit and
+        re-entry at the same open, D-336), ``in_position`` has no flat bar between them and
+        the open position starts at that last exit.
         """
         tr, eq = self.trades, self.equity
         n = len(eq)
@@ -352,8 +361,7 @@ class RunResult:
             flat_idx = np.flatnonzero(~eq.in_position)
             start = int(flat_idx[-1]) + 1 if flat_idx.size else 0
             last_exit = int(tr.exit_idx.max()) if len(tr) else 0
-            if start < last_exit:
-                raise ContainerError("RunResult: open position at the end overlaps a closed trade")
-            expected[start:] = True
+            # before the last exit the bars must be covered by closed trades (checked below)
+            expected[max(start, last_exit) :] = True
         if not bool(np.array_equal(expected, eq.in_position)):
             raise ContainerError("RunResult: in_position does not match the trade log")

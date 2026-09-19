@@ -1,0 +1,6 @@
+# Engine run settings (T08). Every number cites a decision; none lives in code (CLAUDE.md rule 1).
+initial_capital: 100000.0      # D-004
+notional: 100000.0             # D-004: fixed notional per trade (USD)
+disaster_stop_atr: 3.0         # D-130: fixed, never optimized
+atr_length: 14                 # ATR of the signal bar for stops and slippage (TradingView ta.atr)
+futures_contracts: 1           # D-329: fixed contract count for futures (flagged)

@@ -40,7 +40,9 @@ avg_annual_dd_peak_pct, profit_dd_ratio, exposure, return_per_exposure, n_trades
 n_entries, profit_factor, win_rate, avg_bars_held, expectancy_usd, expectancy_pct,
 expectancy_atr, sharpe, sortino, max_dd_pct, ulcer_index, max_underwater_bars,
 max_underwater_days, trade_return_skew, trade_return_excess_kurtosis`` plus the flags
-``inf_ratio, open_position_marked, cost_placeholder`` (as 0.0 / 1.0).
+``inf_ratio, open_position_marked, cost_placeholder`` (as 0.0 / 1.0), and from the run
+meta (T08): ``n_skipped_min_volume`` and the flags ``min_volume_skip_flag`` (D-313),
+``volume_step_assumed`` (D-314), ``contracts_fixed`` (D-329) and ``fx_peg`` (D-307).
 """
 
 from __future__ import annotations
@@ -195,6 +197,12 @@ class MetricsReport(BaseModel):
     inf_ratio: bool
     open_position_marked: bool
     cost_placeholder: bool
+    # run-meta counters and flags (T08)
+    n_skipped_min_volume: int = 0
+    min_volume_skip_flag: bool = False
+    volume_step_assumed: bool = False
+    contracts_fixed: bool = False
+    fx_peg: bool = False
 
     def as_gate_dict(self) -> dict[str, float]:
         """Metric name -> value for the gate engine (flags as 0.0 / 1.0)."""
@@ -260,4 +268,9 @@ def compute_metrics(
         inf_ratio=math.isinf(core.profit_dd_ratio),
         open_position_marked=result.open_position_marked,
         cost_placeholder=result.meta.cost_status == "placeholder",
+        n_skipped_min_volume=result.meta.n_skipped_min_volume,
+        min_volume_skip_flag=result.meta.n_skipped_min_volume > 0,
+        volume_step_assumed=result.meta.volume_step_assumed,
+        contracts_fixed=result.meta.contracts_fixed,
+        fx_peg=result.meta.fx_peg,
     )

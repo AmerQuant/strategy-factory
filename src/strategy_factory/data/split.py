@@ -16,6 +16,12 @@ boundary would leak holdout bars into development.
 :class:`DataAccess` returns development bars only. :meth:`SplitManager.open_holdout` is the
 **only** path to holdout bars: it first records the access in ``holdout_access`` (one-shot
 per candidate; a second call raises :class:`HoldoutAccessError`), then reads the bars.
+
+Conversion pairs (D-316) are auxiliary inputs read over the **traded** symbol's window, never
+beyond its end: :meth:`DataAccess.conversion_bars` for the development segment, and
+:meth:`SplitManager.open_holdout_with_conversion` together with the traded candidate's
+one-shot holdout access. Only configured conversion pairs (never the traded symbol) can be
+read this way, and neither records nor consumes the conversion pair's own holdout.
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from strategy_factory.core.errors import DataError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.config import SplitConfig
+from strategy_factory.data.conversion import FxConversionConfig
 from strategy_factory.data.quality import ensure_usable
 from strategy_factory.data.schema import SeriesMetadata, SnapshotKey
 from strategy_factory.data.store import SnapshotStore
@@ -175,9 +182,11 @@ class SplitManager:
         cfg: SplitConfig,
         store: SnapshotStore | None = None,
         catalog: Catalog | None = None,
+        fx_config: FxConversionConfig | None = None,
     ) -> None:
         self.ledger = ledger
         self.cfg = cfg
+        self._fx_config = fx_config  # conversion pairs (D-316); loaded on first use
         self.store = store if store is not None else SnapshotStore()
         self.catalog = catalog if catalog is not None else Catalog(self.store.root)
 
@@ -265,6 +274,63 @@ class SplitManager:
         df = self.store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
         return df.filter(pl.col("ts") >= split.holdout_start).sort("ts")
 
+    def _conversion_arrays(
+        self, pair: str, traded_symbol: str, timeframe: str, start: dt.datetime, end: dt.datetime
+    ) -> dict[str, np.ndarray[Any, Any]]:
+        """Conversion-pair bars in the traded window ``[start, end]`` (D-316); private.
+
+        ``pair`` must be a conversion pair of ``configs/data/fx_conversion.yaml`` and not the
+        traded symbol, so this can never read a traded symbol's holdout. Callers pass only the
+        traded symbol's own development or holdout window.
+        """
+        from strategy_factory.data.conversion import load_fx_config
+
+        if self._fx_config is None:
+            self._fx_config = load_fx_config()
+        allowed = {rule.pair for rule in self._fx_config.pairs.values()}
+        if pair == traded_symbol or pair not in allowed:
+            raise DataError(
+                f"{pair!r} is not a conversion pair for {traded_symbol} (D-316)",
+                stage="split",
+                symbol=traded_symbol,
+            )
+        key = self.reference(pair, timeframe).key()
+        df = self.store.read_snapshot(
+            key.source,
+            key.symbol,
+            key.timeframe,
+            key.snapshot_hash,
+            columns=["ts", "open", "close"],
+        )
+        df = df.filter((pl.col("ts") >= start) & (pl.col("ts") <= end)).sort("ts")
+        epoch = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
+        window = [(t - epoch) // dt.timedelta(microseconds=1) for t in (start, end)]
+        return {
+            "ts": df["ts"].dt.epoch("us").to_numpy(),
+            "open": df["open"].to_numpy(),
+            "close": df["close"].to_numpy(),
+            "window_us": np.asarray(window, dtype=np.int64),
+        }
+
+    def open_holdout_with_conversion(
+        self, candidate_id: str, symbol: str, timeframe: str, pairs: tuple[str, ...]
+    ) -> tuple[pl.DataFrame, dict[str, dict[str, np.ndarray[Any, Any]]]]:
+        """Holdout bars of ``symbol`` (one-shot, logged) plus its conversion pairs over the
+        same window (with ``window_us``); the pairs' own holdouts are not consumed (D-316)."""
+        split = self.registered(self.reference(symbol, timeframe))
+        for pair in pairs:  # validate before the one-shot access is spent
+            self._conversion_arrays(
+                pair, symbol, timeframe, split.holdout_start, split.holdout_start
+            )
+        bars = self.open_holdout(candidate_id, symbol, timeframe)
+        conv = {
+            pair: self._conversion_arrays(
+                pair, symbol, timeframe, split.holdout_start, split.holdout_end
+            )
+            for pair in pairs
+        }
+        return bars, conv
+
 
 class DataAccess:
     """Bars for the pipeline: the **development segment only** of the reference snapshot."""
@@ -285,3 +351,16 @@ class DataAccess:
     def split(self, symbol: str, timeframe: str) -> Split:
         """Split boundaries (no bars) of the reference snapshot."""
         return self._splits.registered(self._splits.reference(symbol, timeframe))
+
+    def conversion_bars(
+        self, pair: str, traded_symbol: str, timeframe: str
+    ) -> dict[str, np.ndarray[Any, Any]]:
+        """Conversion-pair bars over the **traded** symbol's development window (D-316).
+
+        The window is ``dev_start .. dev_end`` of ``traded_symbol``'s split, never beyond its
+        end, whatever the pair's own split is; the pair's holdout is not consumed.
+        """
+        split = self.split(traded_symbol, timeframe)
+        return self._splits._conversion_arrays(
+            pair, traded_symbol, timeframe, split.dev_start, split.dev_end
+        )
