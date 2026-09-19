@@ -26,6 +26,7 @@ sfac = "strategy_factory.cli:app"
 dev = [
     "hypothesis>=6.100",
     "mypy>=1.11",
+    "openpyxl>=3.1.5",
     "pytest>=8.2",
     "ruff>=0.6",
     "types-PyYAML>=6.0",
@@ -127,9 +128,9 @@ no_implicit_reexport = true
 strict_equality = true
 extra_checks = true
 
-# yfinance and numba ship no type information (py.typed / stubs)
+# yfinance, numba and openpyxl ship no type information (py.typed / stubs)
 [[tool.mypy.overrides]]
-module = ["yfinance", "numba", "numba.*"]
+module = ["yfinance", "numba", "numba.*", "openpyxl"]
 ignore_missing_imports = true
 
 # --------------------------------------------------------------------------- pytest

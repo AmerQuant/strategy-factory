@@ -1,0 +1,33 @@
+# Moneta Markets MT5 ECN -- build rules for the generated cost profiles (T06b).
+# Hand-maintained. Every number here cites a decision in docs/decisions/decisions_log.md.
+# `sfac costs moneta import` reads the broker file once into moneta_spec.csv;
+# `sfac costs moneta build` turns moneta_spec.csv into moneta_profiles.yaml, symbol_map.csv
+# and assignments.yaml (all generated: never edit them by hand).
+source:
+  spec_file: reference/broker/moneta/MT5Moneta-ECN_specification-1.xlsx  # under SFAC_RAW_ROOT (D-028)
+  file_date: "2026-09-19"                 # supplied by the user (decisions log, section H)
+commission:
+  per_lot_sides: 2                        # D-521: "6.0 USD per lot" is round turn -> 3 USD per side
+  per_trade_sides: 1                      # D-319: "12.0 USD per trade" is charged per side
+swap:
+  percent_day_count: 360                  # D-320 (Moneta profiles only; T06 default stays 365)
+  rollover_time_local: "17:00"            # D-522: server midnight = 17:00 New York
+  rollover_tz: America/New_York
+  rollover_weekdays: [MON, TUE, WED, THU, FRI]
+  etf_assumed: {long: -6.88, short: -3.5, triple_weekday: FRI}  # D-322: % per year, ETFs with "-"
+spread:
+  data_classes: [fx, metal, index_cfd, energy_cfd]  # D-523: Dukascopy spread shape, broker_scaled
+  # everything else (US shares, ETFs): fixed bps of the file's quote sample (D-318)
+pip_per_point: 10                         # FX pip = 10 points for 5/3-digit quotes (slippage in pips)
+pip_classes: [fx]                         # research asset classes whose slippage is in pips
+us_share_region: "Stock US"               # D-324: the proxy profile follows these 491 rows
+etf_region: "ETF"                         # D-322: region whose "-" swap gets the assumed rates
+proxy_profile: us_share_cfd_proxy
+proxy_asset_class: us_equity              # the proxy's slippage assumption (below)
+# Slippage is a research assumption (the broker file has none): the T06 values per asset class.
+slippage:
+  us_equity: {fixed: {value: 1.0, unit: bps}, atr_fraction: 0.0}
+  fx: {fixed: {value: 0.2, unit: pip}, atr_fraction: 0.02}
+  metal: {atr_fraction: 0.02}
+  index_cfd: {atr_fraction: 0.02}
+  energy_cfd: {atr_fraction: 0.03}

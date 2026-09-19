@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from strategy_factory.core.errors import ConfigError
 
 IntrabarMode = Literal["tradingview", "pessimistic"]
+UniverseFilter = Literal["broker", "all"]
 
 
 class SnapshotRef(BaseModel):
@@ -45,6 +46,10 @@ class PipelineConfig(BaseModel):
     intrabar_mode: IntrabarMode = "pessimistic"
     seed: int = 42
     cost_stress: tuple[float, ...] = (1.5, 2.0, 3.0)
+    # D-524: the default candidate universe is broker-tradable symbols only; with "all",
+    # symbols without a broker symbol are allowed and listed in report_only at resolution.
+    universe_filter: UniverseFilter = "broker"
+    report_only: tuple[str, ...] = ()
     data_snapshots: dict[str, dict[str, SnapshotRef]] = Field(default_factory=dict)
 
     @field_validator("symbols", "timeframes", "stages")
@@ -114,6 +119,11 @@ def validate_config(cfg: PipelineConfig, config_path: Path | None = None) -> Non
         missing = [tf for tf in cfg.timeframes if tf not in entry.timeframes]
         if missing:
             problems.append(f"{sym}: timeframes {missing} not in the universe entry")
+        if cfg.universe_filter == "broker" and entry.tradable and entry.broker_symbol is None:
+            problems.append(
+                f"{sym}: not tradable at the broker (universe_filter: broker, D-524); "
+                "use universe_filter: all for report-only research"
+            )
     unknown = [s for s in cfg.stages if s not in gates.stages]
     if unknown:
         problems.append(f"stages without gates: {unknown}")
@@ -157,7 +167,8 @@ def resolve_config(
             "no reference snapshot in the catalog for: " + ", ".join(missing),
             config_path=config_path,
         )
-    return cfg.model_copy(update={"data_snapshots": snaps})
+    report_only = tuple(s for s in cfg.symbols if universe[s].broker_symbol is None)
+    return cfg.model_copy(update={"data_snapshots": snaps, "report_only": report_only})
 
 
 def require_resolved(cfg: PipelineConfig) -> PipelineConfig:

@@ -41,6 +41,7 @@ from strategy_factory.data.store import SnapshotStore
 
 REPO_COSTS = Path(__file__).resolve().parents[2] / "configs" / "costs"
 EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
+ONES7 = np.ones(7)
 
 
 def us(t: dt.datetime) -> int:
@@ -73,14 +74,15 @@ def profile(**over: Any) -> CostProfile:
 # -- F-0.2.1 profiles -----------------------------------------------------------------------
 def test_F_0_2_1_shipped_placeholder_profiles_match_the_task() -> None:
     p = load_profiles(REPO_COSTS)
-    assert set(p) == {
+    t06 = {
         "us_equity_default",
         "fx_default",
         "metal_default",
         "index_cfd_default",
         "energy_cfd_default",
     }
-    assert all(x.status == "placeholder" for x in p.values())
+    assert t06 <= set(p)  # T06b adds the generated Moneta profiles
+    assert all(p[n].status == "placeholder" for n in t06)
     eq = p["us_equity_default"].model_dump()
     assert eq["spread"] == {"mode": "fixed", "fixed": {"value": 2.0, "unit": "bps"}}
     assert eq["commission"] == {
@@ -88,6 +90,7 @@ def test_F_0_2_1_shipped_placeholder_profiles_match_the_task() -> None:
         "per_share": 0.005,
         "min_per_order": 1.0,
         "max_per_order": None,
+        "currency": "USD",
     }
     assert eq["swap"] == {"model": "none"}
     assert eq["slippage"] == {"fixed": {"value": 1.0, "unit": "bps"}, "atr_fraction": 0.0}
@@ -97,7 +100,12 @@ def test_F_0_2_1_shipped_placeholder_profiles_match_the_task() -> None:
         "scale": 1.0,
         "fallback": {"value": 1.0, "unit": "pip"},
     }
-    assert fx["commission"] == {"model": "per_lot", "lot_size": 100000.0, "per_lot_per_side": 3.5}
+    assert fx["commission"] == {
+        "model": "per_lot",
+        "lot_size": 100000.0,
+        "per_lot_per_side": 3.5,
+        "currency": "USD",
+    }
     assert (fx["swap"]["long"], fx["swap"]["short"], fx["swap"]["triple_weekday"]) == (
         -0.03,
         -0.03,
@@ -115,7 +123,7 @@ def test_F_0_2_1_shipped_placeholder_profiles_match_the_task() -> None:
     ):
         d = p[name].model_dump()
         assert d["spread"]["mode"] == "from_data" and d["spread"]["scale"] == 1.0
-        assert d["commission"] == {"model": "none"}
+        assert d["commission"] == {"model": "none", "currency": "USD"}
         assert (d["swap"]["long"], d["swap"]["short"]) == (-0.03, -0.03)
         assert d["swap"]["triple_weekday"] == triple
         assert d["slippage"]["atr_fraction"] == slip
@@ -124,7 +132,8 @@ def test_F_0_2_1_shipped_placeholder_profiles_match_the_task() -> None:
 def test_F_0_2_1_every_universe_symbol_is_assigned() -> None:
     assigned, missing = validate_all(CostsConfig(costs_dir=REPO_COSTS))
     assert missing == []
-    assert assigned["EURUSD"] == "fx_default" and assigned["XAUUSD"] == "metal_default"
+    # T06b (D-520): broker-mapped symbols use the generated Moneta profiles
+    assert assigned["EURUSD"] == "moneta_EURUSD+" and assigned["XAUUSD"] == "moneta_XAUUSD+"
     profs, asg = load_profiles(REPO_COSTS), load_assignments(REPO_COSTS)
     assert resolve_profile("USDJPY", "fx", profs, asg).pip_size == 0.01
     assert resolve_profile("EURUSD", "fx", profs, asg).pip_size == 0.0001
@@ -143,16 +152,18 @@ def test_F_0_2_1_validate_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     runner = CliRunner()
     ok = runner.invoke(app, ["costs", "validate"])
     assert ok.exit_code == 0, ok.output
-    assert "5 placeholder" in ok.output
+    assert "6 placeholder" in ok.output  # the 5 T06 placeholders + the D-324 proxy
     broken = tmp_path / "costs"
     shutil.copytree(REPO_COSTS, broken)
     text = (broken / "assignments.yaml").read_text(encoding="utf-8")
     (broken / "assignments.yaml").write_text(
-        text.replace("  metal: metal_default\n", ""), encoding="utf-8"
+        text.replace("  us_equity: us_share_cfd_proxy\n", ""), encoding="utf-8"
     )
     bad = runner.invoke(app, ["costs", "validate", "--costs-dir", str(broken)])
     assert bad.exit_code == 1
-    assert "2 universe symbol(s) without a cost profile: XAGUSD, XAUUSD" in bad.output
+    # US equities that are not at the broker lose their proxy profile: costs are mandatory
+    n_proxy = sum(1 for p in validate_all(CostsConfig())[0].values() if p == "us_share_cfd_proxy")
+    assert f"{n_proxy} universe symbol(s) without a cost profile" in bad.output
 
 
 def test_F_0_2_1_pips_need_pip_size() -> None:
@@ -310,14 +321,14 @@ def test_F_0_2_3_annual_rate_swap_hand_computed_with_triple_wednesday() -> None:
     assert a.swap_long_per_notional_day[0] == pytest.approx(-0.0001)
     # long Monday open -> Saturday open: rollovers Mon, Tue, Wed(x3), Thu, Fri = 7 days
     notional = 100_000.0
-    cost = round_trip_cost(a, 0, 5, notional, +1, 1.0, 1.0, 0.0, 0.0)
+    cost = round_trip_cost(a, 0, 5, notional, +1, 1.0, 1.0, 0.0, 0.0, close=ONES7)
     assert cost["swap"] == pytest.approx(7 * 0.0001 * notional)  # a charge
-    short = round_trip_cost(a, 0, 5, notional, -1, 1.0, 1.0, 0.0, 0.0)
+    short = round_trip_cost(a, 0, 5, notional, -1, 1.0, 1.0, 0.0, 0.0, close=ONES7)
     assert short["swap"] == pytest.approx(-7 * 0.0001 * notional)  # a credit
     # entered Thursday, exited Friday open: only Thursday's rollover
-    assert round_trip_cost(a, 3, 4, notional, +1, 1.0, 1.0, 0.0, 0.0)["swap"] == pytest.approx(
-        0.0001 * notional
-    )
+    assert round_trip_cost(a, 3, 4, notional, +1, 1.0, 1.0, 0.0, 0.0, close=ONES7)[
+        "swap"
+    ] == pytest.approx(0.0001 * notional)
 
 
 def test_F_0_2_3_points_per_day_swap() -> None:
@@ -329,7 +340,7 @@ def test_F_0_2_3_points_per_day_swap() -> None:
     assert a.triple_mask.tolist() == [False, True]
     assert a.swap_long_per_notional_day[0] == pytest.approx(-0.5 / 50.0)
     qty = 200.0  # notional 10,000
-    cost = round_trip_cost(a, 0, 2 - 1, qty, +1, 50.0, 50.0, 0.0, 0.0)
+    cost = round_trip_cost(a, 0, 2 - 1, qty, +1, 50.0, 50.0, 0.0, 0.0, close=np.full(2, 50.0))
     assert cost["swap"] == pytest.approx(0.5 * qty)  # 1 day x 0.5 points x 200 units
 
 
@@ -370,7 +381,8 @@ BARS = bars(DAYS, open_=100.0)
 def total_cost(p: CostProfile, stress: float = 1.0) -> float:
     a = build_cost_arrays(BARS, p, stress, timeframe="1D")
     return sum(
-        round_trip_cost(a, e, x, q, d, 100.0, 100.0, 2.0, 2.0)["total"] for e, x, q, d in TRADES
+        round_trip_cost(a, e, x, q, d, 100.0, 100.0, 2.0, 2.0, close=BARS["close"])["total"]
+        for e, x, q, d in TRADES
     )
 
 
@@ -424,8 +436,10 @@ def test_F_0_2_1_show_cli_display_only_for_short_snapshot(
     cat.set_reference("EURUSD", "1H", meta.snapshot_hash or "")
     res = CliRunner().invoke(app, ["costs", "show", "EURUSD"])
     assert res.exit_code == 0, res.output
-    assert "PLACEHOLDER" in res.output and "DISPLAY ONLY" in res.output
-    assert "0.30" in res.output  # 3e-5 = 0.30 pips
+    assert "moneta_EURUSD+  [verified]" in res.output and "DISPLAY ONLY" in res.output
+    assert "0.30" in res.output  # unscaled: 3e-5 = 0.30 pips
+    # broker_scaled (D-523): a constant shape scaled to the Moneta mean 2.61 points = 0.26 pips
+    assert "0.26" in res.output and "bar-weighted mean after scaling: 2.61e-05" in res.output
 
 
 def test_F_0_2_1_show_cli_fixed_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -433,6 +447,10 @@ def test_F_0_2_1_show_cli_fixed_profile(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.chdir(REPO_COSTS.parents[1])
     res = CliRunner().invoke(app, ["costs", "show", "AAPL"])
     assert res.exit_code == 0, res.output
-    assert "us_equity_default" in res.output and "PLACEHOLDER" in res.output
+    assert "moneta_AAPL  [verified]" in res.output and "broker      : AAPL" in res.output
+    proxy = CliRunner().invoke(app, ["costs", "show", "AABA"])  # not at the broker (D-324)
+    assert proxy.exit_code == 0, proxy.output
+    assert "us_share_cfd_proxy" in proxy.output and "PLACEHOLDER" in proxy.output
+    assert "ASSUMED, D-314" in proxy.output
     unknown = CliRunner().invoke(app, ["costs", "show", "NOPE_XYZ"])
     assert unknown.exit_code == 1

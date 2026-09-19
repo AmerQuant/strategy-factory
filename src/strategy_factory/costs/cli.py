@@ -11,10 +11,11 @@ import numpy.typing as npt
 import typer
 
 from strategy_factory.core.errors import DataError, SfacError
-from strategy_factory.costs.arrays import HourlySpread, hourly_spread_table
+from strategy_factory.costs.arrays import HourlySpread, broker_scaled_table, hourly_spread_table
 from strategy_factory.costs.profile import (
     CostProfile,
     CostsConfig,
+    SpreadBrokerScaled,
     SpreadFromData,
     load_assignments,
     load_profiles,
@@ -78,6 +79,14 @@ def _print_profile(p: CostProfile) -> None:
     flag = "PLACEHOLDER - results using it are flagged" if p.is_placeholder else "verified"
     typer.echo(f"profile     : {p.name}  [{flag}]")
     typer.echo(f"source_note : {p.source_note}")
+    if p.broker_symbol is not None:
+        typer.echo(f"broker      : {p.broker_symbol} (quote {p.quote_ccy})")
+    typer.echo(
+        f"volume      : contract size {p.contract_size:g}, step {p.volume_step:g} lot, "
+        f"min {p.min_volume:g} lot" + ("  [ASSUMED, D-314]" if p.volume_step_assumed else "")
+    )
+    if p.to_verify:
+        typer.echo(f"to_verify   : {', '.join(p.to_verify)}")
     if p.pip_size is not None:
         typer.echo(f"pip_size    : {p.pip_size:g}")
     typer.echo(f"spread      : {p.spread.model_dump()}")
@@ -129,6 +138,27 @@ def show_cmd(
                 fb,
             )
             _print_table(table, basis, prof.pip_size)
+        elif isinstance(prof.spread, SpreadBrokerScaled):
+            try:
+                bars, basis = development_spread(symbol)
+            except DataError as exc:
+                typer.echo(f"hourly spread table unavailable: {exc}")
+                return
+            if "spread" not in bars:
+                typer.echo("no spread column: the broker spread is used as a fixed spread")
+                return
+            ts = np.asarray(bars["ts"], dtype=np.int64)
+            sp = np.asarray(bars["spread"], dtype=np.float64)
+            _print_table(
+                hourly_spread_table(ts, sp, 1.0, np.nan), f"{basis}, unscaled", prof.pip_size
+            )
+            scaled, factor = broker_scaled_table(ts, sp, prof.spread.broker_spread)
+            _print_table(scaled, f"{basis}, scaled x {factor:.6g}", prof.pip_size)
+            mean = float(np.sum(scaled.full_spread * scaled.counts) / scaled.counts.sum())
+            typer.echo(
+                f"bar-weighted mean after scaling: {mean:.6g} "
+                f"(broker spread {prof.spread.broker_spread:.6g})"
+            )
     except SfacError as exc:
         raise _fail(str(exc)) from exc
 
@@ -155,3 +185,66 @@ def validate_cmd(
         f"ok: {len(assigned)} symbols assigned, {len(profiles)} profiles "
         f"({placeholders} placeholder)"
     )
+
+
+moneta_app = typer.Typer(
+    help="Moneta broker file: import and build profiles.", no_args_is_help=True
+)
+costs_app.add_typer(moneta_app, name="moneta")
+REVIEW_CSV = Path("docs") / "reviews" / "T06b_mapping_review.csv"
+
+
+@moneta_app.command("import")
+def moneta_import_cmd(
+    xlsx: Annotated[
+        Path | None, typer.Option(help="Broker xlsx (default: from moneta.yaml).")
+    ] = None,
+    costs_dir: Annotated[Path | None, typer.Option(help="Cost config directory.")] = None,
+) -> None:
+    """Parse the broker xlsx into configs/costs/moneta/moneta_spec.csv (+ SHA-256 sidecar)."""
+    from strategy_factory.costs.moneta import import_spec, load_moneta_config
+    from strategy_factory.data.download.rawfiles import raw_root
+
+    cfg = CostsConfig() if costs_dir is None else CostsConfig(costs_dir=costs_dir)
+    mdir = cfg.costs_dir / "moneta"
+    try:
+        mcfg = load_moneta_config(mdir)
+        root = raw_root()
+        path = xlsx if xlsx is not None else root / mcfg.source.spec_file
+        try:
+            label = path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError as exc:
+            raise SfacError(f"the broker file must be under SFAC_RAW_ROOT (D-028): {path}") from exc
+        rep = import_spec(path, mdir, source_label=label, file_date=mcfg.source.file_date)
+    except SfacError as exc:
+        raise _fail(str(exc)) from exc
+    typer.echo(f"source  : {label}")
+    typer.echo(f"sha256  : {rep.sha256}")
+    for sheet, n in rep.counts.items():
+        typer.echo(f"{sheet:<14} {n:>4} rows")
+    typer.echo("status  : " + ", ".join(f"{k} {v}" for k, v in sorted(rep.status_counts.items())))
+    for r in rep.not_ok:
+        typer.echo(f"  {r.row_status:<10} {r.sheet}!{r.row} {r.broker_symbol}: {r.status_reason}")
+
+
+@moneta_app.command("build")
+def moneta_build_cmd(
+    costs_dir: Annotated[Path | None, typer.Option(help="Cost config directory.")] = None,
+    review_csv: Annotated[Path, typer.Option(help="Mapping review CSV for the user.")] = REVIEW_CSV,
+) -> None:
+    """Map broker <-> research symbols and generate the Moneta profiles and assignments."""
+    from strategy_factory.costs.moneta import build
+    from strategy_factory.data.download.rawfiles import raw_root
+
+    cfg = CostsConfig() if costs_dir is None else CostsConfig(costs_dir=costs_dir)
+    try:
+        res = build(cfg.costs_dir, raw_root(), universe_symbols(cfg), review_csv)
+    except SfacError as exc:
+        raise _fail(str(exc)) from exc
+    methods = Counter(m.method for m in res.mapping.mapped)
+    review = Counter(v.status for v in res.mapping.review)
+    typer.echo(f"mapped  : {len(res.mapping.mapped)} ({dict(sorted(methods.items()))})")
+    typer.echo(f"review  : {dict(sorted(review.items()))} -> {review_csv.as_posix()}")
+    typer.echo(f"profiles: {len(res.profiles)} (1 proxy + {len(res.profiles) - 1} broker)")
+    for sym, notes in sorted(res.to_verify.items()):
+        typer.echo(f"  to_verify {sym}: {', '.join(notes)}")

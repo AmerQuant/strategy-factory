@@ -8,3 +8,6 @@ gates: configs/gates/default.yaml
 intrabar_mode: pessimistic
 seed: 42
 cost_stress: [1.5, 2.0, 3.0]
+# SPY and QQQ are broker ETFs awaiting the user's mapping review (T06b, D-325): until they are
+# confirmed in configs/costs/moneta/symbol_overrides.csv this config runs them report-only.
+universe_filter: all

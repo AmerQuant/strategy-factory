@@ -63,6 +63,10 @@ def config_resolve(file: Annotated[Path, typer.Argument(help="Pipeline config YA
 def universe_list(
     asset_class: Annotated[str | None, typer.Option(help="Filter by asset class.")] = None,
     group: Annotated[str | None, typer.Option(help="Filter by group.")] = None,
+    broker: Annotated[
+        bool | None,
+        typer.Option("--broker/--no-broker", help="Only (non-)broker-tradable symbols (D-524)."),
+    ] = None,
     universe: UniverseOpt = None,
 ) -> None:
     """List universe symbols (counts per asset class at the end)."""
@@ -75,12 +79,14 @@ def universe_list(
         for e in u.symbols
         if (asset_class is None or e.asset_class == asset_class)
         and (group is None or e.group == group)
+        and (broker is None or (e.broker_symbol is not None) == broker)
     ]
     for e in rows:
         typer.echo(
             f"{e.symbol:<16} {e.asset_class:<11} {e.reference_source:<10} "
             f"{','.join(e.timeframes):<7} {e.calendar:<5} {e.group:<11} "
-            f"{e.cost_profile or '-':<20} {'tradable' if e.tradable else 'not tradable'}"
+            f"{e.cost_profile or '-':<20} {'tradable' if e.tradable else 'not tradable'} "
+            f"{e.broker_symbol or '-'}"
         )
     counts = Counter(e.asset_class for e in rows)
     typer.echo(

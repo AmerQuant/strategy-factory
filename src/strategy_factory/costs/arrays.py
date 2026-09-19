@@ -7,7 +7,8 @@ optionally ``spread``). Prices for ``bps`` / ``pip`` amounts are converted with 
 * ``half_spread[n]`` = full spread / 2 (fixed, or the profile's value for the bar's UTC hour);
 * ``slippage_fixed[n]`` and ``slippage_atr_frac``: slippage = fixed + frac x ATR(signal bar);
 * ``swap_long_per_notional_day[n]``, ``swap_short_per_notional_day[n]``: credit per unit of
-  notional per day (negative = charge);
+  notional per day at the bar's close (negative = charge). The engine multiplies them by the
+  mark-to-market notional ``|qty| x close[j]`` of the rollover bar (D-312);
 * ``rollover_mask[n]``: the bar ``[ts, ts + timeframe)`` contains a rollover instant
   (rollover time local, on the profile's rollover weekdays, DST-aware);
 * ``triple_mask[n]``: that rollover is the triple day.
@@ -27,9 +28,18 @@ signature (scalars only)::
                                                -> clip(p0 * |qty|, p1, p2)
     code 3 per_lot   p0 = lot size, p1 = amount per lot and side
                                                -> |qty| / p0 * p1
+    code 4 per_order p0 = amount per order (side)  -> p0          (D-319, appended)
 
-T08 moves it into ``engine/`` under ``@njit(cache=True)`` (the engine may not import
+Codes are only ever appended. The result is in ``CostArrays.commission_ccy``; the engine
+converts it to USD only when that is the quote currency (``commission_in_quote``, D-328).
+T08 moves the kernel into ``engine/`` under ``@njit(cache=True)`` (the engine may not import
 ``costs``) and passes ``CostArrays.commission_params`` as four scalars.
+
+**Sizing (D-313, D-315).** :func:`size_lots` floors the order to the profile's volume step
+(in lots) and reports a skip below the minimum volume; T08 copies the same arithmetic.
+
+**Oracle (D-312).** :func:`round_trip_cost` charges swap on the mark-to-market notional of
+every rollover bar held; T08's engine must equal it.
 """
 
 from __future__ import annotations
@@ -50,13 +60,16 @@ from strategy_factory.costs.profile import (
     Amount,
     CommissionNone,
     CommissionPercent,
+    CommissionPerOrder,
     CommissionPerShare,
     CostProfile,
     RolloverRules,
+    SpreadBrokerScaled,
     SpreadFixed,
     SpreadFromData,
     SpreadHourly,
     SwapAnnualRate,
+    SwapCurrencyPerLot,
     SwapNone,
     SwapPoints,
 )
@@ -92,6 +105,8 @@ def commission_kernel(
         return fee
     if code == 3:
         return q / p0 * p1
+    if code == 4:
+        return p0
     return 0.0
 
 
@@ -104,6 +119,8 @@ def commission_params(profile: CostProfile) -> tuple[int, float, float, float]:
     if isinstance(c, CommissionPerShare):
         cap = math.inf if c.max_per_order is None else c.max_per_order
         return 2, c.per_share, c.min_per_order, cap
+    if isinstance(c, CommissionPerOrder):
+        return 4, c.amount, 0.0, 0.0
     return 3, c.lot_size, c.per_lot_per_side, 0.0
 
 
@@ -120,11 +137,23 @@ class CostArrays:
     profile_name: str
     profile_status: str
     stress: float
+    commission_ccy: str = "USD"
+    quote_ccy: str = "USD"
+    contract_size: float = 1.0
+    volume_step: float = 1.0
+    min_volume: float = 1.0
+    volume_step_assumed: bool = True
+    to_verify: tuple[str, ...] = ()
 
     @property
     def placeholder(self) -> bool:
         """True when the costs come from a placeholder profile (results must show a flag)."""
         return self.profile_status == "placeholder"
+
+    @property
+    def commission_in_quote(self) -> bool:
+        """The commission is in the quote currency (converted to USD by the engine)."""
+        return self.commission_ccy != "USD" and self.commission_ccy == self.quote_ccy
 
     def commission(self, qty: float, price: float, side: Side = "entry") -> float:
         """Commission of one order; both sides use the same model (``side`` is informative)."""
@@ -175,15 +204,35 @@ def hourly_spread_table(
     return HourlySpread(table, counts, tuple(missing))
 
 
+def broker_scaled_table(
+    ts_us: I64, spread: F64, broker_spread: float
+) -> tuple[HourlySpread, float]:
+    """Hourly median shape scaled so its bar-weighted mean equals ``broker_spread`` (D-523).
+
+    The weights are the bars per UTC hour; hours without data get ``broker_spread``.
+    Returns the table and the scale factor.
+    """
+    raw = hourly_spread_table(ts_us, spread, 1.0, math.nan)
+    has = raw.counts > 0
+    weighted = float(np.sum(raw.full_spread[has] * raw.counts[has]))
+    if not has.any() or weighted <= 0:
+        raise DataError("no positive spread data to scale to the broker spread")
+    scale = broker_spread * float(raw.counts.sum()) / weighted
+    table = np.where(has, raw.full_spread * scale, broker_spread)
+    return HourlySpread(table, raw.counts, raw.fallback_hours), scale
+
+
 def resolve_from_data(
     profile: CostProfile, dev_bars: Mapping[str, npt.NDArray[Any]]
 ) -> tuple[CostProfile, HourlySpread]:
-    """Turn a ``from_data`` spread into an ``hourly_profile`` (price units).
+    """Turn a ``from_data`` or ``broker_scaled`` spread into an ``hourly_profile`` (price units).
 
     ``dev_bars`` **must be the development segment** (``DataAccess.arrays``): the table is
-    a statistic of the data, so it may not see the holdout.
+    a statistic of the data, so it may not see the holdout (D-340).
     """
     sp = profile.spread
+    if isinstance(sp, SpreadBrokerScaled):
+        return _resolve_broker_scaled(profile, sp, dev_bars)
     if not isinstance(sp, SpreadFromData):
         raise ConfigError(f"profile {profile.name!r} does not use a from_data spread")
     if "spread" not in dev_bars:
@@ -208,6 +257,30 @@ def resolve_from_data(
         }
     )
     return resolved, table
+
+
+def _resolve_broker_scaled(
+    profile: CostProfile, sp: SpreadBrokerScaled, dev_bars: Mapping[str, npt.NDArray[Any]]
+) -> tuple[CostProfile, HourlySpread]:
+    if "spread" not in dev_bars:
+        table = HourlySpread(
+            np.full(24, sp.broker_spread), np.zeros(24, np.int64), tuple(range(24))
+        )
+        note = f"{profile.source_note} [spread: broker spread, fixed (no spread data)]".strip()
+        fixed = SpreadFixed(fixed=Amount(value=sp.broker_spread))
+        return profile.model_copy(update={"spread": fixed, "source_note": note}), table
+    table, scale = broker_scaled_table(
+        np.asarray(dev_bars["ts"], dtype=np.int64),
+        np.asarray(dev_bars["spread"], dtype=np.float64),
+        sp.broker_spread,
+    )
+    note = (
+        f"{profile.source_note} [spread: hourly median shape x {scale:.6g} so the mean over "
+        f"{int(table.counts.sum())} development bars = broker {sp.broker_spread:g}; "
+        f"broker spread in hours {list(table.fallback_hours)}]"
+    ).strip()
+    hourly = SpreadHourly(hourly=tuple(float(v) for v in table.full_spread))
+    return profile.model_copy(update={"spread": hourly, "source_note": note}), table
 
 
 def rollover_instants(first_us: int, last_us: int, swap: RolloverRules) -> tuple[I64, BOOL]:
@@ -242,14 +315,20 @@ def build_cost_arrays(
         raise ConfigError("stress multiplier must be positive")
     if timeframe not in TF_MICROS:
         raise ConfigError(f"unknown timeframe {timeframe!r}")
+    ccy = profile.commission.currency
+    if ccy not in ("USD", profile.quote_ccy):
+        raise ConfigError(
+            f"profile {profile.name!r}: commission currency {ccy} is neither USD nor the quote "
+            f"currency {profile.quote_ccy} (no conversion rule, D-328)"
+        )
     ts = np.asarray(bars["ts"], dtype=np.int64)
     ref = np.asarray(bars["open"], dtype=np.float64)
     n = ts.size
 
     sp = profile.spread
-    if isinstance(sp, SpreadFromData):
+    if isinstance(sp, SpreadFromData | SpreadBrokerScaled):
         raise ConfigError(
-            f"profile {profile.name!r}: resolve the from_data spread on development bars "
+            f"profile {profile.name!r}: resolve the {sp.mode} spread on development bars "
             "first (resolve_from_data)"
         )
     if isinstance(sp, SpreadFixed):
@@ -277,10 +356,14 @@ def build_cost_arrays(
         if isinstance(sw, SwapAnnualRate):
             long_ = np.full(n, sw.long / sw.day_count)
             short_ = np.full(n, sw.short / sw.day_count)
-        else:
-            assert isinstance(sw, SwapPoints)
+        elif isinstance(sw, SwapPoints):
             close = np.asarray(bars["close"], dtype=np.float64)
-            long_, short_ = sw.long / close, sw.short / close
+            long_ = sw.long * sw.point_size / close
+            short_ = sw.short * sw.point_size / close
+        else:
+            assert isinstance(sw, SwapCurrencyPerLot)
+            lot_value = profile.contract_size * np.asarray(bars["close"], dtype=np.float64)
+            long_, short_ = sw.long / lot_value, sw.short / lot_value
         inst, trip = rollover_instants(int(ts[0]), int(ts[-1]), sw)
         idx = np.searchsorted(inst, ts, side="left")
         inside = idx < inst.size
@@ -300,7 +383,39 @@ def build_cost_arrays(
         profile_name=profile.name,
         profile_status=profile.status,
         stress=stress,
+        commission_ccy=profile.commission.currency,
+        quote_ccy=profile.quote_ccy,
+        contract_size=profile.contract_size,
+        volume_step=profile.volume_step,
+        min_volume=profile.min_volume,
+        volume_step_assumed=profile.volume_step_assumed,
+        to_verify=profile.to_verify,
     )
+
+
+STEP_REL_TOL = 1e-9  # float guard for exact multiples of the volume step (not a decision)
+
+
+@dataclass(frozen=True)
+class SizedOrder:
+    lots: float  # floored to the volume step
+    qty: float  # instrument units = lots x contract size
+    skipped_min_volume: bool  # lots below the minimum volume: not traded (D-313)
+
+
+def size_lots(
+    notional_usd: float,
+    entry_price_usd: float,
+    contract_size: float,
+    volume_step: float,
+    min_volume: float,
+) -> SizedOrder:
+    """D-315: lots = floor((notional / (entry price x contract size)) / step) x step."""
+    steps = notional_usd / (entry_price_usd * contract_size) / volume_step
+    n = math.floor(steps * (1.0 + STEP_REL_TOL))
+    lots = n * volume_step
+    min_steps = math.ceil(min_volume / volume_step * (1.0 - STEP_REL_TOL))
+    return SizedOrder(lots, lots * contract_size, skipped_min_volume=n < min_steps)
 
 
 def round_trip_cost(
@@ -313,21 +428,31 @@ def round_trip_cost(
     exit_price: float,
     atr_signal_entry: float,
     atr_signal_exit: float,
+    *,
+    close: F64,
+    fx_close: F64 | None = None,
 ) -> dict[str, float]:
-    """Reference cost breakdown of one trade (fills at the opens of entry/exit bars).
+    """Reference cost breakdown of one trade in USD (fills at the opens of entry/exit bars).
 
-    Spread and slippage are charged on both fills; commission on both orders; swap on every
-    rollover bar held (``entry_idx <= j < exit_idx``) on the entry notional, x3 on the
-    triple day. Returns positive costs (a swap credit is a negative cost).
+    ``qty`` is in instrument units (lots x contract size). Spread and slippage are charged on
+    both fills and converted with ``fx_close`` of the fill bar (D-307); commission on both
+    orders, converted only when it is in the quote currency. Swap (D-312): on every rollover
+    bar held (``entry_idx <= j < exit_idx``) on the mark-to-market notional
+    ``|qty| x close[j]``, converted with ``fx_close[j]``, x3 on the triple day. Returns
+    positive costs (a swap credit is a negative cost).
     """
     q = abs(qty)
-    spread = (arrays.half_spread[entry_idx] + arrays.half_spread[exit_idx]) * q
+    px = np.asarray(close, dtype=np.float64)
+    fx = np.ones(px.shape) if fx_close is None else np.asarray(fx_close, dtype=np.float64)
+    fe, fxx = float(fx[entry_idx]), float(fx[exit_idx])
+    spread = (arrays.half_spread[entry_idx] * fe + arrays.half_spread[exit_idx] * fxx) * q
     slip = (
-        arrays.slippage_fixed[entry_idx]
-        + arrays.slippage_fixed[exit_idx]
-        + arrays.slippage_atr_frac * (atr_signal_entry + atr_signal_exit)
+        (arrays.slippage_fixed[entry_idx] + arrays.slippage_atr_frac * atr_signal_entry) * fe
+        + (arrays.slippage_fixed[exit_idx] + arrays.slippage_atr_frac * atr_signal_exit) * fxx
     ) * q
-    comm = arrays.commission(q, entry_price, "entry") + arrays.commission(q, exit_price, "exit")
+    ce = arrays.commission(q, entry_price, "entry")
+    cx = arrays.commission(q, exit_price, "exit")
+    comm = ce * fe + cx * fxx if arrays.commission_in_quote else ce + cx
     held = slice(entry_idx, exit_idx)
     rate = (
         arrays.swap_long_per_notional_day[held]
@@ -335,7 +460,8 @@ def round_trip_cost(
         else arrays.swap_short_per_notional_day[held]
     )
     days = np.where(arrays.triple_mask[held], 3.0, 1.0) * arrays.rollover_mask[held]
-    swap_credit = float(np.sum(rate * days)) * q * entry_price
+    notional = q * px[held] * fx[held]
+    swap_credit = float(np.sum(rate * days * notional))
     total = spread + slip + comm - swap_credit
     return {
         "spread": float(spread),
@@ -344,3 +470,10 @@ def round_trip_cost(
         "swap": float(-swap_credit),
         "total": float(total),
     }
+
+
+def cost_breakdown_shares(costs: Mapping[str, float]) -> dict[str, float]:
+    """Each component's share of the total cost (D-525); a swap credit counts as 0 cost."""
+    parts = {k: max(float(costs[k]), 0.0) for k in ("spread", "slippage", "commission", "swap")}
+    total = sum(parts.values())
+    return {k: (v / total if total > 0 else 0.0) for k, v in parts.items()}

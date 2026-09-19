@@ -1,0 +1,5 @@
+# Broker <-> research symbol mapping rules (T06b, D-524, D-325). Hand-maintained.
+names_file: reference/quantplatform/assets/us_assets_2026-06-22.csv  # under SFAC_RAW_ROOT
+broker_regions: ["Stock US", "ETF"]   # D-524: 491 US shares + 57 ETFs
+min_name_score: 0.80                  # identical ticker AND name similarity >= this -> auto-mapped
+candidate_min_score: 0.60             # name-only best match >= this -> review candidate (never auto)

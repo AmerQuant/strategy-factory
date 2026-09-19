@@ -47,9 +47,10 @@ def entry(symbol: str, **kw: Any) -> UniverseEntry:
         "asset_class": "fx",
         "reference_source": "dukascopy",
         "timeframes": ("1H", "1D"),
-        "cost_profile": "fx_default",
+        "cost_profile": f"moneta_{symbol}+",  # T06b: Moneta profile (D-520)
         "calendar": "24x5",
         "group": "fx",
+        "broker_symbol": f"{symbol}+",  # D-524
     }
     base.update(kw)
     return UniverseEntry.model_validate(base)
@@ -65,9 +66,10 @@ def small_universe(tmp: Path) -> Path:
                 asset_class="us_equity",
                 reference_source="alpaca",
                 timeframes=("1D",),
-                cost_profile="us_equity_default",
+                cost_profile="us_share_cfd_proxy",  # not (yet) broker-mapped: D-324 proxy
                 calendar="nyse",
                 group="us_equity",
+                broker_symbol=None,
             ),
             entry(
                 "VIX",
@@ -78,6 +80,7 @@ def small_universe(tmp: Path) -> Path:
                 calendar="nyse",
                 group="aux",
                 tradable=False,
+                broker_symbol=None,
             ),
         )
     )
@@ -278,7 +281,9 @@ def test_F_0_9_1_generation_from_existing_universes(tmp_path: Path) -> None:
     assert by["SPY"].timeframes == ("1D", "1H") and by["AAPL"].timeframes == ("1D",)
     assert by["CCE"].timeframes == ("1H",)
     assert by["SPY"].reference_source == "alpaca" and by["SPY"].calendar == "nyse"
-    assert by["USDJPY"].cost_profile == "fx_default" and by["XAUUSD"].calendar == "24x5"
+    assert by["USDJPY"].cost_profile == "moneta_USDJPY+" and by["XAUUSD"].calendar == "24x5"
+    assert by["USDJPY"].broker_symbol == "USDJPY+" and by["AAPL"].broker_symbol == "AAPL"
+    assert by["SPY"].broker_symbol is None and by["SPY"].cost_profile == "us_share_cfd_proxy"
     assert by["XAUUSD"].asset_class == "metal" and by["DEUIDXEUR"].group == "index_cfd"
     aux = [e for e in u.symbols if e.asset_class == "aux"]
     assert len(aux) == 7 and not any(e.tradable for e in aux)
@@ -309,8 +314,12 @@ def test_F_0_9_1_validation_errors(tmp_path: Path, store_root: Path) -> None:
     dup = Universe(symbols=(entry("EURUSD"), entry("EURUSD", reference_source="other")))
     assert any("listed 2 times" in p for p in validate_universe(dup, COSTS))
     wrong = Universe(symbols=(entry("EURUSD", cost_profile="metal_default"),))
-    assert any("assignments give 'fx_default'" in p for p in validate_universe(wrong, COSTS))
-    orphan = Universe(symbols=(entry("ABC", asset_class="futures", cost_profile="fx_default"),))
+    assert any("assignments give 'moneta_EURUSD+'" in p for p in validate_universe(wrong, COSTS))
+    orphan = Universe(
+        symbols=(
+            entry("ABC", asset_class="futures", cost_profile="fx_default", broker_symbol=None),
+        )
+    )
     assert any("no cost profile assigned" in p for p in validate_universe(orphan, COSTS))
     with pytest.raises(ValueError, match="tradable symbols need a cost_profile"):
         entry("EURUSD", cost_profile=None)
@@ -342,3 +351,33 @@ def test_F_0_9_1_cli_list_and_validate(
     ok = runner.invoke(app, ["universe", "validate", "--universe", str(uni)])
     assert ok.exit_code == 0, ok.output
     assert "4 symbols (3 tradable)" in ok.output
+
+
+def test_F_0_9_1_report_only_for_non_broker_symbols(tmp_path: Path, store_root: Path) -> None:
+    """D-524: universe_filter broker (default) refuses non-broker symbols; all marks them."""
+    u = Universe(
+        symbols=(entry("EURUSD"), entry("GBPUSD", cost_profile="fx_default", broker_symbol=None))
+    )
+    path = tmp_path / "u.yaml"
+    write_universe(u, path)
+    store, cat = SnapshotStore(store_root), Catalog(store_root)
+    for sym in ("EURUSD", "GBPUSD"):
+        meta = fx_meta(symbol=sym, source_symbol=sym, snapshot_hash=None)
+        m = cat.register(store.write_snapshot(fx_bars(W0, W0 + dt.timedelta(days=5)), meta))
+        cat.set_reference(sym, "1H", m.snapshot_hash or "")
+    cfg = pipeline(tmp_path, universe=path, symbols=["EURUSD", "GBPUSD"])
+    with pytest.raises(ConfigError, match="GBPUSD: not tradable at the broker"):
+        resolve_config(cfg, store_root)
+    resolved = resolve_config(cfg.model_copy(update={"universe_filter": "all"}), store_root)
+    assert resolved.report_only == ("GBPUSD",) and resolved.is_resolved
+    assert resolved.canonical()["report_only"] == ["GBPUSD"]  # stored in the run config
+
+
+def test_F_0_9_1_cli_list_broker_filter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(REPO)
+    runner = CliRunner()
+    broker = runner.invoke(app, ["universe", "list", "--broker", "--asset-class", "fx"])
+    assert broker.exit_code == 0 and "EURUSD+" in broker.output
+    assert "15 symbol(s): fx 15" in broker.output
+    rest = runner.invoke(app, ["universe", "list", "--no-broker", "--asset-class", "us_equity"])
+    assert rest.exit_code == 0 and "AABA" in rest.output and "moneta_" not in rest.output
