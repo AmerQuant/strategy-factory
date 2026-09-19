@@ -68,7 +68,7 @@ Shares are fractions and percentiles are 0–100. `crit` marks a critical criter
 ## Universe counts (`configs/universe.yaml`, `sfac universe validate`)
 | asset class | symbols | source | timeframes | calendar | cost profile | tradable |
 |---|---|---|---|---|---|---|
-| us_equity | 6713 | alpaca | 1D (6711) + 1H (826, of which 2 hourly-only: CCE, VMRK) | nyse | us_equity_default | yes |
+| us_equity | 6713 | alpaca | 1D (6711) + 1H (827, of which 2 hourly-only: CCE, VMRK) | nyse | us_equity_default | yes |
 | fx | 15 | dukascopy | 1H, 1D | 24x5 | fx_default (JPY pairs pip 0.01) | yes |
 | metal | 2 | dukascopy | 1H, 1D | 24x5 | metal_default | yes |
 | index_cfd | 10 | dukascopy | 1H, 1D | 24x5 | index_cfd_default | yes |
