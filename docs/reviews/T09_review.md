@@ -1,16 +1,11 @@
 # T09 review — Result containers (contract) and standard metrics
 
-**Features:** F-0.5.1, F-0.5.2, F-0.5.4 · **Branch:** `feat/T09-metrics` (worktree `StrategyFactory_T09`, based on `cc58010` = `main`) · **Status:** done (ruff, format, mypy, fast suite green locally; CI runs on push)
+**Features:** F-0.5.1, F-0.5.2, F-0.5.4 · **Branch:** `feat/T09-metrics` (worktree `StrategyFactory_T09`, rebased onto `main` at `8031958`) · **Status:** done (ruff, format, mypy, fast suite green locally; CI runs on push)
 
 ## Dependencies
-T07 is not on `main` yet, so the same pins T07 uses were added:
+**None added.** The branch was rebased onto `main` after T07 merged, and T07 had already added numba 0.67.0 (with llvmlite 0.49.0) and numpy 2.5.3. `uv lock` after the rebase changed nothing. The first T09 code commit is still titled "add numba 0.67.0 and numpy 2.5.3", but after the rebase it only adds the strict-mypy block.
 
-| package | version | pulled in | reason |
-|---|---|---|---|
-| numba | 0.67.0 (`>=0.67.0`) | llvmlite 0.49.0 | batch kernel (F-0.5.1 grid path), per ADR-001 |
-| numpy | 2.5.3 (`>=2.5.3`) | — | containers and metrics |
-
-`pyproject.toml` also gets (1) a strict-mypy override for `metrics.containers` and `metrics.standard` and (2) `numba`/`numba.*` added to `ignore_missing_imports`. T07 makes the same `numba` change and adds a strict block in the same place, so **expect a small merge conflict in `pyproject.toml`/`uv.lock`**. Keep both strict blocks.
+`pyproject.toml`: a strict-mypy override for `metrics.containers` and `metrics.standard`, placed after T07's strict `components` block. Both blocks are kept.
 
 ## Files
 | file | content |
@@ -215,3 +210,5 @@ Because both paths share one kernel, a separate property (`test_F_0_5_1_core_mat
 - `pytest -m slow`: no slow tests exist yet
 
 **Still open:** whether a calendar year with no bars inside the span should carry weight. It currently does not.
+
+**After the rebase onto `main` (`8031958`, includes T06, T07, T10a):** the only conflict was the strict-mypy blocks in `pyproject.toml`; both are kept. `uv.lock` was regenerated with `uv lock` (no change). `ruff check`, `ruff format --check` and `mypy src` (87 files) pass. Full `pytest` with `SFAC_DB_URL` on port 5433: 768 passed, including the 15 db tests with none skipped.
