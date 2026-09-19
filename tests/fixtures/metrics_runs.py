@@ -143,7 +143,10 @@ STEPS_NS = {
 
 @dataclass(frozen=True)
 class RunSpec:
-    """Plain description of a consistent random run (gaps >= 1: no back-to-back trades)."""
+    """Plain description of a consistent random run.
+
+    Gaps >= 1 (no back-to-back trades); a hold of 0 is a same-bar trade stopped out intrabar.
+    """
 
     start: np.datetime64
     steps: tuple[str, ...]  # len n - 1
@@ -215,6 +218,7 @@ def build_run(spec: RunSpec) -> RunResult:
                     "cost_commission": cost,
                     "pnl_net": gross - cost,
                     "atr_at_entry": 10.0,
+                    "exit_reason": int(ExitReason.STOP_LOSS if t == entry else ExitReason.SIGNAL),
                 }
             )
             open_pnl = 0.0
@@ -250,7 +254,7 @@ def run_specs(
     start_day = draw(st.integers(min_value=0, max_value=3000))
     start = np.datetime64("2015-01-01", "ns") + np.timedelta64(start_day, "D")
     trades = tuple(
-        draw(st.lists(st.tuples(st.integers(1, 15), st.integers(1, 12)), min_size=0, max_size=30))
+        draw(st.lists(st.tuples(st.integers(1, 15), st.integers(0, 12)), min_size=0, max_size=30))
     )
     increments = tuple(draw(st.lists(money, min_size=size, max_size=size)))
     costs = tuple(

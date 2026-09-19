@@ -6,8 +6,9 @@ Layout of one artifact directory (written once, never overwritten)::
     equity.parquet   ts, equity_mtm, in_position, realized_pnl
     meta.json        RunMeta, initial_capital, notional, open_pnl_end, schema_version
 
-``ts`` columns are stored as naive ``Datetime(ns)`` holding UTC. Polars is used only as the
-Parquet codec at this I/O boundary; arrays enter and leave as NumPy.
+``ts`` columns are stored as naive ``Datetime(ns)`` holding UTC. This lives in the data layer
+because it uses Polars (the only Parquet codec available); the metrics layer stays NumPy-only
+and the containers enter and leave this module as NumPy arrays.
 """
 
 from __future__ import annotations
@@ -17,8 +18,8 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import polars as pl
+from numpy.typing import NDArray
 
 from strategy_factory.metrics.containers import EquityCurve, RunMeta, RunResult, TradeLog
 
@@ -55,7 +56,7 @@ def write_run_result(result: RunResult, directory: Path) -> Path:
     return directory
 
 
-def _col(df: pl.DataFrame, name: str) -> np.ndarray:
+def _col(df: pl.DataFrame, name: str) -> NDArray[Any]:
     series = df.get_column(name)
     if series.dtype == pl.Datetime:
         return series.cast(pl.Datetime("ns")).to_numpy().astype("datetime64[ns]")
@@ -65,7 +66,7 @@ def _col(df: pl.DataFrame, name: str) -> np.ndarray:
 def read_run_result(directory: Path) -> RunResult:
     """Read an artifact written by :func:`write_run_result` (re-validates the contract)."""
     directory = Path(directory)
-    meta = json.loads((directory / _META).read_text(encoding="utf-8"))
+    meta: dict[str, Any] = json.loads((directory / _META).read_text(encoding="utf-8"))
     if meta.get("schema_version") != SCHEMA_VERSION:
         raise ValueError(f"unsupported RunResult schema_version: {meta.get('schema_version')}")
     tdf = pl.read_parquet(directory / _TRADES)

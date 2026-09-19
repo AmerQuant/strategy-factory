@@ -106,7 +106,8 @@ def test_F_0_5_1_batch_equals_single(data) -> None:
     runs = [build_run(replace(s, start=start)) for s in specs]
     eq = np.column_stack([r.equity.equity_mtm for r in runs])
     pos = np.column_stack([r.equity.in_position for r in runs])
-    out = core_metrics_batch(eq, pos, runs[0].equity.ts, CAPITAL)
+    closed = np.array([len(r.trades) for r in runs], dtype=np.int64)
+    out = core_metrics_batch(eq, pos, closed, runs[0].equity.ts, CAPITAL)
     for j, run in enumerate(runs):
         single = core_metrics(run.equity)
         assert out["avg_annual_profit_usd"][j] == single.avg_annual_profit_usd
@@ -115,13 +116,16 @@ def test_F_0_5_1_batch_equals_single(data) -> None:
         assert out["avg_annual_dd_ystart_pct"][j] == single.avg_annual_dd_ystart_pct
         assert out["profit_dd_ratio"][j] == single.profit_dd_ratio
         assert out["exposure"][j] == single.exposure
-        assert out["n_trades"][j] == single.n_position_entries
+        assert out["n_entries"][j] == single.n_entries
+        assert out["n_trades"][j] == len(run.trades)
         # the full report agrees with the core path
         report = compute_metrics(run, calendar="24x5")
         assert report.profit_dd_ratio == single.profit_dd_ratio
-        # without an open position at the end, entries == closed trades (gaps >= 1)
-        if not run.open_position_marked:
-            assert single.n_position_entries == len(run.trades)
+        assert report.n_trades == out["n_trades"][j]
+        assert report.n_entries == out["n_entries"][j]
+        # entries miss same-bar trades and count an open position (gaps >= 1: no merges)
+        multi_bar = int(np.count_nonzero(run.trades.bars_held > 0))
+        assert single.n_entries == multi_bar + int(run.open_position_marked)
 
 
 def _reference_core(run) -> tuple[float, float, float]:

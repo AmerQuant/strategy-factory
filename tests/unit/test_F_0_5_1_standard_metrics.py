@@ -73,7 +73,7 @@ def test_F_0_5_1_hand_fixture_report() -> None:
     assert m.exposure == 0.7
     assert m.return_per_exposure == _approx(PROFIT_USD / 1000 / 0.7)
     assert m.n_trades == 2
-    assert m.n_position_entries == 3
+    assert m.n_entries == 3
     assert m.profit_factor == 19.0  # 9,500 / 500
     assert m.win_rate == 0.5
     assert m.avg_bars_held == 2.5  # (2 + 3) / 2
@@ -117,7 +117,7 @@ def test_F_0_5_1_as_gate_dict_names() -> None:
         "exposure",
         "return_per_exposure",
         "n_trades",
-        "n_position_entries",
+        "n_entries",
         "profit_factor",
         "win_rate",
         "avg_bars_held",
@@ -141,7 +141,7 @@ def test_F_0_5_1_as_gate_dict_names() -> None:
     assert gate["open_position_marked"] == 1.0
 
 
-def test_F_0_5_1_back_to_back_trades_merge_in_position_entries() -> None:
+def test_F_0_5_1_back_to_back_trades_merge_in_entries() -> None:
     ts = HAND_TS[:6]
     # T1 bars 1..2 (exit at open of 3), T2 enters at the same open of bar 3, exits at 5
     equity = np.array([0, 100, 200, 300, 400, 500], dtype=float) + CAPITAL
@@ -164,8 +164,8 @@ def test_F_0_5_1_back_to_back_trades_merge_in_position_entries() -> None:
     run = RunResult(trades=trades, equity=curve, meta=meta())
     m = compute_metrics(run, calendar="us_equity")
     assert m.n_trades == 2
-    assert m.n_position_entries == 1
-    assert core_metrics(curve).n_position_entries == 1
+    assert m.n_entries == 1
+    assert core_metrics(curve).n_entries == 1
 
 
 def test_F_0_5_1_profit_factor_edge_cases() -> None:

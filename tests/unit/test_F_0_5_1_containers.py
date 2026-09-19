@@ -18,12 +18,15 @@ from fixtures.metrics_runs import (
     hand_run,
     hand_trades,
     meta,
+    trade_log,
 )
 
-from strategy_factory.metrics.artifacts import read_run_result, write_run_result
+from strategy_factory.data.result_io import read_run_result, write_run_result
 from strategy_factory.metrics.containers import (
+    INTRABAR_EXIT_REASONS,
     ContainerError,
     EquityCurve,
+    ExitReason,
     RunResult,
     TradeLog,
 )
@@ -72,11 +75,95 @@ def test_F_0_5_1_swap_credit_allowed_in_net_identity() -> None:
     assert len(TradeLog(**cols)) == 2
 
 
-@pytest.mark.parametrize("exit_idx", [[1, 7], [0, 7]])
-def test_F_0_5_1_exit_idx_at_least_entry_plus_one(exit_idx: list[int]) -> None:
-    cols = _trade_cols(exit_idx=exit_idx)
+def _same_bar_first_trade(reason: ExitReason) -> dict[str, Any]:
+    """Hand trades with T1 (entry bar 1) exiting inside its entry bar for ``reason``."""
+    cols = _trade_cols(exit_idx=[1, 7], exit_reason=[int(reason), int(ExitReason.SIGNAL)])
     cols["bars_held"] = cols["exit_idx"] - cols["entry_idx"]
-    with pytest.raises(ContainerError, match="exit_idx"):
+    cols["exit_ts"] = cols["entry_ts"].copy()
+    cols["exit_ts"][1] = HAND_TS[7]
+    return cols
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        ExitReason.DISASTER_STOP,
+        ExitReason.STOP_LOSS,
+        ExitReason.TAKE_PROFIT,
+        ExitReason.TRAILING_STOP,
+    ],
+)
+def test_F_0_5_1_same_bar_exit_allowed_for_intrabar_reasons(reason: ExitReason) -> None:
+    assert reason in INTRABAR_EXIT_REASONS
+    trades = TradeLog(**_same_bar_first_trade(reason))
+    assert trades.bars_held.tolist() == [0, 3]
+
+
+@pytest.mark.parametrize("reason", [ExitReason.SIGNAL, ExitReason.TIME_EXIT])
+def test_F_0_5_1_same_bar_exit_rejected_for_signal_and_time(reason: ExitReason) -> None:
+    assert reason not in INTRABAR_EXIT_REASONS
+    with pytest.raises(ContainerError, match="intrabar"):
+        TradeLog(**_same_bar_first_trade(reason))
+
+
+@pytest.mark.parametrize("reason", list(ExitReason))
+def test_F_0_5_1_exit_before_entry_always_rejected(reason: ExitReason) -> None:
+    cols = _trade_cols(exit_idx=[0, 7], exit_reason=[int(reason), int(ExitReason.SIGNAL)])
+    cols["bars_held"] = cols["exit_idx"] - cols["entry_idx"]
+    with pytest.raises(ContainerError, match="exit_idx must be >= entry_idx"):
+        TradeLog(**cols)
+
+
+def test_F_0_5_1_same_bar_trade_in_run_occupies_no_bar() -> None:
+    # T1 is stopped out inside its entry bar 1: flat at every close, realized from bar 1 on
+    ts = HAND_TS[:4]
+    trades = trade_log(
+        [
+            {
+                "entry_idx": 1,
+                "exit_idx": 1,
+                "entry_ts": ts[1],
+                "exit_ts": ts[1],
+                "pnl_net": -300.0,
+                "exit_reason": int(ExitReason.DISASTER_STOP),
+            }
+        ]
+    )
+    realized = np.array([0.0, -300.0, -300.0, -300.0])
+    curve = EquityCurve(
+        ts=ts,
+        equity_mtm=CAPITAL + realized,
+        in_position=np.zeros(4, dtype=bool),
+        realized_pnl=realized,
+        initial_capital=CAPITAL,
+        notional=NOTIONAL,
+    )
+    run = RunResult(trades=trades, equity=curve, meta=meta())
+    assert len(run.trades) == 1
+    # a signal exit on the same bar is rejected before the run is even built
+    with pytest.raises(ContainerError, match="intrabar"):
+        trade_log(
+            [
+                {
+                    "entry_idx": 1,
+                    "exit_idx": 1,
+                    "entry_ts": ts[1],
+                    "exit_ts": ts[1],
+                    "pnl_net": -300.0,
+                    "exit_reason": int(ExitReason.SIGNAL),
+                }
+            ]
+        )
+
+
+def test_F_0_5_1_two_trades_cannot_enter_on_the_same_bar() -> None:
+    cols = _trade_cols(
+        entry_idx=[1, 1],
+        exit_idx=[1, 7],
+        exit_reason=[int(ExitReason.STOP_LOSS), int(ExitReason.SIGNAL)],
+    )
+    cols["bars_held"] = cols["exit_idx"] - cols["entry_idx"]
+    with pytest.raises(ContainerError, match="overlap"):
         TradeLog(**cols)
 
 

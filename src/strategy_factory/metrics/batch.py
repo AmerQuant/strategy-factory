@@ -6,10 +6,14 @@ same bars ``ts``. Every column goes through the same kernel as the single-run
 
 Returned keys (arrays of length ``n_configs``): ``avg_annual_profit_usd``,
 ``avg_annual_profit_pct``, ``avg_annual_dd_ystart_usd``, ``avg_annual_dd_ystart_pct``,
-``profit_dd_ratio``, ``exposure``, ``n_trades``. ``n_trades`` here is the number of position
-entries (flat -> in-position transitions of ``in_position``), i.e.
-``MetricsReport.n_position_entries``: a position open at the end counts, and an exit plus
-re-entry at the same open counts once.
+``profit_dd_ratio``, ``exposure``, ``n_trades``, ``n_entries``.
+
+* ``n_trades`` is the number of **closed trades** per configuration, taken as given from
+  ``n_closed_trades`` (returned by the engine grid kernel, T08); it equals
+  ``MetricsReport.n_trades`` and is the count the gates use.
+* ``n_entries`` is the number of flat -> in-position transitions of ``in_position``
+  (``MetricsReport.n_entries``), a diagnostic only: it counts a position still open at the
+  end, merges an exit and re-entry at the same open, and misses same-bar (intrabar) trades.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from strategy_factory.metrics._calendar import year_calendar
 def core_metrics_batch(
     equity_matrix: NDArray[np.float64],
     in_position_matrix: NDArray[np.bool_],
+    n_closed_trades: NDArray[np.integer[Any]],
     ts: NDArray[np.datetime64],
     initial_capital: float,
 ) -> dict[str, NDArray[Any]]:
@@ -37,6 +42,11 @@ def core_metrics_batch(
         raise ValueError("ts length must equal the number of bars (rows)")
     if not np.all(np.isfinite(equity)):
         raise ValueError("equity_matrix contains non-finite values")
+    closed = np.asarray(n_closed_trades)
+    if closed.shape != (equity.shape[1],) or not np.issubdtype(closed.dtype, np.integer):
+        raise ValueError("n_closed_trades must be an integer array of length n_configs")
+    if np.any(closed < 0):
+        raise ValueError("n_closed_trades must be >= 0")
     cal = year_calendar(ts)
     out = _kernels.core_batch(
         equity, in_pos, cal.year_id, cal.weights, float(initial_capital), cal.years
@@ -48,6 +58,8 @@ def core_metrics_batch(
         "avg_annual_dd_ystart_pct",
         "profit_dd_ratio",
         "exposure",
-        "n_trades",
+        "n_entries",
     )
-    return dict(zip(names, out, strict=True))
+    result: dict[str, NDArray[Any]] = dict(zip(names, out, strict=True))
+    result["n_trades"] = closed.astype(np.int64, copy=True)
+    return result

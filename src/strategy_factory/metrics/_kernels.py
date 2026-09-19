@@ -74,7 +74,7 @@ def core_one(equity, in_position, year_id, weights, capital, years):
     """Core metrics of one equity curve.
 
     Returns ``(avg_annual_profit_usd, avg_annual_profit_pct, avg_annual_dd_ystart_usd,
-    avg_annual_dd_ystart_pct, profit_dd_ratio, exposure, n_position_entries)``.
+    avg_annual_dd_ystart_pct, profit_dd_ratio, exposure, n_entries)``.
     ``profit_dd_ratio`` is ``inf`` when the drawdown denominator is 0.
     """
     n = equity.shape[0]

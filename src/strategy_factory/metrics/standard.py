@@ -26,9 +26,10 @@ Definitions
   share with ``pnl_net > 0``, ``avg_bars_held``, ``expectancy_usd`` = mean ``pnl_net``,
   ``expectancy_pct`` = mean ``pnl_net / notional * 100``, ``expectancy_atr`` = mean
   ``pnl_net / (qty * atr_at_entry)``. All are NaN with no closed trade.
-* ``n_position_entries`` counts flat -> in-position transitions of ``in_position``; this is
-  what the grid batch path reports as ``n_trades`` (it includes a position open at the end
-  and merges an exit and re-entry at the same open).
+* ``n_trades`` = number of closed trades (the count the gates use; the grid batch path
+  receives it from the engine as ``n_closed_trades``). ``n_entries`` counts flat ->
+  in-position transitions of ``in_position`` (diagnostic only: it includes a position open
+  at the end, merges an exit and re-entry at the same open, and misses same-bar trades).
 * Risk metrics: see :mod:`strategy_factory.metrics.risk`.
 
 Gate names (``MetricsReport.as_gate_dict()``)
@@ -36,7 +37,7 @@ Gate names (``MetricsReport.as_gate_dict()``)
 ``years, total_net_profit_usd, avg_annual_profit_usd, avg_annual_profit_pct,
 avg_annual_dd_ystart_usd, avg_annual_dd_ystart_pct, avg_annual_dd_peak_usd,
 avg_annual_dd_peak_pct, profit_dd_ratio, exposure, return_per_exposure, n_trades,
-n_position_entries, profit_factor, win_rate, avg_bars_held, expectancy_usd, expectancy_pct,
+n_entries, profit_factor, win_rate, avg_bars_held, expectancy_usd, expectancy_pct,
 expectancy_atr, sharpe, sortino, max_dd_pct, ulcer_index, max_underwater_bars,
 max_underwater_days, trade_return_skew, trade_return_excess_kurtosis`` plus the flags
 ``inf_ratio, open_position_marked, cost_placeholder`` (as 0.0 / 1.0).
@@ -69,7 +70,7 @@ class CoreMetrics:
     avg_annual_dd_ystart_pct: float
     profit_dd_ratio: float
     exposure: float
-    n_position_entries: int
+    n_entries: int
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,7 @@ def _core_from_arrays(
         avg_annual_dd_ystart_pct=float(r[3]),
         profit_dd_ratio=float(r[4]),
         exposure=float(r[5]),
-        n_position_entries=int(r[6]),
+        n_entries=int(r[6]),
     )
 
 
@@ -174,7 +175,7 @@ class MetricsReport(BaseModel):
     exposure: float
     return_per_exposure: float
     n_trades: int
-    n_position_entries: int
+    n_entries: int
     profit_factor: float
     win_rate: float
     avg_bars_held: float
@@ -241,7 +242,7 @@ def compute_metrics(
         exposure=exposure,
         return_per_exposure=(core.avg_annual_profit_pct / exposure if exposure > 0.0 else math.nan),
         n_trades=len(trades),
-        n_position_entries=core.n_position_entries,
+        n_entries=core.n_entries,
         profit_factor=stats["profit_factor"],
         win_rate=stats["win_rate"],
         avg_bars_held=stats["avg_bars_held"],

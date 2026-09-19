@@ -11,9 +11,13 @@ Conventions (see CLAUDE.md, design §6):
 * Bar indices refer to rows of the :class:`EquityCurve` of the same run.
 * ``entry_idx`` is the bar at whose **open** the entry fills (the signal bar is
   ``entry_idx - 1``); ``exit_idx`` is the bar in which the exit fills (at its open or
-  intrabar). ``exit_idx >= entry_idx + 1`` and ``bars_held = exit_idx - entry_idx``.
+  intrabar). Always ``exit_idx >= entry_idx``; ``exit_idx == entry_idx`` (stopped out
+  inside the entry bar) is allowed only for the intrabar exit reasons (``STOP_LOSS``,
+  ``TAKE_PROFIT``, ``DISASTER_STOP``, ``TRAILING_STOP``); ``SIGNAL`` and ``TIME_EXIT`` fill
+  at a later open and need ``exit_idx >= entry_idx + 1``. ``bars_held = exit_idx - entry_idx``.
 * ``in_position[t]`` is True when a position is held at the **close** of bar ``t``, i.e.
-  ``equity_mtm[t]`` includes open P&L. A trade occupies bars ``entry_idx .. exit_idx - 1``.
+  ``equity_mtm[t]`` includes open P&L. A trade occupies bars ``entry_idx .. exit_idx - 1``
+  (none for a same-bar trade).
 * Money is in account currency (USD). Costs are non-negative amounts that are subtracted:
   ``pnl_net = pnl_gross - (cost_spread + cost_slippage + cost_commission + cost_swap)``
   (a swap *credit* is a negative ``cost_swap``).
@@ -58,6 +62,18 @@ class ExitReason(IntEnum):
     TAKE_PROFIT = 2
     DISASTER_STOP = 3
     TIME_EXIT = 4
+    TRAILING_STOP = 5
+
+
+# Exits that can fill inside a bar (via high/low), hence possibly in the entry bar itself.
+INTRABAR_EXIT_REASONS = frozenset(
+    {
+        ExitReason.STOP_LOSS,
+        ExitReason.TAKE_PROFIT,
+        ExitReason.DISASTER_STOP,
+        ExitReason.TRAILING_STOP,
+    }
+)
 
 
 def _frozen_array(value: Any, dtype: Any, name: str) -> NDArray[Any]:
@@ -166,11 +182,23 @@ class TradeLog:
                 raise ContainerError(f"TradeLog.{name} contains non-finite values")
         if bool(np.any(self.entry_idx < 0)):
             raise ContainerError("TradeLog.entry_idx must be >= 0")
-        if bool(np.any(self.exit_idx < self.entry_idx + 1)):
-            raise ContainerError("TradeLog: exit_idx must be >= entry_idx + 1")
+        if bool(np.any(self.exit_idx < self.entry_idx)):
+            raise ContainerError("TradeLog: exit_idx must be >= entry_idx")
+        valid_reasons = [int(r) for r in ExitReason]
+        if not bool(np.all(np.isin(self.exit_reason, valid_reasons))):
+            raise ContainerError("TradeLog.exit_reason has an unknown code")
+        intrabar = np.isin(self.exit_reason, [int(r) for r in INTRABAR_EXIT_REASONS])
+        if bool(np.any((self.exit_idx == self.entry_idx) & ~intrabar)):
+            raise ContainerError(
+                "TradeLog: exit_idx == entry_idx is allowed only for intrabar exits; "
+                "signal and time exits need exit_idx >= entry_idx + 1"
+            )
         if bool(np.any(self.bars_held != self.exit_idx - self.entry_idx)):
             raise ContainerError("TradeLog: bars_held must equal exit_idx - entry_idx")
-        if n > 1 and bool(np.any(self.entry_idx[1:] < self.exit_idx[:-1])):
+        if n > 1 and (
+            bool(np.any(self.entry_idx[1:] < self.exit_idx[:-1]))
+            or bool(np.any(self.entry_idx[1:] <= self.entry_idx[:-1]))
+        ):
             raise ContainerError("TradeLog: trades overlap or are not ordered (one position)")
         if not bool(np.all(np.isin(self.direction, (1, -1)))):
             raise ContainerError("TradeLog.direction must be +1 or -1")
@@ -183,11 +211,8 @@ class TradeLog:
         for name in ("cost_spread", "cost_slippage", "cost_commission", "mae", "mfe"):
             if bool(np.any(getattr(self, name) < 0)):
                 raise ContainerError(f"TradeLog.{name} must be >= 0")
-        valid_reasons = [int(r) for r in ExitReason]
-        if not bool(np.all(np.isin(self.exit_reason, valid_reasons))):
-            raise ContainerError("TradeLog.exit_reason has an unknown code")
-        if bool(np.any(self.exit_ts <= self.entry_ts)):
-            raise ContainerError("TradeLog: exit_ts must be after entry_ts")
+        if bool(np.any(self.exit_ts < self.entry_ts)):
+            raise ContainerError("TradeLog: exit_ts must not be before entry_ts")
         expected = self.pnl_gross - self.total_costs
         tol = MONEY_RTOL * np.maximum(1.0, np.abs(self.pnl_gross) + self.total_costs)
         if bool(np.any(np.abs(self.pnl_net - expected) > tol)):
