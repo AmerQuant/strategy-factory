@@ -23,6 +23,7 @@ LIST_COLUMNS = [
     "is_reference",
     "adjustment",
     "session",
+    "quality_status",
 ]
 
 
@@ -86,7 +87,11 @@ def show_cmd(
 
 
 def _register_subcommands() -> None:
-    from strategy_factory.data import cli_dukascopy, cli_yahoo  # noqa: F401  (register commands)
+    from strategy_factory.data import (  # noqa: F401  (register commands)
+        cli_dukascopy,
+        cli_prep,
+        cli_yahoo,
+    )
     from strategy_factory.data.cli_alpaca import (
         download_app,
         ingest_app,
