@@ -32,7 +32,11 @@ from strategy_factory.registry.writer import (
 )
 
 T0 = dt.datetime(2024, 1, 2, tzinfo=dt.UTC)
-CONFIG = {"pipeline": "mvp_daily", "data": {"snapshot_hash": "a" * 64}, "seed": 7}
+CONFIG = {
+    "pipeline": "mvp_daily",
+    "data_snapshots": {"SPY": {"1D": {"source": "alpaca", "snapshot_hash": "a" * 64}}},
+    "seed": 7,
+}
 
 
 def one(engine: Engine, table: object) -> dict[str, object]:

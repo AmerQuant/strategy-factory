@@ -12,7 +12,10 @@ from strategy_factory.registry import tables as T
 from strategy_factory.registry.writer import CandidateRecord, RegistryWriter, config_hash
 
 SNAP = "d" * 64
-CONFIG = {"pipeline": "mvp_daily", "universe": [{"symbol": "SPY", "snapshot_hash": SNAP}]}
+CONFIG = {
+    "pipeline": "mvp_daily",
+    "data_snapshots": {"SPY": {"1D": {"source": "alpaca", "snapshot_hash": SNAP}}},
+}
 
 
 @pytest.mark.db
@@ -61,7 +64,7 @@ def test_F_0_7_4_reproduce_prints_plan(
     assert "4242" in out  # seed
     assert "f" * 64 in out  # spec hash
     assert '"rsi_n": 2' in out and '"thr": 10' in out  # params
-    assert SNAP in out and "config.universe[0].snapshot_hash" in out
+    assert SNAP in out and "config.data_snapshots.SPY.1D.snapshot_hash" in out
 
     missing = CliRunner().invoke(app, ["reproduce", "--trial", "999999"])
     assert missing.exit_code == 1 and "unknown trial" in missing.output

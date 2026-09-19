@@ -3,7 +3,8 @@
 Files under ``SFAC_DATA_ROOT``:
 
 * ``catalog.parquet``: one row per registered snapshot -- every :class:`SeriesMetadata`
-  field (``raw_refs`` as JSON text) plus ``is_reference``;
+  field (``raw_refs`` and ``derived_from`` as JSON text) plus the catalog-only columns
+  ``is_reference`` and ``quality_status`` (``ok | warning | critical | unchecked``, F-0.1.6);
 * ``catalog_events.parquet``: append-only log ``(ts, event, symbol, timeframe,
   snapshot_hash, previous_reference, note)``.
 
@@ -25,12 +26,14 @@ from typing import Any
 import polars as pl
 
 from strategy_factory.core.errors import DataError
-from strategy_factory.data.schema import RawRef, SeriesMetadata
+from strategy_factory.data.schema import RawRef, SeriesMetadata, SnapshotKey
 from strategy_factory.data.store import data_root
 
 CATALOG_FILE = "catalog.parquet"
 EVENTS_FILE = "catalog_events.parquet"
 KEY = ("source", "symbol", "timeframe", "snapshot_hash")
+QUALITY_STATUSES = ("ok", "warning", "critical", "unchecked")
+CATALOG_ONLY = ("is_reference", "quality_status")
 
 _TS = pl.Datetime("us", "UTC")
 CATALOG_SCHEMA: dict[str, pl.DataType] = {
@@ -58,7 +61,9 @@ CATALOG_SCHEMA: dict[str, pl.DataType] = {
     "value_final_tz": pl.Utf8(),
     "value_final_status": pl.Utf8(),
     "hash_version": pl.Int64(),
+    "derived_from": pl.Utf8(),
     "is_reference": pl.Boolean(),
+    "quality_status": pl.Utf8(),
 }
 # defaults for columns added after a catalog file was written (older rows are hash_version 1)
 _MIGRATION_DEFAULTS: dict[str, object] = {
@@ -66,6 +71,8 @@ _MIGRATION_DEFAULTS: dict[str, object] = {
     "value_final_tz": None,
     "value_final_status": None,
     "hash_version": 1,
+    "derived_from": None,
+    "quality_status": "unchecked",
 }
 EVENTS_SCHEMA: dict[str, pl.DataType] = {
     "ts": _TS,
@@ -88,14 +95,24 @@ def _atomic_write_parquet(df: pl.DataFrame, path: Path) -> None:
 def _meta_to_row(meta: SeriesMetadata, is_reference: bool) -> dict[str, Any]:
     row = meta.model_dump()
     row["raw_refs"] = json.dumps([r.model_dump() for r in meta.raw_refs])
+    row["derived_from"] = (
+        meta.derived_from.model_dump_json() if meta.derived_from is not None else None
+    )
     row["is_reference"] = is_reference
+    row["quality_status"] = "unchecked"
     return row
 
 
 def _row_to_meta(row: dict[str, Any]) -> SeriesMetadata:
-    data = {k: v for k, v in row.items() if k != "is_reference"}
+    data = {k: v for k, v in row.items() if k not in CATALOG_ONLY}
     data["raw_refs"] = tuple(RawRef.model_validate(r) for r in json.loads(row["raw_refs"]))
+    if row.get("derived_from"):
+        data["derived_from"] = SnapshotKey.model_validate_json(row["derived_from"])
     return SeriesMetadata.model_validate(data)
+
+
+def _key_filter(key: SnapshotKey) -> pl.Expr:
+    return pl.all_horizontal([pl.col(k) == getattr(key, k) for k in KEY])
 
 
 class Catalog:
@@ -224,6 +241,49 @@ class Catalog:
                 symbol=symbol,
             )
         return _row_to_meta(cat.row(0, named=True))
+
+    def get(self, key: SnapshotKey) -> SeriesMetadata:
+        """Metadata of the registered snapshot ``key``."""
+        rows = self.table().filter(_key_filter(key))
+        if rows.height != 1:
+            raise DataError(
+                f"snapshot {key.short()} is not registered in the catalog",
+                stage="catalog",
+                symbol=key.symbol,
+            )
+        return _row_to_meta(rows.row(0, named=True))
+
+    def quality_status(self, key: SnapshotKey) -> str:
+        """``ok | warning | critical | unchecked`` of a registered snapshot (F-0.1.6)."""
+        rows = self.table().filter(_key_filter(key))
+        if rows.height != 1:
+            raise DataError(
+                f"snapshot {key.short()} is not registered in the catalog",
+                stage="catalog",
+                symbol=key.symbol,
+            )
+        return str(rows["quality_status"][0])
+
+    def set_quality_status(self, key: SnapshotKey, status: str, note: str = "") -> None:
+        """Record the quality status of a registered snapshot; logged as a ``quality`` event."""
+        if status not in QUALITY_STATUSES:
+            raise DataError(f"invalid quality status {status!r}; expected {QUALITY_STATUSES}")
+        cat = self.table()
+        sel = _key_filter(key)
+        if cat.filter(sel).height != 1:
+            raise DataError(
+                f"snapshot {key.short()} is not registered in the catalog",
+                stage="catalog",
+                symbol=key.symbol,
+            )
+        cat = cat.with_columns(
+            pl.when(sel)
+            .then(pl.lit(status))
+            .otherwise(pl.col("quality_status"))
+            .alias("quality_status")
+        )
+        _atomic_write_parquet(cat, self.path)
+        self._log("quality", key.symbol, key.timeframe, key.snapshot_hash, None, note or status)
 
     def has_reference(self, symbol: str, timeframe: str) -> bool:
         try:

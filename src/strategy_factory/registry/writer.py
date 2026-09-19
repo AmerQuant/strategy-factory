@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 import subprocess
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
@@ -75,6 +76,33 @@ def canonical_json(obj: Any) -> str:
 def config_hash(config: Mapping[str, Any]) -> str:
     """sha256 of the canonical JSON of ``config``."""
     return hashlib.sha256(canonical_json(config).encode("utf-8")).hexdigest()
+
+
+def require_snapshots(config: Mapping[str, Any]) -> None:
+    """The run config must contain resolved ``data_snapshots``.
+
+    Shape: ``{symbol: {timeframe: {source, snapshot_hash}}}`` (T10a, T03 open question 2).
+
+    Without it a run cannot be reproduced (``sfac reproduce`` needs the data snapshot hashes).
+    """
+    snaps = config.get("data_snapshots")
+    leaves = (
+        [ref for tfs in snaps.values() if isinstance(tfs, Mapping) for ref in tfs.values()]
+        if isinstance(snaps, Mapping)
+        else []
+    )
+    ok = bool(leaves) and all(
+        isinstance(ref, Mapping)
+        and ref.get("source")
+        and re.fullmatch(r"[0-9a-f]{64}", str(ref.get("snapshot_hash", "")))
+        for ref in leaves
+    )
+    if not ok:
+        raise RegistryError(
+            "run config has no resolved data_snapshots {symbol: {timeframe: {source, "
+            "snapshot_hash}}}; resolve the pipeline config before starting a run",
+            stage="registry",
+        )
 
 
 def git_sha(cwd: Path | None = None) -> str:
@@ -193,6 +221,8 @@ class RegistryWriter:
     def start_run(
         self, config: Mapping[str, Any], seed: int, notes: str = "", code_version: str | None = None
     ) -> uuid.UUID:
+        """Record a new run; the config must carry resolved ``data_snapshots`` (T10a)."""
+        require_snapshots(config)
         run_id = uuid.uuid4()
         with self.engine.begin() as conn:
             conn.execute(

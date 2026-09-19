@@ -1,0 +1,32 @@
+# Data-quality checks (F-0.1.6, T05). Validated by strategy_factory.data.config.QualityConfig.
+# Severities: critical blocks the snapshot from the pipeline; warning and info are reported.
+
+weekly_window:                 # 24x5 markets (fx, metal, energy_cfd, index_cfd), local time
+  timezone: America/New_York
+  week_open: "SUN 17:00"       # first expected bar start of the week
+  week_close: "FRI 17:00"      # no bar starts at or after this
+break_detection:               # daily break learned from the data (modal missing local hour)
+  min_share: 0.5               # the hour is missing on at least this share of trading days
+  max_gap_hours: 3             # longer runs of missing bars (holidays) are not the break
+missing_bars:
+  warning_above_pct: 2.0       # missing share of expected bars: info up to 2 %, warning above
+schema_checks:
+  severity: critical           # duplicates, high < low, OHLC outside range, non-positive, NaN
+price_spikes:
+  window: 50                   # trailing log returns for the rolling median / MAD
+  k: 15.0                      # |r - median| > k * MAD ...
+  reversal_fraction: 0.5       # ... and the next return reverses at least half of the move
+  severity: warning
+stale_prices:
+  min_run: 5                   # >= 5 identical OHLC bars in a row
+  severity: warning
+zero_volume:                   # skipped when volume_quality is none
+  warning_above_share: 0.05    # info up to 5 % zero-volume bars, warning above
+dst:                           # exchange-local sources only (original_tz != UTC), intraday
+  window_days: 10              # modal local first-bar time compared 10 days before/after
+  severity: warning
+session_violations:
+  severity: warning
+sessions_file: configs/calendars/nyse_sessions.csv   # us_equity schedule (Alpaca calendar, T04e)
+us_equity_timezone: America/New_York
+us_equity_first_bar: "09:00"   # RTH_hour_aligned: the 09:00 bar includes 09:30-10:00

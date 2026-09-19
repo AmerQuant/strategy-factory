@@ -66,6 +66,20 @@ class RawRef(BaseModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class SnapshotKey(BaseModel):
+    """Catalog key of one snapshot (same key as the catalog and the registry)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    timeframe: str = Field(min_length=1)
+    snapshot_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    def short(self) -> str:
+        return f"{self.source}/{self.symbol}/{self.timeframe}/{self.snapshot_hash[:12]}"
+
+
 class SeriesMetadata(BaseModel):
     """Metadata of one bar series; store fields are filled by the snapshot store."""
 
@@ -90,6 +104,8 @@ class SeriesMetadata(BaseModel):
     value_final_time_local: str | None = None
     value_final_tz: str | None = None
     value_final_status: ValueFinalStatus | None = None
+    # derived snapshots (resampling, F-0.1.7): catalog key of the parent snapshot
+    derived_from: SnapshotKey | None = None
     # content-hash serialization version (see strategy_factory.data.hashing)
     hash_version: int = Field(default=2, ge=1)
     # filled by the store
@@ -138,6 +154,17 @@ class SeriesMetadata(BaseModel):
     @property
     def is_stored(self) -> bool:
         return self.snapshot_hash is not None
+
+    def key(self) -> SnapshotKey:
+        """Catalog key; only for stored snapshots."""
+        if self.snapshot_hash is None:
+            raise ValueError("snapshot is not stored (no snapshot_hash)")
+        return SnapshotKey(
+            source=self.source,
+            symbol=self.symbol,
+            timeframe=self.timeframe,
+            snapshot_hash=self.snapshot_hash,
+        )
 
 
 class ValidationIssue(BaseModel):
@@ -261,6 +288,8 @@ __all__ = [
     "RawRef",
     "SeriesMetadata",
     "Session",
+    "Severity",
+    "SnapshotKey",
     "ValidationIssue",
     "ValueFinalStatus",
     "VolumeQuality",

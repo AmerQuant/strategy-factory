@@ -1,0 +1,10 @@
+# Sample pipeline config on the references that exist today: the Dukascopy h1 pilot snapshots
+# (T10a). `sfac config resolve configs/pipeline/sample_h1.yaml` fills data_snapshots.
+universe: configs/universe.yaml
+symbols: [EURUSD, XAUUSD, USA500IDXUSD]
+timeframes: [1H]
+stages: [s01_edge, s02_screen, s03_entry]
+gates: configs/gates/default.yaml
+intrabar_mode: pessimistic
+seed: 42
+cost_stress: [1.5, 2.0, 3.0]

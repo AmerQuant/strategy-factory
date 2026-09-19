@@ -1,0 +1,10 @@
+# MVP daily pipeline config (T10a). Resolves once the Alpaca daily ingest has run
+# (reference 1D snapshots for SPY, QQQ, AAPL).
+universe: configs/universe.yaml
+symbols: [SPY, QQQ, AAPL]
+timeframes: [1D]
+stages: [s01_edge, s02_screen, s03_entry]
+gates: configs/gates/default.yaml
+intrabar_mode: pessimistic
+seed: 42
+cost_stress: [1.5, 2.0, 3.0]

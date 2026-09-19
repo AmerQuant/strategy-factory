@@ -7,7 +7,14 @@ from typing import Any
 from sqlalchemy import Engine, func, literal, select
 
 from strategy_factory.core.errors import RegistryError
-from strategy_factory.registry.tables import candidates, gate_results, pipeline_runs, trials
+from strategy_factory.registry.tables import (
+    SNAPSHOT_KEY,
+    candidates,
+    gate_results,
+    pipeline_runs,
+    splits,
+    trials,
+)
 
 
 def _ancestors_cte(candidate_id: str) -> Any:
@@ -159,3 +166,11 @@ def format_plan(plan: dict[str, Any]) -> str:
         "       4) run the stage with spec_hash + params and the seed  5) compare bit-for-bit",
     ]
     return "\n".join(lines)
+
+
+def get_split(engine: Engine, key: dict[str, Any]) -> dict[str, Any] | None:
+    """The registered split of one snapshot key ``(snapshot_hash, source, symbol, timeframe)``."""
+    stmt = select(splits).where(*[splits.c[c] == key[c] for c in SNAPSHOT_KEY])
+    with engine.connect() as conn:
+        row = conn.execute(stmt).first()
+    return dict(row._mapping) if row is not None else None

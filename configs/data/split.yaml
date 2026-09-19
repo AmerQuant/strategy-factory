@@ -1,0 +1,7 @@
+# Development / embargo / holdout split (F-0.6.1, T05). Validated by
+# strategy_factory.data.config.SplitConfig.
+holdout_fraction: 0.20         # last 20 % of the time span ...
+holdout_min_months: 18         # ... but at least 18 months
+max_lookback_bars: 200         # embargo = max indicator lookback + max holding period (bars);
+max_holding_bars: 50           # both from config until the components provide them
+min_expected_holdout_trades: 30   # warning below (spec: longer incubation)

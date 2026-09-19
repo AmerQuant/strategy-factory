@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import zoneinfo
 from pathlib import Path
 from typing import Literal
 
@@ -22,6 +23,7 @@ from pydantic import (
 )
 
 from strategy_factory.core.errors import ConfigError
+from strategy_factory.data.schema import Severity
 
 DEFAULT_ALPACA_CONFIG = Path("configs") / "data" / "alpaca.yaml"
 
@@ -255,3 +257,182 @@ def load_aux_config(path: Path | None = None) -> AuxConfig:
         return AuxConfig.model_validate(_read_yaml(target))
     except ValidationError as exc:
         raise ConfigError(f"invalid aux config: {exc}", config_path=target) from exc
+
+
+# --------------------------------------------------------------------------------------
+# T05: expected schedules, quality checks, resampling, split (F-0.1.6, F-0.1.7, F-0.6.1)
+# --------------------------------------------------------------------------------------
+_WEEKDAYS = {"MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6, "SUN": 7}
+
+
+def _iana(value: str) -> str:
+    try:
+        zoneinfo.ZoneInfo(value)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(f"unknown IANA time zone {value!r}") from exc
+    return value
+
+
+def week_minute(value: str) -> int:
+    """Minutes since Monday 00:00 of a ``DDD HH:MM`` value (e.g. ``SUN 17:00``)."""
+    day, _, hhmm = value.partition(" ")
+    t = dt.time.fromisoformat(hhmm)
+    return (_WEEKDAYS[day.upper()] - 1) * 1440 + t.hour * 60 + t.minute
+
+
+class WeeklyWindowConfig(_Frozen):
+    """Trading week of the 24x5 markets (fx, metal, energy_cfd, index_cfd), in local time.
+
+    A bar is expected when its local start lies in ``[week_open, week_close)`` and its local
+    hour is not the daily break (learned from the data).
+    """
+
+    timezone: str = "America/New_York"
+    week_open: str = "SUN 17:00"
+    week_close: str = "FRI 17:00"
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, value: str) -> str:
+        return _iana(value)
+
+    @field_validator("week_open", "week_close")
+    @classmethod
+    def _day_time(cls, value: str) -> str:
+        day, _, hhmm = value.partition(" ")
+        if day.upper() not in _WEEKDAYS:
+            raise ValueError(f"expected 'DDD HH:MM' (e.g. 'SUN 17:00'), got {value!r}")
+        _hhmm(hhmm)
+        return value
+
+
+class BreakDetectionConfig(_Frozen):
+    """Learning the daily break of 24x5 markets from the data."""
+
+    min_share: float = Field(default=0.5, gt=0, le=1)
+    max_gap_hours: int = Field(default=3, gt=0)
+
+
+class MissingBarsConfig(_Frozen):
+    warning_above_pct: float = Field(default=2.0, ge=0)
+
+
+class SchemaCheckConfig(_Frozen):
+    severity: Severity = "critical"
+
+
+class PriceSpikeConfig(_Frozen):
+    window: int = Field(default=50, gt=2)
+    k: float = Field(default=15.0, gt=0)
+    reversal_fraction: float = Field(default=0.5, gt=0)
+    severity: Severity = "warning"
+
+
+class StalePriceConfig(_Frozen):
+    min_run: int = Field(default=5, ge=2)
+    severity: Severity = "warning"
+
+
+class ZeroVolumeConfig(_Frozen):
+    warning_above_share: float = Field(default=0.05, ge=0, le=1)
+
+
+class DstCheckConfig(_Frozen):
+    window_days: int = Field(default=10, gt=0)
+    severity: Severity = "warning"
+
+
+class SessionViolationConfig(_Frozen):
+    severity: Severity = "warning"
+
+
+class QualityConfig(_Frozen):
+    weekly_window: WeeklyWindowConfig = Field(default_factory=WeeklyWindowConfig)
+    break_detection: BreakDetectionConfig = Field(default_factory=BreakDetectionConfig)
+    missing_bars: MissingBarsConfig = Field(default_factory=MissingBarsConfig)
+    schema_checks: SchemaCheckConfig = Field(default_factory=SchemaCheckConfig)
+    price_spikes: PriceSpikeConfig = Field(default_factory=PriceSpikeConfig)
+    stale_prices: StalePriceConfig = Field(default_factory=StalePriceConfig)
+    zero_volume: ZeroVolumeConfig = Field(default_factory=ZeroVolumeConfig)
+    dst: DstCheckConfig = Field(default_factory=DstCheckConfig)
+    session_violations: SessionViolationConfig = Field(default_factory=SessionViolationConfig)
+    sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
+    us_equity_timezone: str = "America/New_York"
+    us_equity_first_bar: str = "09:00"
+
+    @field_validator("us_equity_first_bar")
+    @classmethod
+    def _first_bar(cls, value: str) -> str:
+        return _hhmm(value)
+
+    @field_validator("us_equity_timezone")
+    @classmethod
+    def _eq_tz(cls, value: str) -> str:
+        return _iana(value)
+
+
+class BrokerSessionConfig(_Frozen):
+    """Session start of the ``broker_session`` resampling mode (parity tests only)."""
+
+    timezone: str = "America/New_York"
+    start: str = "17:00"
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, value: str) -> str:
+        return _iana(value)
+
+    @field_validator("start")
+    @classmethod
+    def _start(cls, value: str) -> str:
+        return _hhmm(value)
+
+
+class ResampleConfig(_Frozen):
+    min_source_fraction: float = Field(default=0.5, gt=0, le=1)
+    broker_session: BrokerSessionConfig = Field(default_factory=BrokerSessionConfig)
+
+
+class SplitConfig(_Frozen):
+    holdout_fraction: float = Field(default=0.20, gt=0, lt=1)
+    holdout_min_months: int = Field(default=18, ge=1)
+    max_lookback_bars: int = Field(default=200, ge=0)
+    max_holding_bars: int = Field(default=50, ge=0)
+    min_expected_holdout_trades: float = Field(default=30, ge=0)
+
+    @property
+    def embargo_bars(self) -> int:
+        """Embargo = max indicator lookback + max holding period (bars)."""
+        return self.max_lookback_bars + self.max_holding_bars
+
+
+DEFAULT_QUALITY_CONFIG = Path("configs") / "data" / "quality.yaml"
+DEFAULT_RESAMPLE_CONFIG = Path("configs") / "data" / "resample.yaml"
+DEFAULT_SPLIT_CONFIG = Path("configs") / "data" / "split.yaml"
+
+
+def _load_model[M: BaseModel](model: type[M], default: Path, path: Path | None, label: str) -> M:
+    target = path if path is not None else default
+    if not target.is_file():
+        if path is not None:
+            raise ConfigError("config file not found", config_path=target)
+        return model()
+    try:
+        return model.model_validate(_read_yaml(target))
+    except ValidationError as exc:
+        raise ConfigError(f"invalid {label} config: {exc}", config_path=target) from exc
+
+
+def load_quality_config(path: Path | None = None) -> QualityConfig:
+    """Load ``configs/data/quality.yaml`` (or ``path``); defaults if that file is absent."""
+    return _load_model(QualityConfig, DEFAULT_QUALITY_CONFIG, path, "quality")
+
+
+def load_resample_config(path: Path | None = None) -> ResampleConfig:
+    """Load ``configs/data/resample.yaml`` (or ``path``); defaults if that file is absent."""
+    return _load_model(ResampleConfig, DEFAULT_RESAMPLE_CONFIG, path, "resample")
+
+
+def load_split_config(path: Path | None = None) -> SplitConfig:
+    """Load ``configs/data/split.yaml`` (or ``path``); defaults if that file is absent."""
+    return _load_model(SplitConfig, DEFAULT_SPLIT_CONFIG, path, "split")
