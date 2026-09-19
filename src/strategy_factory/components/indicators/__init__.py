@@ -1,1 +1,101 @@
 """Technical indicators (each with a data-truncation leakage test)."""
+
+# Pure NumPy/Numba functions on float64 arrays following TradingView conventions: NaN wherever
+# TradingView returns ``na``; seeding documented per function and verified against the golden
+# exports in ``tests/fixtures/tv_golden``.
+
+from strategy_factory.components.indicators.averages import (
+    ema,
+    hma,
+    kama,
+    rma,
+    sma,
+    sma_slope,
+    wma,
+)
+from strategy_factory.components.indicators.channels import (
+    Channel,
+    donchian,
+    highest,
+    highest_bars,
+    lowest,
+    lowest_bars,
+)
+from strategy_factory.components.indicators.oscillators import (
+    MACD,
+    Stochastic,
+    connors_rsi,
+    ibs,
+    macd,
+    momentum,
+    percent_rank,
+    roc,
+    rsi,
+    stochastic,
+    updown_streak,
+    williams_r,
+    zscore,
+)
+from strategy_factory.components.indicators.trend import (
+    DMI,
+    Aroon,
+    Ichimoku,
+    Supertrend,
+    aroon,
+    dmi,
+    ichimoku,
+    psar,
+    supertrend,
+)
+from strategy_factory.components.indicators.volatility import (
+    Bands,
+    atr,
+    bollinger,
+    keltner,
+    stdev,
+    true_range,
+)
+
+__all__ = [
+    "DMI",
+    "MACD",
+    "Aroon",
+    "Bands",
+    "Channel",
+    "Ichimoku",
+    "Stochastic",
+    "Supertrend",
+    "aroon",
+    "atr",
+    "bollinger",
+    "connors_rsi",
+    "dmi",
+    "donchian",
+    "ema",
+    "highest",
+    "highest_bars",
+    "hma",
+    "ibs",
+    "ichimoku",
+    "kama",
+    "keltner",
+    "lowest",
+    "lowest_bars",
+    "macd",
+    "momentum",
+    "percent_rank",
+    "psar",
+    "rma",
+    "roc",
+    "rsi",
+    "sma",
+    "sma_slope",
+    "stdev",
+    "stochastic",
+    "supertrend",
+    "true_range",
+    "updown_streak",
+    "williams_r",
+    "wma",
+    "zscore",
+]

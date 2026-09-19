@@ -1,0 +1,26 @@
+# Edge-type registry (F-0.4.3; spec addendum edge types v0.1 §1.1).
+# Validated by strategy_factory.components.edges.EdgeTypes. Entry components reference an
+# edge type by `id`; stage-1 probes also reference one of its `groups` (breadth is counted
+# per group, spec v1.2 stage 1). New edge types (PB, VS, FB, IM, OR) are added here only.
+edge_types:
+  - id: MR
+    name_en: mean reversion
+    name_fa: بازگشت به میانگین
+    groups:
+      - {id: oscillator, name_fa: اسیلاتور}
+      - {id: band_channel, name_fa: باند/کانال}
+      - {id: sequence, name_fa: توالی}
+      - {id: momentum, name_fa: مومنتوم}
+  - id: TF
+    name_en: trend following
+    name_fa: ترندفالوئینگ
+    groups:
+      - {id: ma, name_fa: میانگین متحرک}
+      - {id: channel_breakout, name_fa: شکست کانال}
+      - {id: volatility_trailing, name_fa: تریلینگ نوسانی}
+      - {id: ichimoku, name_fa: ایچیموکو}
+      - {id: momentum, name_fa: مومنتوم}
+  - id: SEASONAL
+    name_en: seasonal
+    name_fa: سیزنال
+    groups: []
