@@ -7,3 +7,4 @@
 *.zip binary
 *.parquet binary
 *.png binary
+*.gz binary
