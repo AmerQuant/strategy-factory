@@ -8,6 +8,7 @@ registered class.
 from __future__ import annotations
 
 import importlib
+import pkgutil
 from typing import Any, TypeVar
 
 from strategy_factory.components.base import (
@@ -27,8 +28,14 @@ from strategy_factory.components.edges import EdgeTypes
 
 T = TypeVar("T", bound=type[Any])
 
-# Modules holding the built-in components; imported by :func:`default_registry`.
-BUILTIN_MODULES = ("strategy_factory.components.entries.probes",)
+# Packages whose modules hold built-in components; every module in them is imported by
+# :func:`default_registry`, so a new method file needs no change here.
+COMPONENT_PACKAGES = (
+    "strategy_factory.components.entries",
+    "strategy_factory.components.exits",
+    "strategy_factory.components.filters",
+    "strategy_factory.components.sizing",
+)
 
 
 class ComponentRegistry:
@@ -122,7 +129,9 @@ register = REGISTRY.register
 
 
 def default_registry() -> ComponentRegistry:
-    """The process-wide registry with all built-in components imported."""
-    for module in BUILTIN_MODULES:
-        importlib.import_module(module)
+    """The process-wide registry with every module of :data:`COMPONENT_PACKAGES` imported."""
+    for package_name in COMPONENT_PACKAGES:
+        package = importlib.import_module(package_name)
+        for info in pkgutil.walk_packages(package.__path__, prefix=f"{package_name}."):
+            importlib.import_module(info.name)
     return REGISTRY

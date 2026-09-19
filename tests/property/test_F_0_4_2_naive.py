@@ -11,12 +11,15 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from strategy_factory.components import indicators as ind
 
 EPS = 1e-10  # TradingView float-noise threshold (see indicators._core.TV_EPS)
+# The first call of each kernel may include Numba JIT compilation (cold cache), which would
+# trip Hypothesis' per-example deadline as a spurious "unreliable timing" failure.
+NO_DEADLINE = settings(deadline=None)
 Series = list[float | None]
 
 # ----------------------------------------------------------------------------- inputs
@@ -341,6 +344,7 @@ def n_psar(h: list[float], lo: list[float], c: list[float], s: float, inc: float
 # ----------------------------------------------------------------------------- tests
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths)
 def test_F_0_4_2_naive_moving_averages(bars, n: int) -> None:
     _, _, _, c = bars
@@ -352,6 +356,7 @@ def test_F_0_4_2_naive_moving_averages(bars, n: int) -> None:
     same(ind.sma_slope(x, n), sub(n_sma(c, n), n_shift(n_sma(c, n), 1)))
 
 
+@NO_DEADLINE
 @given(ohlc(), st.integers(2, 16))
 def test_F_0_4_2_naive_hma(bars, n: int) -> None:
     c = bars[3]
@@ -359,6 +364,7 @@ def test_F_0_4_2_naive_hma(bars, n: int) -> None:
     same(ind.hma(np.array(c), n), n_wma(raw, math.isqrt(n)))
 
 
+@NO_DEADLINE
 @given(ohlc(), st.integers(1, 12), st.integers(1, 5), st.integers(6, 40))
 def test_F_0_4_2_naive_kama(bars, n: int, fast: int, slow: int) -> None:
     c = bars[3]
@@ -377,6 +383,7 @@ def test_F_0_4_2_naive_kama(bars, n: int, fast: int, slow: int) -> None:
     same(ind.kama(np.array(c), n, fast, slow), exp)
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths, st.floats(0.5, 3.0))
 def test_F_0_4_2_naive_volatility(bars, n: int, mult: float) -> None:
     _, h, lo, c = bars
@@ -415,6 +422,7 @@ def test_F_0_4_2_naive_volatility(bars, n: int, mult: float) -> None:
         )
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths)
 def test_F_0_4_2_naive_channels(bars, n: int) -> None:
     _, h, lo, _ = bars
@@ -437,6 +445,7 @@ def test_F_0_4_2_naive_channels(bars, n: int) -> None:
     )
 
 
+@NO_DEADLINE
 @given(ohlc(), st.integers(1, 6), st.integers(7, 12), st.integers(13, 20))
 def test_F_0_4_2_naive_ichimoku(bars, a: int, b: int, s: int) -> None:
     _, h, lo, _ = bars
@@ -460,6 +469,7 @@ def test_F_0_4_2_naive_ichimoku(bars, a: int, b: int, s: int) -> None:
     same(ich.span_b_raw, mid(s))
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths)
 def test_F_0_4_2_naive_oscillators(bars, n: int) -> None:
     _, h, lo, c = bars
@@ -486,6 +496,7 @@ def test_F_0_4_2_naive_oscillators(bars, n: int) -> None:
     same(ind.updown_streak(C), n_streak(c))
 
 
+@NO_DEADLINE
 @given(ohlc(), st.integers(1, 6), st.integers(7, 12), st.integers(1, 5))
 def test_F_0_4_2_naive_macd(bars, fast: int, slow: int, sig: int) -> None:
     c = bars[3]
@@ -497,6 +508,7 @@ def test_F_0_4_2_naive_macd(bars, fast: int, slow: int, sig: int) -> None:
     same(m.hist, sub(line, signal))
 
 
+@NO_DEADLINE
 @given(ohlc(), st.integers(1, 4), st.integers(1, 3), st.integers(1, 10))
 def test_F_0_4_2_naive_connors_rsi(bars, a: int, b: int, r: int) -> None:
     c = bars[3]
@@ -504,6 +516,7 @@ def test_F_0_4_2_naive_connors_rsi(bars, a: int, b: int, r: int) -> None:
     same(ind.connors_rsi(np.array(c), a, b, r), exp)
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths, lengths)
 def test_F_0_4_2_naive_dmi(bars, n: int, m: int) -> None:
     _, h, lo, c = bars
@@ -514,6 +527,7 @@ def test_F_0_4_2_naive_dmi(bars, n: int, m: int) -> None:
     same(d.adx, adx)
 
 
+@NO_DEADLINE
 @given(ohlc(), lengths, st.floats(0.5, 4.0))
 def test_F_0_4_2_naive_supertrend(bars, n: int, f: float) -> None:
     _, h, lo, c = bars
@@ -523,6 +537,7 @@ def test_F_0_4_2_naive_supertrend(bars, n: int, f: float) -> None:
     same(st_.direction, dirs)
 
 
+@NO_DEADLINE
 @given(ohlc(), st.floats(0.01, 0.05), st.floats(0.01, 0.05), st.floats(0.1, 0.3))
 def test_F_0_4_2_naive_psar(bars, s: float, inc: float, mx: float) -> None:
     _, h, lo, c = bars

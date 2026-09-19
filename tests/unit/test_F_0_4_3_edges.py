@@ -122,7 +122,7 @@ def reflect(b: Bars) -> Bars:
     return Bars(k - b.open, k - b.low, k - b.high, k - b.close)
 
 
-@settings(max_examples=25)
+@settings(max_examples=25, deadline=None)  # deadline off: first call may JIT-compile
 @given(
     seed=st.integers(0, 2**32 - 1),
     n=st.integers(60, 260),
