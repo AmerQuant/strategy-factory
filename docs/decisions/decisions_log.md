@@ -22,7 +22,7 @@ This is the single source of truth for all decisions made so far, including thos
 | D-010 | Timestamps are UTC, bar-start. Day boundary is **00:00 UTC**. For `fx`, `metal`, `energy_cfd` and `index_cfd`, Sunday hours are merged into Monday. `broker_session` resampling is for parity only. | accepted |
 | D-011 | Parity with TradingView: ≥ 98 % of trades matched, net-profit difference ≤ 3 %. | accepted |
 | D-012 | A trial is any evaluated configuration that can influence selection. Monte-Carlo and bootstrap simulations are not trials; only their distribution summaries are stored. | accepted |
-| D-013 | Costs are mandatory. Until the broker is known, **placeholder profiles** (T06 table) are used and every result carries a `cost_placeholder` flag. | accepted |
+| D-013 | Costs are mandatory. Until real profiles are built, **placeholder profiles** (T06 table) are used and every result carries a `cost_placeholder` flag. | superseded by D-520 once T06b is merged |
 | D-014 | Auxiliary series are joined as-of (last **closed** value only). A series whose close time is `to_verify` gets **one extra day of lag**. Currently only ^VIX is verified (16:15 America/New_York). | accepted |
 
 ## B. Data
@@ -46,9 +46,9 @@ This is the single source of truth for all decisions made so far, including thos
 ## C. Futures (P1)
 | ID | Decision | Status |
 |---|---|---|
-| D-060 | Source: the TradeStation 1H export (`raw/futures/tradestation/1H`, 64 roots, 2006 → 2025-07-09). Additive back-adjustment (negative prices exist). Labels are **bar-end**, exchange-local time (US/Central; ICE softs assumed US/Eastern, `to_verify`). The adapter converts to bar-start UTC. | accepted (roll rule unknown) |
+| D-060 | Source: the TradeStation 1H export (`raw/futures/tradestation/1H`, 64 roots, 2006 → 2025-07-09). The data shows **additive back-adjustment** (negative prices exist). Labels are **bar-end**, in exchange-local time: America/Chicago for CME/CBOT/NYMEX/COMEX, America/New_York for ICE softs (CC, CT, KC, OJ, SB). The adapter converts to bar-start UTC. The roll rule is **unknown and treated as irrelevant**: the adapter never needs it, and roll gaps are already removed by the back-adjustment. The `- Copy` and `.bak` files are **ignored**. Assumptions are marked `to_verify` in the metadata. | accepted |
 | D-061 | Futures are sized in **contracts**; P&L = Δpoints × point value (`$/Big Point` from the export header). Signals and ATR are in points, never in percent. **This is an engine design change and must be in T08's contract** (qty in contracts when asset_class = futures). | accepted |
-| D-062 | Futures daily bars are built from 1H. `1440min` / `Daily` are not imported. | proposed |
+| D-062 | Futures daily bars are built from 1H. `1440min` / `Daily` are not imported. | accepted |
 
 ## D. Pipeline stages
 | ID | Decision | Status |
@@ -72,6 +72,21 @@ This is the single source of truth for all decisions made so far, including thos
 | D-200 | Stage 11: fixed notional is the baseline. Dynamic sizing risks 1 % of capital up to the disaster stop, and is adopted only if it improves out-of-sample. | accepted |
 | D-210 | Stage 12: incubation of 3 months or 30 trades, whichever is later. Suspension triggers: DD > MC p95, losing streak > p99, CUSUM, slippage drift. Quarterly revalidation; every parameter change is a new version. | accepted |
 
+## D2. Edge-type addendum (spec_addendum_edge_types_v0_1.md §8)
+| ID | Decision | Status |
+|---|---|---|
+| D-230 | Edge types are defined by config (registry, ADR-012); adding a type needs no code change. | accepted |
+| D-231 | False breakout (FB) is an independent edge type. | accepted |
+| D-232 | A conditional baseline for PB and a session-anchored baseline for OR. | accepted |
+| D-233 | Breadth is counted over the groups applicable to the symbol; at least 4 applicable groups. | accepted |
+| D-234 | Cross-type trade overlap on one symbol is report-only; control happens at portfolio level. | accepted |
+| D-235 | IM is for US equities and indices only. | accepted |
+| D-236 | Long-only groups are allowed with `mirror: false` and a written reason. | accepted |
+| D-237 | The forbidden filter families per type follow addendum §1.5. | accepted |
+| D-238 | 4H bars are used only for 24h markets. | accepted |
+| D-239 | OR entry is at the open of the session's 2nd bar. | accepted |
+| D-240 | **All five new edge types (PB, FB, VS, IM, OR) are implemented after the MVP.** | accepted |
+
 ## E. Engine and metrics contract (from reviews)
 | ID | Decision | Status |
 |---|---|---|
@@ -82,6 +97,13 @@ This is the single source of truth for all decisions made so far, including thos
 | D-304 | `start_run` requires resolved data snapshots in the run config (enforced in T10a). | accepted |
 | D-305 | Local registry: Docker Postgres on port **5433** (a native Windows Postgres uses 5432). | accepted |
 
+| D-306 | `SplitManager.open_holdout` takes a `stage` argument and rejects any caller other than stage 6 (`s06_robust`). It is enforced in code, not only in the pipeline context. | accepted |
+| D-307 | **Non-USD quote currencies:** P&L and costs are computed in the quote currency and converted to USD with the conversion pair's **close at the same bar** (MTM each bar; realized at the exit bar). The pairs are EURUSD, GBPUSD, USDJPY, USDCHF, USDCAD, AUDUSD and NZDUSD from Dukascopy. **HKD uses the fixed peg 7.80** with a flag, because there is no USDHKD data. This is an engine requirement (T08). | accepted |
+| D-308 | Stage-6 Monte Carlo drawdown gate: the p95 of the max drawdown (% of initial capital) must be ≤ **25 %**. It is configurable and will be calibrated later. | accepted |
+| D-309 | **One registry of metric names.** The metrics module defines the names; the gate YAML is validated against that registry when it loads, and an unknown metric is an error. The names in T09's `as_gate_dict()` and in T10a's `default.yaml` must be reconciled (batch 2b). | accepted |
+| D-310 | The FX/CFD trading week runs from Sunday 17:00 to Friday 17:00 America/New_York. The daily break is learned in New York local time. | accepted |
+| D-311 | Keeping the base exit in stage 4 is stage logic, not a gate. Symbol groups equal the asset class until P1. The embargo default is 200 + 50 bars, and the quality thresholds (2 % missing, 15× MAD spikes, stale ≥ 5 bars, 5 % zero volume) are initial values to calibrate later. Rollover triple days come per symbol from the Moneta file (T06b). | accepted |
+
 ## F. Tooling (ADR-001 … ADR-011) and workflow
 | ID | Decision | Status |
 |---|---|---|
@@ -90,10 +112,20 @@ This is the single source of truth for all decisions made so far, including thos
 | D-402 | **Critical tasks need supervisor review before merge:** engine (T08), parity (T11), split/holdout manager and gate engine. | accepted |
 | D-403 | Workflow: Claude Code drafts the batch plan and task files from features, spec, design and this log, then **stops for supervisor approval** before coding. One session in the main folder; worktrees only when explicitly planned. | accepted |
 
+## H. Broker: Moneta Markets MT5 ECN
+The source file is `MT5Moneta-ECN_specification-1.xlsx`, provided by the user on 2026-09-19. It is to be copied immutably to `raw/reference/broker/moneta/`.
+
+| ID | Decision | Status |
+|---|---|---|
+| D-520 | The execution broker is **Moneta Markets (MT5, ECN)**. Cost profiles are generated **per symbol from the spec file**: spread (reference, in points × point size), commission model, swap model, triple day, contract size and point value. These replace the placeholders (D-013). | accepted |
+| D-521 | **Commission models from the file:** FX and metals pay `6.0 USD per lot`; US shares pay none; ETFs pay `12.0 USD per trade` (a few pay none); some EU and other shares pay `0.2 %` or `0.3 % per lot`; indices, commodities, crypto and bonds pay none. The FX `6 USD per lot` is **round turn**, confirmed by the user, i.e. **3 USD per lot per side**. | accepted |
+| D-522 | **Swap models from the file:** `in points` per lot per day (FX, metals, commodities, some crypto); `in currency` per lot per day (indices); `in percentage terms` annual on notional (shares, ETFs, most crypto). US shares and most ETFs pay **−6.88 % long / −3.5 % short**, so a charge applies on **both** sides. The triple day comes per symbol from the file: Wednesday for most FX, Friday for indices, commodities and shares. The rollover instant is server midnight. The server time is New York close aligned (GMT+2 winter / GMT+3 summer), so the rollover is **17:00 America/New_York**. | accepted |
+| D-523 | **Spread:** for FX, metals and CFDs that have Dukascopy data, the **hourly shape** comes from the Dukascopy bid/ask, **scaled so its mean equals the Moneta reference spread**. Where no data spread exists (US shares, ETFs, symbols without Dukascopy data), the Moneta reference spread is used as a fixed spread. | accepted |
+| D-524 | **US equities are traded as share CFDs.** Only **491 US shares + 57 ETFs** are tradable at the broker. Research may run on the full universe, but **the pipeline's default candidate universe is broker-tradable symbols only** (universe flag `broker_symbol`). Results for non-tradable symbols are report-only. A broker-symbol ↔ research-symbol mapping table is required, because the file uses names like `AALG` for AAL, `ABBVIE` for ABBV, `AMAZON` for AMZN, `AT&T` for T and `ALIBABA` for BABA. Build it from ticker and description matching, with a manual override file. | accepted |
+| D-525 | The long swap on share CFDs (about −6.9 %/yr) makes multi-week equity holds expensive. The cost model must apply it daily, and the stage-8 report must show the swap share of the total cost. | accepted |
+| D-526 | Futures are **research-only** (no futures account). The tradable equivalents at Moneta are the index, commodity and bond CFDs, and future strategies must be validated on the CFD's data or costs before live use. | accepted |
+
 ## G. Pending decisions
 | ID | Topic | Proposal |
 |---|---|---|
-| P-01 | Edge-type addendum §8 (10 items) | The supervisor proposals given in chat: registry via config (ADR-012); FB as an independent type; conditional and session-anchored baselines; breadth over applicable groups (min 4); cross-type overlap report-only; IM on US only; long-only groups with `mirror: false` and a reason; forbidden filters per §1.5; 4H only for 24h markets; OR entry at the open of bar 2. Types PB/FB/VS are P1, IM/OR are P2, after the MVP. |
-| P-02 | Futures | Roll rule; confirm back-adjustment and exchange time; ICE softs timezone; the `- Copy` files (D-060/062). |
-| P-03 | Broker cost profile | Real broker, spreads, commission and swap to replace the placeholders (D-013). |
-| P-04 | Parity reference exports | TradingView trade lists and OHLC for the SPX500 daily MR and one 1H TF strategy (T11). |
+| P-04 | Parity reference exports | TradingView trade lists and OHLC for the SPX500 daily MR and one 1H TF strategy (T11). **Reminder: the supervisor asks the user for these files before T11 is planned.** |
