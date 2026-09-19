@@ -14,6 +14,22 @@ jobs:
   checks:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    services:
+      postgres: # registry DB for the db-marked tests (T03, ADR-004)
+        image: postgres:16
+        env:
+          POSTGRES_USER: sfac
+          POSTGRES_PASSWORD: sfac
+          POSTGRES_DB: sfac
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sfac -d sfac"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SFAC_DB_URL: postgresql+psycopg://sfac:sfac@localhost:5432/sfac
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -27,8 +43,22 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check
         run: uv run mypy src
+      - name: Registry migrations
+        run: uv run alembic upgrade head
       - name: Tests (fast suite, incl. parity and leakage)
-        run: uv run pytest -m "not slow"
+        run: uv run pytest -m "not slow and not db"
+      - name: Registry DB tests
+        run: uv run pytest -m db -rs --junitxml=db-junit.xml
+      - name: Fail if any db test was skipped
+        run: |
+          uv run python - <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+          suites = ET.parse("db-junit.xml").getroot().iter("testsuite")
+          skipped = sum(int(s.get("skipped", 0)) for s in suites)
+          print(f"db tests skipped: {skipped}")
+          sys.exit(1 if skipped else 0)
+          EOF
 
   nightly-slow:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
