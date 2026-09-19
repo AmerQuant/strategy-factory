@@ -31,8 +31,8 @@ All columns from the task are present with these types: ids `uuid` (runs), `text
 | table | constraints / indexes (beyond the task's column list) |
 |---|---|
 | pipeline_runs | `CHECK status IN (running, done, failed, aborted)`; `status` default `running`, `notes` default `''` |
-| data_snapshots | pk `snapshot_hash`; `is_reference` default false |
-| splits | `UNIQUE(symbol, timeframe, snapshot_hash)`; **FK `snapshot_hash → data_snapshots`**; `CHECK embargo_bars >= 0` |
+| data_snapshots | pk **`(snapshot_hash, source, symbol, timeframe)`** (T02 catalog key; see follow-up); `is_reference` default false |
+| splits | `UNIQUE(snapshot_hash, source, symbol, timeframe)`; **composite FK → `data_snapshots`**; `CHECK embargo_bars >= 0` |
 | candidates | FK `parent_id → candidates.id`, FK `run_id`; `CHECK direction IN (long, short)`; `CHECK status IN (active, rejected, approved, retired)`; **`CHECK parent_id <> id`** |
 | trials | FKs `run_id`, `candidate_id` (nullable); indexes `(run_id, stage)`, `(candidate_id)`, `(family_id)` |
 | gate_results | FKs; `CHECK op IN (>=, <=, >, <, ==)`; index `(candidate_id)`; `critical` default false, `reason` default `''` |
