@@ -204,7 +204,7 @@ def percent_rank(src: np.ndarray, length: int) -> np.ndarray:
 def _streak_kernel(src):
     n = src.shape[0]
     out = np.full(n, np.nan)
-    prev = np.nan  # ud[1]; Pine's history of a `var` on bar 0 is na
+    prev = 0.0  # nz(ud[1]): a missing previous streak counts as 0
     for i in range(n):
         if i > 0 and src[i] == src[i - 1]:
             ud = 0.0
@@ -220,10 +220,10 @@ def _streak_kernel(src):
 def updown_streak(src: np.ndarray) -> np.ndarray:
     """Consecutive up (+n) / down (-n) streak of ``src``; 0 on an unchanged value.
 
-    Golden-file convention (the ``updown`` helper in ``sf_golden_indicators.pine``): the
-    previous streak ``ud[1]`` is ``na`` on bar 0, and ``na ± 1`` stays ``na``, so the streak
-    is NaN from bar 0 until the first unchanged value resets it to 0. Textbook Connors RSI
-    starts the streak at 0 on the first bar. See the T07 review (open question).
+    Standard Connors streak with TradingView's ``nz`` semantics (built-in Connors RSI): the
+    previous streak is 0 when missing, so the streak is defined from bar 0. On bar 0 there is
+    no previous value, ``src > src[1]`` is false, and the streak is -1 (as in Pine). Never NaN
+    for NaN-free input.
     """
     return _streak_kernel(as_f64(src, "src"))
 
@@ -232,8 +232,9 @@ def connors_rsi(
     close: np.ndarray, rsi_length: int = 3, streak_length: int = 2, rank_length: int = 100
 ) -> np.ndarray:
     """Connors RSI: mean of ``rsi(close, rsi_length)``, ``rsi(streak, streak_length)`` and
-    ``percent_rank(roc(close, 1), rank_length)``. NaN if any part is NaN; inherits the
-    streak convention of :func:`updown_streak`."""
+    ``percent_rank(roc(close, 1), rank_length)``. NaN if any part is NaN, so the first value
+    is at bar ``max(rsi_length, streak_length, rank_length)``; streak as in
+    :func:`updown_streak`."""
     rsi_length = check_length(rsi_length, "rsi_length")
     streak_length = check_length(streak_length, "streak_length")
     rank_length = check_length(rank_length, "rank_length")

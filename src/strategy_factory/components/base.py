@@ -29,6 +29,7 @@ from strategy_factory.core.errors import ConfigError
 
 Role = Literal["entry", "exit", "filter", "sizing"]
 Direction = Literal["long", "short"]
+Trigger = Literal["state", "event"]
 ParamKind = Literal["int", "float", "choice"]
 ParamValue = int | float | str
 FloatArray = npt.NDArray[np.float64]
@@ -36,6 +37,7 @@ BoolArray = npt.NDArray[np.bool_]
 
 ROLES: tuple[Role, ...] = ("entry", "exit", "filter", "sizing")
 DIRECTIONS: tuple[Direction, ...] = ("long", "short")
+TRIGGERS: tuple[Trigger, ...] = ("state", "event")
 NOT_MIRRORED_MARKER = "Not mirrored:"
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -241,6 +243,10 @@ class EntryComponent(ABC):
     directions: ClassVar[tuple[Direction, ...]] = DIRECTIONS
     mirror: ClassVar[bool] = True
     group: ClassVar[str | None] = None  # probe group inside the edge type (stage 1)
+    # "state": the condition is true on every bar it holds (thresholds, levels);
+    # "event": true only on the bar the condition starts (crossovers, breakouts, flips).
+    # Required for probes (components with a group).
+    trigger: ClassVar[Trigger | None] = None
 
     @classmethod
     @abstractmethod

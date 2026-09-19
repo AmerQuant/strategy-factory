@@ -9,6 +9,11 @@ All probes follow the mirror rule: the short signal is the long rule on the mirr
 (``Bars.mirrored``), e.g. "close below the lower band" becomes "close above the upper band".
 Breakouts are close-based (spec addendum §1.6): the close is compared with the channel of the
 *previous* bar. NaN (warm-up) never produces a signal.
+
+``trigger`` classifies each rule: ``state`` probes (thresholds and level comparisons) are true
+on every bar the condition holds; ``event`` probes (crossovers, channel breakouts, flips) mark
+the bar a condition starts. A Donchian breakout compares with the prior bars' channel, so it
+can repeat on consecutive bars when each bar makes a new extreme (each is a new breakout).
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from strategy_factory.components.base import (
     FloatArray,
     ParamSpec,
     ParamValue,
+    Trigger,
 )
 from strategy_factory.components.registry import register
 
@@ -76,6 +82,7 @@ def _threshold(
 class _Probe(EntryComponent):
     edge_type: ClassVar[str]
     group: ClassVar[str | None]
+    trigger: ClassVar[Trigger | None]
 
 
 # ------------------------------------------------------------------------------ MR probes
@@ -95,6 +102,7 @@ class MrRsi2Below10(_RsiBelow):
     """RSI(2) < 10 (short: RSI(2) > 90)."""
 
     name = "mr_rsi2_below_10"
+    trigger = "state"
     params = (
         _length("length", 2, (2, 3, 4, 5), 2, 14),
         _threshold("threshold", 10.0, (5.0, 10.0, 15.0, 20.0), 1.0, 40.0, 1.0),
@@ -106,6 +114,7 @@ class MrRsi5Below30(_RsiBelow):
     """RSI(5) < 30 (short: RSI(5) > 70)."""
 
     name = "mr_rsi5_below_30"
+    trigger = "state"
     params = (
         _length("length", 5, (3, 5, 7, 9), 2, 14),
         _threshold("threshold", 30.0, (20.0, 25.0, 30.0, 35.0), 1.0, 45.0, 1.0),
@@ -117,6 +126,7 @@ class MrIbsBelow(_Probe):
     """IBS < 0.2 (short: IBS > 0.8). Bars with high == low have no IBS and no signal."""
 
     name = "mr_ibs_below_0_2"
+    trigger = "state"
     edge_type = "MR"
     group = "oscillator"
     params = (_threshold("threshold", 0.2, (0.1, 0.2, 0.3, 0.4), 0.05, 0.5, 0.05),)
@@ -131,6 +141,7 @@ class MrCloseBelowBollinger(_Probe):
     """Close below the lower Bollinger band (20, 2) (short: close above the upper band)."""
 
     name = "mr_close_below_bb_lower"
+    trigger = "state"
     edge_type = "MR"
     group = "band_channel"
     params = (
@@ -150,6 +161,7 @@ class MrDonchianNewLow(_Probe):
     20 bars (short: close above the highest high of the prior 20 bars)."""
 
     name = "mr_donchian20_new_low"
+    trigger = "event"
     edge_type = "MR"
     group = "band_channel"
     params = (_length("length", 20, (10, 20, 30, 40), 5, 100),)
@@ -164,6 +176,7 @@ class MrZscoreBelow(_Probe):
     """Z-score of close vs its 20-bar SMA < -2 (short: > +2). ``threshold`` is the magnitude."""
 
     name = "mr_zscore_below_minus_2"
+    trigger = "state"
     edge_type = "MR"
     group = "band_channel"
     params = (
@@ -181,6 +194,7 @@ class MrLowestClose(_Probe):
     """Close is the lowest close of the last 7 bars, current bar included (short: highest)."""
 
     name = "mr_lowest_close_7"
+    trigger = "state"
     edge_type = "MR"
     group = "band_channel"
     params = (_length("length", 7, (5, 7, 10, 14), 2, 50),)
@@ -196,6 +210,7 @@ class MrDownCloses(_Probe):
     (short: three consecutive higher closes)."""
 
     name = "mr_three_down_closes"
+    trigger = "state"
     edge_type = "MR"
     group = "sequence"
     params = (_length("count", 3, (2, 3, 4, 5), 1, 10),)
@@ -220,6 +235,7 @@ class MrMacdHistTrough(_Probe):
     probe parameter."""
 
     name = "mr_macd_hist_trough_5"
+    trigger = "state"
     edge_type = "MR"
     group = "momentum"
     params = (_length("window", 5, (3, 5, 7, 10), 2, 30),)
@@ -241,6 +257,7 @@ class TfMaSlopeUp(_Probe):
     """Slope of SMA(50) turns up: ``slope > 0`` and ``slope[1] <= 0`` (short: turns down)."""
 
     name = "tf_ma50_slope_up"
+    trigger = "event"
     edge_type = "TF"
     group = "ma"
     params = (_length("length", 50, (20, 50, 100, 200), 5, 250),)
@@ -256,6 +273,7 @@ class TfSmaCross(_Probe):
     """SMA(20) crosses above SMA(100) (short: crosses below)."""
 
     name = "tf_sma_cross_20_100"
+    trigger = "event"
     edge_type = "TF"
     group = "ma"
     params = (
@@ -283,6 +301,7 @@ class TfDonchian20Breakout(_DonchianBreakout):
     """Close above the highest high of the prior 20 bars (short: below the lowest low)."""
 
     name = "tf_donchian20_breakout"
+    trigger = "event"
     params = (_length("length", 20, (10, 20, 30, 40), 5, 100),)
 
 
@@ -291,6 +310,7 @@ class TfDonchian55Breakout(_DonchianBreakout):
     """Close above the highest high of the prior 55 bars (short: below the lowest low)."""
 
     name = "tf_donchian55_breakout"
+    trigger = "event"
     params = (_length("length", 55, (40, 55, 70, 100), 20, 200),)
 
 
@@ -299,6 +319,7 @@ class TfCloseAboveBollinger(_Probe):
     """Close above the upper Bollinger band (20, 2) (short: close below the lower band)."""
 
     name = "tf_close_above_bb_upper"
+    trigger = "state"
     edge_type = "TF"
     group = "channel_breakout"
     params = (
@@ -318,6 +339,7 @@ class TfSupertrendFlip(_Probe):
     convention, -1 = up-trend). Short: the flip on the mirrored series."""
 
     name = "tf_supertrend_flip"
+    trigger = "event"
     edge_type = "TF"
     group = "volatility_trailing"
     params = (
@@ -344,6 +366,7 @@ class TfIchimokuCloud(_Probe):
     """
 
     name = "tf_ichimoku_cloud"
+    trigger = "state"
     edge_type = "TF"
     group = "ichimoku"
     params = (
@@ -373,6 +396,7 @@ class TfRocCrossZero(_Probe):
     """
 
     name = "tf_roc20_cross_zero"
+    trigger = "event"
     edge_type = "TF"
     group = "momentum"
     params = (_length("length", 20, (10, 20, 40, 60), 2, 250),)

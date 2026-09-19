@@ -163,3 +163,65 @@ Short = long rule on the mirrored series for every probe (no `mirror: false` pro
 2. `a41c19c` F-0.4.2: indicator library with golden and naive-oracle tests (+ numpy, numba)
 3. `e64fc3f` F-0.4.1, F-0.4.3: component interface, registry, edge-type config, stage-1 probes, leakage tests
 4. F-0.4.1: registry auto-discovery, Hypothesis deadline fix, this review
+
+---
+
+## Follow-up (supervisor requests after the first review)
+
+### 1. Connors RSI: standard streak (`nz` semantics)
+- `updown_streak` now follows TradingView's built-in Connors RSI: the previous streak is `nz(ud[1])`, i.e. 0 when missing. The streak is defined from bar 0 (bar 0 = −1, because `close > close[1]` is false without a previous close, exactly as in Pine) and is never NaN for NaN-free input. Connors RSI(3, 2, 100) therefore starts at bar 100 on every series (the percent-rank warm-up). **This supersedes** the "Connors RSI streak" row of the conventions table and open question 1 above.
+- `tools/tradingview/sf_golden_indicators.pine`: `updown` now reads `prev = nz(ud[1])` and uses `prev` in the three branches. The committed `.csv.gz` exports were **not** changed; they were produced with the old helper.
+- Naive oracle (`n_streak`) switched to the same `nz` rule; the leakage case for `updown_streak` / `connors_rsi` is unchanged and passes.
+
+**Golden comparison — one deviation from the request, please confirm.** The request was to compare CONNORS_RSI_3_2_100 on the bars where the golden value is non-NaN, because both streaks are identical from the first unchanged close onward. The streaks are identical, but Connors RSI is not identical there at once: the old helper's `rsi(streak, 2)` was **SMA-seeded** at the first unchanged close, while ours carries RMA memory from bar 0. With α = 1/2 the gap halves every bar. Measured on the golden bars:
+
+| file | golden starts at bar | golden bars outside 1e-6 rel. tolerance (all at the start) | max error in that prefix | max error afterwards |
+|---|---|---|---|---|
+| SPY 1D | 100 | 0 | — | 2.8e-14 |
+| SPX500 1D | 681 | 16 | 5.3 | 7.0e-6 (within tolerance) |
+| EURUSD 1H | 209 | 15 | 0.93 | 1.0e-5 (within tolerance) |
+| XAUUSD 1H | 2040 | 14 | 4.0 | 1.5e-5 (within tolerance) |
+
+So a plain comparison "on all golden non-NaN bars" fails on three files. I did **not** widen the tolerance. The column is excluded from the generic test and checked by `test_F_0_4_2_golden_connors_rsi[<file>]`, which requires:
+1. **Exact reproduction of the golden column** (NaN positions included, 1e-6 tolerance) from our `rsi`, `updown_streak` and `percent_rank` with the legacy streak start (NaN before the first unchanged close). This checks every building block against TradingView.
+2. Our standard (nz) Connors RSI has a value on **every** golden bar, and after a prefix it matches the golden value within tolerance on every remaining bar. The prefix is at most `ceil(log2((100/3) / 1e-6)) = 25` golden bars. This bound is derived, not tuned: each RSI part is in [0, 100] with weight 1/3 in the mean, and the seed difference halves each bar.
+
+The comment in the test says to remove this special case once the golden files are re-exported with the fixed Pine script. After that, CONNORS_RSI_3_2_100 goes back to the generic test (exact NaN warm-up from bar 100).
+
+### 2. Probe `trigger` metadata
+`EntryComponent.trigger: "state" | "event"` (optional for methods). **Required for probes**, i.e. any component with a `group`: registration fails without it or with an unknown value. Every probe declares it on its own class.
+
+| probe | trigger | reason |
+|---|---|---|
+| `mr_rsi2_below_10`, `mr_rsi5_below_30`, `mr_ibs_below_0_2` | state | threshold |
+| `mr_close_below_bb_lower`, `mr_zscore_below_minus_2` | state | threshold / band level |
+| `mr_lowest_close_7` | state | level: close is the window minimum |
+| `mr_three_down_closes` | state | sequence condition, true while it holds |
+| `mr_macd_hist_trough_5` | state | level: histogram is the window minimum |
+| `mr_donchian20_new_low` | **event** | breakout below the prior 20 bars' low |
+| `tf_ma50_slope_up` | event | slope crosses 0 |
+| `tf_sma_cross_20_100` | event | crossover |
+| `tf_donchian20_breakout`, `tf_donchian55_breakout` | event | breakout of the prior channel |
+| `tf_close_above_bb_upper` | **state** | the rule is a level comparison (`close > upper`), true on every bar above the band |
+| `tf_supertrend_flip` | event | direction flip |
+| `tf_ichimoku_cloud` | state | "close above cloud and tenkan > kijun" is a condition, not a cross |
+| `tf_roc20_cross_zero` | event | zero cross |
+
+Open points:
+- The spec calls `tf_close_above_bb_upper` a "Bollinger band breakout", but the implemented rule is a level comparison, so I classified it as **state** to describe the rule truthfully. If it should be an event, the rule itself must change (e.g. close crosses above the upper band). I did not change it without a decision.
+- The Donchian breakouts (`event`) compare with the *prior* bars' channel, so they can fire on consecutive bars when each bar makes a new extreme (each is a new breakout). The crossing-type events (slope, SMA cross, Supertrend flip, ROC cross) can never fire on two consecutive bars; a test checks this.
+
+New tests: `test_F_0_4_1_every_probe_declares_its_trigger` (exact classification table, declared on each class), `test_F_0_4_1_crossing_events_never_fire_on_consecutive_bars`, `test_F_0_4_1_trigger_validation`.
+
+### 3. Acceptance commands (re-run after the follow-up)
+| command | result |
+|---|---|
+| `uv run ruff check .` | ✅ all checks passed |
+| `uv run ruff format --check .` | ✅ 138 files formatted |
+| `uv run mypy src` | ✅ no issues (60 files; strict for base, edges, registry) |
+| `uv run pytest -m "not slow"` | ✅ **575 passed** (1 existing `websockets` deprecation warning from the Alpaca tests) |
+| `uv run pytest tests/parity tests/leakage` | ✅ 103 passed |
+| golden / naive / leakage / F-0.4.1 / F-0.4.3 files | ✅ 201 / 12 / 103 / 27 / 15 passed |
+| `uv run sfac --help` | ✅ |
+
+Not pushed (as instructed); CI has not run.

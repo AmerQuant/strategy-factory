@@ -16,6 +16,7 @@ from strategy_factory.components.base import (
     DIRECTIONS,
     NOT_MIRRORED_MARKER,
     ROLES,
+    TRIGGERS,
     ComponentError,
     EntryComponent,
     GridRules,
@@ -79,6 +80,10 @@ class ComponentRegistry:
         dirs = cls.directions
         if not dirs or len(set(dirs)) != len(dirs) or any(d not in DIRECTIONS for d in dirs):
             raise ComponentError(f"{name}: directions must be a non-empty subset of {DIRECTIONS}")
+        if cls.trigger is not None and cls.trigger not in TRIGGERS:
+            raise ComponentError(f"{name}: trigger must be one of {TRIGGERS}, got {cls.trigger!r}")
+        if cls.group is not None and cls.trigger is None:
+            raise ComponentError(f"{name}: probes (components with a group) must declare trigger")
         if not cls.mirror:
             if not has_not_mirrored_reason(cls.__doc__):
                 raise ComponentError(

@@ -30,7 +30,8 @@ kama(src, len, fastLen, slowLen) =>
 
 updown(s) =>
     var int ud = 0
-    ud := s == s[1] ? 0 : s > s[1] ? (ud[1] <= 0 ? 1 : ud[1] + 1) : (ud[1] >= 0 ? -1 : ud[1] - 1)
+    prev = nz(ud[1])
+    ud := s == s[1] ? 0 : s > s[1] ? (prev <= 0 ? 1 : prev + 1) : (prev >= 0 ? -1 : prev - 1)
     ud
 
 // ---------- moving averages & slope

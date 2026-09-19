@@ -338,3 +338,55 @@ def test_F_0_4_1_exit_spec_structure() -> None:
 
     assert reg.list_by_role("exit") == [TimeExit]
     assert TimeExit.exit_spec(resolve_params(TimeExit.params, None)).time_exit_bars == 10
+
+
+# ----------------------------------------------------------------------------- trigger
+
+TRIGGERS = {
+    "mr_rsi2_below_10": "state",
+    "mr_rsi5_below_30": "state",
+    "mr_ibs_below_0_2": "state",
+    "mr_close_below_bb_lower": "state",
+    "mr_donchian20_new_low": "event",
+    "mr_zscore_below_minus_2": "state",
+    "mr_lowest_close_7": "state",
+    "mr_three_down_closes": "state",
+    "mr_macd_hist_trough_5": "state",
+    "tf_ma50_slope_up": "event",
+    "tf_sma_cross_20_100": "event",
+    "tf_donchian20_breakout": "event",
+    "tf_donchian55_breakout": "event",
+    "tf_close_above_bb_upper": "state",
+    "tf_supertrend_flip": "event",
+    "tf_ichimoku_cloud": "state",
+    "tf_roc20_cross_zero": "event",
+}
+
+
+def test_F_0_4_1_every_probe_declares_its_trigger() -> None:
+    probes = default_registry().entries()
+    assert {p.name: p.trigger for p in probes} == TRIGGERS
+    for p in probes:
+        assert "trigger" in vars(p), f"{p.name}: trigger must be declared on the class itself"
+
+
+def test_F_0_4_1_crossing_events_never_fire_on_consecutive_bars() -> None:
+    b = bars(3000, seed=5)
+    for name in (
+        "tf_ma50_slope_up",
+        "tf_sma_cross_20_100",
+        "tf_supertrend_flip",
+        "tf_roc20_cross_zero",
+    ):
+        for sig in default_registry().get(name).signals(b):
+            assert sig.any(), name
+            assert not (sig[1:] & sig[:-1]).any(), name
+
+
+def test_F_0_4_1_trigger_validation() -> None:
+    with pytest.raises(ComponentError, match="must declare trigger"):
+        ComponentRegistry().register(make_entry("dummy_probe", group="oscillator"))
+    with pytest.raises(ComponentError, match="trigger must be one of"):
+        ComponentRegistry().register(make_entry("dummy_bad", trigger="sometimes"))
+    ComponentRegistry().register(make_entry("dummy_ok", group="oscillator", trigger="state"))
+    ComponentRegistry().register(make_entry("dummy_method"))  # non-probe: trigger optional

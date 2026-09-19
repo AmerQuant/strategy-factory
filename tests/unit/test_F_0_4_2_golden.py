@@ -11,6 +11,7 @@ functions and compare with the plot columns — independent of our data sources.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 import numpy as np
@@ -28,6 +29,20 @@ from strategy_factory.components import indicators as ind
 pytestmark = pytest.mark.parity
 
 REL_TOL = 1e-6
+
+# Columns compared only on bars where the golden value is non-NaN (NaN warm-up not checked).
+# CONNORS_RSI_3_2_100: the committed exports were made with the original Pine helper
+# `updown`, which read `ud[1]` without `nz()`, so its streak (and Connors RSI) stayed na until
+# the first unchanged close. Our streak follows TradingView's built-in Connors RSI (`nz`
+# semantics, defined from bar 0); the Pine script now uses `nz(ud[1])`. From the first
+# unchanged close onward both streaks are identical, but the golden `rsi(streak, 2)` was
+# SMA-seeded there while ours carries RMA memory from bar 0; that difference halves every bar
+# (alpha = 1/2). The column is therefore checked by `test_F_0_4_2_golden_connors_rsi` below.
+# Remove this special case once the exports are redone with the fixed script.
+GOLDEN_NON_NAN_ONLY = {"CONNORS_RSI_3_2_100"}
+# RSI parts are in [0, 100] and enter the mean with weight 1/3, so the seed difference is at
+# most 100/3 and falls below 1e-6 after ceil(log2(100/3 / 1e-6)) = 25 bars (alpha = 1/2).
+CRSI_SEED_DECAY_BARS = math.ceil(math.log2((100 / 3) / REL_TOL))
 
 Ohlc = tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
@@ -128,20 +143,25 @@ def test_F_0_4_2_golden_file_has_every_plot(path) -> None:
 
 
 @pytest.mark.skipif(not FILES, reason=NO_FILES_REASON)
-@pytest.mark.parametrize("column", sorted(COLUMNS))
+@pytest.mark.parametrize("column", sorted(set(COLUMNS) - GOLDEN_NON_NAN_ONLY))
 @pytest.mark.parametrize("path", FILES, ids=[p.name.removesuffix(".csv.gz") for p in FILES])
 def test_F_0_4_2_golden_values(path, column: str) -> None:
     golden = load_golden(path)
     ours, tv, tol = compare(golden, column)
 
     ours_nan, tv_nan = np.isnan(ours), np.isnan(tv)
-    mismatch = np.flatnonzero(ours_nan != tv_nan)
-    assert mismatch.size == 0, (
-        f"{golden.name}/{column}: NaN positions differ at {mismatch.size} bars, "
-        f"first at bar {mismatch[0]} (ours={ours[mismatch[0]]}, tv={tv[mismatch[0]]})"
-    )
+    if column in GOLDEN_NON_NAN_ONLY:
+        missing = np.flatnonzero(ours_nan & ~tv_nan)
+        assert missing.size == 0, f"{golden.name}/{column}: NaN where TradingView has a value"
+        assert (~tv_nan).any(), f"{golden.name}/{column}: no golden values to compare"
+    else:
+        mismatch = np.flatnonzero(ours_nan != tv_nan)
+        assert mismatch.size == 0, (
+            f"{golden.name}/{column}: NaN positions differ at {mismatch.size} bars, "
+            f"first at bar {mismatch[0]} (ours={ours[mismatch[0]]}, tv={tv[mismatch[0]]})"
+        )
 
-    both = ~ours_nan
+    both = ~ours_nan & ~tv_nan
     err = np.abs(ours[both] - tv[both])
     bad = np.flatnonzero(err > tol[both])
     if bad.size:
@@ -150,3 +170,45 @@ def test_F_0_4_2_golden_values(path, column: str) -> None:
             f"{golden.name}/{column}: {bad.size} bars outside tolerance, first at bar {idx}: "
             f"ours={ours[idx]!r} tv={tv[idx]!r} max_abs_err={err.max():.3e}"
         )
+
+
+def _legacy_crsi(c: np.ndarray) -> np.ndarray:
+    """Connors RSI with the streak of the original (non-nz) Pine helper: NaN before the
+    first unchanged close, identical to the standard streak from there on."""
+    streak = ind.updown_streak(c)
+    equal = np.flatnonzero(c[1:] == c[:-1])
+    streak[: (equal[0] + 1) if equal.size else len(c)] = np.nan
+    prev = np.r_[np.nan, c[:-1]]
+    return (ind.rsi(c, 3) + ind.rsi(streak, 2) + ind.percent_rank(100 * (c - prev) / prev, 100)) / 3
+
+
+@pytest.mark.skipif(not FILES, reason=NO_FILES_REASON)
+@pytest.mark.parametrize("path", FILES, ids=[p.name.removesuffix(".csv.gz") for p in FILES])
+def test_F_0_4_2_golden_connors_rsi(path) -> None:
+    """CONNORS_RSI_3_2_100 on the bars where the golden value is non-NaN.
+
+    1. The golden column is reproduced exactly (NaN positions included) by our RSI, streak
+       and percent-rank building blocks with the legacy streak start — every part is checked.
+    2. Our standard (nz) Connors RSI has a value on every golden bar and equals the golden
+       value within tolerance on every golden bar after a prefix right after the golden start
+       where only the decaying RMA seed difference remains; that prefix is at most
+       CRSI_SEED_DECAY_BARS long.
+    """
+    golden = load_golden(path)
+    c = golden.columns["close"]
+    ours, tv, tol = compare(golden, "CONNORS_RSI_3_2_100")
+    has_tv = ~np.isnan(tv)
+    assert has_tv.any()
+
+    legacy = _legacy_crsi(c)
+    np.testing.assert_array_equal(np.isnan(legacy), ~has_tv, err_msg="legacy NaN positions")
+    assert np.all(np.abs(legacy[has_tv] - tv[has_tv]) <= tol[has_tv])
+
+    assert not np.isnan(ours[has_tv]).any(), "NaN where TradingView has a value"
+    idx = np.flatnonzero(has_tv)
+    outside = np.flatnonzero(np.abs(ours[idx] - tv[idx]) > tol[idx])
+    n_prefix = int(outside[-1]) + 1 if outside.size else 0  # all later bars are within tol
+    assert n_prefix <= CRSI_SEED_DECAY_BARS, (
+        f"{golden.name}: differences up to golden bar #{n_prefix} "
+        f"(allowed seed decay: {CRSI_SEED_DECAY_BARS} bars)"
+    )

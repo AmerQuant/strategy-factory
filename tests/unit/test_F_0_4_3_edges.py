@@ -57,6 +57,7 @@ def _registry_with(edge_type: str, group: str | None = None) -> ComponentRegistr
         "name": "dummy_tagged",
         "edge_type": edge_type,
         "group": group,
+        "trigger": "state",
         "long_signals": classmethod(long_signals),
     }
     reg = ComponentRegistry()

@@ -214,15 +214,16 @@ def n_percent_rank(x: Series, n: int) -> Series:
 
 def n_streak(x: Series) -> Series:
     out: Series = []
-    ud: float | None = None  # history before bar 0 is na
+    prev = 0.0  # nz(ud[1])
     for i in range(len(x)):
         if i > 0 and x[i] == x[i - 1]:
             ud = 0.0
         elif i > 0 and x[i] > x[i - 1]:  # type: ignore[operator]
-            ud = None if ud is None else (1.0 if ud <= 0 else ud + 1.0)
+            ud = 1.0 if prev <= 0 else prev + 1.0
         else:
-            ud = None if ud is None else (-1.0 if ud >= 0 else ud - 1.0)
+            ud = -1.0 if prev >= 0 else prev - 1.0
         out.append(ud)
+        prev = ud
     return out
 
 
