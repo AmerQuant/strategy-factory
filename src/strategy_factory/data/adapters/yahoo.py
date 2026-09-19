@@ -6,9 +6,9 @@
   ``Adj Close``.
 * ``volume``: Yahoo reports 0 for indices without real volume -> ``volume_quality="none"``
   (all zero); otherwise ``partial``. Missing volume becomes 0.
-* The close-time metadata of the series (``close_time_local``, ``close_tz``,
-  ``close_time_status``) is carried in ``notes`` until the catalog gets dedicated fields;
-  it is needed for leakage-safe as-of joins (spec addendum section 5.3).
+* When the daily value becomes final is stored in ``value_final_time_local``,
+  ``value_final_tz`` and ``value_final_status`` (from ``configs/universe/aux_yahoo.csv``);
+  the as-of join (F-0.1.11) needs it to stay leakage-free (spec addendum section 5.3).
 """
 
 from __future__ import annotations
@@ -25,11 +25,15 @@ from strategy_factory.data.hashing import file_sha256
 from strategy_factory.data.schema import RawRef, SeriesMetadata, VolumeQuality
 
 
-def close_time_note(close_time_local: str, close_tz: str, status: str) -> str:
-    return (
-        f"close_time_local={close_time_local or 'unknown'}; close_tz={close_tz or 'unknown'}; "
-        f"close_time_status={status or 'to_verify'}"
-    )
+def final_time_fields(close_time_local: str, close_tz: str, status: str) -> dict[str, Any]:
+    """``value_final_*`` metadata from the aux universe row (empty strings -> None)."""
+    if status not in ("verified", "to_verify"):
+        status = "to_verify"
+    return {
+        "value_final_time_local": close_time_local or None,
+        "value_final_tz": close_tz or None,
+        "value_final_status": status,
+    }
 
 
 class YahooAdapter:
@@ -74,18 +78,19 @@ class YahooAdapter:
             json.loads(manifest_file.read_text(encoding="utf-8")) if manifest_file.is_file() else {}
         )
         downloaded = manifest.get("downloaded_at")
-        notes = close_time_note(
+        final = final_time_fields(
             params.get("close_time_local", ""),
             params.get("close_tz", ""),
             params.get("close_time_status", ""),
         )
+        notes = "raw prices (auto_adjust=False, actions=False)"
         if manifest.get("client"):
-            notes += f"; {manifest['client']}, auto_adjust=False, actions=False"
+            notes += f"; {manifest['client']}"
         meta = SeriesMetadata(
             source="yahoo",
             source_symbol=ticker,
             symbol=symbol,
-            asset_class="aux_index",
+            asset_class="aux",
             timeframe="1D",
             price_type="trade",
             adjustment="raw",
@@ -99,5 +104,6 @@ class YahooAdapter:
             if downloaded
             else None,
             notes=notes,
+            **final,
         )
         return bars, meta

@@ -1,0 +1,7 @@
+# Auxiliary-series as-of rules (F-0.1.11). Validated by strategy_factory.data.config.AuxConfig.
+# (File name avoids "aux.*", a reserved device name on Windows.)
+aux:
+  # Series whose value_final_status is "to_verify" are joined with this many extra days of
+  # lag; only "verified" series (currently ^VIX, 16:15 America/New_York) use the normal
+  # as-of rule (last value final strictly before the bar's decision time). Supervisor decision T04e.
+  unverified_extra_lag_days: 1

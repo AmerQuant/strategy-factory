@@ -228,3 +228,29 @@ def load_yahoo_config(path: Path | None = None) -> YahooConfig:
         return YahooConfig.model_validate(_read_yaml(target))
     except ValidationError as exc:
         raise ConfigError(f"invalid Yahoo config: {exc}", config_path=target) from exc
+
+
+DEFAULT_AUX_CONFIG = Path("configs") / "data" / "aux_series.yaml"
+
+
+class AuxAsOfConfig(_Frozen):
+    """As-of join rules for auxiliary series (used by F-0.1.11)."""
+
+    unverified_extra_lag_days: int = Field(default=1, ge=0)
+
+
+class AuxConfig(_Frozen):
+    aux: AuxAsOfConfig = Field(default_factory=AuxAsOfConfig)
+
+
+def load_aux_config(path: Path | None = None) -> AuxConfig:
+    """Load ``configs/data/aux_series.yaml`` (or ``path``); defaults if that file is absent."""
+    target = path if path is not None else DEFAULT_AUX_CONFIG
+    if not target.is_file():
+        if path is not None:
+            raise ConfigError("config file not found", config_path=target)
+        return AuxConfig()
+    try:
+        return AuxConfig.model_validate(_read_yaml(target))
+    except ValidationError as exc:
+        raise ConfigError(f"invalid aux config: {exc}", config_path=target) from exc

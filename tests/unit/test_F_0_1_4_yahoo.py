@@ -176,14 +176,23 @@ def test_F_0_1_4_adapter_daily_stamps_and_metadata(
         "none",
     )
     assert (meta.timeframe, meta.bar_label, meta.original_tz) == ("1D", "start", "America/New_York")
-    assert "close_time_local=16:15" in meta.notes and "close_tz=America/New_York" in meta.notes
-    assert "close_time_status=verified" in meta.notes and "auto_adjust=False" in meta.notes
+    assert (meta.value_final_time_local, meta.value_final_tz, meta.value_final_status) == (
+        "16:15",
+        "America/New_York",
+        "verified",
+    )
+    assert meta.asset_class == "aux" and "auto_adjust=False" in meta.notes
     assert validate_bars(df, meta) == []
 
     gspc = yh.latest_raw(tmp_path, "^GSPC")
     assert gspc is not None
     _, gmeta = YahooAdapter().to_canonical([gspc], ticker="^GSPC", symbol="SPX")
-    assert gmeta.volume_quality == "partial" and "close_time_status=to_verify" in gmeta.notes
+    assert gmeta.volume_quality == "partial"
+    assert (gmeta.value_final_time_local, gmeta.value_final_tz, gmeta.value_final_status) == (
+        None,
+        None,
+        "to_verify",
+    )
 
 
 def test_F_0_1_4_adapter_uses_close_not_adj_close(
@@ -244,3 +253,12 @@ def test_F_0_1_4_tls_error_logged_by_yfinance_stops(
             [VIX], tmp_path, YahooConfig(), yh.YFinanceClient(), sleep=lambda s: None
         )
     assert not list(tmp_path.rglob("*.parquet"))
+
+
+def test_F_0_1_11_unverified_extra_lag_config() -> None:
+    from strategy_factory.data.config import load_aux_config
+
+    path = REPO / "configs" / "data" / "aux_series.yaml"
+    assert path.is_file()
+    cfg = load_aux_config(path)
+    assert cfg.aux.unverified_extra_lag_days == 1

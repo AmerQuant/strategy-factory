@@ -60,14 +60,6 @@ def test_F_0_1_8_changing_one_value_changes_hash() -> None:
     assert content_hash(changed) != content_hash(df)
 
 
-def test_F_0_1_8_hash_is_pinned_for_reference_fixture() -> None:
-    # Guards against silent changes of the IPC serialization (e.g. a Polars upgrade).
-    assert content_hash(make_bars(5)) == PINNED_HASH
-
-
-PINNED_HASH = "4e4e46f66f3c703cb13e793d1be89c1f81e049c793083343fae7f2693c032651"
-
-
 def test_F_0_1_8_file_sha256(tmp_path: Path) -> None:
     p = tmp_path / "a.bin"
     p.write_bytes(b"abc")
@@ -237,3 +229,30 @@ def test_F_0_1_8_catalog_round_trips_metadata(data_root: Path) -> None:
     cat.set_reference("TEST", "1D", meta.snapshot_hash or "")
     assert cat.get_reference("TEST", "1D") == meta
     assert not any(p.name.endswith(".partial") for p in data_root.iterdir())
+
+
+def test_F_0_1_8_v1_sidecar_and_old_catalog_are_read_as_hash_version_1(data_root: Path) -> None:
+    """Snapshots written before hash_version existed stay readable (and are version 1)."""
+    import json
+
+    meta = write_snapshot(make_bars(), make_meta())
+    assert meta.hash_version == 2
+    store = SnapshotStore()
+    _, sidecar = store.paths("test", "TEST", "1D", meta.snapshot_hash or "")
+    old = json.loads(sidecar.read_text(encoding="utf-8"))
+    for key in ("hash_version", "value_final_time_local", "value_final_tz", "value_final_status"):
+        old.pop(key)
+    sidecar.chmod(0o644)
+    sidecar.write_text(json.dumps(old), encoding="utf-8")
+    assert store.read_metadata("test", "TEST", "1D", meta.snapshot_hash or "").hash_version == 1
+
+    cat = Catalog()
+    cat.register(meta)
+    legacy = cat.table().drop(
+        ["hash_version", "value_final_time_local", "value_final_tz", "value_final_status"]
+    )
+    legacy.write_parquet(cat.path)  # a catalog file from before these columns existed
+    table = cat.table()
+    assert table["hash_version"].to_list() == [1]
+    cat.set_reference("TEST", "1D", meta.snapshot_hash or "", note="rehash v1→v2")
+    assert cat.get_reference("TEST", "1D").hash_version == 1

@@ -54,7 +54,18 @@ CATALOG_SCHEMA: dict[str, pl.DataType] = {
     "first_ts": _TS,
     "last_ts": _TS,
     "created_at": _TS,
+    "value_final_time_local": pl.Utf8(),
+    "value_final_tz": pl.Utf8(),
+    "value_final_status": pl.Utf8(),
+    "hash_version": pl.Int64(),
     "is_reference": pl.Boolean(),
+}
+# defaults for columns added after a catalog file was written (older rows are hash_version 1)
+_MIGRATION_DEFAULTS: dict[str, object] = {
+    "value_final_time_local": None,
+    "value_final_tz": None,
+    "value_final_status": None,
+    "hash_version": 1,
 }
 EVENTS_SCHEMA: dict[str, pl.DataType] = {
     "ts": _TS,
@@ -99,7 +110,14 @@ class Catalog:
     def table(self) -> pl.DataFrame:
         if not self.path.is_file():
             return pl.DataFrame(schema=CATALOG_SCHEMA)
-        return pl.read_parquet(self.path)
+        cat = pl.read_parquet(self.path)
+        missing = [c for c in CATALOG_SCHEMA if c not in cat.columns]
+        if missing:
+            cat = cat.with_columns(
+                pl.lit(_MIGRATION_DEFAULTS.get(c), dtype=CATALOG_SCHEMA[c]).alias(c)
+                for c in missing
+            )
+        return cat.select([pl.col(c).cast(t) for c, t in CATALOG_SCHEMA.items()])
 
     def events(self) -> pl.DataFrame:
         if not self.events_path.is_file():

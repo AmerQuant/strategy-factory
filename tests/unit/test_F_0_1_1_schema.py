@@ -197,3 +197,45 @@ def test_F_0_1_1_adapter_protocol_is_structural() -> None:
             return make_bars(), make_meta()
 
     assert isinstance(Dummy(), Adapter)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "us_equity",
+        "fx",
+        "metal",
+        "energy_cfd",
+        "index_cfd",
+        "futures",
+        "crypto",
+        "iran_equity",
+        "aux",
+    ],
+)
+def test_F_0_1_1_asset_class_accepts_enumeration(value: str) -> None:
+    assert make_meta(asset_class=value).asset_class == value
+
+
+@pytest.mark.parametrize("value", ["aux_index", "equity", "FX", "", "index"])
+def test_F_0_1_1_asset_class_rejects_other_values(value: str) -> None:
+    with pytest.raises(ValidationError):
+        make_meta(asset_class=value)
+
+
+def test_F_0_1_1_value_final_fields() -> None:
+    meta = make_meta(
+        value_final_time_local="16:15",
+        value_final_tz="America/New_York",
+        value_final_status="verified",
+    )
+    assert (meta.value_final_time_local, meta.value_final_tz, meta.value_final_status) == (
+        "16:15",
+        "America/New_York",
+        "verified",
+    )
+    assert make_meta().value_final_status is None and make_meta().hash_version == 2
+    for bad in ({"value_final_time_local": "4pm"}, {"value_final_time_local": "16:15:00"},
+                {"value_final_tz": "Mars/Base"}, {"value_final_status": "maybe"}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            make_meta(**bad)
