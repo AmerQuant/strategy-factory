@@ -8,6 +8,7 @@ Package: `strategy_factory` (import as `sfac`) · CLI: `sfac` · Python 3.12 · 
 
 ## Sources of truth (read before any task)
 
+0. `docs/decisions/decisions_log.md` — the supervisor's decisions log (`D-nnn`, pending `P-nn`). **Where it is more specific than the spec, the design or the feature list, it wins.** Open questions raised by Claude Code go to `docs/decisions/pending.md`.
 1. `docs/spec/spec_v1.2.md` (+ original .docx) — Specification v1.2 (Persian). Defines WHAT each stage does. "Phase-1 decisions" (green boxes in the docx, `تصمیمات قطعی فاز ۱` in the md) override proposal text.
 2. `docs/features.md` (+ .xlsx) — Feature list v1.1. Every task references feature IDs (`F-0.3.1`, `F-1.4`, ...). **Acceptance criteria there are the definition of done.**
 3. `docs/design.md` (+ .docx) — Design v1.0. Defines HOW (interfaces, schemas, engine conventions, registry tables).
@@ -76,15 +77,24 @@ uv run sfac --help
 - `tests/oracle/` compares simple strategies against vectorbt. vectorbt is a **test-only** dependency; never import it from `src/`.
 - Slow self-tests (random walk, planted edge) are marked `@pytest.mark.slow` and run nightly.
 
-## Workflow for every task
+## Workflow (two phases per batch — standing prompt in `docs/STANDING_PROMPT.md`)
 
-1. Read the task file and the referenced feature IDs, spec sections and design sections.
-2. If anything is ambiguous or conflicts with these rules, stop and list the questions before coding.
-3. Branch: `feat/<task-id>-<short-name>` (e.g. `feat/T08-engine-core`). One task = one PR.
-4. Write tests from the acceptance criteria first, then the implementation.
-5. Run the fast suite, parity, leakage, ruff and mypy. All must pass.
-6. Commit messages reference IDs: `F-0.3.1: next-bar-open fills`.
-7. Finish with a **review summary** for the supervisor: what was built, files changed, how each acceptance criterion is tested, deviations or open questions, and anything you were unsure about. Do not claim a criterion is met unless a test proves it.
+**Phase 1 — Plan** (D-403). Read `HANDOFF.md` (section "Next batch") and the decisions log. Draft one task file per task in `docs/tasks/` from the acceptance criteria in `docs/features.md`, the spec, the design and the decisions log, citing feature and decision IDs, plus `docs/tasks/RUNBOOK_<batch>.md`. Every assumption or open question goes to `docs/decisions/pending.md`. Commit on branch `docs/<batch>`, then **stop** and print a plan summary (tasks, features covered, decisions used, assumptions, open questions).
+
+**Phase 2 — Execute**, only after the user writes **"Plan approved"** (possibly with corrections). Per task:
+1. Branch `feat/<task-id>-<short-name>` as the runbook says (stacked branches allowed). One task = one review file.
+2. If anything is ambiguous or conflicts with these rules or the decisions log, stop and ask (and record it in `pending.md`).
+3. Write tests from the acceptance criteria first, then the implementation.
+4. Run the acceptance commands: fast suite, parity, leakage, db (0 skipped), ruff, format, mypy. All must pass.
+5. Run the **`acceptance-reviewer` subagent** (`.claude/agents/acceptance-reviewer.md`) on the task and fix its findings.
+6. Commit with IDs in the messages (`F-0.3.1: next-bar-open fills`); write `docs/reviews/<task>_review.md`: what was built, files changed, how each acceptance criterion is tested, decisions used, deviations, open questions. Do not claim a criterion is met unless a test proves it.
+7. **Critical tasks (D-402: engine T08, parity T11, split/holdout manager, gate engine)**: stop after the review and wait for **"Approved"** before starting the next task.
+
+At the end of the batch: open the PR(s) with `gh` (body = the reviews), update the status in `HANDOFF.md`, print the batch report. **Merge only after the user writes "Approved. Merge …"** and CI is green (D-401).
+
+Environment rules:
+- **Network runs are done by the user** in PowerShell scripts that Claude Code writes (pilots, downloads, reference fetches); Claude Code makes no network calls to data sources and uses no CA-bundle workarounds (D-031).
+- The local registry DB is Docker Postgres on port **5433** (`SFAC_DB_URL` in `.env`); a native Windows Postgres holds 5432 (D-305).
 
 ## Do not
 
