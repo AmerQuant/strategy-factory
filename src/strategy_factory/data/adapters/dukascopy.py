@@ -16,14 +16,14 @@ from __future__ import annotations
 import datetime as dt
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast, get_args
 
 import polars as pl
 
 from strategy_factory.core.errors import DataError
 from strategy_factory.data.config import DukascopyConfig
 from strategy_factory.data.hashing import file_sha256
-from strategy_factory.data.schema import RawRef, SeriesMetadata
+from strategy_factory.data.schema import AssetClass, RawRef, SeriesMetadata
 
 SERIES_TIMEFRAME = {"h1": "1H", "m1": "1m"}
 MID_NOTE = (
@@ -65,6 +65,15 @@ def read_side(paths: list[Path]) -> pl.DataFrame:
     return pl.concat(frames).unique(subset="ts", keep="first", maintain_order=True).sort("ts")
 
 
+def as_asset_class(value: str, symbol: str) -> AssetClass:
+    """Universe-file asset class -> the fixed enumeration (unknown values are errors)."""
+    if value not in get_args(AssetClass):
+        raise DataError(
+            f"asset class {value!r} is not one of {get_args(AssetClass)}", symbol=symbol
+        )
+    return cast(AssetClass, value)
+
+
 class DukascopyAdapter:
     """``Adapter`` implementation for Dukascopy bid/ask months."""
 
@@ -77,7 +86,7 @@ class DukascopyAdapter:
         series: str = params.get("series", "h1")
         symbol: str = params["symbol"]
         instrument: str = params["instrument"]
-        asset_class: str = params["asset_class"]
+        asset_class = as_asset_class(params["asset_class"], symbol)
         bid_paths = [p for p in raw_paths if p.parent.name == "bid"]
         ask_paths = [p for p in raw_paths if p.parent.name == "ask"]
         bid, ask = read_side(bid_paths), read_side(ask_paths)

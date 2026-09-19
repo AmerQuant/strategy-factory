@@ -87,11 +87,17 @@ def show_cmd(
 
 def _register_subcommands() -> None:
     from strategy_factory.data import cli_dukascopy, cli_yahoo  # noqa: F401  (register commands)
-    from strategy_factory.data.cli_alpaca import download_app, ingest_app, universe_app
+    from strategy_factory.data.cli_alpaca import (
+        download_app,
+        ingest_app,
+        reference_app,
+        universe_app,
+    )
 
     data_app.add_typer(download_app, name="download")
     data_app.add_typer(ingest_app, name="ingest")
     data_app.add_typer(universe_app, name="universe")
+    data_app.add_typer(reference_app, name="reference")
 
 
 _register_subcommands()

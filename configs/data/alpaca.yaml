@@ -3,6 +3,8 @@
 history_start: 2016-01-01
 feed: sip            # decision: SIP for daily and hourly
 adjustment: split    # decision: split-adjusted only (TradingView-like)
+daily_session: exchange   # 1D session label; decided in T04e phase B (RTH if the daily
+                          # range always stays within the RTH hourly bars)
 
 rate_limit:
   requests_per_minute: 180   # hard budget: never more requests in any 60 s window
@@ -21,7 +23,7 @@ hourly_session:      # keep hour-aligned bars labelled 09:00..15:00 New York
   timezone: America/New_York
   first_bar: "09:00"
   regular_close: "16:00"
-  early_closes_file: configs/calendars/nyse_early_closes.yaml
+  sessions_file: configs/calendars/nyse_sessions.csv   # from the Alpaca calendar (T04e)
 
 split_check:
   jump_threshold: 0.40        # |close_t / close_{t-1} - 1| above this is a jump

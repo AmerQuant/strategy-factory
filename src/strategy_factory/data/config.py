@@ -59,7 +59,7 @@ class HourlySessionConfig(_Frozen):
     timezone: str = "America/New_York"
     first_bar: str = "09:00"
     regular_close: str = "16:00"
-    early_closes_file: Path = Path("configs") / "calendars" / "nyse_early_closes.yaml"
+    sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
 
     @field_validator("first_bar", "regular_close")
     @classmethod
@@ -77,6 +77,7 @@ class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
     adjustment: Literal["split"] = "split"
+    daily_session: Literal["exchange", "RTH"] = "exchange"
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
     batch_size: dict[str, int] = Field(default_factory=lambda: {"1D": 100, "1H": 10})
@@ -228,3 +229,29 @@ def load_yahoo_config(path: Path | None = None) -> YahooConfig:
         return YahooConfig.model_validate(_read_yaml(target))
     except ValidationError as exc:
         raise ConfigError(f"invalid Yahoo config: {exc}", config_path=target) from exc
+
+
+DEFAULT_AUX_CONFIG = Path("configs") / "data" / "aux_series.yaml"
+
+
+class AuxAsOfConfig(_Frozen):
+    """As-of join rules for auxiliary series (used by F-0.1.11)."""
+
+    unverified_extra_lag_days: int = Field(default=1, ge=0)
+
+
+class AuxConfig(_Frozen):
+    aux: AuxAsOfConfig = Field(default_factory=AuxAsOfConfig)
+
+
+def load_aux_config(path: Path | None = None) -> AuxConfig:
+    """Load ``configs/data/aux_series.yaml`` (or ``path``); defaults if that file is absent."""
+    target = path if path is not None else DEFAULT_AUX_CONFIG
+    if not target.is_file():
+        if path is not None:
+            raise ConfigError("config file not found", config_path=target)
+        return AuxConfig()
+    try:
+        return AuxConfig.model_validate(_read_yaml(target))
+    except ValidationError as exc:
+        raise ConfigError(f"invalid aux config: {exc}", config_path=target) from exc

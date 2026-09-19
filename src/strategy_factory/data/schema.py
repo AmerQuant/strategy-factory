@@ -13,6 +13,7 @@ instead of raising; the snapshot store refuses frames with any ``critical`` issu
 from __future__ import annotations
 
 import datetime as dt
+import zoneinfo
 from typing import Literal
 
 import polars as pl
@@ -40,6 +41,10 @@ Session = Literal["RTH", "RTH_hour_aligned", "ETH", "24x5", "24x7", "exchange"]
 Feed = Literal["sip", "iex", "none"]
 VolumeQuality = Literal["full", "partial", "none"]
 BarLabel = Literal["start", "end"]
+AssetClass = Literal[
+    "us_equity", "fx", "metal", "energy_cfd", "index_cfd", "futures", "crypto", "iran_equity", "aux"
+]
+ValueFinalStatus = Literal["verified", "to_verify"]
 Severity = Literal["critical", "warning", "info"]
 TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1H", "4H", "1D")
 
@@ -69,7 +74,7 @@ class SeriesMetadata(BaseModel):
     source: str = Field(min_length=1)
     source_symbol: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
-    asset_class: str = Field(min_length=1)
+    asset_class: AssetClass
     timeframe: str
     price_type: PriceType
     adjustment: Adjustment
@@ -81,6 +86,12 @@ class SeriesMetadata(BaseModel):
     raw_refs: tuple[RawRef, ...] = ()
     downloaded_at: dt.datetime | None = None
     notes: str = ""
+    # auxiliary series: when the daily value becomes final (F-0.1.11 as-of joins)
+    value_final_time_local: str | None = None
+    value_final_tz: str | None = None
+    value_final_status: ValueFinalStatus | None = None
+    # content-hash serialization version (see strategy_factory.data.hashing)
+    hash_version: int = Field(default=2, ge=1)
     # filled by the store
     snapshot_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     row_count: int | None = Field(default=None, ge=0)
@@ -93,6 +104,30 @@ class SeriesMetadata(BaseModel):
     def _timeframe(cls, value: str) -> str:
         if value not in TIMEFRAMES:
             raise ValueError(f"timeframe must be one of {TIMEFRAMES}, got {value!r}")
+        return value
+
+    @field_validator("value_final_time_local")
+    @classmethod
+    def _hhmm(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            t = dt.time.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(f"expected HH:MM, got {value!r}") from exc
+        if len(value) != 5 or t.second:
+            raise ValueError(f"expected HH:MM, got {value!r}")
+        return value
+
+    @field_validator("value_final_tz")
+    @classmethod
+    def _tz(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            zoneinfo.ZoneInfo(value)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown IANA time zone {value!r}") from exc
         return value
 
     @field_validator("downloaded_at", "first_ts", "last_ts", "created_at")
@@ -219,6 +254,7 @@ __all__ = [
     "REQUIRED_COLUMNS",
     "TIMEFRAMES",
     "Adjustment",
+    "AssetClass",
     "BarLabel",
     "Feed",
     "PriceType",
@@ -226,6 +262,7 @@ __all__ = [
     "SeriesMetadata",
     "Session",
     "ValidationIssue",
+    "ValueFinalStatus",
     "VolumeQuality",
     "canonical_columns",
     "critical_issues",

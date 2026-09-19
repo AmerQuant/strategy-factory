@@ -17,6 +17,7 @@ Layout under ``SFAC_DATA_ROOT``::
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import re
 import stat
@@ -137,7 +138,9 @@ class SnapshotStore:
         _, meta_path = self.paths(source, symbol, timeframe, snapshot_hash)
         if not meta_path.is_file():
             raise DataError(f"snapshot metadata not found: {meta_path}", symbol=symbol)
-        return SeriesMetadata.model_validate_json(meta_path.read_text(encoding="utf-8"))
+        data = json.loads(meta_path.read_text(encoding="utf-8"))
+        data.setdefault("hash_version", 1)  # sidecars written before hash_version existed
+        return SeriesMetadata.model_validate(data)
 
     def scan_snapshot(
         self,

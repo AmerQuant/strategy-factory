@@ -101,6 +101,13 @@ def ingest_dukascopy(
     set_reference: Annotated[
         bool, typer.Option("--set-reference", help="Make new snapshots the reference.")
     ] = False,
+    rehash: Annotated[
+        bool,
+        typer.Option(
+            "--rehash",
+            help="Re-ingest to hash_version 2 and move the reference (event note 'rehash v1→v2').",
+        ),
+    ] = False,
     config: ConfigOpt = None,
 ) -> None:
     """Raw bid/ask months -> mid snapshots with spread + catalog."""
@@ -124,10 +131,17 @@ def ingest_dukascopy(
                 )
                 stored = store.write_snapshot(df, meta)
                 catalog.register(stored)
-                ref = set_reference or not catalog.has_reference(inst.symbol, stored.timeframe)
+                ref = (
+                    set_reference
+                    or rehash
+                    or not catalog.has_reference(inst.symbol, stored.timeframe)
+                )
                 if ref and stored.snapshot_hash:
                     catalog.set_reference(
-                        inst.symbol, stored.timeframe, stored.snapshot_hash, note="dukascopy ingest"
+                        inst.symbol,
+                        stored.timeframe,
+                        stored.snapshot_hash,
+                        note="rehash v1→v2" if rehash else "dukascopy ingest",
                     )
                 flag = " (reference)" if ref else ""
                 short = (stored.snapshot_hash or "")[:12]
