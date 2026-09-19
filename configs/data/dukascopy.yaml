@@ -1,7 +1,11 @@
 # Dukascopy downloader / adapter settings (T04b). Validated by
 # strategy_factory.data.config.DukascopyConfig.
+# Standard (full) download = h1 bid + ask only. The hourly spread profile (F-0.2.2, later)
+# is built from the h1 bid/ask closes (spread = ask_close - bid_close).
 h1_start: 2010-01-01          # research series: h1 bid+ask from here (or instrument start)
-m1_months: 24                 # spread series: m1 bid+ask for the last N complete months
+# m1 is implemented but NOT part of the standard run: only for F-0.3.5 intrabar resolution;
+# Dukascopy throttles m1 (HTTP 429) -> run it slowly, when needed.
+m1_months: 24                 # m1 bid+ask for the last N complete months (on demand)
 universe_file: configs/universe/dukascopy.csv
 max_one_sided_share: 0.001    # bars present on one side only: critical above 0.1 %
 

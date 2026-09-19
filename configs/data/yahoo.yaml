@@ -4,7 +4,7 @@ period: max            # full available history
 interval: 1d           # daily only
 auto_adjust: false     # decision: always explicit, raw prices
 actions: false         # decision: always explicit, no dividend/split columns
-pause_seconds: 2.0     # politeness pause between tickers
+pause_seconds: 5.0     # politeness pause between tickers (Yahoo answers HTTP 429 when rushed; T04e: >= 5 s)
 retry:
   max_retries: 3
   backoff_base_seconds: 5.0

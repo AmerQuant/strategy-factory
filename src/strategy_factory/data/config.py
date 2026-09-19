@@ -59,7 +59,7 @@ class HourlySessionConfig(_Frozen):
     timezone: str = "America/New_York"
     first_bar: str = "09:00"
     regular_close: str = "16:00"
-    early_closes_file: Path = Path("configs") / "calendars" / "nyse_early_closes.yaml"
+    sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
 
     @field_validator("first_bar", "regular_close")
     @classmethod
@@ -77,6 +77,7 @@ class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
     adjustment: Literal["split"] = "split"
+    daily_session: Literal["exchange", "RTH"] = "exchange"
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
     batch_size: dict[str, int] = Field(default_factory=lambda: {"1D": 100, "1H": 10})

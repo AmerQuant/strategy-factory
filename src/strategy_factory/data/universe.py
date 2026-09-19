@@ -25,6 +25,7 @@ from pathlib import Path
 import polars as pl
 
 from strategy_factory.core.errors import DataError
+from strategy_factory.data.download.alpaca_reference import current_symbol, read_changes_csv
 from strategy_factory.data.download.ratelimit import TLSVerificationError
 from strategy_factory.data.download.rawfiles import next_version_path, write_immutable
 from strategy_factory.data.hashing import file_sha256
@@ -147,39 +148,82 @@ def build_daily_universe(raw_root: Path, out: Path) -> int:
 
 
 def build_hourly_universe(
-    pit_csv: Path, symbols_csv: Path, start: dt.date, out: Path
+    pit_csv: Path,
+    symbols_csv: Path,
+    start: dt.date,
+    out: Path,
+    changes: list[dict[str, str]] | None = None,
+    changes_file: Path | None = None,
 ) -> dict[str, int]:
+    """S&P 500 PIT members since ``start`` + ETFs, keyed by the **current** symbol.
+
+    ``symbol`` is the symbol to download (the PIT ticker followed through the renames in
+    ``changes`` that took effect after its first membership date); ``pit_symbol`` is the
+    historical ticker from the PIT list. Membership dates come from the PIT list. Two PIT
+    tickers that end up on the same current symbol are merged (dates widened, both PIT
+    tickers kept in ``pit_symbol`` separated by ``|``).
+    """
+    changes = changes or []
     members = pit_members(pit_csv, start)
-    etfs = [e for e in etf_symbols(symbols_csv) if e not in set(members["symbol"].to_list())]
+    merged: dict[str, tuple[list[str], dt.date, dt.date]] = {}
+    renamed = 0
+    for r in members.iter_rows(named=True):
+        first: dt.date = r["first_member_date"]
+        last: dt.date = r["last_member_date"]
+        cur = current_symbol(r["symbol"], changes, first)
+        renamed += cur != r["symbol"]
+        if cur in merged:
+            pits, f0, l0 = merged[cur]
+            merged[cur] = ([*pits, r["symbol"]], min(f0, first), max(l0, last))
+        else:
+            merged[cur] = ([r["symbol"]], first, last)
+    etfs = [e for e in etf_symbols(symbols_csv) if e not in merged]
     rows = [
-        [
-            r["symbol"],
-            "sp500_pit",
-            r["first_member_date"].isoformat(),
-            r["last_member_date"].isoformat(),
-        ]
-        for r in members.iter_rows(named=True)
-    ] + [[e, "etf", "", ""] for e in etfs]
-    _write_csv(
-        out,
-        ["symbol", "reason", "first_member_date", "last_member_date"],
-        rows,
-        {
-            "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
-            "history_start": start.isoformat(),
-            "pit_source": {"file": str(pit_csv), "sha256": file_sha256(pit_csv), "url": PIT_URL},
-            "etf_source": {
-                "file": str(symbols_csv),
-                "sha256": file_sha256(symbols_csv),
-                "market_slugs": list(ETF_SLUGS),
-            },
-            "method": (
-                "snapshot in force on history_start plus every change snapshot after it; "
-                "union of tickers; first/last snapshot date per ticker (first clipped to "
-                "history_start; last = dataset's latest date for current members)"
-            ),
-            "sp500_pit": members.height,
-            "etf": len(etfs),
+        [sym, "|".join(sorted(pits)), "sp500_pit", f0.isoformat(), l0.isoformat()]
+        for sym, (pits, f0, l0) in sorted(merged.items())
+    ] + [[e, e, "etf", "", ""] for e in etfs]
+    meta: dict[str, object] = {
+        "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "history_start": start.isoformat(),
+        "pit_source": {"file": str(pit_csv), "sha256": file_sha256(pit_csv), "url": PIT_URL},
+        "etf_source": {
+            "file": str(symbols_csv),
+            "sha256": file_sha256(symbols_csv),
+            "market_slugs": list(ETF_SLUGS),
         },
+        "method": (
+            "snapshot in force on history_start plus every change snapshot after it; "
+            "union of tickers; first/last snapshot date per ticker (first clipped to "
+            "history_start; last = dataset's latest date for current members); symbol = "
+            "PIT ticker followed through Alpaca name changes (symbol_changes.csv + manual)"
+        ),
+        "symbol_changes": str(changes_file) if changes_file else None,
+        "sp500_pit": members.height,
+        "renamed": int(renamed),
+        "rows": len(rows),
+        "etf": len(etfs),
+    }
+    _write_csv(
+        out, ["symbol", "pit_symbol", "reason", "first_member_date", "last_member_date"], rows, meta
     )
-    return {"sp500_pit": members.height, "etf": len(etfs)}
+    return {
+        "sp500_pit": members.height,
+        "renamed": int(renamed),
+        "rows": len(rows),
+        "etf": len(etfs),
+    }
+
+
+def load_changes(auto: Path, manual: Path) -> list[dict[str, str]]:
+    """Symbol changes from the generated file plus manual overrides (manual rows win)."""
+    manual_rows = read_changes_csv(manual)
+    overridden = {r["old_symbol"] for r in manual_rows}
+    return [r for r in read_changes_csv(auto) if r["old_symbol"] not in overridden] + manual_rows
+
+
+def pit_symbols_of(universe_csv: Path) -> dict[str, str]:
+    """symbol -> pit_symbol from an hourly universe file (empty if absent/old format)."""
+    if not universe_csv.is_file():
+        return {}
+    with universe_csv.open(encoding="utf-8", newline="") as fh:
+        return {r["symbol"]: r.get("pit_symbol") or r["symbol"] for r in csv.DictReader(fh)}

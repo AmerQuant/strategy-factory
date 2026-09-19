@@ -177,3 +177,14 @@ def test_F_0_1_2_ingest_skips_symbol_without_data(tmp_path: Path) -> None:
         make_config(),
     )
     assert res.status == "no_data"
+
+
+def test_F_0_1_2_ingest_records_historical_pit_ticker(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    rows = load_fixture("daily_2020.json")["AAPL"]
+    write_chunk(raw, "1D", "META", 2020, rows, REQ, True, "fake 0")
+    store, catalog = SnapshotStore(tmp_path / "s"), Catalog(tmp_path / "s")
+    res = ingest_alpaca_symbol("META", "1D", raw, store, catalog, make_config(), pit_symbol="FB")
+    meta = catalog.get_reference("META", "1D")
+    assert res.status == "ingested" and meta.source_symbol == "META"
+    assert "Historical (S&P 500 PIT) ticker: FB; downloaded as META." in meta.notes

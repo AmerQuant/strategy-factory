@@ -64,7 +64,50 @@ def test_F_0_1_2_hourly_universe_with_etfs(tmp_path: Path) -> None:
     assert etf_symbols(sym) == ["EWJ", "GLD", "SPY"]
     out = tmp_path / "us_equity_hourly.csv"
     counts = build_hourly_universe(pit, sym, dt.date(2016, 1, 1), out)
-    assert counts == {"sp500_pit": 7, "etf": 3}
+    assert counts == {"sp500_pit": 7, "renamed": 0, "rows": 10, "etf": 3}
     df = pl.read_csv(out, infer_schema_length=0)
-    assert df.columns == ["symbol", "reason", "first_member_date", "last_member_date"]
+    assert df.columns == ["symbol", "pit_symbol", "reason", "first_member_date", "last_member_date"]
     assert df.filter(pl.col("symbol") == "SPY")["reason"].to_list() == ["etf"]
+
+
+RENAME_PIT = """date,tickers
+2015-12-15,"AAPL,FB,OLDX"
+2019-01-02,"AAPL,FB,OLDX,NEWY"
+2021-01-04,"AAPL,FB,NEWY"
+"""
+CHANGES = [
+    {
+        "old_symbol": "FB",
+        "new_symbol": "META",
+        "effective_date": "2022-06-09",
+        "source": "alpaca_corporate_actions",
+    },
+    {
+        "old_symbol": "OLDX",
+        "new_symbol": "MIDX",
+        "effective_date": "2019-06-01",
+        "source": "alpaca_corporate_actions",
+    },
+    {
+        "old_symbol": "MIDX",
+        "new_symbol": "NEWY",
+        "effective_date": "2020-06-01",
+        "source": "alpaca_corporate_actions",
+    },
+]
+
+
+def test_F_0_1_2_hourly_universe_downloads_current_symbol(tmp_path: Path) -> None:
+    pit = tmp_path / "pit.csv"
+    pit.write_text(RENAME_PIT, encoding="utf-8")
+    sym = tmp_path / "symbols.csv"
+    sym.write_text("source_ticker,market_slug\nSPY,etfs\n", encoding="utf-8")
+    out = tmp_path / "hourly.csv"
+    counts = build_hourly_universe(pit, sym, dt.date(2016, 1, 1), out, changes=CHANGES)
+    assert counts["renamed"] == 2 and counts["rows"] == 4  # AAPL, META, NEWY (merged), SPY
+    rows = {r["symbol"]: r for r in pl.read_csv(out, infer_schema_length=0).iter_rows(named=True)}
+    assert rows["META"]["pit_symbol"] == "FB"
+    assert rows["META"]["first_member_date"] == "2016-01-01"  # membership dates from the PIT list
+    assert rows["NEWY"]["pit_symbol"] == "NEWY|OLDX"  # chain OLDX -> MIDX -> NEWY merged
+    assert rows["NEWY"]["first_member_date"] == "2016-01-01"
+    assert rows["SPY"]["reason"] == "etf" and rows["SPY"]["pit_symbol"] == "SPY"

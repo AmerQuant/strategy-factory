@@ -30,7 +30,7 @@ def make_config(**overrides: Any) -> AlpacaConfig:
     """Config with absolute paths to the repo's calendar and known-splits files."""
     base: dict[str, Any] = {
         "hourly_session": HourlySessionConfig(
-            early_closes_file=REPO / "configs" / "calendars" / "nyse_early_closes.yaml"
+            sessions_file=REPO / "tests" / "fixtures" / "alpaca" / "nyse_sessions_fixture.csv"
         ),
         "split_check": SplitCheckConfig(
             known_splits_file=REPO / "configs" / "data" / "known_splits.csv"

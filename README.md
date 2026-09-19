@@ -12,6 +12,7 @@ Package `strategy_factory` · CLI `sfac` · Python 3.12 · managed with `uv`.
 - [Git](https://git-scm.com/download/win)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (installs Python 3.12 itself)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (PostgreSQL registry)
+- [Node.js](https://nodejs.org/) 20 or newer (only for the Dukascopy downloader: `cd tools/dukascopy && npm ci`)
 
 ## Setup
 

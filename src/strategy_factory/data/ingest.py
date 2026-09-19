@@ -55,6 +55,7 @@ def ingest_alpaca_symbol(
     config: AlpacaConfig,
     adapter: AlpacaAdapter | None = None,
     set_reference: bool = False,
+    pit_symbol: str | None = None,
 ) -> IngestResult:
     files = latest_chunks(raw_root, timeframe, symbol)
     if not any((read_manifest(f) or {}).get("row_count", 0) for f in files):
@@ -80,6 +81,8 @@ def ingest_alpaca_symbol(
     notes = meta.notes + (
         "" if cross is not None else " No cross-check file (MS-US-1D) for this symbol."
     )
+    if pit_symbol and pit_symbol != symbol:
+        notes += f" Historical (S&P 500 PIT) ticker: {pit_symbol}; downloaded as {symbol}."
     if warning:
         notes += " " + warning
         log.warning("%s %s: %s", symbol, timeframe, warning)
