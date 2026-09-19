@@ -447,7 +447,7 @@ def import_spec(xlsx: Path, moneta_dir: Path, *, source_label: str, file_date: s
         "imported_at": dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat(),
         "rows": len(rows),
     }
-    (moneta_dir / SPEC_META).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    (moneta_dir / SPEC_META).write_bytes((json.dumps(meta, indent=2) + "\n").encode("utf-8"))
     return ImportReport(
         source=xlsx,
         sha256=sha,
