@@ -1,0 +1,8 @@
+ticker,symbol,description,close_time_local,close_tz,close_time_status,notes
+^VIX,VIX,Cboe Volatility Index,16:15,America/New_York,verified,"Cboe VIX FAQ (cboe.com/tradable_products/vix/faqs/, read 2026-09-19): spot VIX is calculated 3:15-9:25 a.m. ET (GTH) and 9:30 a.m.-4:15 p.m. ET (RTH); the daily value is final after 16:15 ET. Whether Yahoo's daily close is exactly the 16:15 value is not documented by Yahoo."
+DX-Y.NYB,DXY,ICE US Dollar Index,,,to_verify,"Index computed by ICE nearly 24h (Sun-Fri); which snapshot Yahoo uses as the daily close is not documented. Proposal to verify against ICE: final value at the ICE US Dollar Index settlement/close time."
+^TNX,TNX,Cboe 10-Year Treasury Note Yield Index,,,to_verify,"Cboe index dashboard does not state calculation hours; needs the Cboe interest-rate index specification. Quote scale (percent or yield x 10) to be checked on the downloaded data."
+^GSPC,SPX,S&P 500 Index,,,to_verify,"Proposal: 16:00 America/New_York (NYSE/Nasdaq regular close); the official close is computed from closing-auction prices shortly after 16:00 - confirm with the S&P DJI index methodology."
+^NDX,NDX,Nasdaq-100 Index,,,to_verify,"Proposal: 16:00 America/New_York (Nasdaq regular close / official closing cross) - confirm with Nasdaq index methodology."
+^RUT,RUT,Russell 2000 Index,,,to_verify,"Proposal: 16:00 America/New_York (US regular close) - confirm with FTSE Russell methodology."
+^DJI,DJI,Dow Jones Industrial Average,,,to_verify,"Proposal: 16:00 America/New_York (NYSE regular close) - confirm with the S&P DJI methodology."

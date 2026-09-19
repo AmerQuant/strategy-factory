@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import math
 import os
@@ -219,10 +220,10 @@ def ts_export_symbol(p: Path) -> str:
     return parts[1].strip() if len(parts) >= 2 else p.stem
 
 
-def build_groups(qp: Path, ms: Path, me: Path) -> list[GroupDef]:
+def build_groups(qp: Path, ms: Path, me: Path, atm: Path | None = None) -> list[GroupDef]:
     qpcode = qp.parent
     mscode = ms.parent.parent
-    return [
+    groups = [
         GroupDef(
             gid="QP-US-EQ-1D",
             title="QuantPlatform · US equities · daily parquet",
@@ -459,6 +460,45 @@ def build_groups(qp: Path, ms: Path, me: Path) -> list[GroupDef]:
             norm=lambda s: s.upper(),
             priority=["@ES", "@NQ", "@CL", "@GC", "@ES.D", "@VX", "@BTC", "@TY", "@EC", "@C"],
         ),
+    ]
+    if atm is not None:
+        groups += atm_groups(atm)
+    return groups
+
+
+FUT_PRIORITY = ["@ES", "@NQ", "@CL", "@GC", "@VX", "@BTC", "@TY", "@EC", "@C", "@HO", "@RB"]
+
+
+def atm_groups(atm: Path) -> list[GroupDef]:
+    """1H/1440min/Daily TradeStation exports in the 'Ali Casy-ATM' historical-data folder."""
+    evidence = [
+        "Same 'Data Exporter v3.0' header block as ME-FUT-15M (`@SYM = <desc> Continuous Contract [Sep25]`, "
+        "`Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,...`); `@` continuous symbols and the "
+        "`$/Big Point` / `S.Start` / `S.End` fields are TradeStation/EasyLanguage conventions.",
+        "Each series exists twice, as `.csv` and `.txt` (byte-identity checked in the "
+        "'ATM folder file variants' section).",
+    ]
+    variants = [
+        ("ATM-FUT-1H", "60min", "hourly"),
+        ("ATM-FUT-1440", "1440min", "1440-minute (one bar per session)"),
+        ("ATM-FUT-DAILY", "Daily", "daily"),
+    ]
+    return [
+        GroupDef(
+            gid=gid,
+            title=f"Ali Casy-ATM · US futures continuous contracts · {desc} (`Data Export,@SYM, {tag}.csv`)",
+            root=atm,
+            patterns=[f"Data Export,*, {tag}.csv"],
+            kind="ts_export",
+            session="futures",
+            asset_class="futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto)",
+            source="TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09)",
+            source_evidence=list(evidence),
+            symbol_of=ts_export_symbol,
+            norm=lambda s: s.upper(),
+            priority=FUT_PRIORITY,
+        )
+        for gid, tag, desc in variants
     ]
 
 
@@ -875,7 +915,7 @@ def analyse_futures(ld: Loaded, tf_min: float) -> dict[str, Any]:
         res["label_eq_session_start_plus_tf"] = lab_set.get(first_after, 0)
     # first label of each session (bar after a gap > 30 min), by season
     d = pl.DataFrame({"ts": ts}).with_columns(pl.col("ts").diff().dt.total_minutes().alias("gap"))
-    starts = d.filter((pl.col("gap") > 30) | pl.col("gap").is_null())
+    starts = d.filter((pl.col("gap") > max(30.0, 1.5 * tf_min)) | pl.col("gap").is_null())
     month = starts["ts"].dt.month()
     winter = starts.filter(month.is_in([12, 1, 2]))
     summer = starts.filter(month.is_in([6, 7, 8]))
@@ -1397,6 +1437,187 @@ def overlaps(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------------------
+# ATM futures folder: file variants and overlap with the old 15-minute set
+# --------------------------------------------------------------------------------------
+OVERLAP_SYMBOLS = ["@ES", "@NQ", "@CL", "@GC", "@TY", "@EC"]
+
+
+def env_path(key: str) -> Path | None:
+    """Path from the process environment, else from the repo `.env` (tiny KEY=VALUE parser)."""
+    value = os.environ.get(key)
+    dotenv = REPO / ".env"
+    if not value and dotenv.is_file():
+        for raw in dotenv.read_text(encoding="utf-8").splitlines():
+            k, sep, v = raw.strip().partition("=")
+            if sep and k.strip() == key:
+                value = v.strip().strip("'\"")
+    return Path(value) if value else None
+
+
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def atm_variants_section(atm: Path) -> list[str]:
+    """Classify every file in the ATM folder and check `.csv` vs `.txt` byte identity."""
+    files = sorted(p for p in atm.iterdir() if p.is_file())
+    rx = re.compile(r"^Data Export,(@[^,]+), (60min|1440min|Daily)\.(csv|txt)$")
+    kinds: Counter[str] = Counter()
+    odd: list[str] = []
+    pairs_same = pairs_diff = 0
+    diff_names: list[str] = []
+    for p in files:
+        m = rx.match(p.name)
+        if not m:
+            odd.append(p.name)
+            continue
+        kinds[f"{m.group(2)}.{m.group(3)}"] += 1
+        if m.group(3) == "csv":
+            twin = p.with_suffix(".txt")
+            if twin.is_file():
+                if file_sha256(p) == file_sha256(twin):
+                    pairs_same += 1
+                else:
+                    pairs_diff += 1
+                    diff_names.append(p.name)
+    out = ["", "## ATM folder file variants (`Historical Data - 2025-07-07`)", ""]
+    out.append(
+        f"{len(files)} files. Standard names per timeframe/extension: {j(dict(sorted(kinds.items())))}."
+    )
+    out.append(
+        f"- `.csv` vs `.txt` twins: {pairs_same} byte-identical (sha256), {pairs_diff} different"
+        + (f": {', '.join(diff_names)}" if diff_names else "")
+        + ". The inventory groups use the `.csv` copy; the `.txt` twins are duplicates."
+    )
+    out.append(
+        "- Files that do not fit the `Data Export,@SYM, <tf>.<ext>` pattern (not grouped, not copied): "
+        + (", ".join(f"`{n}`" for n in odd) or "none")
+        + "."
+    )
+    for n in odd:
+        std = atm / re.sub(r" - Copy", "", n).removesuffix(".bak")
+        if n.endswith(".bak") or not std.is_file():
+            continue
+        h1 = read_head_lines(atm / n, 1)[0]
+        state = "missing" if h1.startswith("Date,") else "present"
+        out.append(
+            f"  - `{n}`: first line `{h1[:60]}` (header block {state}); "
+            f"standard file `{std.name}` exists."
+        )
+    return out
+
+
+def resample_15m_to_1h_bar_end(df: pl.DataFrame) -> pl.DataFrame:
+    """Aggregate bar-end-labelled 15-minute bars into bar-end-labelled hourly bars."""
+    hour_end = (pl.col("ts") - pl.duration(microseconds=1)).dt.truncate("1h") + pl.duration(hours=1)
+    return (
+        df.with_columns(hour_end.alias("h"))
+        .group_by("h", maintain_order=True)
+        .agg(
+            pl.col("open").first(),
+            pl.col("high").max(),
+            pl.col("low").min(),
+            pl.col("close").last(),
+            pl.col("volume").sum(),
+            pl.len().alias("n15"),
+        )
+        .rename({"h": "ts"})
+        .sort("ts")
+    )
+
+
+def futures_overlap(me: Path, atm: Path, symbols: list[str]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for sym in symbols:
+        f15 = me / f"Data Export,{sym}, 15min.txt"
+        f60 = atm / f"Data Export,{sym}, 60min.csv"
+        if not (f15.is_file() and f60.is_file()):
+            continue
+        old = resample_15m_to_1h_bar_end(load_ts_export(f15).df)
+        new = load_ts_export(f60).df
+        lo = max(old["ts"].min(), new["ts"].min())  # type: ignore[type-var]
+        hi = min(old["ts"].max(), new["ts"].max())  # type: ignore[type-var]
+        o = old.filter(pl.col("ts").is_between(lo, hi))
+        n = new.filter(pl.col("ts").is_between(lo, hi))
+        jn = n.join(o, on="ts", how="inner", suffix="_15m")
+        full = jn.filter(pl.col("n15") == 4)
+        d = (full["close"] - full["close_15m"]).round(6)
+        mode_diff = float(d.mode().sort()[0]) if d.len() else None
+        rng = (full["high"] - full["low"]) - (full["high_15m"] - full["low_15m"])
+        out.append(
+            {
+                "symbol": sym,
+                "common_period": f"{lo} → {hi}",
+                "bars_1h_new": n.height,
+                "bars_1h_from_15m": o.height,
+                "matched_ts": jn.height,
+                "matched_share_of_new": round(jn.height / n.height, 4) if n.height else None,
+                "complete_hours_compared": full.height,
+                "close_diff_mode": mode_diff,
+                "share_close_diff_eq_mode": round(float((d == mode_diff).mean()), 4)
+                if d.len()
+                else None,
+                "distinct_close_diffs": int(d.n_unique()),
+                "share_range_equal": round(float((rng.abs() < 1e-9).mean()), 4)
+                if full.height
+                else None,
+                "share_volume_equal": round(float((full["volume"] == full["volume_15m"]).mean()), 4)
+                if full.height
+                else None,
+            }
+        )
+    return out
+
+
+def render_futures_overlap(rows: list[dict[str, Any]]) -> list[str]:
+    out = ["", "## Futures overlap: ATM-FUT-1H vs ME-FUT-15M resampled to 1H", ""]
+    out.append(
+        "15-minute bars (bar-end labels) are aggregated into hourly bars ending on the full hour "
+        "and joined to the ATM hourly bars on the label. Only hours built from 4 complete "
+        "15-minute bars are compared. Both sets are additively back-adjusted but anchored to "
+        "different last contracts (`[Dec23]` vs `[Sep25]`), so closes differ by an offset that "
+        "is constant between rolls; bar ranges (high−low) and volume do not depend on the offset."
+    )
+    out.append("")
+    if not rows:
+        out.append("No common symbols found.")
+        return out
+    head = [
+        "symbol",
+        "common period",
+        "1H bars (ATM)",
+        "matched labels (share)",
+        "hours compared",
+        "modal close diff",
+        "share at modal diff",
+        "distinct diffs",
+        "range equal",
+        "volume equal",
+    ]
+    body = [
+        [
+            r["symbol"],
+            r["common_period"],
+            str(r["bars_1h_new"]),
+            f"{r['matched_ts']} ({r['matched_share_of_new']})",
+            str(r["complete_hours_compared"]),
+            str(r["close_diff_mode"]),
+            str(r["share_close_diff_eq_mode"]),
+            str(r["distinct_close_diffs"]),
+            str(r["share_range_equal"]),
+            str(r["share_volume_equal"]),
+        ]
+        for r in rows
+    ]
+    out.append(md_table(head, body))
+    return out
+
+
+# --------------------------------------------------------------------------------------
 # Markdown rendering
 # --------------------------------------------------------------------------------------
 def md_table(headers: list[str], rows: list[list[Any]]) -> str:
@@ -1855,13 +2076,14 @@ def interpret(r: dict[str, Any], cross: dict[str, Any]) -> dict[str, Any]:
             f"- No well-known split probes exist for TSE. Proxy: {bm} of {r.get('deep_sample_files')} sampled files have ≥1 day-to-day close move > {int(BIG_MOVE * 100)}%, although TSE daily price limits are a few percent → capital increases/dividends appear as raw jumps → **likely unadjusted** (to confirm)."
         )
         concl["adjustment"] = "likely unadjusted (jumps beyond daily limits)"
-    elif gid == "ME-FUT-15M":
+    elif r.get("_kind") == "ts_export":
+        tfm = (r.get("timeframe") or {}).get("dominant", "?")
         ts_md.append("- `Date` = `MM/DD/YYYY`, `Time` = `HH:MM`, **naive**, separate columns.")
         ss = sum(s.get("label_eq_session_start", 0) for s in sres)
         se = sum(s.get("label_eq_session_end", 0) for s in sres)
         sp = sum(s.get("label_eq_session_start_plus_tf", 0) for s in sres)
         ts_md.append(
-            f"- Across the sample, bars labelled exactly at header `S.Start`: {ss}; at `S.Start`+15 min: {sp}; at `S.End`: {se}. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention)."
+            f"- Across the sample, bars labelled exactly at header `S.Start`: {ss}; at `S.Start`+1 bar ({tfm}): {sp}; at `S.End`: {se}. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention)."
         )
         es = next((s for s in sres if s.get("symbol") == "@ES"), None)
         if es:
@@ -1879,7 +2101,7 @@ def interpret(r: dict[str, Any], cross: dict[str, Any]) -> dict[str, Any]:
         concl["bar_label"] = "bar-end"
         neg = sum(s.get("negative_or_zero_prices", 0) for s in sres)
         adj_md.append(
-            f"- Series type: every header says `Continuous Contract [Dec23]` → **continuous series** (one file per root), ending with the Dec-2023 contract; all files end on {r['date_range_all_files'].get('last_ts', {}).get('max')}."
+            f"- Series type: header contract tags {j(dict(Counter(h.get('contract_tag') for h in r.get('futures_headers', []))))}; descriptions say `Continuous Contract` → **continuous series** (one file per root); last timestamp across files: {r['date_range_all_files'].get('last_ts', {}).get('max')}."
         )
         adj_md.append(
             f"- Bars with low ≤ 0 across sample: {neg} (back-adjusted series can go negative)."
@@ -2076,6 +2298,13 @@ def main(argv: list[str] | None = None) -> int:
         "--marketedge", type=Path, default=DEFAULT_SRC / "MarketEdge" / "Data" / "Futures"
     )
     ap.add_argument("--dukascopy", type=Path, default=None, help="Dukascopy data folder (none yet)")
+    ap.add_argument(
+        "--atm-futures",
+        type=Path,
+        default=None,
+        help="Ali Casy-ATM 1H/Daily futures export folder (default: SFAC_SRC_ATM_FUTURES "
+        "from the environment or the repo .env)",
+    )
     ap.add_argument("--out-md", type=Path, default=REPO / "docs" / "data_inventory.md")
     ap.add_argument("--out-json", type=Path, default=REPO / "docs" / "data_inventory.json")
     args = ap.parse_args(argv)
@@ -2089,6 +2318,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.dukascopy:
         roots["Dukascopy"] = args.dukascopy
+    atm = args.atm_futures or env_path("SFAC_SRC_ATM_FUTURES")
+    if atm is not None:
+        roots["ATM futures"] = atm
     for k, v in roots.items():
         if not v.exists():
             print(f"[warn] root missing: {k} -> {v}")
@@ -2096,7 +2328,7 @@ def main(argv: list[str] | None = None) -> int:
     print("[snapshot] stat-ing source trees (before)...")
     before = snapshot_tree(v for v in roots.values() if v.exists())
 
-    groups = build_groups(args.quantplatform, args.marketscanner, args.marketedge)
+    groups = build_groups(args.quantplatform, args.marketscanner, args.marketedge, atm)
     kinds = {g.gid: g.kind for g in groups}
     errors: list[dict[str, str]] = []
     results: list[dict[str, Any]] = []
@@ -2128,6 +2360,11 @@ def main(argv: list[str] | None = None) -> int:
     # --- group-specific notes and extra sections
     by = {r["group_id"]: r for r in results}
     extra: list[str] = []
+    fut_overlap: list[dict[str, Any]] = []
+    if atm is not None and "ATM-FUT-1H" in by:
+        extra += atm_variants_section(atm)
+        fut_overlap = futures_overlap(args.marketedge, atm, OVERLAP_SYMBOLS)
+        extra += render_futures_overlap(fut_overlap)
     ms_manifest = args.marketscanner.parent / "symbols.csv"
     if ms_manifest.is_file():
         man = pl.read_csv(track(ms_manifest), infer_schema_length=0)
@@ -2208,6 +2445,11 @@ def main(argv: list[str] | None = None) -> int:
     if "2023-11-01" in json.dumps(by["ME-FUT-15M"].get("date_range_all_files", {}), default=str):
         add_note("ME-FUT-15M", "all series end 2023-11-01 (stale)")
     add_note("QP-REF", "not price data")
+    if "ATM-FUT-1H" in by:
+        add_note("ATM-FUT-1H", "`.txt` twins byte-identical; 2 `- Copy` + 2 `.bak` files excluded")
+        add_note("ATM-FUT-1H", "@ED ends 2023-05 (Eurodollar delisted)")
+        add_note("ATM-FUT-1440", "not copied (only 1H decided)")
+        add_note("ATM-FUT-DAILY", "not copied (only 1H decided)")
 
     # --- questions
     questions = [
@@ -2227,6 +2469,12 @@ def main(argv: list[str] | None = None) -> int:
         "Auxiliary series (VIX index, SPX index, rates) from Yahoo: none found in these folders. Where should they come from?",
         "Execution broker(s) for cost profiles are still open (HANDOFF §7.3) — no broker/MT5 exports were found in the scanned folders.",
     ]
+    if "ATM-FUT-1H" in by:
+        questions += [
+            "ATM futures (T00b): the new 1H export matches the old 15-minute set exactly on the common period (identical labels and bar ranges; closes differ by one constant back-adjustment offset per roll segment), so it is the same TradeStation feed and settings. Please confirm the TradeStation settings used for both exports: back-adjustment on (the data shows additive back-adjustment), roll rule (volume-based or N days before expiry), and time zone = exchange time.",
+            "ATM futures: `1440min` and `Daily` files differ (e.g. @ES 2025-07-07 close 6263.25 in 1440min vs 6276.00 in Daily; Daily looks like settlement prices, 1440min like the last trade of the session). Only 1H is imported now; should one of the daily variants be imported too, and which one is the reference for daily futures research?",
+            "ATM futures: ICE softs (@CC, @CT, @KC, @OJ, @SB) — confirm their timestamps are US/Eastern exchange time (the other exchanges are US/Central).",
+        ]
     security = code_evidence(
         DEFAULT_SRC / "MarketScanner" / "scripts" / "host_download.py",
         r"ALPACA_KEY = os\.environ\.get",
@@ -2268,16 +2516,19 @@ def main(argv: list[str] | None = None) -> int:
     }
     md = render_markdown(results, cross, ovl, meta, questions, extra)
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
-    args.out_md.write_text(md, encoding="utf-8")
+    args.out_md.write_text(md, encoding="utf-8", newline="\n")
     payload = {
         "meta": meta,
         "groups": jsonable(results),
         "overlaps": ovl,
         "cross_source_checks": jsonable(cross),
+        "futures_overlap_atm_vs_me": jsonable(fut_overlap),
         "questions_for_user": questions,
     }
     args.out_json.write_text(
-        json.dumps(jsonable(payload), indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        json.dumps(jsonable(payload), indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+        newline="\n",
     )
     print(
         f"[done] {args.out_md} and {args.out_json} written in {meta['elapsed_s']} s; integrity ok={meta['integrity']['ok']}; errors={len(errors)}"

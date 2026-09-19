@@ -11,6 +11,7 @@ import typer
 from strategy_factory import __version__
 from strategy_factory.core.env import resolve_env
 from strategy_factory.core.logging import get_logger, setup_logging
+from strategy_factory.data.cli import data_app
 
 app = typer.Typer(
     name="sfac",
@@ -18,6 +19,8 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+
+app.add_typer(data_app, name="data")
 
 INFO_ENV_KEYS = ("SFAC_DATA_ROOT", "SFAC_ARTIFACTS_ROOT")
 
