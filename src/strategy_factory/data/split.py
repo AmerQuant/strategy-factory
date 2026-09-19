@@ -41,6 +41,10 @@ log = get_logger(__name__)
 _BOUNDARIES = ("dev_start", "dev_end", "embargo_bars", "holdout_start", "holdout_end")
 
 
+class HistoryTooShortError(DataError):
+    """The snapshot is too short for a development / embargo / holdout split."""
+
+
 class Split(BaseModel):
     """Split of one snapshot; boundaries are inclusive bar timestamps (UTC)."""
 
@@ -133,7 +137,7 @@ def compute_split(
     h = int(np.searchsorted(ts.to_numpy(), np.datetime64(cutoff.replace(tzinfo=None), "us")))
     e = cfg.embargo_bars
     if h - e <= 0 or h >= n:
-        raise DataError(
+        raise HistoryTooShortError(
             f"history too short for a split: {n} bars, holdout from bar {h}, embargo {e} bars "
             f"({first:%Y-%m-%d}..{last:%Y-%m-%d})",
             stage="split",
