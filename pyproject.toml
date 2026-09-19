@@ -67,7 +67,6 @@ warn_unused_configs = true
 [[tool.mypy.overrides]]
 module = [
     "strategy_factory.cli",
-    "strategy_factory.costs.*",
     "strategy_factory.engine.*",
     "strategy_factory.components.*",
     "strategy_factory.metrics.*",

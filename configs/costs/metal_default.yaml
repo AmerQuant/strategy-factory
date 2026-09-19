@@ -1,0 +1,21 @@
+# Placeholder cost profile for metals (T06). The real broker is not known yet: every result
+# that uses this profile carries a visible "placeholder" flag.
+# The swap rates are DELIBERATELY CONSERVATIVE placeholders (a 3 % annual charge on both sides).
+name: metal_default
+status: placeholder
+source_note: "T06 placeholder: Dukascopy hourly median spread, no commission, -3 %/yr swap both sides"
+spread:
+  mode: from_data
+  scale: 1.0
+commission:
+  model: none
+swap:
+  model: annual_rate
+  long: -0.03                           # placeholder: conservative charge
+  short: -0.03                          # placeholder: conservative charge
+  day_count: 365
+  rollover_time_local: "17:00"
+  rollover_tz: America/New_York
+  triple_weekday: WED
+slippage:
+  atr_fraction: 0.02

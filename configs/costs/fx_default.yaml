@@ -1,0 +1,27 @@
+# Placeholder cost profile for FX (T06). The real broker is not known yet: every result that
+# uses this profile carries a visible "placeholder" flag.
+# The swap rates are DELIBERATELY CONSERVATIVE placeholders (a 3 % annual charge on both
+# sides); real rates depend on the broker and the interest-rate differential.
+name: fx_default
+status: placeholder
+source_note: "T06 placeholder: Dukascopy hourly median spread, 3.5 USD/100k per side, -3 %/yr swap both sides"
+pip_size: 0.0001                        # JPY pairs override this in assignments.yaml
+spread:
+  mode: from_data                       # median snapshot spread per UTC hour (development data)
+  scale: 1.0
+  fallback: {value: 1.0, unit: pip}     # FULL spread for hours without data
+commission:
+  model: per_lot
+  lot_size: 100000                      # instrument (base-currency) units per lot
+  per_lot_per_side: 3.5                 # USD
+swap:
+  model: annual_rate
+  long: -0.03                           # placeholder: conservative charge
+  short: -0.03                          # placeholder: conservative charge
+  day_count: 365
+  rollover_time_local: "17:00"
+  rollover_tz: America/New_York
+  triple_weekday: WED
+slippage:
+  fixed: {value: 0.2, unit: pip}
+  atr_fraction: 0.02

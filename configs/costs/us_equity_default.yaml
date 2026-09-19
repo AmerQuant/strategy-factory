@@ -1,0 +1,18 @@
+# Placeholder cost profile for US equities and ETFs (T06). The real broker is not known yet:
+# every result that uses this profile carries a visible "placeholder" flag. Replace the
+# numbers (and set status: verified) when the broker is chosen; no code change is needed.
+name: us_equity_default
+status: placeholder
+source_note: "T06 placeholder: 2 bps full spread, 0.005 USD/share (min 1 USD), no swap, 1 bp slippage"
+spread:
+  mode: fixed
+  fixed: {value: 2.0, unit: bps}        # FULL spread (ask - bid); half is applied per side
+commission:
+  model: per_share
+  per_share: 0.005                      # USD per share, per side
+  min_per_order: 1.00                   # USD
+swap:
+  model: none                           # cash equities: no financing
+slippage:
+  fixed: {value: 1.0, unit: bps}        # per side
+  atr_fraction: 0.0

@@ -1,6 +1,8 @@
 # configs/costs
 
-Cost profiles per symbol and broker (F-0.2.x): spread (incl. hourly spread profile),
-commission model, long/short swap, triple-swap day, slippage (fixed + fraction of ATR).
-Validated by Pydantic models; a symbol without a cost profile cannot run.
-Populated in task T06.
+Cost profiles (F-0.2.1, F-0.2.3, F-0.2.4). One profile per `*.yaml` file, validated by
+`strategy_factory.costs.profile.CostProfile`; `assignments.yaml` maps asset classes and
+symbols to profiles. A symbol without a profile cannot run (`sfac costs validate`).
+
+All profiles are **placeholders** (`status: placeholder`) until the execution broker is
+known; results that use them carry a visible flag. Replacing the numbers is a YAML-only change.
