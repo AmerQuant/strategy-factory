@@ -42,7 +42,7 @@ TF_PROBES = {
     "tf_sma_cross_20_100",
     "tf_donchian20_breakout",
     "tf_donchian55_breakout",
-    "tf_close_above_bb_upper",
+    "tf_bb_upper_cross",
     "tf_supertrend_flip",
     "tf_ichimoku_cloud",
     "tf_roc20_cross_zero",
@@ -116,7 +116,7 @@ def test_F_0_4_1_probe_defaults_are_the_spec_values() -> None:
     assert defaults("tf_sma_cross_20_100") == {"fast": 20, "slow": 100}
     assert defaults("tf_donchian20_breakout") == {"length": 20}
     assert defaults("tf_donchian55_breakout") == {"length": 55}
-    assert defaults("tf_close_above_bb_upper") == {"length": 20, "mult": 2.0}
+    assert defaults("tf_bb_upper_cross") == {"length": 20, "mult": 2.0}
     assert defaults("tf_supertrend_flip") == {"atr_period": 10, "factor": 3.0}
     assert defaults("tf_ichimoku_cloud") == {"conversion": 9, "base": 26, "span_b": 52}
     assert defaults("tf_roc20_cross_zero") == {"length": 20}
@@ -356,7 +356,7 @@ TRIGGERS = {
     "tf_sma_cross_20_100": "event",
     "tf_donchian20_breakout": "event",
     "tf_donchian55_breakout": "event",
-    "tf_close_above_bb_upper": "event",
+    "tf_bb_upper_cross": "event",
     "tf_supertrend_flip": "event",
     "tf_ichimoku_cloud": "state",
     "tf_roc20_cross_zero": "event",
@@ -375,7 +375,7 @@ def test_F_0_4_1_crossing_events_never_fire_on_consecutive_bars() -> None:
     for name in (
         "tf_ma50_slope_up",
         "tf_sma_cross_20_100",
-        "tf_close_above_bb_upper",
+        "tf_bb_upper_cross",
         "tf_supertrend_flip",
         "tf_roc20_cross_zero",
     ):
@@ -397,7 +397,7 @@ def test_F_0_4_1_bb_upper_probe_is_a_cross_of_the_upper_band() -> None:
     from strategy_factory.components import indicators as ind
 
     b = bars(2000, seed=11)
-    long_, short = default_registry().get("tf_close_above_bb_upper").signals(b)
+    long_, short = default_registry().get("tf_bb_upper_cross").signals(b)
     bb = ind.bollinger(b.close, 20, 2.0)
     c, up, lo = b.close, bb.upper, bb.lower
     exp_long = np.zeros(len(b), dtype=bool)

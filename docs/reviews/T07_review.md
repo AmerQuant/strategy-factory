@@ -121,7 +121,7 @@ Short = long rule on the mirrored series for every probe (no `mirror: false` pro
 | `tf_ma50_slope_up` | TF / ma | `slope > 0 and slope[1] <= 0`, `slope = sma50 − sma50[1]` |
 | `tf_sma_cross_20_100` | TF / ma | `crossover(sma20, sma100)` |
 | `tf_donchian20_breakout`, `tf_donchian55_breakout` | TF / channel_breakout | `close > highest(high, N)[1]` |
-| `tf_close_above_bb_upper` | TF / channel_breakout | `crossover(close, bb(20, 2).upper)`: `close > upper` and `close[1] <= upper[1]` (changed by decision, see follow-up 2) |
+| `tf_bb_upper_cross` | TF / channel_breakout | `crossover(close, bb(20, 2).upper)`: `close > upper` and `close[1] <= upper[1]` (changed by decision, see follow-up 2) |
 | `tf_supertrend_flip` | TF / volatility_trailing | direction goes `+1 → −1` (TV convention) |
 | `tf_ichimoku_cloud` | TF / ichimoku | `close > max(spanA, spanB)[25] and tenkan > kijun` |
 | `tf_roc20_cross_zero` | TF / momentum | momentum `close − close[20]` crosses above 0 (same sign as ROC for positive prices; keeps the mirror exact) |
@@ -202,7 +202,7 @@ The comment in the test says to remove this special case once the golden files a
 | `tf_ma50_slope_up` | event | slope crosses 0 |
 | `tf_sma_cross_20_100` | event | crossover |
 | `tf_donchian20_breakout`, `tf_donchian55_breakout` | event | breakout of the prior channel |
-| `tf_close_above_bb_upper` | **event** | close crosses above the upper band (`close > upper` and `close[1] <= upper[1]`); short: crosses below the lower band — supervisor decision |
+| `tf_bb_upper_cross` | **event** | close crosses above the upper band (`close > upper` and `close[1] <= upper[1]`); short: crosses below the lower band — supervisor decision |
 | `tf_supertrend_flip` | event | direction flip |
 | `tf_ichimoku_cloud` | state | "close above cloud and tenkan > kijun" is a condition, not a cross |
 | `tf_roc20_cross_zero` | event | zero cross |
@@ -232,3 +232,8 @@ Not pushed (as instructed); CI has not run.
 - Rule changed from the level condition `close > upper` to **close crosses above the upper Bollinger band (20, 2)**: `close > upper and close[1] <= upper[1]` (`crossover`, NaN → no signal). Mirror: close crosses below the lower band. `trigger = "event"`. The probe name `tf_close_above_bb_upper` is unchanged (it is the registry id). Trigger totals are now **8 state / 9 event**.
 - Tests: the trigger table in `test_F_0_4_1_every_probe_declares_its_trigger` was updated. The probe was added to `test_F_0_4_1_crossing_events_never_fire_on_consecutive_bars`. The new `test_F_0_4_1_bb_upper_probe_is_a_cross_of_the_upper_band` checks long and short against a bar-by-bar loop over the Bollinger bands and confirms the cross fires on fewer bars than the level condition holds. The mirror, leakage and truncation tests cover it unchanged.
 - Acceptance commands re-run: ruff ✅, format ✅, mypy ✅, `pytest -m "not slow"` ✅ **576 passed**, `pytest tests/parity tests/leakage` ✅ 103 passed. Not pushed.
+
+## Follow-up 3 — probe id renamed (supervisor decision)
+- `tf_close_above_bb_upper` → **`tf_bb_upper_cross`** (class `TfBbUpperCross`), so the id matches the event rule. No trial references the old id yet. Rule, parameters, group (`channel_breakout`) and trigger (`event`) are unchanged. The probe and trigger tables above use the new id; the earlier follow-up notes keep the old id as history.
+- Updated tests: registry listing (`TF_PROBES`), spec defaults, trigger table, the consecutive-bar event check and `test_F_0_4_1_bb_upper_probe_is_a_cross_of_the_upper_band`.
+- Acceptance commands re-run: ruff ✅, format ✅, mypy ✅, `pytest -m "not slow"` ✅ 576 passed, `pytest tests/parity tests/leakage` ✅ 103 passed. Not pushed.

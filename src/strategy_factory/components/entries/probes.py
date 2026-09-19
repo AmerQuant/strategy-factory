@@ -315,12 +315,12 @@ class TfDonchian55Breakout(_DonchianBreakout):
 
 
 @register
-class TfCloseAboveBollinger(_Probe):
+class TfBbUpperCross(_Probe):
     """Close crosses above the upper Bollinger band (20, 2): ``close > upper`` and
     ``close[1] <= upper[1]`` (short: close crosses below the lower band). Supervisor decision
     T07: an event, not the level condition ``close > upper``."""
 
-    name = "tf_close_above_bb_upper"
+    name = "tf_bb_upper_cross"
     trigger = "event"
     edge_type = "TF"
     group = "channel_breakout"
