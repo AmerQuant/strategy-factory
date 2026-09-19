@@ -1,93 +1,71 @@
-# HANDOFF — Strategy Factory (انتقال به جلسهٔ جدید)
+# HANDOFF — Strategy Factory (v3)
 
-> این فایل خلاصهٔ کامل وضعیت پروژه تا پایان جلسهٔ طراحی است. در جلسهٔ جدید، این فایل را همراه با CLAUDE.md، سند مشخصات، سند طراحی و فیچرلیست بارگذاری کن.
+Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0), the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`) and the feature list (`docs/features.md`).
 
-## ۱. پروژه در یک پاراگراف
+## 1. Project in one paragraph
 
-Strategy Factory یک فریم‌ورک داخلی برای تیم است که هر ایدهٔ استراتژی را از یک خط تولید استاندارد، تکرارپذیر و قابل ممیزی عبور می‌دهد: کشف اج → غربال متد → بهینه‌سازی ورود → بهینه‌سازی خروج → تحلیل تشخیصی و فیلتر → روباستنس → آزمون‌های آماری → پکیج گزارش → تأیید تحلیلگر → پورتفو → سایزینگ → چرخهٔ عمر در فوروارد. ریپو: `strategy-factory`، بستهٔ پایتون `strategy_factory`، CLI: `sfac`. مسیر محلی: `D:\AmerAndish\Projects\Trade\StrategyFactory\`.
+Strategy Factory is an internal framework that runs every trading-strategy idea through one standard, reproducible, auditable funnel: edge discovery → method screening → entry optimization → exit optimization → diagnostics and filters → robustness → statistical validation → report package → analyst review → portfolio → sizing → forward lifecycle. Repository `AmerQuant/strategy-factory`, Python package `strategy_factory`, CLI `sfac`, local path `D:\AmerAndish\Projects\Trade\StrategyFactory\`. Data lives outside the repo in `D:\AmerAndish\Projects\Trade\StrategyFactory_data\` (`raw\` = `SFAC_RAW_ROOT`, immutable; `store\` = `SFAC_DATA_ROOT`, canonical snapshots).
 
-## ۲. نقش‌ها و روش کار
+## 2. Roles and workflow
 
-- **کاربر:** صاحب محصول و تصمیم‌گیر نهایی؛ اجرای Claude Code؛ آوردن خلاصهٔ بازبینی هر تسک به چت.
-- **Claude در چت:** ناظر و معمار؛ نوشتن فایل تسک برای Claude Code، بازبینی بر اساس معیارهای پذیرش فیچرلیست، نگهداری اسناد.
-- **Claude Code:** پیاده‌سازی تسک‌ها در ریپو طبق CLAUDE.md؛ پایان هر تسک با «خلاصهٔ بازبینی».
-- **ترجیح کاربر:** برای هر انتخاب ابزار یا کتابخانه، گزینه‌ها با مزایا، معایب، اثر روی قیود و شکل پیاده‌سازی مقایسه شوند و تصمیم با خود کاربر باشد.
-- تصمیم‌ها با پرسش چندگزینه‌ای گرفته می‌شوند؛ اسناد فارسی، راست‌به‌چپ، فونت وزیرمتن؛ کد و CLAUDE.md انگلیسی.
+- **User:** product owner and final decision maker. Runs Claude Code, runs every network script in PowerShell (D-031), approves plans and merges.
+- **Supervisor (Claude chat, inside the Claude Project connected to this repo):** architect and reviewer. Keeps the decisions log, answers `docs/decisions/pending.md`, reviews plans and PRs against the acceptance criteria. After every merge, press **Sync** in the Project so the supervisor sees the current `main`.
+- **Claude Code:** plans and implements batches with the standing prompt (`docs/STANDING_PROMPT.md`):
+  1. **Phase 1 — plan:** task files + runbook on branch `docs/<batch>`; assumptions go to `pending.md`; stop.
+  2. **Phase 2 — execute**, after "Plan approved": tests first, implementation, acceptance commands, the `acceptance-reviewer` subagent (`.claude/agents/`), review file, commit. Critical tasks (D-402) stop after their review until "Approved".
+  3. **End:** PR(s) with `gh` (body = reviews), update this file, batch report. Merge only on "Approved. Merge …" with green CI (D-401).
+- Code, identifiers, commits and repo docs are in English; user-facing reports are Persian (RTL, Vazirmatn).
 
-## ۳. وضعیت نقشهٔ راه
+## 3. Task status
 
-| فاز | وضعیت |
+| Task | Content | Status |
+|---|---|---|
+| T00 | Data inventory | ✅ merged (#2) |
+| T00b | Raw store organization (byte copies) | ✅ merged (batch 1, #3) |
+| T01 | Repo setup, CI | ✅ merged (#1) |
+| T02 | Schema, snapshot store, catalog | ✅ merged (batch 1, #3) |
+| T03 | Registry (PostgreSQL, Alembic) | ✅ merged (#5) |
+| T04a | Alpaca download + adapter | ✅ merged (batch 1, #3) |
+| T04b | Dukascopy download + adapter | ✅ merged (batch 1, #3) |
+| T04c | Yahoo aux series | ✅ merged (#3) |
+| T04d | Futures 1H adapter (TradeStation) | ⏸ not started (P1; blocked on P-02) |
+| T04e | Data-layer follow-up (hash v2, calendar, renames, pilots) | ✅ merged (#4) — **phase-B pilot analysis pending the Alpaca hourly download** |
+| T05 | Data quality, resampling, split manager | ✅ merged (batch 2a, #7) |
+| T06 | Cost model (placeholder profiles) | ✅ merged (batch 2a, #7) |
+| T07 | Components and indicators | ✅ merged (#6) |
+| T08 | Engine | ⏭ next batch (2b), **critical** |
+| T09 | Metrics and result containers | ✅ merged (#8) |
+| T10a | Gate engine, pipeline config, universe | ✅ merged (batch 2a, #7) |
+| T06b, T10b | Moneta costs; executor + metric-name registry | ⏭ next batch (2b) |
+| T11 … T15 | Parity, stages 1–3, orchestrator/CLI/reports/self-tests | later |
+
+## 4. Data status
+
+| Source | Status |
 |---|---|
-| ۱. تکمیل مشخصات مراحل | ✅ کامل (سند مشخصات v1.2) — فقط جزئیات فایل‌های داده باز است (T00 پاسخ می‌دهد) |
-| ۲. فیچرلیست | ✅ نسخهٔ ۱٫۱ (۱۲۸ فیچر؛ ۶۰ MVP، ۵۰ P1، ۱۸ P2؛ ستون تسک) |
-| ۳. طراحی معماری | ✅ سند طراحی v1.0 + CLAUDE.md + ۱۱ ADR |
-| ۴. هستهٔ مرحلهٔ ۰ | ⏳ T00 ✅ (فهرست داده)، T01 ✅ (ریپو؛ پس از سبز شدن CI در GitHub merge می‌شود)؛ بعدی: T02 سپس T04a |
-| ۵ تا ۱۰ | در انتظار |
+| Alpaca 1D (6,711 symbols, SIP, split-adjusted) | downloaded, **not ingested** yet |
+| Alpaca 1H (827 symbols) | **downloading** (user) |
+| Dukascopy h1 bid/ask (29 instruments, from 2010) | **downloading** (user); only the Q1-2024 pilot snapshots are in the catalog |
+| Yahoo aux (7 series) | downloaded |
+| NYSE calendar (`configs/calendars/nyse_sessions.csv`) | to be generated from the Alpaca calendar fetch (D-025) |
+| Moneta broker spec | `SFAC_RAW_ROOT/reference/broker/moneta/MT5Moneta-ECN_specification-1.xlsx` (read-only, manifest next to it, not in git) |
 
-## ۴. فایل‌ها
+Data expansion is frozen until the project is built (D-030).
 
-| فایل | محل در ریپو |
-|---|---|
-| CLAUDE.md | ریشه |
-| سند مشخصات v1.2 (docx + md) | `docs/spec/` |
-| سند طراحی v1.0 (docx + md) | `docs/` |
-| فیچرلیست v1.1 (xlsx + md) | `docs/` |
-| تسک‌ها T00، T01، T02، T04a | `docs/tasks/` |
-| گزارش فهرست داده | `docs/data_inventory.md` (branch `feat/T00-data-inventory`) |
-| افزودهٔ انواع اج (پیش‌نویس v0.1) | `docs/spec/spec_addendum_edge_types_v0_1.md` |
-| این فایل | ریشه (HANDOFF.md) |
+## 5. Open items
 
-## ۵. تصمیمات کلیدی (خلاصه — جزئیات در اسناد)
+- **P-04 — parity reference exports:** TradingView trade lists and OHLC for the SPX500 daily MR strategy and one 1H TF strategy. **Remind the user before T11.**
+- P-01 (edge-type addendum), P-02 (futures) and P-03 (broker costs; addressed by T06b) are in the decisions log, section G.
+- Open questions from the batch-2a reviews (`docs/reviews/T05|T06|T10a_review.md`) not yet answered in the log.
 
-**قراردادهای مرحلهٔ ۰:** اجرا در اوپن کندل بعد؛ ابهام درون‌کندلی دو حالت (تطابق TradingView / تحقیق: دقیقه‌ای یا بدبینانه)؛ اکوئیتی Mark-to-Market؛ دراودان سالانه در دو نسخه، **مبنای گیت‌ها «از اول هر سال»**، نسبت به سرمایهٔ اولیه؛ سال ناقص کسری؛ هولدآوت ۲۰٪ انتهایی و حداقل ۱۸ ماه (کمتر از ۳۰ ترید → نهفتگی طولانی‌تر)؛ Embargo = بلندترین lookback + بیشینهٔ نگهداری؛ مرز روز ۰۰:۰۰ UTC و ادغام یکشنبهٔ فارکس/طلا در دوشنبه؛ Parity با TradingView: ≥۹۸٪ ترید منطبق و ≤۳٪ اختلاف سود؛ سرمایه و حجم ثابت ۱۰۰ هزار دلار.
+## 6. Next batch: 2b
 
-**منابع داده:** Alpaca (سهام آمریکا؛ ترجیحاً SIP؛ فیلتر RTH)، Dukascopy (bid و ask دقیقه‌ای؛ پروفایل اسپرد)، Yahoo (روزانهٔ بلند و سری‌های کمکی مثل VIX)، TradingView فقط برای Parity، بروکر اجرا برای هزینه.
+- **T06b — Moneta cost profiles** from the broker spec (D-520 … D-526; D-521: commission 3 USD per side). Broker ↔ research symbol mapping with manual overrides. Universe flag `broker_symbol`; the default candidate universe = broker-tradable symbols (D-524).
+- **T08 — Engine — CRITICAL (D-402).** The T09 containers (`TradeLog`, `EquityCurve`, `RunResult`) are its output contract. Conventions D-001 … D-004; D-300 intrabar exits (`exit_idx == entry_idx` only for intrabar exits); D-301 `n_closed_trades` returned by the grid kernel; D-307 non-USD quote conversion; D-061 futures sized in contracts × point value. Costs come from the T06 cost arrays, with the Numba commission signature designed in T06.
+- **T10b — Executor (F-0.3.7) and metric-name registry** reconciling T09 `as_gate_dict()` with the T10a gate YAML (D-309). `SplitManager.open_holdout` gets a stage argument (D-306).
 
-**مراحل:** پروب‌ها در گروه‌ها (MR: ۴ گروه، TF: ۵ گروه)؛ خروج پروب MR: کلوز بالای High قبلی یا ۵ کندل؛ TF: سیگنال معکوس + سقف ۵۰ کندل + استاپ فاجعهٔ ۳ATR؛ Baseline تصادفی ۱۰۰۰؛ ESS با وزن ۳۰/۳۰/۲۰/۲۰؛ شواهد آماری مکمل فقط گزارشی؛ شروع با روزانه و ۱ ساعته؛ سیزنال → مرحلهٔ ۵ فقط فیلتر رژیم → مرحلهٔ ۶؛ گرید درشت ۴ مقدار و سقف ۶۴ سلول؛ گرید ریز سقف ۲۰۰۰؛ استاپ فاجعه ثابت ۳ATR با هشدار بالای ۲٪؛ WF روزانه ۴/۱ سال و ساعتی ۲ سال/۶ ماه (کوچک‌سازی خودکار زیر ۴ پنجره)؛ MC ۱۰۰۰/۵۰۰۰؛ اعتبارسنجی متقاطع گزارشی؛ N مؤثر تریال با خوشه‌بندی؛ DSR ≥ ۰٫۹۵، PBO ≤ ۰٫۲۵، Hansen SPA؛ گزارش مرحلهٔ ۸ برای عبوری‌ها و مرزی‌ها؛ یک تحلیلگر؛ سقف پورتفو ۱۰/۲۰/۴۰٪، ریبالانس فصلی؛ ریسک هر ترید ۱٪؛ نهفتگی ۳ ماه یا ۳۰ ترید.
+## 7. Review rules
 
-**مرحلهٔ ۸:** بدون API؛ پکیج `evidence.json` + `PROMPT.md` + `REPORT_SPEC.md`؛ تحلیلگر در Claude چت فایل ورد را می‌سازد؛ `sfac report verify` اعداد را با JSON تطبیق می‌دهد.
-
-**استک فنی (ADR-001 تا ADR-011):** موتور اختصاصی Numba + vectorbt فقط اوراکل تست؛ Parquet + DuckDB؛ Polars در داده، pandas در لبه‌ها، NumPy در موتور؛ PostgreSQL در Docker با SQLAlchemy Core + psycopg 3 + Alembic؛ اجرای موازی دوسطحی تک‌ماشین؛ گرید کامل + Sobol بالای ۲۰۰۰؛ Typer + YAML/Pydantic؛ Jinja2 + Plotly؛ uv + پایتون ۳٫۱۲، pytest + Hypothesis + ruff + mypy؛ GitHub Actions.
-
-## ۶. ترتیب تسک‌های MVP
-
-T00 فهرست داده → T01 ریپو → (T02 داده/کاتالوگ، T03 رجیستری، T06 هزینه، T07 اجزا — موازی‌پذیر) → T04 آداپتورها → T05 کیفیت/بازنمونه‌گیری/Split → T08 موتور → T09 متریک‌ها → T10 executor/گیت/کانفیگ → **T11 Parity (دروازهٔ ورود به مرحلهٔ ۱)** → T12 مرحلهٔ ۱ → T13 مرحلهٔ ۲ → T14 مرحلهٔ ۳ → T15 ارکستراتور/CLI/گزارش/خودآزمایی.
-
-## ۷. تصمیمات داده (پس از T00)
-
-- **دامنهٔ کلاس‌های دارایی:** MVP = سهام و ETF آمریکا؛ P1 = فارکس/طلا/شاخص CFD (Dukascopy) و فیوچرز (MarketEdge/TradeStation، تا ۲۰۲۳-۱۱)؛ P2 = کریپتو و بورس ایران.
-- **مبنای قیمت سهام:** فقط اسپلیت (مثل TradingView). داده‌های موجود (MS-US-1D و QP) تعدیل کامل‌اند → فقط کنترل متقاطع، نه مرجع.
-- **دانلود دوبارهٔ سهام:** Alpaca SIP، `adjustment=split`، روزانه برای همهٔ ۶۷۱۱ نماد MS-US-1D، ساعتی برای S&P 500 نقطه‌به‌نقطه از ۲۰۱۶ + ETFهای اصلی (~۱۰۰۰)، از ۲۰۱۶-۰۱-۰۱. کلاینت: **alpaca-py**.
-- **ساعتی سهام:** کندل‌های ساعت کامل؛ فقط ۰۹:۰۰ تا ۱۵:۰۰ نیویورک؛ کندل ۰۹:۰۰ شامل نیم ساعت پیش‌بازار (session = RTH_hour_aligned). نوع اج OR روی سهام آمریکا با این داده اجرا نمی‌شود.
-- **روزانه:** مهر زمانی = تاریخ سشن ساعت ۰۰:۰۰ UTC.
-- **انبار داده:** `D:\AmerAndish\Projects\Trade\StrategyFactory_data\` (کنار پروژه) با `raw\` (= `SFAC_RAW_ROOT`، کپی بایت‌به‌بایت + دانلودها، تغییرناپذیر) و `store\` (= `SFAC_DATA_ROOT`، اسنپ‌شات‌های استاندارد). ساختار: `raw\<asset_class>\<source>_<variant>\<timeframe>\`.
-- **کپی از داده‌های موجود (T00b):** MS-US-1D، کریپتو روزانه و PIT، ایران روزانه، فایل‌های مرجع، و فیوچرز ۱ ساعتهٔ جدید از `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\`. کپی نمی‌شوند: QP IEX، Stooq، QP کریپتو ۱H، فیوچرز ۱۵ دقیقه‌ای قدیمی.
-- **Dukascopy:** ابزار dukascopy-node (نسخهٔ پین‌شده، بیرون از بستهٔ پایتون)؛ bid و ask جدا؛ 1H از ۲۰۱۰ برای تحقیق + m1 فقط ۲۴ ماه اخیر برای پروفایل اسپرد؛ ~۳۰ نماد (ارزها، طلا/نقره، نفت، شاخص‌ها).
-- **سری‌های کمکی:** yfinance (پین‌شده، auto_adjust=False)؛ ^VIX، DX-Y.NYB، ^TNX، ^GSPC، ^NDX، ^RUT، ^DJI؛ زمان بسته شدن هر سری با منبع یا to_verify.
-- **Parity** روی OHLC خروجی خود TradingView اجرا می‌شود و به منابع بالا وابسته نیست.
-- **تقسیم T04:** T04a Alpaca (MVP)، T04b Dukascopy، T04c Yahoo (ساخته می‌شوند، دانلود کامل بعداً)، T04d آداپتور فیوچرز ۱ ساعته (پس از فهرست‌برداری T00b)؛ کریپتو و ایران P2.
-- **اجرای دسته‌ای:** `docs/tasks/RUNBOOK_batch1.md` تسک‌های T00b → T02 → T04a → T04b → T04c را پشت‌سرهم روی branchهای پشته‌ای اجرا می‌کند، فقط پایلوت‌ها، بدون دانلود کامل؛ خلاصهٔ بازبینی هر تسک در `docs/reviews/`.
-- **امنیت:** کلید API Alpaca در `MarketScanner/scripts/host_download*.py` hard-code شده → باید باطل و جایگزین شود.
-
-## ۸. موارد باز
-
-1. **فیوچرز ۱ ساعته (مسیر F):** نتیجهٔ فهرست‌برداری T00b؛ خروجی‌گیر، back-adjust، قاعدهٔ رول، منطقهٔ زمانی (پیش از T04d).
-4. **بروکر اجرا** برای پروفایل هزینه (پیش از T06).
-5. **خروجی تریدهای TradingView** برای دو استراتژی مرجع Parity (پیش از T11).
-6. **کریپتو:** صرافی مرجع (Binance global در برابر binanceus). **ایران:** سیاست تعدیل و تقویم (P2).
-7. **افزودهٔ انواع اج:** ۱۰ تصمیم بخش ۸ آن سند؛ پیشنهادهای ناظر در چت داده شده (پیش از طراحی T12).
-8. اگر TLS interception دانلود alpaca-py را بشکند: مقایسهٔ گزینه‌ها (truststore / REQUESTS_CA_BUNDLE).
-
-## ۸-ب. دستور کار
-
-1. merge کردن T01 و T00 در `main` (CI سبز).
-2. باطل کردن کلید قدیمی Alpaca و گذاشتن کلید جدید در `.env`؛ نصب Node.js LTS (برای T04b).
-3. اجرای `RUNBOOK_batch1.md` در Claude Code.
-4. بازبینی ۵ فایل `docs/reviews/*` در چت → merge به ترتیب → اجرای دانلودهای کامل توسط کاربر.
-5. بعد: T04d (فیوچرز)، T03 (رجیستری)، T05، T06، T07.
-
-## ۹. قواعد بازبینی
-
-- هر تسک فقط با **معیارهای پذیرش فیچرلیست** سنجیده می‌شود؛ «انجام شد» بدون تستِ اثبات‌کننده پذیرفته نیست.
-- تست‌های Parity و نشت هرگز ضعیف یا حذف نمی‌شوند.
-- هر وابستگی جدید باید در خلاصهٔ بازبینی با دلیل آمده باشد؛ انتخاب کتابخانه‌های غیرجزئی با کاربر است.
+- A task is judged only against the acceptance criteria of the feature list (and the decisions log); "done" without a proving test is not accepted.
+- Parity and leakage tests are never weakened or deleted.
+- Every new dependency is listed with its reason in the review; non-trivial library choices are the user's.
