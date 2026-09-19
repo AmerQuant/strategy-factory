@@ -316,10 +316,12 @@ class TfDonchian55Breakout(_DonchianBreakout):
 
 @register
 class TfCloseAboveBollinger(_Probe):
-    """Close above the upper Bollinger band (20, 2) (short: close below the lower band)."""
+    """Close crosses above the upper Bollinger band (20, 2): ``close > upper`` and
+    ``close[1] <= upper[1]`` (short: close crosses below the lower band). Supervisor decision
+    T07: an event, not the level condition ``close > upper``."""
 
     name = "tf_close_above_bb_upper"
-    trigger = "state"
+    trigger = "event"
     edge_type = "TF"
     group = "channel_breakout"
     params = (
@@ -330,7 +332,7 @@ class TfCloseAboveBollinger(_Probe):
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         bb = ind.bollinger(bars.close, _int(params, "length"), _float(params, "mult"))
-        return bars.close > bb.upper
+        return crossover(bars.close, bb.upper)
 
 
 @register

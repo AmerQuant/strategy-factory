@@ -356,7 +356,7 @@ TRIGGERS = {
     "tf_sma_cross_20_100": "event",
     "tf_donchian20_breakout": "event",
     "tf_donchian55_breakout": "event",
-    "tf_close_above_bb_upper": "state",
+    "tf_close_above_bb_upper": "event",
     "tf_supertrend_flip": "event",
     "tf_ichimoku_cloud": "state",
     "tf_roc20_cross_zero": "event",
@@ -375,6 +375,7 @@ def test_F_0_4_1_crossing_events_never_fire_on_consecutive_bars() -> None:
     for name in (
         "tf_ma50_slope_up",
         "tf_sma_cross_20_100",
+        "tf_close_above_bb_upper",
         "tf_supertrend_flip",
         "tf_roc20_cross_zero",
     ):
@@ -390,3 +391,22 @@ def test_F_0_4_1_trigger_validation() -> None:
         ComponentRegistry().register(make_entry("dummy_bad", trigger="sometimes"))
     ComponentRegistry().register(make_entry("dummy_ok", group="oscillator", trigger="state"))
     ComponentRegistry().register(make_entry("dummy_method"))  # non-probe: trigger optional
+
+
+def test_F_0_4_1_bb_upper_probe_is_a_cross_of_the_upper_band() -> None:
+    from strategy_factory.components import indicators as ind
+
+    b = bars(2000, seed=11)
+    long_, short = default_registry().get("tf_close_above_bb_upper").signals(b)
+    bb = ind.bollinger(b.close, 20, 2.0)
+    c, up, lo = b.close, bb.upper, bb.lower
+    exp_long = np.zeros(len(b), dtype=bool)
+    exp_short = np.zeros(len(b), dtype=bool)
+    for i in range(1, len(b)):
+        exp_long[i] = c[i] > up[i] and c[i - 1] <= up[i - 1]
+        exp_short[i] = c[i] < lo[i] and c[i - 1] >= lo[i - 1]
+    np.testing.assert_array_equal(long_, exp_long)
+    np.testing.assert_array_equal(short, exp_short)
+    assert long_.any() and short.any()
+    # the level condition holds on more bars than the cross fires
+    assert (c > up).sum() > long_.sum()
