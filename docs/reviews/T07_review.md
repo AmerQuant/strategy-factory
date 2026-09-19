@@ -1,6 +1,6 @@
 # T07 review — Strategy components and indicator library
 
-**Features:** F-0.4.1, F-0.4.2, F-0.4.3 · **Branch:** `feat/T07-components` (from `main` @ `7ddd838`) · **Status:** done — all acceptance tests pass locally; CI not yet run (branch not pushed)
+**Features:** F-0.4.1, F-0.4.2, F-0.4.3 · **Branch:** `feat/T07-components` (rebased onto `main` @ `cc58010`, after T03 and T04e) · **Status:** done — all acceptance tests pass locally, including the registry DB tests
 
 ## Golden files (committed first, unchanged in content)
 The four exports were gzip-compressed losslessly (level 9, empty file name, **mtime 0**, header `1f8b08000000000002ff`), the decompressed bytes were verified identical to the originals twice (Python `gzip.decompress` and `gzip -dc | cmp`), then the CSVs were deleted. The golden tests read the `.csv.gz` files. `.gitattributes` now marks `*.gz binary`.
@@ -237,3 +237,16 @@ Not pushed (as instructed); CI has not run.
 - `tf_close_above_bb_upper` → **`tf_bb_upper_cross`** (class `TfBbUpperCross`), so the id matches the event rule. No trial references the old id yet. Rule, parameters, group (`channel_breakout`) and trigger (`event`) are unchanged. The probe and trigger tables above use the new id; the earlier follow-up notes keep the old id as history.
 - Updated tests: registry listing (`TF_PROBES`), spec defaults, trigger table, the consecutive-bar event check and `test_F_0_4_1_bb_upper_probe_is_a_cross_of_the_upper_band`.
 - Acceptance commands re-run: ruff ✅, format ✅, mypy ✅, `pytest -m "not slow"` ✅ 576 passed, `pytest tests/parity tests/leakage` ✅ 103 passed. Not pushed.
+
+## Rebase onto main (after T03 and T04e)
+- `feat/T07-components` was rebased onto `origin/main` @ `cc58010`. There were no textual conflicts: `pyproject.toml` has both dependency sets (T03: alembic, psycopg, sqlalchemy; T07: numba, numpy). `uv lock` was run on the result and changed nothing, so the lock file is consistent. `cli.py` is not touched by T07.
+- Acceptance commands after the rebase, run the same way as CI (DB: local `postgres:16` container, already at `alembic` head `0001_initial`):
+
+| command | result |
+|---|---|
+| `uv run ruff check .` / `uv run ruff format --check .` | ✅ / ✅ (155 files) |
+| `uv run mypy src` | ✅ 66 files |
+| `uv run alembic upgrade head` | ✅ |
+| `uv run pytest -m "not slow and not db"` | ✅ 578 passed |
+| `uv run pytest -m db` | ✅ 12 passed, 0 skipped |
+| `uv run pytest tests/parity tests/leakage` | ✅ 103 passed |
