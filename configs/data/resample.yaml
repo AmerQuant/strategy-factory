@@ -1,0 +1,5 @@
+# Resampling (F-0.1.7, T05). Validated by strategy_factory.data.config.ResampleConfig.
+min_source_fraction: 0.5       # flag a bar built from < 50 % of its expected source bars
+broker_session:                # mode=broker_session only (TradingView parity tests)
+  timezone: America/New_York
+  start: "17:00"
