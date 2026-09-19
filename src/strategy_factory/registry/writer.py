@@ -29,6 +29,7 @@ from sqlalchemy.exc import IntegrityError
 from strategy_factory.core.errors import HoldoutAccessError, RegistryError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.registry.tables import (
+    SNAPSHOT_KEY,
     artifacts,
     candidates,
     data_snapshots,
@@ -145,9 +146,12 @@ class GateResultRecord(_Record):
 
 
 class SplitRecord(_Record):
+    """A dev/embargo/holdout split of one catalog snapshot (key = T02 catalog key)."""
+
+    snapshot_hash: str
+    source: str
     symbol: str
     timeframe: str
-    snapshot_hash: str
     dev_start: dt.datetime
     dev_end: dt.datetime
     embargo_bars: int = Field(ge=0)
@@ -220,7 +224,11 @@ class RegistryWriter:
 
     # -- reference data ------------------------------------------------------------------
     def register_snapshot(self, meta: Mapping[str, Any], is_reference: bool = False) -> None:
-        """Mirror a catalog snapshot (metadata as JSON); upsert on the snapshot hash."""
+        """Mirror a catalog snapshot (metadata as JSON).
+
+        Upsert on the catalog key ``(snapshot_hash, source, symbol, timeframe)``: identical
+        content under another source/symbol/timeframe is a separate row, as in the T02 catalog.
+        """
         stmt = pg_insert(data_snapshots).values(
             snapshot_hash=meta["snapshot_hash"],
             source=meta["source"],
@@ -230,7 +238,7 @@ class RegistryWriter:
             meta=json.loads(canonical_json(meta)),
         )
         stmt = stmt.on_conflict_do_update(
-            index_elements=[data_snapshots.c.snapshot_hash],
+            index_elements=[data_snapshots.c[c] for c in SNAPSHOT_KEY],
             set_={"is_reference": stmt.excluded.is_reference, "meta": stmt.excluded.meta},
         )
         with self.engine.begin() as conn:

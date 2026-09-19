@@ -51,14 +51,17 @@ def upgrade() -> None:
         sa.Column("is_reference", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("meta", pg.JSONB(), nullable=False),
         sa.Column("registered_at", TZ, nullable=False, server_default=sa.func.now()),
-        sa.PrimaryKeyConstraint("snapshot_hash", name="pk_data_snapshots"),
+        sa.PrimaryKeyConstraint(
+            "snapshot_hash", "source", "symbol", "timeframe", name="pk_data_snapshots"
+        ),
     )
     op.create_table(
         "splits",
         sa.Column("id", sa.BigInteger(), sa.Identity(), nullable=False),
+        sa.Column("snapshot_hash", sa.Text(), nullable=False),
+        sa.Column("source", sa.Text(), nullable=False),
         sa.Column("symbol", sa.Text(), nullable=False),
         sa.Column("timeframe", sa.Text(), nullable=False),
-        sa.Column("snapshot_hash", sa.Text(), nullable=False),
         sa.Column("dev_start", TZ, nullable=False),
         sa.Column("dev_end", TZ, nullable=False),
         sa.Column("embargo_bars", sa.Integer(), nullable=False),
@@ -68,12 +71,21 @@ def upgrade() -> None:
         _created(),
         sa.PrimaryKeyConstraint("id", name="pk_splits"),
         sa.ForeignKeyConstraint(
-            ["snapshot_hash"],
-            ["data_snapshots.snapshot_hash"],
+            ["snapshot_hash", "source", "symbol", "timeframe"],
+            [
+                "data_snapshots.snapshot_hash",
+                "data_snapshots.source",
+                "data_snapshots.symbol",
+                "data_snapshots.timeframe",
+            ],
             name="fk_splits_snapshot_hash_data_snapshots",
         ),
         sa.UniqueConstraint(
-            "symbol", "timeframe", "snapshot_hash", name="uq_splits_symbol_timeframe_snapshot_hash"
+            "snapshot_hash",
+            "source",
+            "symbol",
+            "timeframe",
+            name="uq_splits_snapshot_hash_source_symbol_timeframe",
         ),
         sa.CheckConstraint("embargo_bars >= 0", name="ck_splits_embargo_nonnegative"),
     )

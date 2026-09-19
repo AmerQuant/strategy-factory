@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Identity,
     Index,
     Integer,
@@ -70,13 +71,16 @@ pipeline_runs = Table(
     CheckConstraint(_in("status", RUN_STATUSES), name="status"),
 )
 
+# Same key as the T02 catalog: one row per (content hash, source, symbol, timeframe).
+SNAPSHOT_KEY = ("snapshot_hash", "source", "symbol", "timeframe")
+
 data_snapshots = Table(
     "data_snapshots",
     metadata,
     Column("snapshot_hash", Text, primary_key=True),
-    Column("source", Text, nullable=False),
-    Column("symbol", Text, nullable=False),
-    Column("timeframe", Text, nullable=False),
+    Column("source", Text, primary_key=True),
+    Column("symbol", Text, primary_key=True),
+    Column("timeframe", Text, primary_key=True),
     Column("is_reference", Boolean, nullable=False, server_default="false"),
     Column("meta", JSONB, nullable=False),
     Column("registered_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -86,9 +90,10 @@ splits = Table(
     "splits",
     metadata,
     Column("id", BigInteger, Identity(), primary_key=True),
+    Column("snapshot_hash", Text, nullable=False),
+    Column("source", Text, nullable=False),
     Column("symbol", Text, nullable=False),
     Column("timeframe", Text, nullable=False),
-    Column("snapshot_hash", Text, ForeignKey("data_snapshots.snapshot_hash"), nullable=False),
     Column("dev_start", DateTime(timezone=True), nullable=False),
     Column("dev_end", DateTime(timezone=True), nullable=False),
     Column("embargo_bars", Integer, nullable=False),
@@ -96,7 +101,8 @@ splits = Table(
     Column("holdout_end", DateTime(timezone=True), nullable=False),
     Column("expected_holdout_trades", Float),
     _created(),
-    UniqueConstraint("symbol", "timeframe", "snapshot_hash"),
+    ForeignKeyConstraint(list(SNAPSHOT_KEY), [f"data_snapshots.{c}" for c in SNAPSHOT_KEY]),
+    UniqueConstraint(*SNAPSHOT_KEY),
     CheckConstraint("embargo_bars >= 0", name="embargo_nonnegative"),
 )
 

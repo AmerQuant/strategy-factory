@@ -102,9 +102,10 @@ def test_F_0_7_1_round_trip_every_table(registry_engine: Engine) -> None:
 
     split_id = w.add_split(
         SplitRecord(
+            snapshot_hash="a" * 64,
+            source="alpaca",
             symbol="SPY",
             timeframe="1D",
-            snapshot_hash="a" * 64,
             dev_start=T0,
             dev_end=T0 + dt.timedelta(days=900),
             embargo_bars=60,
@@ -154,6 +155,50 @@ def test_F_0_7_1_round_trip_every_table(registry_engine: Engine) -> None:
     run = one(registry_engine, T.pipeline_runs)
     assert run["status"] == "done" and run["finished_at"] is not None
     assert set(row_counts(registry_engine).values()) == {1}
+
+
+@pytest.mark.db
+def test_F_0_7_1_data_snapshots_key_matches_catalog(registry_engine: Engine) -> None:
+    """Composite key (snapshot_hash, source, symbol, timeframe), as in the T02 catalog."""
+    from sqlalchemy.exc import IntegrityError
+
+    w = RegistryWriter(registry_engine)
+    h = "b" * 64
+    base = {"snapshot_hash": h, "source": "alpaca", "symbol": "SPY", "timeframe": "1D"}
+    w.register_snapshot(base, is_reference=True)
+    w.register_snapshot({**base, "source": "yahoo"})  # same content, other source
+    w.register_snapshot({**base, "symbol": "IVV"})  # same content, other symbol
+    w.register_snapshot({**base, "note": "updated"}, is_reference=False)  # upsert, same key
+    with registry_engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                T.data_snapshots.c.source,
+                T.data_snapshots.c.symbol,
+                T.data_snapshots.c.is_reference,
+            ).order_by(T.data_snapshots.c.source, T.data_snapshots.c.symbol)
+        ).all()
+    assert [tuple(r) for r in rows] == [
+        ("alpaca", "IVV", False),
+        ("alpaca", "SPY", False),
+        ("yahoo", "SPY", False),
+    ]
+    pk = inspect(registry_engine).get_pk_constraint("data_snapshots")["constrained_columns"]
+    assert pk == ["snapshot_hash", "source", "symbol", "timeframe"]
+
+    split = SplitRecord(
+        **base,
+        dev_start=T0,
+        dev_end=T0 + dt.timedelta(days=900),
+        embargo_bars=5,
+        holdout_start=T0 + dt.timedelta(days=910),
+        holdout_end=T0 + dt.timedelta(days=1300),
+    )
+    w.add_split(split)
+    w.add_split(split.model_copy(update={"source": "yahoo"}))  # other registered snapshot
+    with pytest.raises(IntegrityError):  # the full key must exist in data_snapshots
+        w.add_split(split.model_copy(update={"source": "dukascopy"}))
+    with pytest.raises(IntegrityError):  # one split per snapshot key
+        w.add_split(split)
 
 
 # -- COPY ------------------------------------------------------------------------------------

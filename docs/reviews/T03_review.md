@@ -94,6 +94,26 @@ Differences from the task (additions only): the bold constraints above; `edge_ty
 - Test fixtures are exposed via `tests/unit/conftest.py`.
 
 ## Open questions
-1. `data_snapshots.snapshot_hash` is the sole primary key (as specified), while the T02 catalog key is (source, symbol, timeframe, hash): identical content under two sources/symbols would collide. Keep, or use a composite key?
+1. ~~`data_snapshots.snapshot_hash` is the sole primary key …~~ **Resolved** — composite key, see "Follow-up: composite key for data_snapshots" below.
 2. Should the run config be required to contain the data snapshot hash(es) (e.g. validated when `start_run` is called)? Today `sfac reproduce` reports "NOT RECORDED" if absent.
 3. Merge note: another branch (T04e) also changed `pyproject.toml`, `uv.lock`, `cli.py` and `.env.example`; T03's edits there are additive (3 dependencies, one marker, one mypy exclude, 3 CLI lines, one comment).
+
+## Follow-up: composite key for data_snapshots
+Supervisor decision after review: `data_snapshots` uses the same key as the T02 catalog. `0001_initial` was **edited in place** (unreleased; the T03 database was empty); there is no second migration.
+
+| item | before | after |
+|---|---|---|
+| `data_snapshots` primary key | `(snapshot_hash)` | **`(snapshot_hash, source, symbol, timeframe)`** (`pk_data_snapshots`) |
+| `splits` columns | `symbol, timeframe, snapshot_hash, …` | **+ `source`** (needed for the composite FK) |
+| `splits` FK | `snapshot_hash → data_snapshots.snapshot_hash` | **`(snapshot_hash, source, symbol, timeframe) → data_snapshots(same)`** (`fk_splits_snapshot_hash_data_snapshots`) |
+| `splits` unique | `(symbol, timeframe, snapshot_hash)` | **`(snapshot_hash, source, symbol, timeframe)`** (one split per catalog snapshot) |
+| `RegistryWriter.register_snapshot` | upsert on `snapshot_hash` | upsert on the composite key (`SNAPSHOT_KEY` in `tables.py`) |
+| `SplitRecord` | no `source` | **`source` field** (required) |
+`queries.py` needed no change (it does not use the snapshot key).
+
+**Tests:** `test_F_0_7_1_round_trip_every_table` updated (`source` on the split); new `test_F_0_7_1_data_snapshots_key_matches_catalog` — the same content hash under another source or symbol gives separate rows, re-registering the same key is an upsert, the live primary key is the four columns, a split for a registered key is accepted, a split whose full key is not in `data_snapshots` fails on the FK, and a second split for the same key fails on the unique constraint. `test_F_0_7_1_migrations_up_down_up_and_match_tables` still shows no difference between `0001_initial` and `tables.py`.
+
+**T03 container** (`sfac-postgres`, project `strategyfactory_t03`, port 5433; all tables confirmed empty first): `alembic downgrade base` → `alembic upgrade head`; the live schema shows the composite PK, the composite FK and the unique key above.
+
+**Acceptance re-run:** `docker compose up -d` ✅ · `sfac db upgrade` ✅ (`0001_initial`) · `sfac db status` ✅ (10 tables, 0 rows) · `ruff check` ✅ · `ruff format --check` ✅ (135 files) · `mypy src` ✅ (56 files) · `pytest` ✅ **231 passed** · `pytest -m db` 12 passed, **0 skipped**. COPY of 100k trials in this run: 3.11 s (≈ 32,000 rows/s; 2.61 s in the first run).
+
