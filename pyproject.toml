@@ -5,10 +5,13 @@ description = "Standard, reproducible, auditable funnel for trading-strategy res
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.20.0",
     "alpaca-py>=0.44.0",
     "polars>=1.30",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.8",
     "pyyaml>=6.0",
+    "sqlalchemy>=2.0.54",
     "typer>=0.12",
     "tzdata>=2024.1 ; sys_platform == 'win32'",
     "yfinance==1.7.0",
@@ -52,6 +55,8 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 # `strict` is a global-only mypy flag, so it is enabled globally and relaxed below
 # for every package that is not in the strict set.
 [tool.mypy]
+# Alembic scripts (env.py, versions/0001_*.py) are not importable modules
+exclude = ["src/strategy_factory/registry/alembic/"]
 python_version = "3.12"
 mypy_path = "src"
 strict = true
@@ -98,4 +103,5 @@ markers = [
     "parity: TradingView parity tests (mandatory gate)",
     "leakage: data-truncation / look-ahead tests (mandatory gate)",
     "oracle: comparison against the vectorbt oracle (test-only dependency)",
+    "db: needs the PostgreSQL registry (docker compose up -d); must not be skipped in CI",
 ]
