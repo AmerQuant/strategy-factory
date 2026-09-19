@@ -41,4 +41,6 @@ jobs:
       - name: Install
         run: uv sync
       - name: Slow self-tests
-        run: uv run pytest -m slow
+        # Exit code 5 = no tests collected: accepted here only, while no slow tests exist.
+        # Every other job and local run fails when nothing is collected.
+        run: uv run pytest -m slow || [ $? -eq 5 ]
