@@ -12,6 +12,7 @@ from strategy_factory import __version__
 from strategy_factory.core.env import resolve_env
 from strategy_factory.core.logging import get_logger, setup_logging
 from strategy_factory.data.cli import data_app
+from strategy_factory.registry.cli import db_app, reproduce
 
 app = typer.Typer(
     name="sfac",
@@ -21,6 +22,8 @@ app = typer.Typer(
 )
 
 app.add_typer(data_app, name="data")
+app.add_typer(db_app, name="db")
+app.command("reproduce")(reproduce)
 
 INFO_ENV_KEYS = ("SFAC_DATA_ROOT", "SFAC_ARTIFACTS_ROOT")
 
