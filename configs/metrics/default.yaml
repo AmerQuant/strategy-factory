@@ -1,0 +1,5 @@
+# Metrics configuration (strategy_factory.metrics.config.MetricsConfig).
+# Periods per year used to annualise daily Sharpe and Sortino, by market calendar (F-0.5.2).
+periods_per_year:
+  us_equity: 252
+  "24x5": 260 # FX, metals, index/energy CFDs
