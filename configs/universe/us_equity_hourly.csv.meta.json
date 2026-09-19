@@ -1,0 +1,21 @@
+{
+  "built_at": "2026-09-19T11:25:27+00:00",
+  "history_start": "2016-01-01",
+  "pit_source": {
+    "file": "D:\\AmerAndish\\Projects\\Trade\\StrategyFactory_data\\raw\\reference\\sp500_pit\\fja05680_sp500_20260919.csv",
+    "sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
+    "url": "https://raw.githubusercontent.com/fja05680/sp500/master/S%26P%20500%20Historical%20Components%20%26%20Changes%20%28Updated%29.csv"
+  },
+  "etf_source": {
+    "file": "D:\\AmerAndish\\Projects\\Trade\\StrategyFactory_data\\raw\\reference\\marketscanner\\symbols.csv",
+    "sha256": "7fc5827e37f1cfd931332cadcd385a0f29c0eb00aef0ccfc7fd82e4132cd1da0",
+    "market_slugs": [
+      "etfs",
+      "indices",
+      "commodities"
+    ]
+  },
+  "method": "snapshot in force on history_start plus every change snapshot after it; union of tickers; first/last snapshot date per ticker (first clipped to history_start; last = dataset's latest date for current members)",
+  "sp500_pit": 745,
+  "etf": 82
+}
