@@ -1,0 +1,9 @@
+{
+  "name": "sfac-dukascopy-tool",
+  "private": true,
+  "description": "Pinned dukascopy-node CLI used by `sfac data download dukascopy` (T04b). Not part of the Python package.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "dukascopy-node": "1.50.0"
+  }
+}

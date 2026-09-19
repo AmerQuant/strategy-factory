@@ -1,0 +1,18 @@
+# Dukascopy downloader / adapter settings (T04b). Validated by
+# strategy_factory.data.config.DukascopyConfig.
+h1_start: 2010-01-01          # research series: h1 bid+ask from here (or instrument start)
+m1_months: 24                 # spread series: m1 bid+ask for the last N complete months
+universe_file: configs/universe/dukascopy.csv
+max_one_sided_share: 0.001    # bars present on one side only: critical above 0.1 %
+
+tool:                         # pinned dukascopy-node (tools/dukascopy, npm ci)
+  directory: tools/dukascopy
+  retries: 5                  # --retries
+  retry_pause_ms: 5000        # --retry-pause
+  batch_size: 5               # --batch-size (m1 months are ~30 daily artifacts; Dukascopy throttles with HTTP 429)
+  batch_pause_ms: 2000        # --batch-pause
+  volume_units: units         # --volumes --volume-units
+  utc_offset_minutes: 0       # --utc-offset (0 = UTC; the adapter corrects any other value)
+  timeout_seconds: 900        # per CLI call
+  call_retries: 3             # wrapper: re-run a month that still ends in HTTP 429/5xx
+  call_backoff_seconds: 30    # wrapper backoff: 30 s, 60 s, 120 s

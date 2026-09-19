@@ -1,0 +1,30 @@
+instrument_id,symbol,asset_class,notes
+eurusd,EURUSD,fx,EUR/USD - Euro vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-05-04; m1 from 2003-05-04
+gbpusd,GBPUSD,fx,GBP/USD - Pound Sterling vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-05-04; m1 from 2003-05-04
+usdjpy,USDJPY,fx,USD/JPY - US Dollar vs Yen; verified in dukascopy-node 1.50.0; h1 from 2003-05-04; m1 from 2003-05-04
+usdchf,USDCHF,fx,USD/CHF - US Dollar vs Swiss Franc; verified in dukascopy-node 1.50.0; h1 from 2003-05-04; m1 from 2003-05-04
+audusd,AUDUSD,fx,AUD/USD - Australian Dollar vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+usdcad,USDCAD,fx,USD/CAD - US Dollar vs Canadian Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+nzdusd,NZDUSD,fx,NZD/USD - New Zealand Dollar vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+eurjpy,EURJPY,fx,EUR/JPY - Euro vs Yen; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+gbpjpy,GBPJPY,fx,GBP/JPY - Pound Sterling vs Yen; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+eurgbp,EURGBP,fx,EUR/GBP - Euro vs Pound Sterling; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+eurchf,EURCHF,fx,EUR/CHF - Euro vs Swiss Franc; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+audjpy,AUDJPY,fx,AUD/JPY - Australian Dollar vs Yen; verified in dukascopy-node 1.50.0; h1 from 2003-11-30; m1 from 2003-11-30
+euraud,EURAUD,fx,EUR/AUD - Euro vs Australian Dollar; verified in dukascopy-node 1.50.0; h1 from 2005-10-07; m1 from 2005-10-07
+gbpchf,GBPCHF,fx,GBP/CHF - Pound Sterling vs Swiss Franc; verified in dukascopy-node 1.50.0; h1 from 2003-08-03; m1 from 2003-08-03
+cadjpy,CADJPY,fx,CAD/JPY - Canadian Dollar vs Yen; verified in dukascopy-node 1.50.0; h1 from 2004-10-25; m1 from 2004-10-25
+xauusd,XAUUSD,metal,XAU/USD - Gold vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-05-05; m1 from 2003-05-05
+xagusd,XAGUSD,metal,XAG/USD - Silver vs US Dollar; verified in dukascopy-node 1.50.0; h1 from 2003-05-04; m1 from 2003-05-04
+lightcmdusd,LIGHTCMDUSD,energy_cfd,LIGHT.CMD/USD - Light Sweet Crude Oil; verified in dukascopy-node 1.50.0; h1 from 2011-09-23; m1 from 2011-09-23
+brentcmdusd,BRENTCMDUSD,energy_cfd,BRENT.CMD/USD - Brent Crude Oil; verified in dukascopy-node 1.50.0; h1 from 2010-12-02; m1 from 2010-12-02
+usa500idxusd,USA500IDXUSD,index_cfd,USA500.IDX/USD - US 500 Index; verified in dukascopy-node 1.50.0; h1 from 2011-09-18; m1 from 2011-09-18
+usa30idxusd,USA30IDXUSD,index_cfd,USA30.IDX/USD - US 30 Index; verified in dukascopy-node 1.50.0; h1 from 2013-09-30; m1 from 2013-09-30
+usatechidxusd,USATECHIDXUSD,index_cfd,USATECH.IDX/USD - US 100 Tech Index; verified in dukascopy-node 1.50.0; h1 from 2011-09-18; m1 from 2011-09-18
+ussc2000idxusd,USSC2000IDXUSD,index_cfd,USSC2000.IDX/USD - US Small Cap 2000; verified in dukascopy-node 1.50.0; h1 from 2018-08-08; m1 from 2018-08-08
+deuidxeur,DEUIDXEUR,index_cfd,DEU.IDX/EUR - Germany 40 Index; verified in dukascopy-node 1.50.0; h1 from 2013-09-30; m1 from 2013-09-30
+gbridxgbp,GBRIDXGBP,index_cfd,GBR.IDX/GBP - FTSE 100 Index; verified in dukascopy-node 1.50.0; h1 from 2011-09-18; m1 from 2011-09-18
+jpnidxjpy,JPNIDXJPY,index_cfd,JPN.IDX/JPY - Japan 200+ Index; verified in dukascopy-node 1.50.0; h1 from 2011-09-18; m1 from 2011-09-18
+fraidxeur,FRAIDXEUR,index_cfd,FRA.IDX/EUR - France 40 Index; verified in dukascopy-node 1.50.0; h1 from 2011-09-18; m1 from 2011-09-18
+ausidxaud,AUSIDXAUD,index_cfd,AUS.IDX/AUD - Australia 200 Index; verified in dukascopy-node 1.50.0; h1 from 2014-06-01; m1 from 2014-06-01
+hkgidxhkd,HKGIDXHKD,index_cfd,HKG.IDX/HKD - Hong Kong Index; verified in dukascopy-node 1.50.0; h1 from 2013-06-03; m1 from 2013-06-03

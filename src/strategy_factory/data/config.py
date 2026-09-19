@@ -148,3 +148,42 @@ def load_known_splits(path: Path) -> list[KnownSplit]:
             return [KnownSplit.model_validate(row) for row in csv.DictReader(fh)]
     except ValidationError as exc:
         raise ConfigError(f"invalid known-splits file: {exc}", config_path=path) from exc
+
+
+DEFAULT_DUKASCOPY_CONFIG = Path("configs") / "data" / "dukascopy.yaml"
+
+
+class DukascopyToolConfig(_Frozen):
+    """Flags passed to the pinned dukascopy-node CLI (recorded in every manifest)."""
+
+    directory: Path = Path("tools") / "dukascopy"
+    retries: int = Field(default=3, ge=0)
+    retry_pause_ms: int = Field(default=1000, ge=0)
+    batch_size: int = Field(default=10, gt=0)
+    batch_pause_ms: int = Field(default=1000, ge=0)
+    volume_units: Literal["millions", "thousands", "units"] = "units"
+    utc_offset_minutes: int = 0
+    timeout_seconds: int = Field(default=900, gt=0)
+    call_retries: int = Field(default=3, ge=0)
+    call_backoff_seconds: float = Field(default=30.0, ge=0)
+
+
+class DukascopyConfig(_Frozen):
+    h1_start: dt.date = dt.date(2010, 1, 1)
+    m1_months: int = Field(default=24, gt=0)
+    universe_file: Path = Path("configs") / "universe" / "dukascopy.csv"
+    max_one_sided_share: float = Field(default=0.001, ge=0)
+    tool: DukascopyToolConfig = Field(default_factory=DukascopyToolConfig)
+
+
+def load_dukascopy_config(path: Path | None = None) -> DukascopyConfig:
+    """Load ``configs/data/dukascopy.yaml`` (or ``path``); defaults if that file is absent."""
+    target = path if path is not None else DEFAULT_DUKASCOPY_CONFIG
+    if not target.is_file():
+        if path is not None:
+            raise ConfigError("config file not found", config_path=target)
+        return DukascopyConfig()
+    try:
+        return DukascopyConfig.model_validate(_read_yaml(target))
+    except ValidationError as exc:
+        raise ConfigError(f"invalid Dukascopy config: {exc}", config_path=target) from exc
