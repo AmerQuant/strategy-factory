@@ -1,0 +1,11 @@
+# Yahoo auxiliary series (T04c). Validated by strategy_factory.data.config.YahooConfig.
+universe_file: configs/universe/aux_yahoo.csv
+period: max            # full available history
+interval: 1d           # daily only
+auto_adjust: false     # decision: always explicit, raw prices
+actions: false         # decision: always explicit, no dividend/split columns
+pause_seconds: 2.0     # politeness pause between tickers
+retry:
+  max_retries: 3
+  backoff_base_seconds: 5.0
+  backoff_max_seconds: 60.0

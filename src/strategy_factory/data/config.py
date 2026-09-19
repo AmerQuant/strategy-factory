@@ -187,3 +187,44 @@ def load_dukascopy_config(path: Path | None = None) -> DukascopyConfig:
         return DukascopyConfig.model_validate(_read_yaml(target))
     except ValidationError as exc:
         raise ConfigError(f"invalid Dukascopy config: {exc}", config_path=target) from exc
+
+
+DEFAULT_YAHOO_CONFIG = Path("configs") / "data" / "yahoo.yaml"
+
+
+class YahooConfig(_Frozen):
+    """yfinance call parameters and politeness settings (T04c)."""
+
+    universe_file: Path = Path("configs") / "universe" / "aux_yahoo.csv"
+    period: str = "max"
+    interval: Literal["1d"] = "1d"
+    auto_adjust: Literal[False] = False
+    actions: Literal[False] = False
+    pause_seconds: float = Field(default=2.0, ge=0)
+    retry: RetryConfig = Field(
+        default_factory=lambda: RetryConfig(
+            max_retries=3, backoff_base_seconds=5.0, backoff_max_seconds=60.0
+        )
+    )
+
+    def call_params(self) -> dict[str, object]:
+        """Explicit keyword arguments for ``yfinance.Ticker.history``."""
+        return {
+            "period": self.period,
+            "interval": self.interval,
+            "auto_adjust": self.auto_adjust,
+            "actions": self.actions,
+        }
+
+
+def load_yahoo_config(path: Path | None = None) -> YahooConfig:
+    """Load ``configs/data/yahoo.yaml`` (or ``path``); defaults if that file is absent."""
+    target = path if path is not None else DEFAULT_YAHOO_CONFIG
+    if not target.is_file():
+        if path is not None:
+            raise ConfigError("config file not found", config_path=target)
+        return YahooConfig()
+    try:
+        return YahooConfig.model_validate(_read_yaml(target))
+    except ValidationError as exc:
+        raise ConfigError(f"invalid Yahoo config: {exc}", config_path=target) from exc
