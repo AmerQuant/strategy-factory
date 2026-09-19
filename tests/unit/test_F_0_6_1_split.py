@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 from fixtures.bars import make_meta
+from fixtures.registry_db import RUN_CONFIG
 from fixtures.t05 import MemoryLedger, bars_from_close, random_close
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -232,7 +233,7 @@ def test_F_0_6_1_split_registered_and_second_holdout_access_raises(
     from strategy_factory.registry.writer import CandidateRecord, RegistryWriter
 
     w = RegistryWriter(registry_engine)
-    run_id = w.start_run({"p": 1}, seed=1, code_version="c" * 40)
+    run_id = w.start_run(RUN_CONFIG, seed=1, code_version="c" * 40)
     w.upsert_candidate(
         CandidateRecord(
             id="cand-1",

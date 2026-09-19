@@ -29,6 +29,12 @@ def schema_url(schema: str) -> URL:
     return make_url(db_url()).update_query_dict({"options": f"-csearch_path={schema}"})
 
 
+# minimal run config accepted by RegistryWriter.start_run (resolved data_snapshots, T10a)
+RUN_CONFIG = {
+    "p": 1,
+    "data_snapshots": {"SPY": {"1D": {"source": "alpaca", "snapshot_hash": "a" * 64}}},
+}
+
 _UNREACHABLE: list[str] = []  # cached skip reason (checked once per session)
 
 

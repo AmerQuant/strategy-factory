@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fixtures.registry_db import RUN_CONFIG
 from sqlalchemy import Engine, insert
 from sqlalchemy.exc import IntegrityError
 
@@ -16,7 +17,7 @@ from strategy_factory.registry.writer import CandidateRecord, GateResultRecord, 
 
 def setup_candidate(engine: Engine) -> tuple[RegistryWriter, uuid.UUID]:
     w = RegistryWriter(engine)
-    run_id = w.start_run({"p": 1}, seed=1, code_version="c" * 40)
+    run_id = w.start_run(RUN_CONFIG, seed=1, code_version="c" * 40)
     w.upsert_candidate(
         CandidateRecord(
             id="C1",

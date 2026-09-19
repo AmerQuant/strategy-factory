@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fixtures.registry_db import RUN_CONFIG
 from sqlalchemy import Engine
 
 from strategy_factory.registry.queries import candidate_lineage, trial_count, trials_by_family
@@ -43,7 +44,7 @@ def trials(run_id: uuid.UUID, cid: str | None, n: int, family: str) -> list[dict
 @pytest.mark.db
 def test_F_0_7_2_three_generation_lineage_counts(registry_engine: Engine) -> None:
     w = RegistryWriter(registry_engine)
-    run_id = w.start_run({"p": 1}, seed=1, code_version="c" * 40)
+    run_id = w.start_run(RUN_CONFIG, seed=1, code_version="c" * 40)
     w.upsert_candidate(cand(run_id, "G1", None, "s01"))
     w.upsert_candidate(cand(run_id, "G2", "G1", "s02"))
     w.upsert_candidate(cand(run_id, "G3", "G2", "s03"))
