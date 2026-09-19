@@ -1,0 +1,78 @@
+# Gate criteria per stage (F-0.8.1, T10a). Validated by strategy_factory.gates.engine.GateConfig.
+# Values: spec v1.2 stage gate tables and the phase-1 decision boxes (the decision boxes win),
+# appendix 21 summary. All values are initial proposals, calibrated later -- here, not in code.
+#
+# Conventions: shares/ratios are fractions (0.60 = 60 %); percentiles are 0..100;
+# yes/no criteria are metrics with value 1 (yes) or 0 (no) and "== 1";
+# "profitable after costs" is "> 0" on the net target metric.
+# critical: true marks criteria whose failure is never "borderline" (spec stage 8 decision:
+# Walk-Forward, 2x cost stress and holdout).
+
+borderline_tolerance: 0.10     # exactly one non-critical failure within 10 % of its threshold
+
+stages:
+  # ---- MVP (stages 1-3) ------------------------------------------------------------------
+  s01_probe:                   # stage 1, probe acceptance (per probe)
+    - {metric: min_trades, op: ">=", threshold: 30, note: "daily; 1H override below"}
+    - {metric: probe_percentile, op: ">=", threshold: 90, note: "percentile in the random baseline"}
+    - {metric: profit_factor, op: ">=", threshold: 1.1, note: "after costs"}
+  s01_edge:                    # stage 1, edge acceptance (per edge)
+    - {metric: accepted_probe_groups, op: ">=", threshold: 3}
+    - {metric: ess, op: ">=", threshold: 50}
+  s02_screen:
+    - {metric: grid_median_target, op: ">", threshold: 0, note: "median target metric of the coarse grid, after costs"}
+    - {metric: profitable_cell_share, op: ">=", threshold: 0.60}
+    - {metric: overlap_with_selected, op: "<=", threshold: 0.60, note: "trade overlap with already selected candidates"}
+    - {metric: min_trades_good_cells, op: ">=", threshold: 30, note: "as stage 1; 1H override below"}
+  s03_entry:
+    - {metric: spp_median_target, op: ">", threshold: 0, note: "median of the SPP distribution, after costs"}
+    - {metric: stability_ratio, op: ">=", threshold: 0.8, note: "neighbourhood / selected point"}
+    - {metric: plateau_area, op: ">=", threshold: 0.10, note: "share of the search space"}
+    - {metric: selected_in_both_halves, op: "==", threshold: 1, note: "selected parameters accepted in both data halves"}
+
+  # ---- used from P1 (stages 1-S, 4-7), values from the phase-1 decisions -----------------
+  s01s_seasonal:
+    - {metric: q_value, op: "<=", threshold: 0.1, note: "after Benjamini-Hochberg"}
+    - {metric: direction_stable_years_share, op: ">=", threshold: 0.70}
+    - {metric: shift_1h_effect_retained, op: ">=", threshold: 0.60, note: "+-1 hour shift keeps >= 60 % of the effect"}
+    - {metric: profit_cost_x1_5, op: ">", threshold: 0, note: "net profit with cost stress 1.5"}
+  s04_exit:
+    - {metric: exit_improvement, op: ">=", threshold: 0.10, note: "target metric vs the base exit"}
+    - {metric: exit_improvement_years_share, op: ">", threshold: 0.5, note: "'in most years'"}
+    - {metric: exit_spp_median_target, op: ">", threshold: 0, note: "as stage 3"}
+    - {metric: exit_stability_ratio, op: ">=", threshold: 0.8, note: "as stage 3"}
+    - {metric: exit_plateau_area, op: ">=", threshold: 0.10, note: "as stage 3"}
+    - {metric: entry_still_in_plateau, op: "==", threshold: 1}
+    - {metric: free_params_total, op: "<=", threshold: 5, note: "entry + exit"}
+  s05_filter:
+    - {metric: filter_improvement_percentile, op: ">=", threshold: 95, note: "vs 1000 random removals"}
+    - {metric: trades_retained_share, op: ">=", threshold: 0.60}
+    - {metric: years_improved_share, op: ">=", threshold: 0.60}
+    - {metric: bucket_min_trades, op: ">=", threshold: 30, note: "calendar bucket"}
+    - {metric: bucket_q_value, op: "<=", threshold: 0.1, note: "after Benjamini-Hochberg"}
+    - {metric: bucket_direction_stable_years_share, op: ">=", threshold: 0.70}
+    - {metric: bucket_stable_both_halves, op: "==", threshold: 1}
+    - {metric: filter_count, op: "<=", threshold: 2}
+  s06_robust:
+    - {metric: wf_efficiency, op: ">=", threshold: 0.50, critical: true}
+    - {metric: wf_oos_profitable_share, op: ">=", threshold: 0.60, critical: true}
+    - {metric: wf_matrix_success_share, op: ">=", threshold: 0.60, critical: true}
+    - {metric: profit_cost_x2, op: ">", threshold: 0, critical: true, note: "net profit with cost stress 2"}
+    - {metric: mc_dd95_within_tolerance, op: "==", threshold: 1, note: "tolerance not yet defined in the spec"}
+    - {metric: holdout_band_percentile, op: ">=", threshold: 5, critical: true, note: "holdout above the 5th percentile of the expectation band"}
+  s07_stats:
+    - {metric: t_test_p, op: "<", threshold: 0.05, note: "trade returns (HAC for daily returns)"}
+    - {metric: bootstrap_ci_lower, op: ">", threshold: 0, note: "lower bound of the Sharpe/expectancy CI"}
+    - {metric: permutation_p, op: "<", threshold: 0.05}
+    - {metric: dsr, op: ">=", threshold: 0.95, note: "with the effective number of trials"}
+    - {metric: pbo, op: "<=", threshold: 0.25, note: "CSCV"}
+    - {metric: spa_p, op: "<", threshold: 0.05, note: "Hansen SPA"}
+    - {metric: min_trl_ratio, op: "<", threshold: 1, note: "minimum track record length / available data length"}
+
+overrides:
+  timeframe:
+    1H:
+      s01_probe:
+        - {metric: min_trades, op: ">=", threshold: 100}
+      s02_screen:
+        - {metric: min_trades_good_cells, op: ">=", threshold: 100}
