@@ -1,13 +1,14 @@
 # Data inventory (T00 · F-0.1.12)
 
-Generated 2026-09-19 08:36:52 UTC by `scripts/data_inventory.py` in 51.0 s. Read-only scan.
+Generated 2026-09-19 10:31:17 UTC by `scripts/data_inventory.py` in 58.7 s. Read-only scan.
 
-**Source integrity check:** 34511 source files stat-ed before and after the run (+ 14 evidence files outside the roots: logs, manifests, downloader code); changed: 0, added: 0, removed: 0 → **no source file was modified**.
+**Source integrity check:** 34899 source files stat-ed before and after the run (+ 14 evidence files outside the roots: logs, manifests, downloader code); changed: 0, added: 0, removed: 0 → **no source file was modified**.
 
 Source roots:
 - `QuantPlatform`: `D:\AmerAndish\Projects\Trade\SourceCodes\QuantPlatform\data`
 - `MarketScanner candles`: `D:\AmerAndish\Projects\Trade\SourceCodes\MarketScanner\data\candles`
 - `MarketEdge futures`: `D:\AmerAndish\Projects\Trade\SourceCodes\MarketEdge\Data\Futures`
+- `ATM futures`: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07`
 
 Method: every file gets a *light pass* (size, symbol, first/last timestamp from the head/tail lines or parquet min/max); at most 50 files per group get a *deep pass* (full read: timeframe, sessions, timezone tests, quality). Deep-sample files = priority tickers (split probes / cross-source tickers) + evenly spaced files from the sorted list.
 
@@ -25,6 +26,9 @@ Method: every file gets a *light pass* (size, symbol, first/last timestamp from 
 | MS-PIT-CRYPTO-1D | Binance spot via ccxt (point-in-time universe incl. delisted) | crypto (spot), includes delisted pairs | 601 | 1d | 2017-08-17 → 2026-06-30 | csv | date only (UTC day, exchange convention); session date | trade (last-trade OHLC); no bid/ask/spread columns | n/a (crypto) | deep stats on 50/601 files; includes delisted pairs (survivorship-free) |
 | MS-IRAN-1D | TSETMC via pytse (MarketScanner pytse adapter) | Iranian equities, funds, sukuk/bonds (TSETMC instruments) | 2365 | 1d | 2001-03-25 → 2026-06-30 | csv | date only (Asia/Tehran session date); session date | trade (last-trade OHLC); no bid/ask/spread columns | likely unadjusted (jumps beyond daily limits) | deep stats on 50/2365 files; includes funds, sukuk, rights |
 | ME-FUT-15M | TradeStation (or MultiCharts) chart export via 'Data Exporter v3.0' indicator | futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto) | 65 | 15m | 2006-01-03 → 2023-11-01 | txt (CSV + 7-line header) | naive exchange-local (US/Central for CME/CBOT/NYMEX); bar-end | trade (last-trade OHLC); no bid/ask/spread columns | continuous, additive back-adjusted (negative prices, no roll gaps); roll rule unknown | deep stats on 50/65 files; all series end 2023-11-01 (stale) |
+| ATM-FUT-1H | TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09) | futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto) | 64 | 1h | 2006-01-09 → 2025-07-09 | txt (CSV + 7-line header) | naive exchange-local (US/Central for CME/CBOT/NYMEX); bar-end | trade (last-trade OHLC); no bid/ask/spread columns | continuous, additive back-adjusted (negative prices, no roll gaps); roll rule unknown | deep stats on 50/64 files; `.txt` twins byte-identical; 2 `- Copy` + 2 `.bak` files excluded; @ED ends 2023-05 (Eurodollar delisted) |
+| ATM-FUT-1440 | TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09) | futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto) | 64 | 1d | 2006-05-25 → 2025-07-08 | txt (CSV + 7-line header) | naive exchange-local (US/Central for CME/CBOT/NYMEX); bar-end | trade (last-trade OHLC); no bid/ask/spread columns | continuous, additive back-adjusted (negative prices, no roll gaps); roll rule unknown | deep stats on 50/64 files; not copied (only 1H decided) |
+| ATM-FUT-DAILY | TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09) | futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto) | 64 | 1d | 2006-05-30 → 2025-07-08 | txt (CSV + 7-line header) | naive exchange-local (US/Central for CME/CBOT/NYMEX); bar-end | trade (last-trade OHLC); no bid/ask/spread columns | continuous, additive back-adjusted (negative prices, no roll gaps); roll rule unknown | deep stats on 50/64 files; not copied (only 1H decided) |
 
 ## Overlaps (same normalised symbol in more than one group)
 
@@ -41,6 +45,33 @@ Normalisation: upper-case, separators `. - / _` removed (e.g. `BRK.B`=`BRK-B`=`B
 | QP-CRYPTO-1H | MS-PIT-CRYPTO-1D | 27 | ADAUSDT, ATOMUSDT, BATUSDT, BCHUSDT, BNBUSDT, BTCUSDT, COMPUSDT, DOGEUSDT, ETCUSDT, ETHUSDT, FILUSDT, KNCUSDT, LTCUSDT, MKRUSDT, NEOUSDT, ONEUSDT, ONTUSDT, OXTUSDT, QTUMUSDT, SOLUSDT, UNIUSDT, VETUSDT, VTHOUSDT, XLMUSDT, XRPUSDT |
 | QP-STOOQ-1H | MS-US-1D | 5458 | A, AA, AACB, AACI, AACO, AACP, AADX, AAL, AAME, AAMI, AAOI, AAON, AAP, AAPG, AAPL, AARD, AAUC, AB, ABAT, ABBV, ABCB, ABCL, ABEO, ABEV, ABG |
 | MS-CRYPTO-1D | MS-PIT-CRYPTO-1D | 94 | AAVEUSDT, ACTUSDT, ADAUSDT, AGLDUSDT, AIGENSYNUSDT, AIUSDT, ALGOUSDT, ALICEUSDT, ALLOUSDT, ANIMEUSDT, APTUSDT, ARBUSDT, ARUSDT, ASTERUSDT, ATMUSDT, ATOMUSDT, AVAXUSDT, BCHUSDT, BICOUSDT, BNBUSDT, BTCUSDT, CAKEUSDT, CELOUSDT, CHZUSDT, CRCLBUSDT |
+| ME-FUT-15M | ATM-FUT-1H | 61 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+| ME-FUT-15M | ATM-FUT-1440 | 61 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+| ME-FUT-15M | ATM-FUT-DAILY | 61 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+| ATM-FUT-1H | ATM-FUT-1440 | 64 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+| ATM-FUT-1H | ATM-FUT-DAILY | 64 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+| ATM-FUT-1440 | ATM-FUT-DAILY | 64 | @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC |
+
+## ATM folder file variants (`Historical Data - 2025-07-07`)
+
+388 files. Standard names per timeframe/extension: `{"1440min.csv": 64, "1440min.txt": 64, "60min.csv": 64, "60min.txt": 64, "Daily.csv": 64, "Daily.txt": 64}`.
+- `.csv` vs `.txt` twins: 192 byte-identical (sha256), 0 different. The inventory groups use the `.csv` copy; the `.txt` twins are duplicates.
+- Files that do not fit the `Data Export,@SYM, <tf>.<ext>` pattern (not grouped, not copied): `Data Export,@AD, 60min - Copy.csv`, `Data Export,@AD, 60min - Copy.csv.bak`, `Data Export,@NG, 60min - Copy.txt`, `Data Export,@NG, 60min - Copy.txt.bak`.
+  - `Data Export,@AD, 60min - Copy.csv`: first line `Date,Time,Open,High,Low,Close,Volume` (header block missing); standard file `Data Export,@AD, 60min.csv` exists.
+  - `Data Export,@NG, 60min - Copy.txt`: first line `Date,Time,Open,High,Low,Close,Volume` (header block missing); standard file `Data Export,@NG, 60min.txt` exists.
+
+## Futures overlap: ATM-FUT-1H vs ME-FUT-15M resampled to 1H
+
+15-minute bars (bar-end labels) are aggregated into hourly bars ending on the full hour and joined to the ATM hourly bars on the label. Only hours built from 4 complete 15-minute bars are compared. Both sets are additively back-adjusted but anchored to different last contracts (`[Dec23]` vs `[Sep25]`), so closes differ by an offset that is constant between rolls; bar ranges (high−low) and volume do not depend on the offset.
+
+| symbol | common period | 1H bars (ATM) | matched labels (share) | hours compared | modal close diff | share at modal diff | distinct diffs | range equal | volume equal |
+|---|---|---|---|---|---|---|---|---|---|
+| @ES | 2006-01-09 03:00:00 → 2023-11-01 16:00:00 | 105050 | 105050 (1.0) | 102200 | 417.0 | 0.9992 | 9 | 1.0 | 0.9975 |
+| @NQ | 2006-01-09 03:00:00 → 2023-11-01 16:00:00 | 105025 | 105025 (1.0) | 100484 | 1668.0 | 0.9994 | 13 | 1.0 | 0.999 |
+| @CL | 2006-01-10 09:00:00 → 2023-11-01 17:00:00 | 104323 | 104323 (1.0) | 103669 | -10.9 | 0.9997 | 4 | 1.0 | 0.9996 |
+| @GC | 2006-01-10 14:00:00 → 2023-11-01 17:00:00 | 103856 | 103856 (1.0) | 103001 | 239.8 | 0.9996 | 11 | 1.0 | 0.9993 |
+| @TY | 2006-01-09 07:00:00 → 2023-11-01 16:00:00 | 104104 | 104104 (1.0) | 102600 | 2.0625 | 0.9992 | 24 | 0.9995 | 0.999 |
+| @EC | 2006-01-09 03:00:00 → 2023-11-01 16:00:00 | 105196 | 105196 (1.0) | 105032 | 0.0343 | 0.9997 | 5 | 1.0 | 0.9995 |
 
 ## MarketScanner manifest (`data/symbols.csv`, read-only corroboration)
 
@@ -69,6 +100,62 @@ Normalisation: upper-case, separators `. - / _` removed (e.g. `BRK.B`=`BRK-B`=`B
 | اسناد خزانه (treasury bill) | 10 |
 | حق تقدم (rights) | 0 |
 
+## Files under the source roots not assigned to any group
+
+```
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@AD, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@AD, 60min - Copy.csv
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@AD, 60min - Copy.csv.bak
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@AD, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@AD, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BO, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BO, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BO, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BP, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BP, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BP, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BTC, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BTC, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@BTC, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@C, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@C, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@C, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CC, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CC, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CC, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CD, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CD, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CD, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CL, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CL, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CL, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CT, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CT, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@CT, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@DX, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@DX, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@DX, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@E7, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@E7, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@E7, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EC, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EC, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EC, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ED, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ED, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ED, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EMD, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EMD, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@EMD, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, Daily.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES.D, 1440min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES.D, 60min.txt
+F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES.D, Daily.txt
+... 146 more
+```
+
 ## Questions for the user
 
 1. Dukascopy: no Dukascopy data exists yet (confirmed by you). Where will the minute bid/ask data be downloaded to, and which symbols (FX majors, XAUUSD, index CFDs such as USA500IDXUSD / USA30IDXUSD)? The spec relies on it for spread profiles and FX/metal/CFD research.
@@ -86,7 +173,10 @@ Normalisation: upper-case, separators `. - / _` removed (e.g. `BRK.B`=`BRK-B`=`B
 13. QuantPlatform `us_equity` holds 6362 daily and 5887 hourly files: were delisted tickers included (survivorship) or only currently active symbols? `reference/assets` lists status active/inactive — should it drive the universe?
 14. Auxiliary series (VIX index, SPX index, rates) from Yahoo: none found in these folders. Where should they come from?
 15. Execution broker(s) for cost profiles are still open (HANDOFF §7.3) — no broker/MT5 exports were found in the scanned folders.
-16. Security (outside scope, noticed while collecting source evidence): `MarketScanner/scripts/host_download.py` and `host_download_us_pit.py` contain a hard-coded fallback Alpaca API key in `os.environ.get(...)`. Consider rotating that key and removing the default. (Value not reproduced here.)
+16. ATM futures (T00b): the new 1H export matches the old 15-minute set exactly on the common period (identical labels and bar ranges; closes differ by one constant back-adjustment offset per roll segment), so it is the same TradeStation feed and settings. Please confirm the TradeStation settings used for both exports: back-adjustment on (the data shows additive back-adjustment), roll rule (volume-based or N days before expiry), and time zone = exchange time.
+17. ATM futures: `1440min` and `Daily` files differ (e.g. @ES 2025-07-07 close 6263.25 in 1440min vs 6276.00 in Daily; Daily looks like settlement prices, 1440min like the last trade of the session). Only 1H is imported now; should one of the daily variants be imported too, and which one is the reference for daily futures research?
+18. ATM futures: ICE softs (@CC, @CT, @KC, @OJ, @SB) — confirm their timestamps are US/Eastern exchange time (the other exchanges are US/Central).
+19. Security (outside scope, noticed while collecting source evidence): `MarketScanner/scripts/host_download.py` and `host_download_us_pit.py` contain a hard-coded fallback Alpaca API key in `os.environ.get(...)`. Consider rotating that key and removing the default. (Value not reproduced here.)
 
 ## Files that could not be read
 
@@ -1242,13 +1332,13 @@ Last 3 rows:
 
 ### 9–12. Timestamp format, timezone, session, weekend, price type
 - `Date` = `MM/DD/YYYY`, `Time` = `HH:MM`, **naive**, separate columns.
-- Across the sample, bars labelled exactly at header `S.Start`: 0; at `S.Start`+15 min: 174812; at `S.End`: 172272. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention).
+- Across the sample, bars labelled exactly at header `S.Start`: 0; at `S.Start`+1 bar (15m): 174812; at `S.End`: 172272. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention).
 - @ES first bar of each session, winter (Dec–Feb): `{"Wed 17:15": 221, "Tue 17:15": 219, "Sun 17:15": 217, "Mon 17:15": 217}`; summer (Jun–Aug): `{"Thu 17:15": 237, "Mon 17:15": 237, "Wed 17:15": 237, "Sun 17:15": 234}` → identical wall-clock across DST ⇒ timestamps are **exchange-local time (US/Central for CME, with DST)**, not UTC.
 - @ES weekday counts: `{"Mon": 82515, "Tue": 84146, "Wed": 84436, "Thu": 83665, "Fri": 57418, "Sun": 24788}` → Sunday bars are the Globex evening open (17:00 CT Sunday).
 - Exchanges in headers: `{"CME": 28, "CBOT": 15, "ICEUS": 7, "NYMEX": 10, "COMEX": 3, "CBOEF": 2}` — ICE/NYBOT softs would be exported in their own local (US/Eastern) time if TradeStation's default 'exchange time' setting was used (to confirm).
 
 ### 13–14. Adjustment / futures specifics
-- Series type: every header says `Continuous Contract [Dec23]` → **continuous series** (one file per root), ending with the Dec-2023 contract; all files end on 2023-11-01 17:00:00.
+- Series type: header contract tags `{"Dec23": 45, "null": 6, "Mar24": 4, "Sep23": 1, "Nov23": 3, "Jan24": 5, "Feb24": 1}`; descriptions say `Continuous Contract` → **continuous series** (one file per root); last timestamp across files: 2023-11-01 17:00:00.
 - Bars with low ≤ 0 across sample: 557223 (back-adjusted series can go negative).
 - Contracts with bars at price ≤ 0: @CL (575), @CT (25122), @HO (218413), @OJ (301), @QH (750), @QM (576), @RB (217503), @S (37395), @SM (56588). Real prices of these contracts never went ≤ 0 (except WTI crude in April 2020), so this is the signature of **additive back-adjustment**.
 - Roll gaps: median share of each contract's 20 largest open-vs-previous-close jumps that fall in a quarterly roll window (5th–16th of Mar/Jun/Sep/Dec ≈ 13% of days): 0.20 → no clustering at roll dates; the largest jumps are weekend/news gaps → roll gaps have been removed (consistent with back-adjusted continuous series).
@@ -1332,5 +1422,662 @@ Tick-grid test (share of closes that are exact multiples of the header tick size
 _Per-file statistics computed on 50 of 65 files (task limit 50); `extrapolated_to_all_files` scales sample totals by file count and is an estimate._
 
 Deep-sample symbols: @ES, @NQ, @CL, @GC, @ES.D, @VX, @BTC, @TY, @EC, @C, @AD, @BO, @BP, @CC, @CD, @CT, @E7, @ED, @ETH, @FC, @FV, @HO, @J7, @JY, @KW, @LC, @M2K, @MBT, @MCL, @MET, @MNQ, @MP1, @NE1, @NG, @NQ.D, @O, @OJ, @QH, @QM, @QN, @RB, @RR, @S, @SB, @SF, @SM, @TU, @US, @W, @YM
+
+---
+
+## ATM-FUT-1H — Ali Casy-ATM · US futures continuous contracts · hourly (`Data Export,@SYM, 60min.csv`)
+
+### 1. Location & pattern
+| root | pattern | files | total size | extensions |
+|---|---|---|---|---|
+| `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07` | `Data Export,*, 60min.csv` | 64 | 263.6 MB | `{".csv": 64}` |
+
+### 2. Probable source
+**TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09)**
+
+- Same 'Data Exporter v3.0' header block as ME-FUT-15M (`@SYM = <desc> Continuous Contract [Sep25]`, `Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,...`); `@` continuous symbols and the `$/Big Point` / `S.Start` / `S.End` fields are TradeStation/EasyLanguage conventions.
+- Each series exists twice, as `.csv` and `.txt` (byte-identity checked in the 'ATM folder file variants' section).
+
+### 3–4. Symbols & asset class
+- Asset class guess: **futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto)**
+- 64 symbols; first 30: @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC, @KW, @LC, @LH, @M2K, @MBT
+
+### 5. Timeframe
+- Dominant timeframe (median diff of consecutive timestamps, per file): **1h** in 50 of 50 deep-sample files; the other 0 files are sparse (illiquid symbols with missing bars, so the median gap exceeds the bar size): `{"1h": 50}`
+- Most frequent spacing per file (bar grid): `{"1h": 50}` → mixed timeframes: False; median share of diffs equal to the median: 0.949
+
+### 6. Date range
+- Across all 64 files (light pass: head/tail lines or parquet min/max): first ts `{"min": "2006-01-09 03:00:00", "median": "2006-01-18 04:00:00", "max": "2021-12-10 16:00:00"}`; last ts `{"min": "2023-05-19 16:00:00", "median": "2025-07-09 01:00:00", "max": "2025-07-09 02:00:00"}`
+
+| symbol | description | tag | exch | S.Start | S.End | $/pt | tick | first | last | size |
+|---|---|---|---|---|---|---|---|---|---|---|
+| @AD | Australian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.0 MB |
+| @BO | Soybean Oil Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 600 | 0.01 | 2006-01-18 20:00:00 | 2025-07-09 01:00:00 | 3.8 MB |
+| @BP | British Pound Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 5.5 MB |
+| @BTC | Bitcoin Futures based on BRR Continuous Contract... | — | CME | 1700 | 1600 | 5 | 5 | 2017-12-22 03:00:00 | 2025-07-09 01:00:00 | 1.9 MB |
+| @C | Corn Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-01-16 22:00:00 | 2025-07-09 01:00:00 | 4.2 MB |
+| @CC | Cocoa Continuous Contract [Sep25] | Sep25 | ICEUS | 445 | 1330 | 10 | 1 | 2006-02-01 09:45:00 | 2025-07-08 13:30:00 | 1.7 MB |
+| @CD | Canadian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.0 MB |
+| @CL | Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 1000 | 0.01 | 2006-01-10 09:00:00 | 2025-07-09 02:00:00 | 5.2 MB |
+| @CT | Cotton No. 2 Continuous Contract [Dec25] | Dec25 | ICEUS | 2100 | 1420 | 500 | 0.01 | 2006-02-01 12:00:00 | 2025-07-09 01:00:00 | 3.5 MB |
+| @DX | U.S. Dollar Index Continuous Contract [Sep25] | Sep25 | ICEUS | 2000 | 1700 | 1000 | 0.005 | 2006-01-23 22:00:00 | 2025-07-09 01:00:00 | 4.8 MB |
+| @E7 | E-Mini Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-01-09 04:00:00 | 2025-07-09 01:00:00 | 5.4 MB |
+| @EC | Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.0 MB |
+| @ED | Eurodollar Continuous Contract [Sep23] | Sep23 | CME | 1700 | 1600 | 2500 | 0.0025 | 2006-01-09 07:00:00 | 2023-05-19 16:00:00 | 5.0 MB |
+| @EMD | E-Mini S&P MidCap 400 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100 | 0.1 | 2006-01-10 19:00:00 | 2025-07-09 01:00:00 | 4.9 MB |
+| @ES | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.25 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.1 MB |
+| @ES.D | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.25 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.8 MB |
+| @ETH | CME Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 50 | 0.5 | 2021-02-14 21:00:00 | 2025-07-09 01:00:00 | 1.2 MB |
+| @FC | Feeder Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 500 | 0.025 | 2007-02-07 09:30:00 | 2025-07-08 13:05:00 | 1.2 MB |
+| @FV | 5 Yr U.S.Treasury Notes Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 1000 | 0.0078125 | 2006-01-09 08:00:00 | 2025-07-09 01:00:00 | 7.7 MB |
+| @GC | Gold Continuous Contract [Aug25] | Aug25 | COMEX | 1800 | 1700 | 100 | 0.1 | 2006-01-10 14:00:00 | 2025-07-09 02:00:00 | 5.5 MB |
+| @HG | Copper Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 25000 | 0.0005 | 2006-01-10 22:00:00 | 2025-07-09 02:00:00 | 5.4 MB |
+| @HO | Heating Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-01-18 10:00:00 | 2025-07-09 02:00:00 | 5.5 MB |
+| @J7 | E-Mini Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-01-23 09:00:00 | 2025-07-09 01:00:00 | 4.7 MB |
+| @JY | Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.0 MB |
+| @KC | Coffee C Continuous Contract [Sep25] | Sep25 | ICEUS | 415 | 1330 | 375 | 0.05 | 2006-02-08 11:15:00 | 2025-07-08 13:30:00 | 2.2 MB |
+| @KW | Hard Red Winter Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2008-05-12 01:00:00 | 2025-07-09 01:00:00 | 3.7 MB |
+| @LC | Live Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-02-03 10:30:00 | 2025-07-08 13:05:00 | 1.3 MB |
+| @LH | Lean Hogs Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-02-02 12:30:00 | 2025-07-08 13:05:00 | 1.2 MB |
+| @M2K | Micro E-mini Russell 2000 Continuous Contract [S... | — | CME | 1700 | 1600 | 5 | 0.1 | 2006-01-09 05:00:00 | 2025-07-09 01:00:00 | 5.2 MB |
+| @MBT | Micro Bitcoin Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 5 | 2021-05-07 03:00:00 | 2025-07-09 01:00:00 | 1.1 MB |
+| @MCL | Micro Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 100 | 0.01 | 2021-07-16 04:00:00 | 2025-07-09 02:00:00 | 1.0 MB |
+| @MES | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 0.25 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.1 MB |
+| @MES.D | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 5 | 0.25 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.8 MB |
+| @MET | Micro Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 0.5 | 2021-12-10 16:00:00 | 2025-07-09 01:00:00 | 1007.8 KB |
+| @MNQ | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 2 | 0.25 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.2 MB |
+| @MNQ.D | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 2 | 0.25 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.9 MB |
+| @MP1 | Mexican Peso Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 500000 | 0.00001 | 2006-01-12 08:00:00 | 2025-07-09 01:00:00 | 5.5 MB |
+| @MYM | Micro E-mini Dow Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 0 | 1 | 2006-01-09 08:00:00 | 2025-07-09 01:00:00 | 5.0 MB |
+| @NE1 | New Zealand Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2013-10-07 20:00:00 | 2025-07-09 01:00:00 | 3.6 MB |
+| @NG | Natural Gas Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 10000 | 0.001 | 2006-01-10 16:00:00 | 2025-07-09 02:00:00 | 5.2 MB |
+| @NK | Nikkei 225 USD Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 5 | 2006-08-02 12:00:00 | 2025-07-09 01:00:00 | 4.4 MB |
+| @NQ | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 20 | 0.25 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 6.1 MB |
+| @NQ.D | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 20 | 0.25 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.9 MB |
+| @O | Oats Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-03-26 23:00:00 | 2025-07-08 23:00:00 | 2.8 MB |
+| @OJ | Frozen Concentrated OJ Continuous Contract [Sep25] | Sep25 | ICEUS | 800 | 1400 | 150 | 0.05 | 2006-02-08 12:00:00 | 2025-07-08 14:00:00 | 1.2 MB |
+| @PL | Platinum Continuous Contract [Oct25] | Oct25 | NYMEX | 1800 | 1700 | 50 | 0.1 | 2006-01-18 04:00:00 | 2025-07-09 02:00:00 | 5.1 MB |
+| @QM | E-mini Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 500 | 0.025 | 2006-01-09 07:00:00 | 2025-07-09 02:00:00 | 5.5 MB |
+| @RB | NYHarborBlendstock RBOB Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-01-11 04:00:00 | 2025-07-09 02:00:00 | 5.4 MB |
+| @RR | Rough Rice Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 2000 | 0.005 | 2006-05-15 22:00:00 | 2025-07-08 20:00:00 | 2.3 MB |
+| @RTY | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.1 | 2006-01-09 05:00:00 | 2025-07-09 01:00:00 | 5.2 MB |
+| @RTY.D | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.1 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.6 MB |
+| @S | Soybeans Continuous Contract [Nov25] | Nov25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-01-16 22:00:00 | 2025-07-09 01:00:00 | 4.3 MB |
+| @SB | Sugar No. 11 Continuous Contract [Oct25] | Oct25 | ICEUS | 330 | 1300 | 1120 | 0.01 | 2006-02-08 10:30:00 | 2025-07-08 13:00:00 | 2.0 MB |
+| @SF | Swiss Franc Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-01-09 03:00:00 | 2025-07-09 01:00:00 | 5.9 MB |
+| @SI | Silver Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 5000 | 0.005 | 2006-01-10 15:00:00 | 2025-07-09 02:00:00 | 5.4 MB |
+| @SM | Soybean Meal Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 100 | 0.1 | 2006-01-19 23:00:00 | 2025-07-09 01:00:00 | 3.8 MB |
+| @TU | 2 Year U.S. Treasury Notes Continuous Contract [... | — | CBOT | 1700 | 1600 | 2000 | 0.00390625 | 2006-01-09 10:00:00 | 2025-07-09 01:00:00 | 8.1 MB |
+| @TY | 10 Yr U.S. Treasury Notes Continuous Contract [S... | — | CBOT | 1700 | 1600 | 1000 | 0.015625 | 2006-01-09 07:00:00 | 2025-07-09 01:00:00 | 7.2 MB |
+| @US | 30 Yr U.S.Treasury Bonds Continuous Contract [Se... | — | CBOT | 1700 | 1600 | 1000 | 0.03125 | 2006-01-09 08:00:00 | 2025-07-09 01:00:00 | 6.7 MB |
+| @VX | CBOE Volatility Index Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 1000 | 0.05 | 2010-01-25 13:00:00 | 2025-07-09 01:00:00 | 3.3 MB |
+| @VXM | Mini-VIX Futures Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 100 | 0.01 | 2010-01-25 13:00:00 | 2025-07-09 01:00:00 | 3.2 MB |
+| @W | Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-01-17 01:00:00 | 2025-07-09 01:00:00 | 4.4 MB |
+| @YM | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 5 | 1 | 2006-01-09 08:00:00 | 2025-07-09 01:00:00 | 5.0 MB |
+| @YM.D | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 830 | 1515 | 5 | 1 | 2006-01-24 12:30:00 | 2025-07-08 15:15:00 | 1.5 MB |
+
+### 7. Schema
+Representative file: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 60min.csv`
+
+`{"Date": "str (text file; parsed as noted)", "Time": "str (text file; parsed as noted)", "Open": "str (text file; parsed as noted)", "High": "str (text file; parsed as noted)", "Low": "str (text file; parsed as noted)", "Close": "str (text file; parsed as noted)", "Volume": "str (text file; parsed as noted)"}`
+
+Column presence: `{"open": true, "high": true, "low": true, "close": true, "vol": true, "vwap": false, "trade": false, "bid": false, "ask": false, "spread": false, "openint": false}`
+
+### 8. Raw samples (verbatim)
+File: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 60min.csv`
+
+First 5 rows (with header lines):
+```
+Data Exporter v3.0  ,  2022
+ 
+@ES = E-mini S&P 500 Continuous Contract [Sep25]
+
+Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,Tick Size,$Tick Size,#Ticks/Point,Avg Vol,Avg ATR,Avg $ATR
+@ES,60min,CME,1700,1600,50,0.25,12.50,4,19393,2.08,104
+
+Date,Time,Open,High,Low,Close,Volume
+01/09/2006,03:00,1733.50,1734.75,1732.25,1733.00,2982
+01/09/2006,04:00,1733.00,1733.50,1732.50,1733.25,1101
+01/09/2006,05:00,1733.25,1733.50,1733.00,1733.25,1463
+01/09/2006,06:00,1733.25,1733.25,1732.25,1732.50,796
+01/09/2006,07:00,1732.75,1733.00,1732.25,1732.75,1165
+```
+Last 3 rows:
+```
+07/08/2025,23:00,6267.25,6268.25,6264.25,6264.75,1289
+07/09/2025,00:00,6265.00,6270.25,6264.25,6268.25,1551
+07/09/2025,01:00,6268.25,6269.00,6263.50,6265.75,1696
+```
+
+### 9–12. Timestamp format, timezone, session, weekend, price type
+- `Date` = `MM/DD/YYYY`, `Time` = `HH:MM`, **naive**, separate columns.
+- Across the sample, bars labelled exactly at header `S.Start`: 0; at `S.Start`+1 bar (1h): 221636; at `S.End`: 229866. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention).
+- @ES first bar of each session, winter (Dec–Feb): `{"Wed 18:00": 246, "Mon 18:00": 243, "Tue 18:00": 243, "Thu 18:00": 241}`; summer (Jun–Aug): `{"Mon 18:00": 256, "Thu 18:00": 255, "Wed 18:00": 255, "Sun 18:00": 253}` → identical wall-clock across DST ⇒ timestamps are **exchange-local time (US/Central for CME, with DST)**, not UTC.
+- @ES weekday counts: `{"Mon": 22740, "Tue": 23176, "Wed": 23190, "Thu": 23037, "Fri": 16779, "Sun": 6020}` → Sunday bars are the Globex evening open (17:00 CT Sunday).
+- Exchanges in headers: `{"CME": 31, "CBOT": 15, "ICEUS": 6, "NYMEX": 7, "COMEX": 3, "CBOEF": 2}` — ICE/NYBOT softs would be exported in their own local (US/Eastern) time if TradeStation's default 'exchange time' setting was used (to confirm).
+
+### 13–14. Adjustment / futures specifics
+- Series type: header contract tags `{"Sep25": 37, "Dec25": 3, "null": 5, "Aug25": 10, "Sep23": 1, "Jul25": 5, "Oct25": 2, "Nov25": 1}`; descriptions say `Continuous Contract` → **continuous series** (one file per root); last timestamp across files: 2025-07-09 02:00:00.
+- Bars with low ≤ 0 across sample: 176045 (back-adjusted series can go negative).
+- Contracts with bars at price ≤ 0: @CL (640), @HO (74994), @RB (59741), @CT (4656), @OJ (3768), @QM (641), @S (10439), @SM (21166). Real prices of these contracts never went ≤ 0 (except WTI crude in April 2020), so this is the signature of **additive back-adjustment**.
+- Roll gaps: median share of each contract's 20 largest open-vs-previous-close jumps that fall in a quarterly roll window (5th–16th of Mar/Jun/Sep/Dec ≈ 13% of days): 0.15 → no clustering at roll dates; the largest jumps are weekend/news gaps → roll gaps have been removed (consistent with back-adjusted continuous series).
+
+Tick-grid test (share of closes that are exact multiples of the header tick size; additive back-adjustment keeps prices on the grid, ratio adjustment breaks it) and largest open-vs-previous-close jumps (in multiples of the rolling median bar range; roll gaps would cluster in roll windows):
+
+| symbol | bars ≤ 0 | on-grid first 20k | on-grid last 20k | top-20 jumps in Mar/Jun/Sep/Dec 5–16 | top 2 jumps |
+|---|---|---|---|---|---|
+| @ES | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2015-06-28 18:00:00", "jump": -32.0, "x_median_range": 10.2, "gap_min": 3000}, {"ts": "2012-01-03 06:00:00", "jump": 21.75, "x_median_range": 8.7, "gap_min": 5160}]` |
+| @NQ | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2012-01-03 06:00:00", "jump": 37.75, "x_median_range": 8.6, "gap_min": 5160}, {"ts": "2015-06-28 18:00:00", "jump": -51.25, "x_median_range": 7.2, "gap_min": 3000}]` |
+| @CL | 640 | 1.0 | 1.0 | 0.2 | `[{"ts": "2019-09-15 19:00:00", "jump": 6.66, "x_median_range": 23.0, "gap_min": 3000}, {"ts": "2020-03-08 19:00:00", "jump": -8.7, "x_median_range": 19.1, "gap_min": 3000}]` |
+| @GC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2006-02-07 14:00:00", "jump": -15.9, "x_median_range": 17.7, "gap_min": 300}, {"ts": "2006-03-29 14:00:00", "jump": 9.8, "x_median_range": 16.3, "gap_min": 360}]` |
+| @VX | 0 | 0.08 | 0.216 | 0.3 | `[{"ts": "2015-08-24 02:00:00", "jump": 3.55, "x_median_range": 19.2, "gap_min": 3480}, {"ts": "2022-08-11 00:00:00", "jump": -2.23, "x_median_range": 14.9, "gap_min": 60}]` |
+| @BTC | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2019-10-27 18:00:00", "jump": 1035.0, "x_median_range": 27.6, "gap_min": 3000}, {"ts": "2019-05-12 18:00:00", "jump": 860.0, "x_median_range": 21.5, "gap_min": 3000}]` |
+| @TY | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2016-08-29 18:00:00", "jump": 0.953125, "x_median_range": 15.2, "gap_min": 120}, {"ts": "2015-06-28 18:00:00", "jump": 1.328125, "x_median_range": 14.2, "gap_min": 3000}]` |
+| @EC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2017-04-23 18:00:00", "jump": 0.0134, "x_median_range": 12.5, "gap_min": 3000}, {"ts": "2013-03-17 18:00:00", "jump": -0.0149, "x_median_range": 9.3, "gap_min": 3000}]` |
+| @C | 0 | 1.0 | 1.0 | 0.0 | `[{"ts": "2006-04-02 20:00:00", "jump": 7.75, "x_median_range": 31.0, "gap_min": 3720}, {"ts": "2007-04-01 20:00:00", "jump": -20.0, "x_median_range": 26.7, "gap_min": 3280}]` |
+| @HO | 74994 | 1.0 | 1.0 | 0.1 | `[{"ts": "2006-06-28 16:00:00", "jump": -0.0908, "x_median_range": 45.4, "gap_min": 360}, {"ts": "2006-07-28 17:00:00", "jump": -0.1021, "x_median_range": 40.8, "gap_min": 420}]` |
+| @RB | 59741 | 1.0 | 1.0 | 0.1 | `[{"ts": "2006-05-10 16:00:00", "jump": 0.126, "x_median_range": 40.0, "gap_min": 360}, {"ts": "2006-08-10 16:00:00", "jump": -0.117, "x_median_range": 30.0, "gap_min": 360}]` |
+| @AD | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2019-01-02 18:00:00", "jump": -0.0102, "x_median_range": 10.2, "gap_min": 120}, {"ts": "2013-09-15 18:00:00", "jump": 0.0097, "x_median_range": 7.5, "gap_min": 3000}]` |
+| @BO | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2006-07-18 20:00:00", "jump": -0.55, "x_median_range": 110.0, "gap_min": 840}, {"ts": "2006-07-06 21:00:00", "jump": 0.93, "x_median_range": 93.0, "gap_min": 900}]` |
+| @BP | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2019-12-12 18:00:00", "jump": 0.0282, "x_median_range": 23.5, "gap_min": 120}, {"ts": "2017-06-08 18:00:00", "jump": -0.022, "x_median_range": 15.2, "gap_min": 120}]` |
+| @CD | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2025-02-02 18:00:00", "jump": -0.0083, "x_median_range": 11.1, "gap_min": 3000}, {"ts": "2013-01-02 06:00:00", "jump": 0.0063, "x_median_range": 7.0, "gap_min": 2280}]` |
+| @CT | 4656 | 1.0 | 1.0 | 0.25 | `[{"ts": "2010-12-22 22:00:00", "jump": -6.0, "x_median_range": 37.5, "gap_min": 460}, {"ts": "2007-06-14 02:00:00", "jump": 5.55, "x_median_range": 32.6, "gap_min": 700}]` |
+| @DX | 0 | 0.367 | 0.087 | 0.25 | `[{"ts": "2007-06-12 21:00:00", "jump": 0.23, "x_median_range": 92.0, "gap_min": 720}, {"ts": "2006-10-26 07:00:00", "jump": 0.96, "x_median_range": 48.0, "gap_min": 120}]` |
+| @ED | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2006-02-21 18:00:00", "jump": -0.22, "x_median_range": 44.0, "gap_min": 120}, {"ts": "2006-02-21 19:00:00", "jump": 0.2175, "x_median_range": 43.5, "gap_min": 60}]` |
+| @EMD | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2015-06-28 18:00:00", "jump": -18.3, "x_median_range": 8.1, "gap_min": 3000}, {"ts": "2012-01-03 06:00:00", "jump": 13.6, "x_median_range": 7.6, "gap_min": 5160}]` |
+| @ES.D | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2015-08-24 09:30:00", "jump": -101.5, "x_median_range": 15.6, "gap_min": 3975}, {"ts": "2020-02-24 09:30:00", "jump": -107.5, "x_median_range": 13.9, "gap_min": 3975}]` |
+| @FC | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2007-09-17 09:30:00", "jump": -0.975, "x_median_range": 78.0, "gap_min": 4200}, {"ts": "2007-05-25 09:30:00", "jump": -0.95, "x_median_range": 76.0, "gap_min": 1380}]` |
+| @FV | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2007-02-27 19:00:00", "jump": 0.5, "x_median_range": 16.0, "gap_min": 720}, {"ts": "2015-06-28 18:00:00", "jump": 0.617188, "x_median_range": 13.2, "gap_min": 3000}]` |
+| @HG | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2006-10-16 15:00:00", "jump": 0.143, "x_median_range": 23.8, "gap_min": 420}, {"ts": "2006-03-17 14:00:00", "jump": 0.059, "x_median_range": 19.7, "gap_min": 360}]` |
+| @JY | 0 | 1.0 | 1.0 | 0.4 | `[{"ts": "2019-01-02 18:00:00", "jump": 0.017, "x_median_range": 13.6, "gap_min": 120}, {"ts": "2006-09-10 18:00:00", "jump": 0.0126, "x_median_range": 11.5, "gap_min": 3000}]` |
+| @KC | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2021-07-23 05:15:00", "jump": 10.1, "x_median_range": 7.3, "gap_min": 945}, {"ts": "2007-10-15 09:15:00", "jump": -8.0, "x_median_range": 7.3, "gap_min": 4080}]` |
+| @LC | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2007-07-27 09:30:00", "jump": 5.35, "x_median_range": 16.5, "gap_min": 1225}, {"ts": "2006-07-24 09:30:00", "jump": -2.15, "x_median_range": 12.3, "gap_min": 4105}]` |
+| @LH | 0 | 0.922 | 1.0 | 0.35 | `[{"ts": "2006-06-19 11:30:00", "jump": 1.4, "x_median_range": 7.5, "gap_min": 60}, {"ts": "2007-06-12 09:30:00", "jump": 1.475, "x_median_range": 7.4, "gap_min": 1225}]` |
+| @M2K | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2019-05-05 18:00:00", "jump": -27.3, "x_median_range": 11.4, "gap_min": 3000}, {"ts": "2012-01-03 06:00:00", "jump": 12.9, "x_median_range": 6.8, "gap_min": 5160}]` |
+| @MCL | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2023-04-02 19:00:00", "jump": 3.4, "x_median_range": 10.5, "gap_min": 3000}, {"ts": "2025-06-15 19:00:00", "jump": 3.54, "x_median_range": 8.0, "gap_min": 3000}]` |
+| @MES | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2015-06-28 18:00:00", "jump": -32.0, "x_median_range": 10.2, "gap_min": 3000}, {"ts": "2012-01-03 06:00:00", "jump": 21.75, "x_median_range": 8.7, "gap_min": 5160}]` |
+| @MES.D | 0 | 0.0 | 0.444 | 0.05 | `[{"ts": "2015-08-24 09:30:00", "jump": -101.5, "x_median_range": 15.6, "gap_min": 3975}, {"ts": "2020-02-24 09:30:00", "jump": -107.25, "x_median_range": 14.1, "gap_min": 3975}]` |
+| @MNQ | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2019-05-05 18:00:00", "jump": -123.75, "x_median_range": 10.5, "gap_min": 3000}, {"ts": "2012-01-03 06:00:00", "jump": 37.75, "x_median_range": 8.6, "gap_min": 5160}]` |
+| @MNQ.D | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2015-08-24 09:30:00", "jump": -259.25, "x_median_range": 13.7, "gap_min": 3975}, {"ts": "2020-02-24 09:30:00", "jump": -355.5, "x_median_range": 11.6, "gap_min": 3975}]` |
+| @MP1 | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2025-02-02 18:00:00", "jump": -0.00132, "x_median_range": 13.2, "gap_min": 3000}, {"ts": "2022-07-17 18:00:00", "jump": 0.00117, "x_median_range": 11.7, "gap_min": 3000}]` |
+| @NE1 | 0 | 1.0 | 1.0 | 0.45 | `[{"ts": "2014-07-23 18:00:00", "jump": -0.0089, "x_median_range": 11.1, "gap_min": 120}, {"ts": "2015-06-10 18:00:00", "jump": -0.0118, "x_median_range": 9.4, "gap_min": 120}]` |
+| @NG | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2006-04-24 16:00:00", "jump": -0.533, "x_median_range": 26.7, "gap_min": 360}, {"ts": "2006-09-25 19:00:00", "jump": 1.269, "x_median_range": 25.1, "gap_min": 120}]` |
+| @NK | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2012-01-03 06:00:00", "jump": 165.0, "x_median_range": 16.5, "gap_min": 5160}, {"ts": "2012-01-06 00:00:00", "jump": -135.0, "x_median_range": 13.5, "gap_min": 660}]` |
+| @O | 0 | 1.0 | 1.0 | 0.0 | `[{"ts": "2012-07-27 10:00:00", "jump": 7.0, "x_median_range": 56.0, "gap_min": 60}, {"ts": "2020-08-17 09:00:00", "jump": 5.75, "x_median_range": 46.0, "gap_min": 60}]` |
+| @OJ | 3768 | 1.0 | 1.0 | 0.3 | `[{"ts": "2006-10-12 11:00:00", "jump": 9.8, "x_median_range": 9.8, "gap_min": 1260}, {"ts": "2007-10-12 11:00:00", "jump": 9.8, "x_median_range": 9.8, "gap_min": 1260}]` |
+| @QM | 641 | 0.099 | 1.0 | 0.2 | `[{"ts": "2019-09-15 19:00:00", "jump": 5.0, "x_median_range": 18.2, "gap_min": 3000}, {"ts": "2020-03-08 19:00:00", "jump": -6.0, "x_median_range": 13.3, "gap_min": 3000}]` |
+| @RR | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2006-11-01 10:00:00", "jump": 0.675, "x_median_range": 67.5, "gap_min": 1260}, {"ts": "2006-11-01 20:00:00", "jump": 0.44, "x_median_range": 44.0, "gap_min": 420}]` |
+| @RTY | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2025-02-02 18:00:00", "jump": -46.4, "x_median_range": 7.9, "gap_min": 3000}, {"ts": "2019-05-05 18:00:00", "jump": -18.7, "x_median_range": 7.8, "gap_min": 3000}]` |
+| @S | 10439 | 1.0 | 1.0 | 0.0 | `[{"ts": "2009-07-01 10:00:00", "jump": -107.0, "x_median_range": 35.7, "gap_min": 120}, {"ts": "2006-07-02 20:00:00", "jump": 14.25, "x_median_range": 28.5, "gap_min": 3720}]` |
+| @SB | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-06-24 04:30:00", "jump": 1.12, "x_median_range": 10.2, "gap_min": 930}, {"ts": "2014-08-04 04:30:00", "jump": 0.55, "x_median_range": 6.9, "gap_min": 3810}]` |
+| @SF | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2015-01-15 18:00:00", "jump": -0.0162, "x_median_range": 11.6, "gap_min": 120}, {"ts": "2018-12-09 18:00:00", "jump": 0.0103, "x_median_range": 11.4, "gap_min": 3000}]` |
+| @SM | 21166 | 1.0 | 1.0 | 0.2 | `[{"ts": "2006-06-04 20:00:00", "jump": 9.5, "x_median_range": 95.0, "gap_min": 3720}, {"ts": "2006-05-10 20:00:00", "jump": -3.7, "x_median_range": 74.0, "gap_min": 840}]` |
+| @TU | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2015-02-25 18:00:00", "jump": 0.40625, "x_median_range": 26.0, "gap_min": 120}, {"ts": "2006-11-28 19:00:00", "jump": 0.21875, "x_median_range": 14.0, "gap_min": 180}]` |
+| @US | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2016-08-29 19:00:00", "jump": -1.46875, "x_median_range": 7.8, "gap_min": 60}, {"ts": "2016-08-29 18:00:00", "jump": 1.40625, "x_median_range": 7.5, "gap_min": 120}]` |
+| @W | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2006-04-27 22:00:00", "jump": -19.75, "x_median_range": 39.5, "gap_min": 960}, {"ts": "2008-02-25 20:00:00", "jump": 90.0, "x_median_range": 27.7, "gap_min": 420}]` |
+| @YM | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2024-07-18 20:00:00", "jump": -587.0, "x_median_range": 12.4, "gap_min": 1200}, {"ts": "2012-01-03 06:00:00", "jump": 202.0, "x_median_range": 9.2, "gap_min": 5160}]` |
+
+### 15. Quality quick-scan (deep sample)
+| metric | value |
+|---|---|
+| rows | 4378014 |
+| dup_ts | 0 |
+| non_monotonic | 0 |
+| high_lt_low | 0 |
+| ohlc_outside_range | 0 |
+| nonpos_price | 176045 |
+| null_cells | 0 |
+| big_moves | 6931 |
+| missing_bar_gaps | 18145 |
+| zero_volume_share_median_file | 0.0049 |
+| zero_volume_share_max_file | 0.1813 |
+| files_with_any_dup_ts | 0 |
+| files_with_big_moves | 8 |
+| files_with_nonpos_price | 8 |
+| files_with_high_lt_low | 0 |
+| files_in_sample | 50 |
+| extrapolated_to_all_files | `{"rows": 5603858, "dup_ts": 0, "high_lt_low": 0, "nonpos_price": 225338, "big_moves": 8872, "missing_bar_gaps": 23226}` |
+
+_Per-file statistics computed on 50 of 64 files (task limit 50); `extrapolated_to_all_files` scales sample totals by file count and is an estimate._
+
+Deep-sample symbols: @ES, @NQ, @CL, @GC, @VX, @BTC, @TY, @EC, @C, @HO, @RB, @AD, @BO, @BP, @CD, @CT, @DX, @ED, @EMD, @ES.D, @FC, @FV, @HG, @JY, @KC, @LC, @LH, @M2K, @MCL, @MES, @MES.D, @MNQ, @MNQ.D, @MP1, @NE1, @NG, @NK, @O, @OJ, @QM, @RR, @RTY, @S, @SB, @SF, @SM, @TU, @US, @W, @YM
+
+---
+
+## ATM-FUT-1440 — Ali Casy-ATM · US futures continuous contracts · 1440-minute (one bar per session) (`Data Export,@SYM, 1440min.csv`)
+
+### 1. Location & pattern
+| root | pattern | files | total size | extensions |
+|---|---|---|---|---|
+| `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07` | `Data Export,*, 1440min.csv` | 64 | 14.7 MB | `{".csv": 64}` |
+
+### 2. Probable source
+**TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09)**
+
+- Same 'Data Exporter v3.0' header block as ME-FUT-15M (`@SYM = <desc> Continuous Contract [Sep25]`, `Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,...`); `@` continuous symbols and the `$/Big Point` / `S.Start` / `S.End` fields are TradeStation/EasyLanguage conventions.
+- Each series exists twice, as `.csv` and `.txt` (byte-identity checked in the 'ATM folder file variants' section).
+
+### 3–4. Symbols & asset class
+- Asset class guess: **futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto)**
+- 64 symbols; first 30: @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC, @KW, @LC, @LH, @M2K, @MBT
+
+### 5. Timeframe
+- Dominant timeframe (median diff of consecutive timestamps, per file): **1d** in 50 of 50 deep-sample files; the other 0 files are sparse (illiquid symbols with missing bars, so the median gap exceeds the bar size): `{"1d": 50}`
+- Most frequent spacing per file (bar grid): `{"1d": 50}` → mixed timeframes: False; median share of diffs equal to the median: 0.794
+
+### 6. Date range
+- Across all 64 files (light pass: head/tail lines or parquet min/max): first ts `{"min": "2006-05-25 16:00:00", "median": "2006-05-30 15:15:00", "max": "2022-04-28 16:00:00"}`; last ts `{"min": "2023-05-19 16:00:00", "median": "2025-07-08 16:00:00", "max": "2025-07-08 17:00:00"}`
+
+| symbol | description | tag | exch | S.Start | S.End | $/pt | tick | first | last | size |
+|---|---|---|---|---|---|---|---|---|---|---|
+| @AD | Australian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 270.2 KB |
+| @BO | Soybean Oil Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 600 | 0.01 | 2006-05-31 13:20:00 | 2025-07-08 13:20:00 | 223.2 KB |
+| @BP | British Pound Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 251.0 KB |
+| @BTC | Bitcoin Futures based on BRR Continuous Contract... | — | CME | 1700 | 1600 | 5 | 5 | 2018-05-11 16:00:00 | 2025-07-08 16:00:00 | 85.5 KB |
+| @C | Corn Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 244.5 KB |
+| @CC | Cocoa Continuous Contract [Sep25] | Sep25 | ICEUS | 445 | 1330 | 10 | 1 | 2006-05-30 13:30:00 | 2025-07-08 13:30:00 | 207.0 KB |
+| @CD | Canadian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 270.2 KB |
+| @CL | Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 1000 | 0.01 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 238.2 KB |
+| @CT | Cotton No. 2 Continuous Contract [Dec25] | Dec25 | ICEUS | 2100 | 1420 | 500 | 0.01 | 2006-05-31 14:20:00 | 2025-07-08 14:20:00 | 221.6 KB |
+| @DX | U.S. Dollar Index Continuous Contract [Sep25] | Sep25 | ICEUS | 2000 | 1700 | 1000 | 0.005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 249.3 KB |
+| @E7 | E-Mini Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 245.4 KB |
+| @EC | Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 272.4 KB |
+| @ED | Eurodollar Continuous Contract [Sep23] | Sep23 | CME | 1700 | 1600 | 2500 | 0.0025 | 2006-05-25 16:00:00 | 2023-05-19 16:00:00 | 240.8 KB |
+| @EMD | E-Mini S&P MidCap 400 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100 | 0.1 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 245.1 KB |
+| @ES | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.25 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 276.3 KB |
+| @ES.D | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 269.0 KB |
+| @ETH | CME Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 50 | 0.5 | 2021-06-29 16:00:00 | 2025-07-08 16:00:00 | 52.1 KB |
+| @FC | Feeder Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 500 | 0.025 | 2007-04-17 13:05:00 | 2025-07-08 13:05:00 | 244.6 KB |
+| @FV | 5 Yr U.S.Treasury Notes Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 1000 | 0.0078125 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 347.5 KB |
+| @GC | Gold Continuous Contract [Aug25] | Aug25 | COMEX | 1800 | 1700 | 100 | 0.1 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 251.5 KB |
+| @HG | Copper Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 25000 | 0.0005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 249.4 KB |
+| @HO | Heating Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 261.1 KB |
+| @J7 | E-Mini Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-26 16:00:00 | 2025-07-08 16:00:00 | 240.0 KB |
+| @JY | Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 270.6 KB |
+| @KC | Coffee C Continuous Contract [Sep25] | Sep25 | ICEUS | 415 | 1330 | 375 | 0.05 | 2006-05-30 13:30:00 | 2025-07-08 13:30:00 | 236.7 KB |
+| @KW | Hard Red Winter Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2008-09-23 13:20:00 | 2025-07-08 13:20:00 | 218.4 KB |
+| @LC | Live Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-05-30 13:05:00 | 2025-07-08 13:05:00 | 258.9 KB |
+| @LH | Lean Hogs Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-05-30 13:05:00 | 2025-07-08 13:05:00 | 255.5 KB |
+| @M2K | Micro E-mini Russell 2000 Continuous Contract [S... | — | CME | 1700 | 1600 | 5 | 0.1 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 244.7 KB |
+| @MBT | Micro Bitcoin Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 5 | 2021-09-21 16:00:00 | 2025-07-08 16:00:00 | 46.1 KB |
+| @MCL | Micro Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 100 | 0.01 | 2021-11-30 17:00:00 | 2025-07-08 17:00:00 | 43.9 KB |
+| @MES | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 0.25 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 276.0 KB |
+| @MES.D | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 5 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 268.7 KB |
+| @MET | Micro Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 0.5 | 2022-04-28 16:00:00 | 2025-07-08 16:00:00 | 41.7 KB |
+| @MNQ | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 2 | 0.25 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 280.6 KB |
+| @MNQ.D | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 2 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 273.2 KB |
+| @MP1 | Mexican Peso Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 500000 | 0.00001 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 269.1 KB |
+| @MYM | Micro E-mini Dow Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 0 | 1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 231.0 KB |
+| @NE1 | New Zealand Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2014-02-21 16:00:00 | 2025-07-08 16:00:00 | 159.9 KB |
+| @NG | Natural Gas Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 10000 | 0.001 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 241.3 KB |
+| @NK | Nikkei 225 USD Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 5 | 2006-12-12 16:00:00 | 2025-07-08 16:00:00 | 216.3 KB |
+| @NQ | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 20 | 0.25 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 280.6 KB |
+| @NQ.D | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 20 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 273.4 KB |
+| @O | Oats Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-07-20 13:20:00 | 2025-07-08 13:20:00 | 231.4 KB |
+| @OJ | Frozen Concentrated OJ Continuous Contract [Sep25] | Sep25 | ICEUS | 800 | 1400 | 150 | 0.05 | 2006-05-30 14:00:00 | 2025-07-08 14:00:00 | 218.4 KB |
+| @PL | Platinum Continuous Contract [Oct25] | Oct25 | NYMEX | 1800 | 1700 | 50 | 0.1 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 242.8 KB |
+| @QM | E-mini Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 500 | 0.025 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 250.9 KB |
+| @RB | NYHarborBlendstock RBOB Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 258.2 KB |
+| @RR | Rough Rice Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 2000 | 0.005 | 2006-09-01 13:20:00 | 2025-07-08 13:20:00 | 230.7 KB |
+| @RTY | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.1 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 245.2 KB |
+| @RTY.D | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.1 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 238.8 KB |
+| @S | Soybeans Continuous Contract [Nov25] | Nov25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 248.7 KB |
+| @SB | Sugar No. 11 Continuous Contract [Oct25] | Oct25 | ICEUS | 330 | 1300 | 1120 | 0.01 | 2006-05-30 13:00:00 | 2025-07-08 13:00:00 | 221.2 KB |
+| @SF | Swiss Franc Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-25 16:00:00 | 2025-07-08 16:00:00 | 269.0 KB |
+| @SI | Silver Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 5000 | 0.005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 249.7 KB |
+| @SM | Soybean Meal Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 100 | 0.1 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 225.8 KB |
+| @TU | 2 Year U.S. Treasury Notes Continuous Contract [... | — | CBOT | 1700 | 1600 | 2000 | 0.00390625 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 366.5 KB |
+| @TY | 10 Yr U.S. Treasury Notes Continuous Contract [S... | — | CBOT | 1700 | 1600 | 1000 | 0.015625 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 327.7 KB |
+| @US | 30 Yr U.S.Treasury Bonds Continuous Contract [Se... | — | CBOT | 1700 | 1600 | 1000 | 0.03125 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 306.9 KB |
+| @VX | CBOE Volatility Index Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 1000 | 0.05 | 2010-05-28 16:00:00 | 2025-07-08 16:00:00 | 189.1 KB |
+| @VXM | Mini-VIX Futures Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 100 | 0.01 | 2010-05-28 16:00:00 | 2025-07-08 16:00:00 | 186.9 KB |
+| @W | Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 255.4 KB |
+| @YM | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 5 | 1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 231.3 KB |
+| @YM.D | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 830 | 1515 | 5 | 1 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 225.6 KB |
+
+### 7. Schema
+Representative file: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 1440min.csv`
+
+`{"Date": "str (text file; parsed as noted)", "Time": "str (text file; parsed as noted)", "Open": "str (text file; parsed as noted)", "High": "str (text file; parsed as noted)", "Low": "str (text file; parsed as noted)", "Close": "str (text file; parsed as noted)", "Volume": "str (text file; parsed as noted)"}`
+
+Column presence: `{"open": true, "high": true, "low": true, "close": true, "vol": true, "vwap": false, "trade": false, "bid": false, "ask": false, "spread": false, "openint": false}`
+
+### 8. Raw samples (verbatim)
+File: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, 1440min.csv`
+
+First 5 rows (with header lines):
+```
+Data Exporter v3.0  ,  2022
+ 
+@ES = E-mini S&P 500 Continuous Contract [Sep25]
+
+Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,Tick Size,$Tick Size,#Ticks/Point,Avg Vol,Avg ATR,Avg $ATR
+@ES,1440min,CME,1700,1600,50,0.25,12.50,4,453142,12.28,614
+
+Date,Time,Open,High,Low,Close,Volume
+05/25/2006,16:00,1693.75,1709.00,1689.50,1708.00,599305
+05/26/2006,16:00,1707.00,1715.00,1705.75,1714.25,377306
+05/29/2006,16:00,1714.00,1715.00,1711.50,1711.75,3753
+05/30/2006,16:00,1711.50,1713.50,1691.00,1691.75,460630
+05/31/2006,16:00,1692.25,1705.00,1687.75,1704.75,624566
+```
+Last 3 rows:
+```
+07/04/2025,16:00,6320.75,6322.75,6276.50,6283.50,58757
+07/07/2025,16:00,6307.75,6315.00,6246.25,6263.25,586961
+07/08/2025,16:00,6262.50,6289.00,6254.50,6271.75,519616
+```
+
+### 9–12. Timestamp format, timezone, session, weekend, price type
+- `Date` = `MM/DD/YYYY`, `Time` = `HH:MM`, **naive**, separate columns.
+- Across the sample, bars labelled exactly at header `S.Start`: 0; at `S.Start`+1 bar (1d): 0; at `S.End`: 233430. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention).
+- @ES first bar of each session, winter (Dec–Feb): `{"Mon 16:00": 233, "Tue 16:00": 12, "Wed 16:00": 6, "Thu 16:00": 6}`; summer (Jun–Aug): `{"Mon 16:00": 256}` → identical wall-clock across DST ⇒ timestamps are **exchange-local time (US/Central for CME, with DST)**, not UTC.
+- @ES weekday counts: `{"Mon": 986, "Tue": 992, "Wed": 991, "Thu": 994, "Fri": 977}` → Sunday bars are the Globex evening open (17:00 CT Sunday).
+- Exchanges in headers: `{"CME": 31, "CBOT": 15, "ICEUS": 6, "NYMEX": 7, "COMEX": 3, "CBOEF": 2}` — ICE/NYBOT softs would be exported in their own local (US/Eastern) time if TradeStation's default 'exchange time' setting was used (to confirm).
+
+### 13–14. Adjustment / futures specifics
+- Series type: header contract tags `{"Sep25": 37, "Dec25": 3, "null": 5, "Aug25": 10, "Sep23": 1, "Jul25": 5, "Oct25": 2, "Nov25": 1}`; descriptions say `Continuous Contract` → **continuous series** (one file per root); last timestamp across files: 2025-07-08 17:00:00.
+- Bars with low ≤ 0 across sample: 9224 (back-adjusted series can go negative).
+- Contracts with bars at price ≤ 0: @CL (33), @HO (3411), @RB (2779), @CT (307), @OJ (664), @QM (33), @S (630), @SM (1367). Real prices of these contracts never went ≤ 0 (except WTI crude in April 2020), so this is the signature of **additive back-adjustment**.
+- Roll gaps: median share of each contract's 20 largest open-vs-previous-close jumps that fall in a quarterly roll window (5th–16th of Mar/Jun/Sep/Dec ≈ 13% of days): 0.20 → no clustering at roll dates; the largest jumps are weekend/news gaps → roll gaps have been removed (consistent with back-adjusted continuous series).
+
+Tick-grid test (share of closes that are exact multiples of the header tick size; additive back-adjustment keeps prices on the grid, ratio adjustment breaks it) and largest open-vs-previous-close jumps (in multiples of the rolling median bar range; roll gaps would cluster in roll windows):
+
+| symbol | bars ≤ 0 | on-grid first 20k | on-grid last 20k | top-20 jumps in Mar/Jun/Sep/Dec 5–16 | top 2 jumps |
+|---|---|---|---|---|---|
+| @ES | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-02 16:00:00", "jump": -88.0, "x_median_range": 3.7, "gap_min": 4320}, {"ts": "2020-03-30 16:00:00", "jump": -61.0, "x_median_range": 2.2, "gap_min": 4320}]` |
+| @NQ | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2020-03-02 16:00:00", "jump": -198.75, "x_median_range": 2.3, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -132.75, "x_median_range": 1.5, "gap_min": 4320}]` |
+| @CL | 33 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-09 17:00:00", "jump": -8.7, "x_median_range": 6.5, "gap_min": 4320}, {"ts": "2019-09-16 17:00:00", "jump": 6.66, "x_median_range": 4.1, "gap_min": 4320}]` |
+| @GC | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-16 17:00:00", "jump": 34.9, "x_median_range": 2.3, "gap_min": 4320}, {"ts": "2022-02-28 17:00:00", "jump": 30.9, "x_median_range": 1.6, "gap_min": 4320}]` |
+| @VX | 0 | 0.124 | 0.124 | 0.25 | `[{"ts": "2015-08-24 16:00:00", "jump": 3.55, "x_median_range": 5.0, "gap_min": 4320}, {"ts": "2020-03-02 16:00:00", "jump": 2.95, "x_median_range": 4.1, "gap_min": 4320}]` |
+| @BTC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2021-01-04 16:00:00", "jump": 4185.0, "x_median_range": 7.1, "gap_min": 5760}, {"ts": "2019-05-20 16:00:00", "jump": 900.0, "x_median_range": 6.9, "gap_min": 4320}]` |
+| @TY | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-16 16:00:00", "jump": 2.078125, "x_median_range": 3.9, "gap_min": 4320}, {"ts": "2015-06-29 16:00:00", "jump": 1.328125, "x_median_range": 2.1, "gap_min": 4320}]` |
+| @EC | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2017-04-24 16:00:00", "jump": 0.0134, "x_median_range": 1.8, "gap_min": 4320}, {"ts": "2022-02-28 16:00:00", "jump": -0.01115, "x_median_range": 1.7, "gap_min": 4320}]` |
+| @C | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2010-10-11 13:20:00", "jump": 44.75, "x_median_range": 4.5, "gap_min": 4320}, {"ts": "2011-04-01 13:20:00", "jump": 38.5, "x_median_range": 2.5, "gap_min": 1440}]` |
+| @HO | 3411 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-09 17:00:00", "jump": -0.1637, "x_median_range": 4.0, "gap_min": 4320}, {"ts": "2019-09-16 17:00:00", "jump": 0.1108, "x_median_range": 2.5, "gap_min": 4320}]` |
+| @RB | 2779 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-09 17:00:00", "jump": -0.1603, "x_median_range": 3.6, "gap_min": 4320}, {"ts": "2015-08-28 17:00:00", "jump": 0.1288, "x_median_range": 2.4, "gap_min": 1440}]` |
+| @AD | 0 | 1.0 | 1.0 | 0.4 | `[{"ts": "2008-10-13 16:00:00", "jump": 0.0307, "x_median_range": 2.6, "gap_min": 4320}, {"ts": "2020-03-16 16:00:00", "jump": 0.0088, "x_median_range": 2.1, "gap_min": 4320}]` |
+| @BO | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2008-03-10 13:20:00", "jump": -2.0, "x_median_range": 2.4, "gap_min": 4320}, {"ts": "2013-01-02 13:20:00", "jump": 1.82, "x_median_range": 2.1, "gap_min": 2880}]` |
+| @BP | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2019-12-13 16:00:00", "jump": 0.0282, "x_median_range": 3.3, "gap_min": 1440}, {"ts": "2017-06-09 16:00:00", "jump": -0.022, "x_median_range": 2.6, "gap_min": 1440}]` |
+| @CD | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2025-02-03 16:00:00", "jump": -0.0083, "x_median_range": 2.4, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -0.00535, "x_median_range": 2.1, "gap_min": 4320}]` |
+| @CT | 307 | 1.0 | 1.0 | 0.2 | `[{"ts": "2007-06-14 14:20:00", "jump": 5.55, "x_median_range": 6.4, "gap_min": 1440}, {"ts": "2007-06-15 14:20:00", "jump": -5.14, "x_median_range": 5.9, "gap_min": 1440}]` |
+| @DX | 0 | 0.214 | 0.214 | 0.15 | `[{"ts": "2006-12-11 17:00:00", "jump": 0.55, "x_median_range": 2.4, "gap_min": 4320}, {"ts": "2007-01-12 17:00:00", "jump": 0.51, "x_median_range": 2.3, "gap_min": 1440}]` |
+| @ED | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.155, "x_median_range": 6.2, "gap_min": 4320}, {"ts": "2020-03-02 16:00:00", "jump": 0.115, "x_median_range": 5.7, "gap_min": 4320}]` |
+| @EMD | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-16 16:00:00", "jump": -69.8, "x_median_range": 3.3, "gap_min": 4320}, {"ts": "2020-03-23 16:00:00", "jump": -44.7, "x_median_range": 2.0, "gap_min": 4320}]` |
+| @ES.D | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2020-03-09 15:15:00", "jump": -201.75, "x_median_range": 10.8, "gap_min": 4320}, {"ts": "2020-03-16 15:15:00", "jump": -183.75, "x_median_range": 9.2, "gap_min": 4320}]` |
+| @FC | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-24 13:05:00", "jump": 6.75, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2020-03-12 13:05:00", "jump": -5.45, "x_median_range": 3.0, "gap_min": 1440}]` |
+| @FV | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-16 16:00:00", "jump": 1.515625, "x_median_range": 5.1, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": 0.5625, "x_median_range": 1.9, "gap_min": 4320}]` |
+| @HG | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2010-03-01 17:00:00", "jump": 0.0915, "x_median_range": 1.1, "gap_min": 4320}, {"ts": "2018-12-03 17:00:00", "jump": 0.058, "x_median_range": 1.0, "gap_min": 4320}]` |
+| @JY | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2019-01-03 16:00:00", "jump": 0.017, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2020-03-16 16:00:00", "jump": 0.0093, "x_median_range": 2.3, "gap_min": 4320}]` |
+| @KC | 0 | 1.0 | 1.0 | 0.0 | `[{"ts": "2007-10-15 13:30:00", "jump": -8.0, "x_median_range": 3.8, "gap_min": 4320}, {"ts": "2007-10-01 13:30:00", "jump": 5.8, "x_median_range": 2.8, "gap_min": 4320}]` |
+| @LC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2007-07-27 13:05:00", "jump": 5.35, "x_median_range": 5.9, "gap_min": 1440}, {"ts": "2020-03-25 13:05:00", "jump": 4.5, "x_median_range": 3.6, "gap_min": 1440}]` |
+| @LH | 0 | 0.948 | 0.948 | 0.2 | `[{"ts": "2014-03-31 13:05:00", "jump": -3.025, "x_median_range": 3.0, "gap_min": 4320}, {"ts": "2014-03-05 13:05:00", "jump": 2.7, "x_median_range": 3.0, "gap_min": 1440}]` |
+| @M2K | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2019-05-06 16:00:00", "jump": -27.3, "x_median_range": 1.2, "gap_min": 4320}, {"ts": "2025-04-07 16:00:00", "jump": -48.1, "x_median_range": 1.2, "gap_min": 4320}]` |
+| @MCL | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2025-06-23 17:00:00", "jump": 3.91, "x_median_range": 2.1, "gap_min": 4320}, {"ts": "2025-06-16 17:00:00", "jump": 3.54, "x_median_range": 2.0, "gap_min": 4320}]` |
+| @MES | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-02 16:00:00", "jump": -84.75, "x_median_range": 3.4, "gap_min": 4320}, {"ts": "2020-03-30 16:00:00", "jump": -54.0, "x_median_range": 1.9, "gap_min": 4320}]` |
+| @MES.D | 0 | 0.265 | 0.265 | 0.35 | `[{"ts": "2020-03-09 15:15:00", "jump": -191.25, "x_median_range": 10.2, "gap_min": 4320}, {"ts": "2020-03-16 15:15:00", "jump": -184.0, "x_median_range": 9.3, "gap_min": 4320}]` |
+| @MNQ | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-02 16:00:00", "jump": -171.25, "x_median_range": 1.9, "gap_min": 4320}, {"ts": "2019-05-06 16:00:00", "jump": -123.75, "x_median_range": 1.3, "gap_min": 4320}]` |
+| @MNQ.D | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2020-03-16 15:15:00", "jump": -521.25, "x_median_range": 6.9, "gap_min": 4320}, {"ts": "2020-03-09 15:15:00", "jump": -483.25, "x_median_range": 6.6, "gap_min": 4320}]` |
+| @MP1 | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.00104, "x_median_range": 2.7, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -0.00095, "x_median_range": 2.6, "gap_min": 4320}]` |
+| @NE1 | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2014-07-24 16:00:00", "jump": -0.0089, "x_median_range": 1.7, "gap_min": 1440}, {"ts": "2017-05-11 16:00:00", "jump": -0.0086, "x_median_range": 1.5, "gap_min": 1440}]` |
+| @NG | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2018-11-19 17:00:00", "jump": 0.235, "x_median_range": 3.8, "gap_min": 4320}, {"ts": "2018-11-26 17:00:00", "jump": -0.242, "x_median_range": 3.5, "gap_min": 4320}]` |
+| @NK | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-10-24 16:00:00", "jump": -790.0, "x_median_range": 2.9, "gap_min": 1440}, {"ts": "2008-10-13 16:00:00", "jump": 695.0, "x_median_range": 2.8, "gap_min": 4320}]` |
+| @O | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2012-06-26 13:20:00", "jump": 24.25, "x_median_range": 2.9, "gap_min": 1440}, {"ts": "2010-06-15 13:20:00", "jump": 15.0, "x_median_range": 2.7, "gap_min": 1440}]` |
+| @OJ | 664 | 1.0 | 1.0 | 0.25 | `[{"ts": "2007-10-12 14:00:00", "jump": 9.8, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2008-09-09 14:00:00", "jump": -9.05, "x_median_range": 3.1, "gap_min": 1440}]` |
+| @QM | 33 | 0.378 | 0.378 | 0.25 | `[{"ts": "2020-03-09 17:00:00", "jump": -6.0, "x_median_range": 4.5, "gap_min": 4320}, {"ts": "2019-09-16 17:00:00", "jump": 5.0, "x_median_range": 3.1, "gap_min": 4320}]` |
+| @RR | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2020-06-08 13:20:00", "jump": -1.5, "x_median_range": 5.6, "gap_min": 4320}, {"ts": "2020-06-09 13:20:00", "jump": -1.5, "x_median_range": 5.6, "gap_min": 1440}]` |
+| @RTY | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-02 16:00:00", "jump": -39.8, "x_median_range": 2.1, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -25.1, "x_median_range": 1.3, "gap_min": 4320}]` |
+| @S | 630 | 1.0 | 1.0 | 0.1 | `[{"ts": "2009-06-30 13:20:00", "jump": 96.5, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2010-10-11 13:20:00", "jump": 38.0, "x_median_range": 2.5, "gap_min": 4320}]` |
+| @SB | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-06-24 13:00:00", "jump": 1.12, "x_median_range": 2.8, "gap_min": 1440}, {"ts": "2008-01-17 13:00:00", "jump": 0.42, "x_median_range": 2.8, "gap_min": 1440}]` |
+| @SF | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2015-01-16 16:00:00", "jump": -0.0162, "x_median_range": 2.1, "gap_min": 1440}, {"ts": "2018-12-10 16:00:00", "jump": 0.0103, "x_median_range": 1.9, "gap_min": 4320}]` |
+| @SM | 1367 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-04-01 13:20:00", "jump": -19.3, "x_median_range": 2.2, "gap_min": 1440}, {"ts": "2010-10-11 13:20:00", "jump": 12.0, "x_median_range": 2.2, "gap_min": 4320}]` |
+| @TU | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.445312, "x_median_range": 4.7, "gap_min": 4320}, {"ts": "2015-02-26 16:00:00", "jump": 0.40625, "x_median_range": 4.3, "gap_min": 1440}]` |
+| @US | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-16 16:00:00", "jump": 3.09375, "x_median_range": 2.4, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": 2.25, "x_median_range": 1.9, "gap_min": 4320}]` |
+| @W | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2022-03-07 13:20:00", "jump": 85.0, "x_median_range": 4.0, "gap_min": 4320}, {"ts": "2022-03-04 13:20:00", "jump": 75.0, "x_median_range": 3.5, "gap_min": 1440}]` |
+| @YM | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-02 16:00:00", "jump": -495.0, "x_median_range": 2.1, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -423.0, "x_median_range": 1.7, "gap_min": 4320}]` |
+
+### 15. Quality quick-scan (deep sample)
+| metric | value |
+|---|---|
+| rows | 233438 |
+| dup_ts | 0 |
+| non_monotonic | 0 |
+| high_lt_low | 0 |
+| ohlc_outside_range | 0 |
+| nonpos_price | 9224 |
+| null_cells | 0 |
+| big_moves | 1823 |
+| missing_bar_gaps | 0 |
+| zero_volume_share_median_file | 0.0 |
+| zero_volume_share_max_file | 0.0911 |
+| files_with_any_dup_ts | 0 |
+| files_with_big_moves | 9 |
+| files_with_nonpos_price | 8 |
+| files_with_high_lt_low | 0 |
+| files_in_sample | 50 |
+| extrapolated_to_all_files | `{"rows": 298801, "dup_ts": 0, "high_lt_low": 0, "nonpos_price": 11807, "big_moves": 2333, "missing_bar_gaps": 0}` |
+
+_Per-file statistics computed on 50 of 64 files (task limit 50); `extrapolated_to_all_files` scales sample totals by file count and is an estimate._
+
+Deep-sample symbols: @ES, @NQ, @CL, @GC, @VX, @BTC, @TY, @EC, @C, @HO, @RB, @AD, @BO, @BP, @CD, @CT, @DX, @ED, @EMD, @ES.D, @FC, @FV, @HG, @JY, @KC, @LC, @LH, @M2K, @MCL, @MES, @MES.D, @MNQ, @MNQ.D, @MP1, @NE1, @NG, @NK, @O, @OJ, @QM, @RR, @RTY, @S, @SB, @SF, @SM, @TU, @US, @W, @YM
+
+---
+
+## ATM-FUT-DAILY — Ali Casy-ATM · US futures continuous contracts · daily (`Data Export,@SYM, Daily.csv`)
+
+### 1. Location & pattern
+| root | pattern | files | total size | extensions |
+|---|---|---|---|---|
+| `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07` | `Data Export,*, Daily.csv` | 64 | 14.9 MB | `{".csv": 64}` |
+
+### 2. Probable source
+**TradeStation chart export via 'Data Exporter v3.0' indicator (exported 2025-07-09)**
+
+- Same 'Data Exporter v3.0' header block as ME-FUT-15M (`@SYM = <desc> Continuous Contract [Sep25]`, `Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,...`); `@` continuous symbols and the `$/Big Point` / `S.Start` / `S.End` fields are TradeStation/EasyLanguage conventions.
+- Each series exists twice, as `.csv` and `.txt` (byte-identity checked in the 'ATM folder file variants' section).
+
+### 3–4. Symbols & asset class
+- Asset class guess: **futures (equity index, rates, FX, energy, metals, ags, softs, VIX, crypto)**
+- 64 symbols; first 30: @AD, @BO, @BP, @BTC, @C, @CC, @CD, @CL, @CT, @DX, @E7, @EC, @ED, @EMD, @ES, @ES.D, @ETH, @FC, @FV, @GC, @HG, @HO, @J7, @JY, @KC, @KW, @LC, @LH, @M2K, @MBT
+
+### 5. Timeframe
+- Dominant timeframe (median diff of consecutive timestamps, per file): **1d** in 50 of 50 deep-sample files; the other 0 files are sparse (illiquid symbols with missing bars, so the median gap exceeds the bar size): `{"1d": 50}`
+- Most frequent spacing per file (bar grid): `{"1d": 50}` → mixed timeframes: False; median share of diffs equal to the median: 0.784
+
+### 6. Date range
+- Across all 64 files (light pass: head/tail lines or parquet min/max): first ts `{"min": "2006-05-30 13:00:00", "median": "2006-05-30 16:00:00", "max": "2022-10-13 16:00:00"}`; last ts `{"min": "2023-05-19 16:00:00", "median": "2025-07-08 16:00:00", "max": "2025-07-08 17:00:00"}`
+
+| symbol | description | tag | exch | S.Start | S.End | $/pt | tick | first | last | size |
+|---|---|---|---|---|---|---|---|---|---|---|
+| @AD | Australian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 265.5 KB |
+| @BO | Soybean Oil Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 600 | 0.01 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 224.5 KB |
+| @BP | British Pound Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 247.1 KB |
+| @BTC | Bitcoin Futures based on BRR Continuous Contract... | — | CME | 1700 | 1600 | 5 | 5 | 2018-05-07 16:00:00 | 2025-07-08 16:00:00 | 83.9 KB |
+| @C | Corn Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 248.1 KB |
+| @CC | Cocoa Continuous Contract [Sep25] | Sep25 | ICEUS | 445 | 1330 | 10 | 1 | 2006-05-30 13:30:00 | 2025-07-08 13:30:00 | 211.3 KB |
+| @CD | Canadian Dollar Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 264.5 KB |
+| @CL | Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 1000 | 0.01 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 234.6 KB |
+| @CT | Cotton No. 2 Continuous Contract [Dec25] | Dec25 | ICEUS | 2100 | 1420 | 500 | 0.01 | 2006-05-30 14:20:00 | 2025-07-08 14:20:00 | 225.4 KB |
+| @DX | U.S. Dollar Index Continuous Contract [Sep25] | Sep25 | ICEUS | 2000 | 1700 | 1000 | 0.005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 246.5 KB |
+| @E7 | E-Mini Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 240.8 KB |
+| @EC | Euro FX Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 268.3 KB |
+| @ED | Eurodollar Continuous Contract [Sep23] | Sep23 | CME | 1700 | 1600 | 2500 | 0.0025 | 2006-05-30 16:00:00 | 2023-05-19 16:00:00 | 238.1 KB |
+| @EMD | E-Mini S&P MidCap 400 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100 | 0.1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 242.0 KB |
+| @ES | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.25 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 272.8 KB |
+| @ES.D | E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 272.8 KB |
+| @ETH | CME Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 50 | 0.5 | 2021-07-01 16:00:00 | 2025-07-08 16:00:00 | 50.7 KB |
+| @FC | Feeder Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 500 | 0.025 | 2007-04-17 13:05:00 | 2025-07-08 13:05:00 | 247.0 KB |
+| @FV | 5 Yr U.S.Treasury Notes Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 1000 | 0.0078125 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 341.3 KB |
+| @GC | Gold Continuous Contract [Aug25] | Aug25 | COMEX | 1800 | 1700 | 100 | 0.1 | 2006-05-31 17:00:00 | 2025-07-08 17:00:00 | 248.8 KB |
+| @HG | Copper Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 25000 | 0.0005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 244.9 KB |
+| @HO | Heating Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-05-31 17:00:00 | 2025-07-08 17:00:00 | 257.6 KB |
+| @J7 | E-Mini Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 62500 | 0.0001 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 236.0 KB |
+| @JY | Japanese Yen Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 266.9 KB |
+| @KC | Coffee C Continuous Contract [Sep25] | Sep25 | ICEUS | 415 | 1330 | 375 | 0.05 | 2006-05-30 13:30:00 | 2025-07-08 13:30:00 | 241.5 KB |
+| @KW | Hard Red Winter Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2008-09-23 13:20:00 | 2025-07-08 13:20:00 | 221.3 KB |
+| @LC | Live Cattle Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-05-30 13:05:00 | 2025-07-08 13:05:00 | 263.3 KB |
+| @LH | Lean Hogs Continuous Contract [Aug25] | Aug25 | CME | 830 | 1305 | 400 | 0.025 | 2006-05-30 13:05:00 | 2025-07-08 13:05:00 | 260.0 KB |
+| @M2K | Micro E-mini Russell 2000 Continuous Contract [S... | — | CME | 1700 | 1600 | 5 | 0.1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 242.1 KB |
+| @MBT | Micro Bitcoin Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 5 | 2021-09-23 16:00:00 | 2025-07-08 16:00:00 | 45.0 KB |
+| @MCL | Micro Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 100 | 0.01 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 233.9 KB |
+| @MES | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 0.25 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 272.0 KB |
+| @MES.D | Micro E-mini S&P 500 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 5 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 272.0 KB |
+| @MET | Micro Ether Futures Continuous Contract [Jul25] | Jul25 | CME | 1700 | 1600 | 0 | 0.5 | 2022-10-13 16:00:00 | 2025-07-08 16:00:00 | 34.9 KB |
+| @MNQ | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 2 | 0.25 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 275.3 KB |
+| @MNQ.D | Micro E-mini Nasdaq-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 2 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 275.3 KB |
+| @MP1 | Mexican Peso Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 500000 | 0.00001 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 263.9 KB |
+| @MYM | Micro E-mini Dow Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 0 | 1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 228.6 KB |
+| @NE1 | New Zealand Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 100000 | 0.00005 | 2014-05-06 16:00:00 | 2025-07-08 16:00:00 | 154.1 KB |
+| @NG | Natural Gas Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 10000 | 0.001 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 239.4 KB |
+| @NK | Nikkei 225 USD Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 5 | 5 | 2006-12-13 16:00:00 | 2025-07-08 16:00:00 | 213.3 KB |
+| @NQ | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 20 | 0.25 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 274.5 KB |
+| @NQ.D | E-Mini NASDAQ-100 Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 20 | 0.25 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 274.5 KB |
+| @O | Oats Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-31 13:20:00 | 2025-07-08 13:20:00 | 235.1 KB |
+| @OJ | Frozen Concentrated OJ Continuous Contract [Sep25] | Sep25 | ICEUS | 800 | 1400 | 150 | 0.05 | 2006-05-30 14:00:00 | 2025-07-08 14:00:00 | 221.0 KB |
+| @PL | Platinum Continuous Contract [Oct25] | Oct25 | NYMEX | 1800 | 1700 | 50 | 0.1 | 2006-05-31 17:00:00 | 2025-07-08 17:00:00 | 240.3 KB |
+| @QM | E-mini Crude Oil Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 500 | 0.025 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 247.6 KB |
+| @RB | NYHarborBlendstock RBOB Continuous Contract [Aug25] | Aug25 | NYMEX | 1800 | 1700 | 42000 | 0.0001 | 2006-05-31 17:00:00 | 2025-07-08 17:00:00 | 255.2 KB |
+| @RR | Rough Rice Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 2000 | 0.005 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 236.0 KB |
+| @RTY | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 50 | 0.1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 243.1 KB |
+| @RTY.D | Emini Russell 2000 Idx Continuous Contract [Sep25] | Sep25 | CME | 830 | 1515 | 50 | 0.1 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 241.9 KB |
+| @S | Soybeans Continuous Contract [Nov25] | Nov25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 251.5 KB |
+| @SB | Sugar No. 11 Continuous Contract [Oct25] | Oct25 | ICEUS | 330 | 1300 | 1120 | 0.01 | 2006-05-30 13:00:00 | 2025-07-08 13:00:00 | 223.7 KB |
+| @SF | Swiss Franc Continuous Contract [Sep25] | Sep25 | CME | 1700 | 1600 | 125000 | 0.00005 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 263.9 KB |
+| @SI | Silver Continuous Contract [Sep25] | Sep25 | COMEX | 1800 | 1700 | 5000 | 0.005 | 2006-05-30 17:00:00 | 2025-07-08 17:00:00 | 245.0 KB |
+| @SM | Soybean Meal Continuous Contract [Dec25] | Dec25 | CBOT | 1900 | 1320 | 100 | 0.1 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 227.4 KB |
+| @TU | 2 Year U.S. Treasury Notes Continuous Contract [... | — | CBOT | 1700 | 1600 | 2000 | 0.00390625 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 360.5 KB |
+| @TY | 10 Yr U.S. Treasury Notes Continuous Contract [S... | — | CBOT | 1700 | 1600 | 1000 | 0.015625 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 323.7 KB |
+| @US | 30 Yr U.S.Treasury Bonds Continuous Contract [Se... | — | CBOT | 1700 | 1600 | 1000 | 0.03125 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 301.1 KB |
+| @VX | CBOE Volatility Index Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 1000 | 0.05 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 238.0 KB |
+| @VXM | Mini-VIX Futures Continuous Contract [Jul25] | Jul25 | CBOEF | 1700 | 1600 | 100 | 0.01 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 236.0 KB |
+| @W | Wheat Continuous Contract [Sep25] | Sep25 | CBOT | 1900 | 1320 | 50 | 0.25 | 2006-05-30 13:20:00 | 2025-07-08 13:20:00 | 256.5 KB |
+| @YM | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 1700 | 1600 | 5 | 1 | 2006-05-30 16:00:00 | 2025-07-08 16:00:00 | 229.3 KB |
+| @YM.D | E-mini Dow Futures ($5) Continuous Contract [Sep25] | Sep25 | CBOT | 830 | 1515 | 5 | 1 | 2006-05-30 15:15:00 | 2025-07-08 15:15:00 | 229.5 KB |
+
+### 7. Schema
+Representative file: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, Daily.csv`
+
+`{"Date": "str (text file; parsed as noted)", "Time": "str (text file; parsed as noted)", "Open": "str (text file; parsed as noted)", "High": "str (text file; parsed as noted)", "Low": "str (text file; parsed as noted)", "Close": "str (text file; parsed as noted)", "Volume": "str (text file; parsed as noted)"}`
+
+Column presence: `{"open": true, "high": true, "low": true, "close": true, "vol": true, "vwap": false, "trade": false, "bid": false, "ask": false, "spread": false, "openint": false}`
+
+### 8. Raw samples (verbatim)
+File: `F:\AmerAndish\Projects\Trade\Ali Casy-ATM\Historical Data - 2025-07-07\Data Export,@ES, Daily.csv`
+
+First 5 rows (with header lines):
+```
+Data Exporter v3.0  ,  2022
+ 
+@ES = E-mini S&P 500 Continuous Contract [Sep25]
+
+Symbol,TimeFrame,Exchange,S.Start,S.End,$/Big Point,Tick Size,$Tick Size,#Ticks/Point,Avg Vol,Avg ATR,Avg $ATR
+@ES,Daily,CME,1700,1600,50,0.25,12.50,4,937953,12.61,630
+
+Date,Time,Open,High,Low,Close,Volume
+05/30/2006,16:00,1714.00,1715.00,1691.00,1691.75,1047920
+05/31/2006,16:00,1692.25,1705.00,1687.75,1703.75,1229566
+06/01/2006,16:00,1704.75,1719.50,1698.00,1717.50,1058355
+06/02/2006,16:00,1717.50,1725.75,1713.00,1720.00,1108009
+06/05/2006,16:00,1719.50,1720.25,1697.50,1701.25,1170669
+```
+Last 3 rows:
+```
+07/03/2025,16:00,6276.50,6333.25,6270.50,6324.25,750998
+07/07/2025,16:00,6307.75,6315.00,6246.25,6276.00,1193522
+07/08/2025,16:00,6262.50,6289.00,6254.50,6272.00,1073914
+```
+
+### 9–12. Timestamp format, timezone, session, weekend, price type
+- `Date` = `MM/DD/YYYY`, `Time` = `HH:MM`, **naive**, separate columns.
+- Across the sample, bars labelled exactly at header `S.Start`: 0; at `S.Start`+1 bar (1d): 0; at `S.End`: 235012. S.End present and S.Start (almost) absent → labels are **bar-end** (TradeStation convention).
+- @ES first bar of each session, winter (Dec–Feb): `{"Mon 16:00": 196, "Tue 16:00": 49, "Thu 16:00": 7, "Wed 16:00": 6}`; summer (Jun–Aug): `{"Mon 16:00": 249, "Tue 16:00": 9, "Thu 16:00": 4, "Fri 16:00": 4}` → identical wall-clock across DST ⇒ timestamps are **exchange-local time (US/Central for CME, with DST)**, not UTC.
+- @ES weekday counts: `{"Mon": 904, "Tue": 989, "Wed": 986, "Thu": 970, "Fri": 970}` → Sunday bars are the Globex evening open (17:00 CT Sunday).
+- Exchanges in headers: `{"CME": 31, "CBOT": 15, "ICEUS": 6, "NYMEX": 7, "COMEX": 3, "CBOEF": 2}` — ICE/NYBOT softs would be exported in their own local (US/Eastern) time if TradeStation's default 'exchange time' setting was used (to confirm).
+
+### 13–14. Adjustment / futures specifics
+- Series type: header contract tags `{"Sep25": 37, "Dec25": 3, "null": 5, "Aug25": 10, "Sep23": 1, "Jul25": 5, "Oct25": 2, "Nov25": 1}`; descriptions say `Continuous Contract` → **continuous series** (one file per root); last timestamp across files: 2025-07-08 17:00:00.
+- Bars with low ≤ 0 across sample: 9134 (back-adjusted series can go negative).
+- Contracts with bars at price ≤ 0: @CL (33), @HO (3338), @RB (2722), @CT (308), @MCL (33), @OJ (664), @QM (33), @S (634), @SM (1369). Real prices of these contracts never went ≤ 0 (except WTI crude in April 2020), so this is the signature of **additive back-adjustment**.
+- Roll gaps: median share of each contract's 20 largest open-vs-previous-close jumps that fall in a quarterly roll window (5th–16th of Mar/Jun/Sep/Dec ≈ 13% of days): 0.17 → no clustering at roll dates; the largest jumps are weekend/news gaps → roll gaps have been removed (consistent with back-adjusted continuous series).
+
+Tick-grid test (share of closes that are exact multiples of the header tick size; additive back-adjustment keeps prices on the grid, ratio adjustment breaks it) and largest open-vs-previous-close jumps (in multiples of the rolling median bar range; roll gaps would cluster in roll windows):
+
+| symbol | bars ≤ 0 | on-grid first 20k | on-grid last 20k | top-20 jumps in Mar/Jun/Sep/Dec 5–16 | top 2 jumps |
+|---|---|---|---|---|---|
+| @ES | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-23 16:00:00", "jump": -68.25, "x_median_range": 2.5, "gap_min": 4320}, {"ts": "2020-03-30 16:00:00", "jump": -65.0, "x_median_range": 2.3, "gap_min": 4320}]` |
+| @NQ | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2025-04-03 16:00:00", "jump": -738.0, "x_median_range": 1.9, "gap_min": 1440}, {"ts": "2020-03-23 16:00:00", "jump": -171.0, "x_median_range": 1.7, "gap_min": 4320}]` |
+| @CL | 33 | 1.0 | 1.0 | 0.35 | `[{"ts": "2020-03-09 17:00:00", "jump": -8.41, "x_median_range": 6.2, "gap_min": 4320}, {"ts": "2019-09-16 17:00:00", "jump": 6.63, "x_median_range": 4.1, "gap_min": 4320}]` |
+| @GC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-16 17:00:00", "jump": 47.1, "x_median_range": 3.0, "gap_min": 4320}, {"ts": "2007-02-28 17:00:00", "jump": -17.8, "x_median_range": 2.4, "gap_min": 1440}]` |
+| @VX | 0 | 0.09 | 0.09 | 0.15 | `[{"ts": "2014-04-07 16:00:00", "jump": -8.05, "x_median_range": 14.6, "gap_min": 4320}, {"ts": "2014-03-17 16:00:00", "jump": -5.0, "x_median_range": 9.1, "gap_min": 4320}]` |
+| @BTC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2019-05-20 16:00:00", "jump": 895.0, "x_median_range": 6.9, "gap_min": 4320}, {"ts": "2021-01-04 16:00:00", "jump": 4020.0, "x_median_range": 6.6, "gap_min": 5760}]` |
+| @TY | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-16 16:00:00", "jump": 1.984375, "x_median_range": 3.7, "gap_min": 4320}, {"ts": "2015-06-29 16:00:00", "jump": 1.296875, "x_median_range": 2.0, "gap_min": 4320}]` |
+| @EC | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2017-04-24 16:00:00", "jump": 0.0169, "x_median_range": 2.2, "gap_min": 4320}, {"ts": "2020-03-16 16:00:00", "jump": 0.00895, "x_median_range": 1.9, "gap_min": 4320}]` |
+| @C | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2010-10-11 13:20:00", "jump": 45.0, "x_median_range": 4.5, "gap_min": 4320}, {"ts": "2007-01-16 13:20:00", "jump": 20.0, "x_median_range": 2.5, "gap_min": 5760}]` |
+| @HO | 3338 | 1.0 | 1.0 | 0.35 | `[{"ts": "2020-03-09 17:00:00", "jump": -0.1572, "x_median_range": 3.7, "gap_min": 4320}, {"ts": "2025-06-23 17:00:00", "jump": 0.1344, "x_median_range": 2.4, "gap_min": 4320}]` |
+| @RB | 2722 | 1.0 | 1.0 | 0.35 | `[{"ts": "2020-03-09 17:00:00", "jump": -0.1566, "x_median_range": 3.5, "gap_min": 4320}, {"ts": "2017-08-28 17:00:00", "jump": 0.0935, "x_median_range": 2.4, "gap_min": 4320}]` |
+| @AD | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.0127, "x_median_range": 3.1, "gap_min": 4320}, {"ts": "2011-08-10 16:00:00", "jump": 0.031, "x_median_range": 2.7, "gap_min": 1440}]` |
+| @BO | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2008-02-28 13:20:00", "jump": 1.98, "x_median_range": 2.3, "gap_min": 1440}, {"ts": "2008-03-10 13:20:00", "jump": -2.0, "x_median_range": 2.2, "gap_min": 4320}]` |
+| @BP | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2019-12-13 16:00:00", "jump": 0.0305, "x_median_range": 3.5, "gap_min": 1440}, {"ts": "2017-06-09 16:00:00", "jump": -0.0202, "x_median_range": 2.3, "gap_min": 1440}]` |
+| @CD | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.00775, "x_median_range": 2.8, "gap_min": 4320}, {"ts": "2025-02-03 16:00:00", "jump": -0.0095, "x_median_range": 2.7, "gap_min": 4320}]` |
+| @CT | 308 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-03-04 14:20:00", "jump": 4.0, "x_median_range": 4.4, "gap_min": 1440}, {"ts": "2008-01-14 14:20:00", "jump": 3.0, "x_median_range": 3.5, "gap_min": 4320}]` |
+| @DX | 0 | 0.197 | 0.197 | 0.15 | `[{"ts": "2007-08-06 17:00:00", "jump": -0.68, "x_median_range": 3.3, "gap_min": 4320}, {"ts": "2008-03-11 17:00:00", "jump": 1.295, "x_median_range": 2.7, "gap_min": 1440}]` |
+| @ED | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2007-08-24 16:00:00", "jump": -0.42, "x_median_range": 21.0, "gap_min": 1440}, {"ts": "2020-03-16 16:00:00", "jump": 0.16, "x_median_range": 6.4, "gap_min": 4320}]` |
+| @EMD | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-16 16:00:00", "jump": -77.3, "x_median_range": 3.6, "gap_min": 4320}, {"ts": "2020-03-23 16:00:00", "jump": -62.9, "x_median_range": 2.7, "gap_min": 4320}]` |
+| @ES.D | 0 | 0.999 | 0.999 | 0.35 | `[{"ts": "2020-03-09 15:15:00", "jump": -202.0, "x_median_range": 10.8, "gap_min": 4320}, {"ts": "2020-03-16 15:15:00", "jump": -182.5, "x_median_range": 9.2, "gap_min": 4320}]` |
+| @FC | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-24 13:05:00", "jump": 6.75, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2020-03-09 13:05:00", "jump": -4.5, "x_median_range": 2.5, "gap_min": 4320}]` |
+| @FV | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2020-03-16 16:00:00", "jump": 1.5, "x_median_range": 5.1, "gap_min": 4320}, {"ts": "2018-05-29 16:00:00", "jump": 0.554688, "x_median_range": 2.3, "gap_min": 5760}]` |
+| @HG | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2025-04-10 17:00:00", "jump": 0.274, "x_median_range": 3.0, "gap_min": 1440}, {"ts": "2025-02-26 17:00:00", "jump": 0.18, "x_median_range": 2.2, "gap_min": 1440}]` |
+| @JY | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2019-01-03 16:00:00", "jump": 0.0193, "x_median_range": 4.0, "gap_min": 1440}, {"ts": "2020-03-16 16:00:00", "jump": 0.01125, "x_median_range": 2.8, "gap_min": 4320}]` |
+| @KC | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2007-10-15 13:30:00", "jump": -10.05, "x_median_range": 4.8, "gap_min": 4320}, {"ts": "2021-07-23 13:30:00", "jump": 11.45, "x_median_range": 2.8, "gap_min": 1440}]` |
+| @LC | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-25 13:05:00", "jump": 4.5, "x_median_range": 3.6, "gap_min": 1440}, {"ts": "2020-03-16 13:05:00", "jump": -4.5, "x_median_range": 3.6, "gap_min": 4320}]` |
+| @LH | 0 | 0.948 | 0.948 | 0.15 | `[{"ts": "2020-04-06 13:05:00", "jump": -4.5, "x_median_range": 2.7, "gap_min": 4320}, {"ts": "2020-04-02 13:05:00", "jump": -4.5, "x_median_range": 2.7, "gap_min": 1440}]` |
+| @M2K | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2015-08-24 16:00:00", "jump": -51.3, "x_median_range": 3.1, "gap_min": 4320}, {"ts": "2025-04-03 16:00:00", "jump": -91.2, "x_median_range": 2.1, "gap_min": 1440}]` |
+| @MCL | 33 | 1.0 | 1.0 | 0.3 | `[{"ts": "2020-03-09 17:00:00", "jump": -8.41, "x_median_range": 6.1, "gap_min": 4320}, {"ts": "2019-09-16 17:00:00", "jump": 6.63, "x_median_range": 4.1, "gap_min": 4320}]` |
+| @MES | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2020-03-23 16:00:00", "jump": -68.0, "x_median_range": 2.5, "gap_min": 4320}, {"ts": "2020-03-30 16:00:00", "jump": -59.0, "x_median_range": 2.0, "gap_min": 4320}]` |
+| @MES.D | 0 | 0.265 | 0.265 | 0.35 | `[{"ts": "2020-03-09 15:15:00", "jump": -191.0, "x_median_range": 10.2, "gap_min": 4320}, {"ts": "2020-03-16 15:15:00", "jump": -182.5, "x_median_range": 9.2, "gap_min": 4320}]` |
+| @MNQ | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2025-04-03 16:00:00", "jump": -734.5, "x_median_range": 1.9, "gap_min": 1440}, {"ts": "2009-11-27 16:00:00", "jump": -41.75, "x_median_range": 1.5, "gap_min": 2880}]` |
+| @MNQ.D | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2020-03-16 15:15:00", "jump": -519.5, "x_median_range": 6.8, "gap_min": 4320}, {"ts": "2020-03-09 15:15:00", "jump": -481.25, "x_median_range": 6.5, "gap_min": 4320}]` |
+| @MP1 | 0 | 1.0 | 1.0 | 0.35 | `[{"ts": "2011-08-10 16:00:00", "jump": 0.0026, "x_median_range": 3.9, "gap_min": 1440}, {"ts": "2019-06-10 16:00:00", "jump": 0.0015, "x_median_range": 3.5, "gap_min": 4320}]` |
+| @NE1 | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2025-05-23 16:00:00", "jump": -0.59055, "x_median_range": 109.4, "gap_min": 1440}, {"ts": "2025-01-21 16:00:00", "jump": 0.00865, "x_median_range": 1.7, "gap_min": 5760}]` |
+| @NG | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2018-11-19 17:00:00", "jump": 0.353, "x_median_range": 5.7, "gap_min": 4320}, {"ts": "2018-11-26 17:00:00", "jump": -0.241, "x_median_range": 3.6, "gap_min": 4320}]` |
+| @NK | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2008-10-13 16:00:00", "jump": 695.0, "x_median_range": 2.7, "gap_min": 4320}, {"ts": "2009-11-27 16:00:00", "jump": -345.0, "x_median_range": 2.3, "gap_min": 2880}]` |
+| @O | 0 | 1.0 | 1.0 | 0.1 | `[{"ts": "2012-06-26 13:20:00", "jump": 22.75, "x_median_range": 2.7, "gap_min": 1440}, {"ts": "2012-06-25 13:20:00", "jump": 12.5, "x_median_range": 1.5, "gap_min": 4320}]` |
+| @OJ | 664 | 1.0 | 1.0 | 0.15 | `[{"ts": "2007-10-12 14:00:00", "jump": 10.0, "x_median_range": 3.3, "gap_min": 1440}, {"ts": "2007-02-26 14:00:00", "jump": -7.85, "x_median_range": 2.9, "gap_min": 4320}]` |
+| @QM | 33 | 0.388 | 0.388 | 0.25 | `[{"ts": "2020-03-09 17:00:00", "jump": -5.725, "x_median_range": 4.2, "gap_min": 4320}, {"ts": "2007-10-11 17:00:00", "jump": -6.15, "x_median_range": 3.6, "gap_min": 1440}]` |
+| @RR | 0 | 1.0 | 1.0 | 0.3 | `[{"ts": "2020-06-08 13:20:00", "jump": -1.5, "x_median_range": 5.6, "gap_min": 4320}, {"ts": "2020-06-09 13:20:00", "jump": -1.5, "x_median_range": 5.6, "gap_min": 1440}]` |
+| @RTY | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2015-08-24 16:00:00", "jump": -51.3, "x_median_range": 3.1, "gap_min": 4320}, {"ts": "2025-04-03 16:00:00", "jump": -92.1, "x_median_range": 2.1, "gap_min": 1440}]` |
+| @S | 634 | 1.0 | 1.0 | 0.1 | `[{"ts": "2018-04-06 13:20:00", "jump": -28.25, "x_median_range": 2.4, "gap_min": 1440}, {"ts": "2008-03-18 13:20:00", "jump": -48.25, "x_median_range": 1.9, "gap_min": 1440}]` |
+| @SB | 0 | 1.0 | 1.0 | 0.05 | `[{"ts": "2008-06-24 13:00:00", "jump": 1.24, "x_median_range": 3.0, "gap_min": 1440}, {"ts": "2008-01-17 13:00:00", "jump": 0.42, "x_median_range": 2.8, "gap_min": 1440}]` |
+| @SF | 0 | 1.0 | 1.0 | 0.25 | `[{"ts": "2015-01-16 16:00:00", "jump": 0.0291, "x_median_range": 3.8, "gap_min": 1440}, {"ts": "2015-01-20 16:00:00", "jump": -0.0289, "x_median_range": 3.8, "gap_min": 5760}]` |
+| @SM | 1369 | 1.0 | 1.0 | 0.05 | `[{"ts": "2007-07-20 13:20:00", "jump": 10.0, "x_median_range": 2.1, "gap_min": 1440}, {"ts": "2010-10-11 13:20:00", "jump": 9.8, "x_median_range": 1.8, "gap_min": 4320}]` |
+| @TU | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-16 16:00:00", "jump": 0.433594, "x_median_range": 4.4, "gap_min": 4320}, {"ts": "2018-05-29 16:00:00", "jump": 0.28125, "x_median_range": 3.6, "gap_min": 5760}]` |
+| @US | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2020-03-16 16:00:00", "jump": 2.90625, "x_median_range": 2.2, "gap_min": 4320}, {"ts": "2020-03-23 16:00:00", "jump": 2.625, "x_median_range": 1.8, "gap_min": 4320}]` |
+| @W | 0 | 1.0 | 1.0 | 0.15 | `[{"ts": "2022-03-07 13:20:00", "jump": 85.0, "x_median_range": 4.0, "gap_min": 4320}, {"ts": "2022-03-04 13:20:00", "jump": 75.0, "x_median_range": 3.5, "gap_min": 1440}]` |
+| @YM | 0 | 1.0 | 1.0 | 0.2 | `[{"ts": "2020-03-23 16:00:00", "jump": -536.0, "x_median_range": 1.9, "gap_min": 4320}, {"ts": "2020-03-09 16:00:00", "jump": -433.0, "x_median_range": 1.7, "gap_min": 4320}]` |
+
+### 15. Quality quick-scan (deep sample)
+| metric | value |
+|---|---|
+| rows | 235012 |
+| dup_ts | 0 |
+| non_monotonic | 0 |
+| high_lt_low | 0 |
+| ohlc_outside_range | 1 |
+| nonpos_price | 9134 |
+| null_cells | 0 |
+| big_moves | 1819 |
+| missing_bar_gaps | 0 |
+| zero_volume_share_median_file | 0.0002 |
+| zero_volume_share_max_file | 0.0067 |
+| files_with_any_dup_ts | 0 |
+| files_with_big_moves | 10 |
+| files_with_nonpos_price | 9 |
+| files_with_high_lt_low | 0 |
+| files_in_sample | 50 |
+| extrapolated_to_all_files | `{"rows": 300815, "dup_ts": 0, "high_lt_low": 0, "nonpos_price": 11692, "big_moves": 2328, "missing_bar_gaps": 0}` |
+
+_Per-file statistics computed on 50 of 64 files (task limit 50); `extrapolated_to_all_files` scales sample totals by file count and is an estimate._
+
+Deep-sample symbols: @ES, @NQ, @CL, @GC, @VX, @BTC, @TY, @EC, @C, @HO, @RB, @AD, @BO, @BP, @CD, @CT, @DX, @ED, @EMD, @ES.D, @FC, @FV, @HG, @JY, @KC, @LC, @LH, @M2K, @MCL, @MES, @MES.D, @MNQ, @MNQ.D, @MP1, @NE1, @NG, @NK, @O, @OJ, @QM, @RR, @RTY, @S, @SB, @SF, @SM, @TU, @US, @W, @YM
 
 ---
