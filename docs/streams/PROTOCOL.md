@@ -56,7 +56,9 @@ Changing any of them also needs a **notice to the supervisor** in the PR body.
   `docs/streams/B.md` so A can regenerate.
 
 **Append-only, per your own ID range:** `docs/decisions/decisions_log.md` and
-`docs/decisions/pending.md`. Never edit or renumber another stream's row. A conflict in either
+`docs/decisions/pending.md`. Never edit or renumber another stream's row. A row **may be
+amended in place** when the supervisor asks for it — the guard allows an amendment inside your
+own range and inside the supervisor's, and never a deletion (**D-369**). A conflict in either
 file is resolved by **keeping every row in ID order**, one row per ID; when the same ID appears
 twice, the more resolved version wins (answered beats open; the higher `D-` number wins).
 
@@ -81,7 +83,11 @@ Everything not listed is **shared**: `docs/tasks/`, `docs/reviews/`, `docs/adr/`
    `D-600 … D-699`) are accepted from either stream, because the supervisor dictates those and
    one of the streams has to write them down; they cover decisions only, so a `P-` number
    always belongs to the stream that raised the question.
-   (Rows added by an unprefixed, grandfathered branch are only checked for duplicates.)
+   The guard also reads the rows a branch **removes** (**D-369**): an id that is added *and*
+   removed is an **amendment in place**, which keeps one row per id and passes the same range
+   check as a new row; an id removed and not added back is a **deletion** and always fails.
+   Rows added by an unprefixed, grandfathered branch are checked for duplicates only — and
+   such a branch may not amend at all, because no range check applies to it.
 3. **A single Alembic head** — the migration graph must have exactly one head, so two streams
    cannot both add a migration.
 
@@ -93,16 +99,24 @@ uv run sfac streams check --base origin/main
 
 ## 5. Session start (D-357 (5))
 
-At the start of every session, check that the folder and the branch match the stream:
+At the start of every session, check that the worktree and the branch match the session:
 
 ```bash
-uv run sfac streams session --stream A
+uv run sfac streams session --stream A     # stream A's own session, or a helper working for it
+uv run sfac streams session                # a spawned or helper session that cannot name one
 ```
 
-It prints the worktree, the branch and the stream it belongs to, and **fails** when the folder
-is another stream's, when the branch carries another stream's prefix, or when the folder is
-owned by a stream other than the one given. The manual equivalent is `git worktree list` plus
-`git branch --show-current`.
+**Run the form that describes you.** A spawned or helper session that passes `--stream A`
+while sitting in stream A's folder is claiming to *be* stream A, and the check has no way to
+know better — that is exactly the incident of D-357 (1). Omit `--stream` when you are not the
+stream's own session; pass it only to have your branch prefix checked as well, and only from a
+worktree of your own.
+
+It prints the worktree, the branch and the folder's owner, and **fails** when the folder
+belongs to another stream, when a session with no stream sits in a stream's folder, when the
+branch carries another stream's prefix, or when `HEAD` is detached. Working in a worktree **no
+stream owns** is always fine — that is what a scratch worktree is for. The manual equivalent is
+`git worktree list` plus `git branch --show-current`.
 
 If the check fails, **stop and report** — do not "fix" it by switching branches, which is
 exactly the move D-357 (1) forbids. A spawned or helper session that finds itself in a stream's

@@ -133,15 +133,17 @@ def streams_check(
 def streams_session(
     stream: Annotated[
         str | None,
-        typer.Option(help="The stream this session is (A / B); omit for a spawned session."),
+        typer.Option(help="The stream this session IS (A / B); omit for a spawned or helper one."),
     ] = None,
     ownership: Annotated[Path, typer.Option(help="Ownership file.")] = DEFAULT_OWNERSHIP,
 ) -> None:
-    """Session-start check (D-357 (1) and (5)): the worktree and branch must match the stream.
+    """Session-start check (D-357 (1) and (5)): the worktree and branch must match the session.
 
     Every session works in its **own worktree on its own branch** and may never switch the
-    checkout of a folder it does not own. A spawned or helper session omits ``--stream`` and
-    must be in a folder no stream owns.
+    checkout of a folder it does not own. A spawned or helper session **omits** ``--stream``
+    and must be in a folder no stream owns; passing ``--stream`` from a stream's folder claims
+    to *be* that stream, which is the incident D-357 (1) exists for. A worktree no stream owns
+    is always allowed -- that is what a scratch worktree is.
     """
     try:
         rules = load_ownership(ownership)

@@ -319,9 +319,32 @@ def test_F_X_9_d357_the_spawned_session_incident_is_caught(rules: Ownership) -> 
     assert check_session("D:/x/wt_fix", "a/fix-metrics-fixture-prices", rules, None) == []
 
 
-def test_F_X_9_d357_a_stream_outside_its_folder_is_caught(rules: Ownership) -> None:
-    problems = check_session("D:/x/somewhere_else", "a/T11-parity", rules, "A")
-    assert len(problems) == 1 and "StrategyFactory" in problems[0]
+def test_F_X_9_d357_a_scratch_worktree_is_allowed(rules: Ownership) -> None:
+    """A folder no stream owns is a worktree of the session's own -- exactly what D-357 asks."""
+    assert check_session("D:/x/wt_T11", "a/T11-parity", rules, "A") == []
+    assert check_session("D:/x/somewhere_else", "b/T04i", rules, "B") == []
+
+
+def test_F_X_9_d357_a_detached_head_is_caught(rules: Ownership) -> None:
+    """`git checkout <sha>` in somebody else's folder leaves exactly this state."""
+    for stream in ("A", None):
+        problems = check_session("D:/x/wt_T11", "", rules, stream)
+        assert any("detached HEAD" in p for p in problems), stream
+    # and in a stream's own folder it is still wrong: a session works on its own branch
+    assert any("detached HEAD" in p for p in check_session("D:/x/StrategyFactory", "", rules, "A"))
+
+
+def test_F_X_9_d357_a_helper_that_names_its_stream_has_its_branch_checked(
+    rules: Ownership,
+) -> None:
+    """Naming the stream buys the prefix check; it still does not open that stream's folder."""
+    assert check_session("D:/x/wt_fix", "a/fix-metrics", rules, "A") == []
+    foreign = check_session("D:/x/wt_fix", "b/T04i", rules, "A")
+    assert len(foreign) == 1 and "belongs to stream B, not stream A" in foreign[0]
+    assert any(
+        "needs its own worktree" in p
+        for p in check_session("D:/x/StrategyFactory", "a/fix-metrics", rules, None)
+    )
 
 
 def test_F_X_9_d357_branch_prefix_must_match_the_stream(rules: Ownership) -> None:
@@ -408,3 +431,66 @@ def test_F_X_9_d369_this_branch_amends_d357_and_passes_the_cli(
     )
     assert result.exit_code == 0, result.output
     assert "ok   decision / pending ids" in result.output
+
+
+def test_F_X_9_d369_an_unprefixed_branch_may_not_amend(rules: Ownership) -> None:
+    """No range check applies to a grandfathered branch, so an amendment there is unguarded."""
+    problems = check_ids(
+        None, ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(problems) == 1 and "may not amend" in problems[0]
+    # it may still add a new row in any range, as before
+    assert check_ids(None, ["| D-380 | new |"], ["| D-356 | x |"], rules) == []
+
+
+def test_F_X_9_d369_a_stream_may_not_amend_another_streams_row(rules: Ownership) -> None:
+    amend_b = check_ids(
+        "A", ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(amend_b) == 1 and "outside stream A's range" in amend_b[0]
+    amend_a = check_ids(
+        "B", ["| P-44 | rewritten |"], ["| P-44 | old |"], rules, ["| P-44 | old |"]
+    )
+    assert len(amend_a) == 1 and "outside stream B's range" in amend_a[0]
+    # its own rows are fine
+    assert (
+        check_ids("A", ["| D-360 | amended |"], ["| D-360 | old |"], rules, ["| D-360 | old |"])
+        == []
+    )
+
+
+def test_F_X_9_d369_a_supervisor_row_may_be_amended_by_either_stream(rules: Ownership) -> None:
+    """What this branch does to D-357. The guard allows it; the supervisor's word authorises it.
+
+    Documented as a stated limit of D-369: the guard cannot tell an instructed amendment of a
+    supervisor row from an uninstructed one, exactly as it cannot for a newly added one.
+    """
+    for stream in ("A", "B"):
+        for number in (357, 600):
+            row_old = [f"| D-{number} | old |"]
+            row_new = [f"| D-{number} | amended |"]
+            assert check_ids(stream, row_new, row_old, rules, row_old) == [], (stream, number)
+
+
+def test_F_X_9_d369_removed_rows_reads_real_git_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`git diff -U0` opens each file with `--- a/<path>`; that is a header, not a removed row."""
+    from strategy_factory.core.cli_streams import added_rows, removed_rows
+
+    monkeypatch.chdir(REPO)
+    files = ("docs/decisions/decisions_log.md",)
+    raw = subprocess.run(
+        ["git", "diff", "-U0", "HEAD~1..HEAD", "--", *files],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO,
+    ).stdout
+    assert any(line.startswith("--- ") for line in raw.splitlines()), "no file header to ignore"
+    removed = removed_rows("HEAD~1", files)
+    assert not any(line.startswith("-") for line in removed), removed  # no `--- a/...` leaked
+    assert not any(line.startswith("+") for line in added_rows("HEAD~1", files))
+    # and the parsed ids of a real diff are table rows, not diff noise
+    for kind, number in parse_ids(removed) + parse_ids(added_rows("HEAD~1", files)):
+        assert kind in ("D", "P") and number > 0
