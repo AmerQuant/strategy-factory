@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-395**, **P-68**.
+Next free here: **D-395**, **P-71**.
 
 ## Rules that bind this stream (D-355)
 
@@ -56,7 +56,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 | worktree | on `docs/batch3-data` at `main`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
 | batch 3-data plan | **approved** 2026-09-21 |
-| T04f | in progress on `b/T04f-alpaca-reference`; the PowerShell run is with the user |
+| T04f | reference run **done** 2026-09-20; calendar + symbol changes committed, `nyse_early_closes.yaml` deleted (0 differences). **Blocked on P-68 … P-70** before the universe is final |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | **incomplete** as of 2026-09-20: 2021 and 2022 missing for all 827 symbols, 2020 for 137, 2023 for 620; **no symbol has all eleven years**. The user is refilling 2020–2023. (This corrects the earlier "downloads complete" note.) |
 | Alpaca 1D / 1H ingest | not started — T04g is gated on D-033, T04h on the 1H download (D-386, no `--allow-gaps`) |
@@ -72,25 +72,36 @@ here**. Every symbol a stream-B rule adds to or removes from `configs/universe/*
 below so stream A can run `sfac universe generate` after the merge. Until then
 `configs/universe.yaml` is knowingly stale.
 
-| symbol | timeframe(s) | change | rule | task |
-|---|---|---|---|---|
-| _(none yet — T04f fills this in after the `NAME_CHANGE` feed arrives)_ | | | | |
+The feed arrived on 2026-09-20 (42 `NAME_CHANGE` rows). The per-symbol evidence is in
+`docs/reviews/T04f_symbol_changes_accounting.csv`. **Not final — P-68 … P-70 are open.**
 
-Expected shape, from the planning evidence: up to 15 old-name hourly rows removed (candidates
-`ABC`, `ANTM`, `BLL`, `CHK`, `CTL`, `ECHO`, `FB`, `FLT`, `MMC`, `PKI`, `RE`, `UTX`, `WLTW`, `WRK`
-and the undecided side of `EQR/VMRK`), each replaced by its current name carrying `pit_symbol`;
-`EQR` is **kept** (D-388). `ABC` is the visible example: `configs/universe.yaml` currently lists it
-with `timeframes: [1D, 1H]`.
+`configs/universe/us_equity_hourly.csv` as committed is the builder's raw output: **827 → 800**
+(37 removed, 10 added). Applying D-383 gives **807**: 26 removals confirmed, 11 restored, and the
+4 destinations that exist only because of a rejected chain (`JXG`, `MNKTQ`, `NXH`, `SPRU`) dropped.
+
+| change | symbols | note |
+|---|---|---|
+| removed, confirmed rename | 26: `ABC ADS ANTM BK BLL CDAY CHK CTL FB FBHS FLT GPS HCP HFC JEC MMC NLOK PEAK PKI PX RE SATS UTX WLTW WRK WYND` | each replaced by its current name carrying `pit_symbol` |
+| added, confirmed destination | 6: `BFH DINO FBIN GAP RPC TNL` | **none has 1H raw** — P-70 |
+| kept despite the feed (different company) | 11: `BBBY BBT CBS COG EQR FI IR LLL MNK VIAC XL` | P-68 |
+| dropped (destination of a rejected chain) | 4: `JXG MNKTQ NXH SPRU` | P-68 |
+
+The daily universe is unchanged at 6,711 rows.
 
 ## For stream A
 
-- **D-388 (broker mapping boundary).** The D-383 exclusion rule for renamed/re-used tickers was
-  checked against `main` (T06b merged as PR #13). Affected Moneta research targets — `COR`,
-  `LUMN`, `META`, `RTX`, `MRSH` (broker `MMC`, D-356) and `BNY` (broker `BK`, D-356) — are all
-  current names and survive the rule. The one near-miss is **`EQR`**: a row-count heuristic paired
-  `EQR/VMRK`, but `EQR` has continuous daily bars 2016→2026 and `VMRK` has **no daily raw data**, so
-  the rule does not exclude it. **No change is needed under `configs/costs/`**; stream B will not
-  edit it. If the Alpaca `NAME_CHANGE` feed contradicts the `EQR` finding, stream B stops and
-  reports rather than excluding it.
+- **D-388 (broker mapping boundary), re-run against the real feed on 2026-09-20.** Two Moneta
+  research targets are removed by the raw builder output and are **kept** under D-388:
+  - **`EQR`** (broker `EQR`, override "same company"): the feed has `EQR → VMRK` 2026-08-18, but
+    `VMRK` has **no daily raw data**, is not in the daily universe and is not in the map, while
+    `EQR` runs continuously 2016-01-04 → 2026-08-17.
+  - **`IR`** (broker `IR`, `ticker_exact`): the feed has `IR → TT` 2020-03-02, but `IR` and `TT`
+    are **0 % identical over 2,603 days** and both run to 2026-09-18 — two different live
+    companies (Ingersoll Rand Inc. kept the ticker when Ingersoll-Rand plc became Trane).
+  - Surviving targets that are rename destinations need no action: `COR`, `LUMN`, `META`, `RTX`,
+    `MRSH` (broker `MMC`), `BNY` (broker `BK`), `TFC`, `FISV` (broker `FI`).
+  - **`GAP`** (broker `GPS`) is a Moneta target that is now an hourly universe row **without 1H raw
+    data** — see P-70.
+  - **Nothing under `configs/costs/` was modified.**
 - **`HANDOFF.md`** still says "Alpaca 1H (827 symbols) — downloading" and lists batch 2b as next;
   the 1H coverage table above is the current fact for the data-status section.
