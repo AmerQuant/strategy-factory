@@ -21,6 +21,11 @@ from strategy_factory.data.schedule import ResampleMode
 from strategy_factory.data.store import SnapshotStore
 
 SUMMARY_FILE = "summary.md"
+#: D-391: one summary per ``(source, timeframe)`` -- the Alpaca 1D group alone is ~6.7 k rows and
+#: must not share a file with the 1H group, let alone with Dukascopy.
+GROUP_SUMMARY = "summary_{source}_{timeframe}.md"
+#: Rows printed to the console before the table is replaced by its per-group counts.
+DEFAULT_MAX_ROWS = 50
 
 
 def _fail(msg: str) -> typer.Exit:
@@ -34,6 +39,9 @@ def quality_cmd(
     timeframe: Annotated[str | None, typer.Option(help="Only this timeframe.")] = None,
     all_: Annotated[bool, typer.Option("--all", help="Every catalog snapshot.")] = False,
     config: Annotated[Path | None, typer.Option(help="Quality config YAML.")] = None,
+    max_rows: Annotated[
+        int, typer.Option(help="Print at most this many rows; the files hold all of them.")
+    ] = DEFAULT_MAX_ROWS,
 ) -> None:
     """Run the quality checks, write _quality/<hash>.json|.md, record quality_status."""
     if not all_ and symbol is None:
@@ -66,15 +74,68 @@ def quality_cmd(
     except SfacError as exc:
         raise _fail(str(exc)) from exc
     table = pl.DataFrame(out)
-    print_table(table)
-    summary = store.root / QUALITY_DIR / SUMMARY_FILE
-    lines = ["# Quality summary", "", "| " + " | ".join(table.columns) + " |"]
-    lines.append("|" + "---|" * len(table.columns))
-    lines += ["| " + " | ".join(str(v) for v in r) + " |" for r in table.iter_rows()]
-    summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print_table(table.head(max_rows) if table.height > max_rows else table)
+    if table.height > max_rows:
+        typer.echo(f"... {table.height - max_rows} more row(s); the summaries below hold all.")
+    written = _write_group_summaries(store.root / QUALITY_DIR, table)
+    _write_index(store.root / QUALITY_DIR, catalog)
     counts = table.group_by("status").len().sort("status").rows()
     typer.echo(f"{table.height} snapshot(s): " + ", ".join(f"{s} {n}" for s, n in counts))
+    for path in written:
+        typer.echo(f"  {path.name}")
     typer.echo(f"reports: {(store.root / QUALITY_DIR).as_posix()}")
+
+
+def _markdown_table(columns: list[str], rows: list[tuple[object, ...]]) -> list[str]:
+    head = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
+    return head + ["| " + " | ".join(str(v) for v in r) + " |" for r in rows]
+
+
+def _write_group_summaries(quality_dir: Path, table: pl.DataFrame) -> list[Path]:
+    """One file per ``(source, timeframe)`` present in this run (D-391); others are untouched."""
+    written: list[Path] = []
+    for (source, timeframe), group in sorted(
+        table.group_by(["source", "timeframe"]), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
+    ):
+        path = quality_dir / GROUP_SUMMARY.format(source=source, timeframe=timeframe)
+        lines = [f"# Quality summary -- {source} {timeframe}", ""]
+        lines += _markdown_table(group.columns, list(group.iter_rows()))
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        written.append(path)
+    return written
+
+
+def _write_index(quality_dir: Path, catalog: Catalog) -> None:
+    """``summary.md``: every group in the catalog with its snapshot and status counts (D-391).
+
+    Built from the catalog, not from this run, so the groups a partial run did not touch stay in
+    the index with their recorded status.
+    """
+    rows = catalog.table()
+    statuses = sorted(set(rows["quality_status"].to_list())) if rows.height else []
+    lines = [
+        "# Quality summary index",
+        "",
+        "One report per `(source, timeframe)` (D-391); counts come from the catalog.",
+        "",
+    ]
+    table_rows: list[tuple[object, ...]] = []
+    for (source, timeframe), group in sorted(
+        rows.group_by(["source", "timeframe"]), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
+    ):
+        per = dict(group.group_by("quality_status").len().rows())
+        name = GROUP_SUMMARY.format(source=source, timeframe=timeframe)
+        table_rows.append(
+            (
+                source,
+                timeframe,
+                group.height,
+                *(per.get(s, 0) for s in statuses),
+                f"[{name}]({name})",
+            )
+        )
+    lines += _markdown_table(["source", "timeframe", "snapshots", *statuses, "report"], table_rows)
+    (quality_dir / SUMMARY_FILE).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 @data_app.command("resample")

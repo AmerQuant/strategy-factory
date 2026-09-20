@@ -309,3 +309,58 @@ def test_F_0_1_6_cli_quality_all(data_root: Path) -> None:
 def test_F_0_1_6_fx_hours_helper_matches_week_window() -> None:
     hours = fx_hours(W0, W0 + dt.timedelta(days=7))
     assert hours[0] == W0 and all(h.astimezone(NY).isoweekday() != 6 for h in hours)
+
+
+# --- D-391: one summary per (source, timeframe) plus an index -------------------------------
+
+
+def test_F_0_1_6_D_391_one_summary_per_source_and_timeframe(data_root: Path) -> None:
+    store, cat = SnapshotStore(), Catalog()
+    cat.register(store.write_snapshot(fx_bars(W0, W1, 17), fx_meta()))
+    cat.register(store.write_snapshot(make_bars(20), make_meta()))
+    assert CliRunner().invoke(app, ["data", "quality", "--all"]).exit_code == 0
+    q = data_root / QUALITY_DIR
+    assert (q / "summary_dukascopy_1H.md").is_file()
+    assert (q / "summary_test_1D.md").is_file()
+    assert "EURUSD" in (q / "summary_dukascopy_1H.md").read_text(encoding="utf-8")
+    assert "EURUSD" not in (q / "summary_test_1D.md").read_text(encoding="utf-8")
+
+
+def test_F_0_1_6_D_391_the_index_lists_every_group_with_its_counts(data_root: Path) -> None:
+    store, cat = SnapshotStore(), Catalog()
+    cat.register(store.write_snapshot(fx_bars(W0, W1, 17), fx_meta()))
+    cat.register(store.write_snapshot(make_bars(20), make_meta()))
+    assert CliRunner().invoke(app, ["data", "quality", "--all"]).exit_code == 0
+    index = (data_root / QUALITY_DIR / "summary.md").read_text(encoding="utf-8")
+    assert "summary_dukascopy_1H.md" in index and "summary_test_1D.md" in index
+    assert "| dukascopy | 1H | 1 |" in index
+    assert "| test | 1D | 1 |" in index
+
+
+def test_F_0_1_6_D_391_a_partial_run_rewrites_only_its_own_group(data_root: Path) -> None:
+    """A run that touches one group leaves the other group's file alone but refreshes the index."""
+    store, cat = SnapshotStore(), Catalog()
+    cat.register(store.write_snapshot(fx_bars(W0, W1, 17), fx_meta()))
+    cat.register(store.write_snapshot(make_bars(20), make_meta()))
+    runner = CliRunner()
+    assert runner.invoke(app, ["data", "quality", "--all"]).exit_code == 0
+    q = data_root / QUALITY_DIR
+    other = q / "summary_dukascopy_1H.md"
+    other.write_text("MARKER\n", encoding="utf-8")
+    (q / "summary.md").unlink()
+    assert runner.invoke(app, ["data", "quality", "--symbol", "TEST"]).exit_code == 0
+    assert other.read_text(encoding="utf-8") == "MARKER\n"  # untouched group
+    index = (q / "summary.md").read_text(encoding="utf-8")
+    assert "summary_dukascopy_1H.md" in index  # the index still knows about it
+
+
+def test_F_0_1_6_D_391_a_large_run_does_not_print_every_row(data_root: Path) -> None:
+    """6,711 daily snapshots must not dump 6,711 lines to the console (T04g)."""
+    store, cat = SnapshotStore(), Catalog()
+    for i in range(6):
+        meta = make_meta(symbol=f"SYM{i}")
+        cat.register(store.write_snapshot(make_bars(20 + i), meta))
+    res = CliRunner().invoke(app, ["data", "quality", "--all", "--max-rows", "3"])
+    assert res.exit_code == 0, res.output
+    assert "SYM0" in res.output and "SYM5" not in res.output
+    assert "6 snapshot(s)" in res.output
