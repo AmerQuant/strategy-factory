@@ -1,5 +1,7 @@
 # Broker <-> research symbol mapping rules (T06b, D-524, D-325). Hand-maintained.
-names_file: reference/alpaca/alpaca_assets_2026-09-20.csv  # under SFAC_RAW_ROOT; Alpaca assets incl. ETFs (D-341)
+names_file: reference/alpaca/alpaca_assets_2026-09-20.v2.csv  # under SFAC_RAW_ROOT; Alpaca
+# assets incl. ETFs and INACTIVE (delisted) ones (D-341): 33,276 rows = 14,354 active +
+# 18,922 inactive, duplicate tickers collapsed to the active row by the download script.
 prices_dir: us_equity/alpaca_sip_split/1D  # raw daily files: quote-sample price check (D-341)
 broker_regions: ["Stock US", "ETF"]   # D-524: 491 US shares + 57 ETFs
 min_name_score: 0.80                  # identical ticker AND name similarity >= this -> auto-mapped

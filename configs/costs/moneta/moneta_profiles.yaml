@@ -5890,6 +5890,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_IAC
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 223 (IAC); spread 19 points x 0.01 / quote sample 39.84 = 47.6908 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 47.69076305220883, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: IAC
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_IBM
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 224 (IBM); spread 33.24 points x 0.01 / quote sample 289.57 = 11.4791 bps

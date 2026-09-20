@@ -212,6 +212,7 @@ symbols:
   HUM: {profile: moneta_HUM}
   HUT: {profile: moneta_HUT}
   HYLN: {profile: moneta_HYLN}
+  IAC: {profile: moneta_IAC}
   IBM: {profile: moneta_IBM}
   IBN: {profile: moneta_IBN}
   ICE: {profile: moneta_ICE}

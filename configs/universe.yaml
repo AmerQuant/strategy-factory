@@ -4,7 +4,7 @@
 # timeframes, cost_profile (T06 assignments), calendar (nyse | 24x5 | 24x7), group (for the
 # cross-symbol validation later), tradable (aux series: false), broker_symbol (Moneta, T06b).
 
-generated_at: '2026-09-20T08:08:04+00:00'
+generated_at: '2026-09-20T11:56:04+00:00'
 sources:
   - configs/universe/us_equity_daily.csv
   - configs/universe/us_equity_hourly.csv
@@ -2958,7 +2958,7 @@ symbols:
   - {symbol: HYPD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: HYPR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: HZO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: IAC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: IAC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_IAC, calendar: nyse, group: us_equity, tradable: true, broker_symbol: IAC}
   - {symbol: IACO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IACQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IAG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}

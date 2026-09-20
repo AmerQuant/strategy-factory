@@ -200,3 +200,78 @@ well, keeps one row per ticker (an active listing wins) and reports how many ina
 kept. That gives names for the 17 delisted tickers in the review list, so the D-341 ticker+name
 rule can decide them instead of leaving them open. The user runs it; the mapping is then
 rebuilt and the review list shrinks again.
+
+---
+
+## Addendum 2 (2026-09-21): the `-IncludeInactive` asset list (D-341)
+
+### The new raw reference file
+`scripts/download_alpaca_assets.ps1 -IncludeInactive` (the user ran it, D-031) produced
+`reference/alpaca/alpaca_assets_2026-09-20.v2.csv`, sha256
+`9a0e8dad…1e94c` (verified against the manifest next to it): **33,276 rows = 14,354 active +
+18,922 inactive**; 254 inactive duplicates of an active ticker were collapsed to the active row,
+so the file has **no duplicate tickers**. `mapping.yaml: names_file` points at it.
+
+### Counts, before (active only) and after (active + inactive)
+| | before | after |
+|---|---|---|
+| mapped | 471 (29 manual, 4 override, 438 ticker+name) | **472** (29, 4, **439** ticker+name) |
+| review CSV rows | 106 | **105** |
+| profiles | 477 (1 proxy + 476) | **478** (1 proxy + 472 broker + 5 T06 placeholders) |
+| broker universe | 471 | **472** (us_equity 443, fx 15, index_cfd 10, metal 2, energy_cfd 2) |
+| `sfac costs validate` | 6742 assigned | **6742 assigned, 478 profiles (6 placeholder)** |
+| `sfac universe validate` | 6749 symbols | **6749 symbols (6742 tradable)** |
+
+### Review rows per reason
+| reason | before | after |
+|---|---|---|
+| name match only (never auto-mapped, D-325) | 48 | **52** |
+| no ticker or name match | 27 | **23** |
+| ticker match, no research name available | 17 | **15** |
+| ticker match, name differs (never auto-mapped, D-341) | 13 | **14** |
+| unmappable: override target not in the research universe (`ALIBABA` → BABA) | 1 | 1 |
+| **total** | **106** | **105** |
+
+### Ticker+name matches that came from an **inactive** asset
+Exactly **one**, and it is the single new mapping:
+
+| research | broker | name score | Alpaca name (status `inactive`) |
+|---|---|---|---|
+| `IAC` | `IAC` | 1.0000 | IAC Inc. Common Stock |
+
+Every other one of the 439 ticker+name matches resolves against an **active** asset. The
+inactive rows did move four rows from "no ticker or name match" to "name match only" (a name is
+now available, but D-325 never auto-maps a name-only match) and gave `ESL` its (empty) inactive
+entry, which is why "name differs" went from 13 to 14.
+
+### Why the list shrank by only one row
+Two findings, both for the user's override work:
+
+1. **273 of the 6,711 research symbols have no entry in the Alpaca asset file at all**, even with
+   the inactive ones (`ABMD`, `ATVI`, `ANTM`, `ADS`, `AET`, `AVB`, `BK`, `EA`, `WBA`, …). All
+   **15** remaining "ticker match, no research name available" rows fall in that hole, so no name
+   lookup can close them — only `symbol_overrides.csv` can. They are unambiguous by description:
+   `AVB` AvalonBay, `BK` Bank of New York Mellon, `BTOG` Bit Origin, `CMA` Comerica, `CTRA`
+   Coterra, `DFS` Discover, `EA` Electronic Arts, `EQR` Equity Residential, `FI` Fiserv, `FL`
+   Foot Locker, `GPS` Gap, `HES` Hess, `K` Kellanova, `MMC` Marsh & McLennan, `WBA` Walgreens.
+2. **The price check (D-341) is the useful evidence here**, and it is filled for 91 of the 105
+   rows. It confirms three of those 15 outright — `HES` 150.67 / 148.97 (ratio 1.011), `DFS`
+   199.30 / 200.05 (0.996), `GPS` 24.52 / 24.55 (0.999) — and it refutes one: **`FI` is not the
+   research `FI`** (broker quote 170.78 vs research close 3.15, ratio 54.2). `AMCX` stays
+   suspicious (broker "AMC Entertainment Hlds - Class A" vs Alpaca "AMC Global Media Inc. Class
+   A", score 0.42).
+
+**The coverage criterion (548/548) is still open.** It closes with the user's
+`configs/costs/moneta/symbol_overrides.csv`; nothing further can be automated (D-341).
+
+### Acceptance after the rebuild
+| Command | Result |
+|---|---|
+| `sfac costs moneta build` | ✅ mapped 472, review 105, profiles 473 (1 proxy + 472 broker) |
+| `sfac universe generate` | ✅ 6749 symbols |
+| `sfac costs validate` / `sfac universe validate` | ✅ 6742 assigned, 478 profiles / ✅ 6749 symbols |
+| `ruff check .` / `ruff format --check .` | ✅ / ✅ 213 files |
+| `mypy src` | ✅ 89 files |
+| `pytest -m "not slow"` | ✅ **805 passed** |
+| `pytest tests/parity tests/leakage` | ✅ 106 passed |
+| `pytest -m db -rs` | ✅ 15 passed, **0 skipped** |

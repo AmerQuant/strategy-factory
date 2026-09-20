@@ -38,10 +38,10 @@ EA,Stock US,Electronic Arts Inc,pending_review,EA,,,"ticker match, no research n
 EDU,Stock US,New Oriental Education (ADRs),pending_review,TAL,TAL Education Group,0.7222,name match only (never auto-mapped),52.3000,11.8100,2026-09-18,4.4285
 EQR,Stock US,Equity Residential,pending_review,EQR,,,"ticker match, no research name available",66.4700,63.6600,2026-08-17,1.0441
 ESGV,ETF,Vanguard ESG US Stock (BATS:ESGV),pending_review,VWO,Vanguard FTSE Emerging Markets ETF,0.5763,no ticker or name match,110.7000,60.0100,2026-09-18,1.8447
-ESL,Stock US,Est??e Lauder Companies - Class A,pending_review,ESL,,,"ticker match, no research name available",86.4800,122.4900,2019-03-13,0.7060
+ESL,Stock US,Est??e Lauder Companies - Class A,pending_review,ESL,,0.0000,"ticker match, name differs",86.4800,122.4900,2019-03-13,0.7060
 EXXON,Stock US,EXXON MOBIL CORP,pending_review,,,,no ticker or name match,113.6900,,,
-FAS,ETF,Direxoin Daily Financial Bull 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match,168.1700,117.6700,2026-09-18,1.4292
-FAZ,ETF,Direxoin Daily Financial Bear 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match,4.4000,117.6700,2026-09-18,0.0374
+FAS,ETF,Direxoin Daily Financial Bull 3x Shares,pending_review,EUFL,Direxion Daily European Financials Bull 2X Shares,0.8108,name match only (never auto-mapped),168.1700,11.9200,2020-03-27,14.1082
+FAZ,ETF,Direxoin Daily Financial Bear 3x Shares,pending_review,GASX,Direxion Daily Natural Gas Bear 3X Shares,0.7879,name match only (never auto-mapped),4.4000,16.0000,2020-03-27,0.2750
 FDN,ETF,First Trust Dow Jones Internet Index Fund,pending_review,DOW,Dow Inc.,1.0000,name match only (never auto-mapped),269.4000,28.7300,2026-09-18,9.3770
 FI,Stock US,Fiserv Inc,pending_review,FI,,,"ticker match, no research name available",170.7800,3.1500,2022-12-30,54.2159
 FL,Stock US,Foot Locker Inc,pending_review,FL,,,"ticker match, no research name available",24.8800,24.0100,2025-09-05,1.0362
@@ -57,13 +57,12 @@ GRVY,Stock US,Gravity Co Ltd (ADRs),pending_review,GRVY,"GRAVITY Co., Ltd. Ameri
 HES,Stock US,Hess Corp,pending_review,HES,,,"ticker match, no research name available",150.6700,148.9700,2025-07-17,1.0114
 HSBCn,Stock US,HSBC HOLDINGS PLC-SPONS ADR,pending_review,HSBC,HSBC Holdings PLC,1.0000,name match only (never auto-mapped),62.0200,101.8300,2026-09-18,0.6091
 HTHT,Stock US,Huazhu Group Ltd,pending_review,,,,no ticker or name match,33.5000,,,
-IAC,Stock US,IAC / InterActive Corp,pending_review,IAC,,,"ticker match, no research name available",39.8400,42.2400,2026-06-03,0.9432
 IBIT,ETF,iShares Bitcoin Trust,pending_review,IAU,iShares Gold Trust,0.6667,name match only (never auto-mapped),63.5800,82.2300,2026-09-18,0.7732
-INFY,Stock US,Infosys Ltd (ADRs),pending_review,,,,no ticker or name match,18.8100,,,
+INFY,Stock US,Infosys Ltd (ADRs),pending_review,MTFB,Motif Bio plc ADRs,0.6154,name match only (never auto-mapped),18.8100,0.1050,2019-12-16,179.1241
 INTEL,Stock US,INTEL CORP,pending_review,INTC,Intel Corporation Common Stock,1.0000,name match only (never auto-mapped),23.4200,108.6000,2026-09-18,0.2157
 IYW,ETF,iShares U.S. Technology ETF,pending_review,IBB,iShares Biotechnology ETF,0.8627,name match only (never auto-mapped),176.3400,204.5600,2026-09-18,0.8620
 JD,Stock US,JD.COM INC-ADR,pending_review,,,,no ticker or name match,31.5400,,,
-JNUG,ETF,Direxion:Jr Mnr Bull 2X (ARCX:JNUG),pending_review,UN,Corgi UNH 2x Daily ETF,0.2909,no ticker or name match,78.0400,19.9197,2026-09-18,3.9177
+JNUG,ETF,Direxion:Jr Mnr Bull 2X (ARCX:JNUG),pending_review,RUSL,Direxion Daily Russia Bull 2X Shares,0.6000,name match only (never auto-mapped),78.0400,2.5800,2022-03-03,30.2481
 K,Stock US,Kellanova Co,pending_review,K,,,"ticker match, no research name available",79.1400,83.4400,2025-12-10,0.9485
 LAZR,Stock US,Luminar Technologies Inc,pending_review,JMIA,Jumia Technologies AG,0.8947,name match only (never auto-mapped),2.9100,6.9500,2026-09-18,0.4187
 LC,Stock US,LendingClub Corp,pending_review,,,,no ticker or name match,12.4700,,,
@@ -78,7 +77,7 @@ NTES,Stock US,NETEASE INC-ADR,pending_review,,,,no ticker or name match,129.9700
 NUGT,ETF,Direxion:Gold M Id Bl 2X (ARCX:NUGT),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped),72.4800,45.4600,2026-09-18,1.5944
 NVIDIA,Stock US,NVIDIA CORP,pending_review,NVDA,NVIDIA Corporation Common Stock,1.0000,name match only (never auto-mapped),162.7800,222.2700,2026-09-18,0.7324
 OIH,ETF,VanEck Oil Services ETF,pending_review,GDX,VanEck Gold Miners ETF,0.7111,name match only (never auto-mapped),247.5900,95.4800,2026-09-18,2.5931
-PDD,Stock US,Pinduoduo Inc (ADRs),pending_review,,,,no ticker or name match,105.0000,,,
+PDD,Stock US,Pinduoduo Inc (ADRs),pending_review,MTFB,Motif Bio plc ADRs,0.5000,no ticker or name match,105.0000,0.1050,2019-12-16,999.8952
 PENN,Stock US,Penn National Gaming Inc,pending_review,PENN,"PENN Entertainment, Inc. Common Stock",0.5000,"ticker match, name differs",18.4200,16.4500,2026-09-18,1.1198
 PFIZER,Stock US,PFIZER INC,pending_review,PFE,Pfizer Inc.,1.0000,name match only (never auto-mapped),25.5100,27.6600,2026-09-18,0.9223
 QCLN,ETF,First Trust NASDAQ Clean Edge Green Energy Index Fund,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped),34.5200,93.5400,2026-09-18,0.3690
@@ -102,6 +101,6 @@ VISA,Stock US,VISA INC-CLASS A SHARES,pending_review,V,VISA Inc.,1.0000,name mat
 VSGX,ETF,Vanguard ESG Intl Stock (BATS:VSGX),pending_review,VNQ,Vanguard Real Estate ETF,0.5882,no ticker or name match,65.6200,92.9100,2026-09-18,0.7063
 WBA,Stock US,Walgreens Boots Alliance Inc,pending_review,WBA,,,"ticker match, no research name available",11.5200,11.9800,2025-08-27,0.9616
 XPEV,Stock US,XPENG INC - ADR,pending_review,,,,no ticker or name match,17.6000,,,
-YALA,Stock US,Yalla Group Ltd (ADRs),pending_review,,,,no ticker or name match,5.1900,,,
+YALA,Stock US,Yalla Group Ltd (ADRs),pending_review,MTFB,Motif Bio plc ADRs,0.5000,no ticker or name match,5.1900,0.1050,2019-12-16,49.4234
 ZOM,Stock US,Zomedica Corp,pending_review,,,,no ticker or name match,0.0700,,,
 ALIBABA,Stock US,ALIBABA GROUP HOLDING-SP ADR,unmappable,BABA,"Alibaba Group Holding Limited American Depositary Shares, each represents eight Ordinary Shares",,override target not in the research universe (D-524),103.7900,,,
