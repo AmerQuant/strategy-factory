@@ -74,6 +74,13 @@ def download_alpaca(
     end: Annotated[
         str | None, typer.Option(help="YYYY-MM-DD inclusive (default: yesterday UTC).")
     ] = None,
+    refresh: Annotated[
+        bool,
+        typer.Option(
+            "--refresh",
+            help="Re-fetch the selected symbols/years even if complete (new version file, D-397).",
+        ),
+    ] = False,
     config: ConfigOpt = None,
 ) -> None:
     """Download Alpaca SIP split-adjusted bars (resumable, immutable raw files)."""
@@ -86,7 +93,15 @@ def download_alpaca(
             if end
             else dt.datetime.now(dt.UTC).date() - dt.timedelta(days=1)
         )
-        report = run_download(make_client(cfg), syms, timeframe, d0, d1, raw_root(), cfg)
+        if refresh and not symbols:
+            raise ConfigError(
+                "--refresh needs an explicit --symbols list: it re-downloads every selected "
+                "symbol-year, so scope it (e.g. --symbols AVGO --start 2024-01-01 "
+                "--end 2024-12-31)"
+            )
+        report = run_download(
+            make_client(cfg), syms, timeframe, d0, d1, raw_root(), cfg, refresh=refresh
+        )
     except TLSVerificationError as exc:
         raise _fail(
             f"STOP: {exc}. Certificate verification is never disabled; see the review notes."

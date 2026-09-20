@@ -3,8 +3,11 @@
 history_start: 2016-01-01
 feed: sip            # decision: SIP for daily and hourly
 adjustment: split    # decision: split-adjusted only (TradingView-like)
-daily_session: exchange   # 1D session label; decided in T04e phase B (RTH if the daily
-                          # range always stays within the RTH hourly bars)
+daily_session: exchange   # 1D session label. Decided in T04i and accepted as D-395: the daily
+                          # range lies outside the RTH hourly range on 15,559 of 1,617,247
+                          # session days (0.96 %), so "RTH" is wrong. See
+                          # docs/reviews/T04i_review.md; the unsupported extremes themselves are
+                          # handled by T04k (D-396), not by this label.
 
 rate_limit:
   requests_per_minute: 180   # hard budget: never more requests in any 60 s window
@@ -29,3 +32,7 @@ split_check:
   jump_threshold: 0.40        # |close_t / close_{t-1} - 1| above this is a jump
   match_tolerance: 0.02       # |ln(ratio_alpaca / ratio_crosscheck)| below this = same move
   known_splits_file: configs/data/known_splits.csv
+
+relisting:           # re-used tickers and frozen stretches (D-383, amended by D-398)
+  frozen_min_sessions: 10   # consecutive bars with an identical close and zero true range
+  gap_days: 200             # a break this long is a relisting, not a holiday or a halt

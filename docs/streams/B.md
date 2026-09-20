@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-395**, **P-71**.
+Next free here: **D-399**, **P-75**.
 
 ## Rules that bind this stream (D-355)
 
@@ -44,27 +44,47 @@ Next free here: **D-395**, **P-71**.
 - **Benchmarks** run only when stream A is idle.
 - Every branch **rebases onto `main`** before its merge. D-401 and D-402 are unchanged.
 
-## Status (2026-09-21)
+## Status (2026-09-21, amended the same day after the P-73 answer)
 
 Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
-`docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`; decisions **D-380 … D-394**
-(section I of the log); **P-60 … P-67 all closed**. Task branches use the `b/` prefix (D-357).
-**T04f is running**; T04h stays blocked until the 1H download is complete (D-386).
+`docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`, `T04k`; decisions
+**D-380 … D-398** (section I of the log); **P-60 … P-67, P-71 … P-73 closed**, **P-68 … P-70** and
+**P-74** open. Task branches use the `b/` prefix (D-357). Order (D-358, D-396):
+**T04f ✅ → T04i ✅ → T04g ⏭ → T04k → T04h**. T04h stays blocked until the 1H download is complete
+(D-386).
+
+**Current position:** branch `b/T04i-phaseb-hourly`, T04i approved by the supervisor together with
+the P-73 answer (D-398); next is **T04g** (1D ingest) on `b/T04g-alpaca-daily-ingest` from `main`.
 
 | item | state |
 |---|---|
-| worktree | on `docs/batch3-data` at `main`; `uv sync` done |
+| worktree | on `b/T04i-phaseb-hourly`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
 | batch 3-data plan | **approved** 2026-09-21; order changed by **D-358** to T04f → T04i → T04g → T04h |
 | T04f | **done**, PR [#19](https://github.com/AmerQuant/strategy-factory/pull/19) — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
-| Alpaca **1H** raw | **incomplete** as of 2026-09-20: 2021 and 2022 missing for all 827 symbols, 2020 for 137, 2023 for 620; **no symbol has all eleven years**. The user is refilling 2020–2023. (This corrects the earlier "downloads complete" note.) |
-| Alpaca 1D / 1H ingest | not started — T04g is gated on D-033, T04h on the 1H download (D-386, no `--allow-gaps`) |
-| NYSE calendar (D-025) | not started; the T04e fetch was never run, so `configs/calendars/nyse_sessions.csv`, `configs/universe/symbol_changes.csv` and the raw calendar/corporate-action files are all missing. T04f §1 is the user's PowerShell run |
-| T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
+| Alpaca **1H** raw | **still filling.** Counted 2026-09-20 19:18 local over 832 folders: 2016–2019 832, 2020 829, 2021 806, 2022 806, **2023 787**, 2024–2026 827. 2023 is the only short year (237 at the T04i sweep, 787 now). T04h waits for the user's "download complete" (D-386, no `--allow-gaps`) |
+| Alpaca 1D / 1H ingest | not started. **T04g is no longer gated**: D-033 is decided (D-395) and the exclusion file is empty. T04h still waits on the 1H download (D-386) |
+| NYSE calendar (D-025) | **done in T04f** (PR #19): `configs/calendars/nyse_sessions.csv`, 2,765 sessions, 0 differences against the deleted `nyse_early_closes.yaml` (D-393); `configs/universe/symbol_changes.csv` written from the 42-row `NAME_CHANGE` feed |
+| T04e phase-B pilot | **hourly part closed by T04i** (D-395). The Yahoo part (first/last dates, `^TNX` scale) and the Dukascopy v1→v2 re-hash stay open — see the runbook's "Deferred" |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
-| T04i | **next** (D-358): phase-B analysis, closes D-033; stops for "Approved" |
+| T04i | **approved** (supervisor, with the P-73 answer); PR open, merging next. **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
+| T04k | planned (`docs/tasks/T04k_clean_daily_snapshot.md`), after T04g and **before T12** (D-396). It now also applies **D-398** (cut every frozen stretch, trim to the boundary); its trims wait on **P-74** |
+| T04g | **next** — `b/T04g-alpaca-daily-ingest` from `main`. `configs/universe/us_equity_daily_excluded.csv` exists and is **empty**, so the ingest covers the full 6,711-symbol universe |
 | T12 | not started |
+
+## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
+
+**T04f is merged into `main` (PR #19, 2026-09-21).** It changed
+`configs/universe/us_equity_hourly.csv` (827 → 806 rows, new `pit_symbol` column) and added
+`configs/universe/symbol_changes.csv` and the rejections in `symbol_changes_manual.csv`.
+`configs/universe.yaml` is stream A's file and was **deliberately not regenerated** by stream B,
+so it is now **stale**: it still lists the 26 removed tickers (`ABC` is the visible one, with
+`timeframes: [1D, 1H]`) and lacks the 5 added ones.
+
+Stream A: run `uv run sfac universe generate` and commit the result. Until then
+`sfac universe validate` and anything reading the registry see the old symbol set; a validate
+failure caused only by this staleness is expected, not a defect.
 
 ## Symbols for stream A (D-394)
 
@@ -89,7 +109,60 @@ The daily universe is unchanged at 6,711 rows.
 `EQR` and `IR` are Moneta targets kept under D-388; `FISV` (broker `FI`, D-356) stays because the
 chain `FISV→FI→FISV` resolves back to it.
 
+## For the user — one network run, before T04g
+
+**AVGO's 10:1 split of 2024-07-15 is not applied** in either timeframe (unadjusted from 2016 to
+2024-07-12; see `docs/reviews/T04i_review.md` §4 and §6b). Run, from this worktree:
+
+```
+uv run sfac data download alpaca --timeframe 1D --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+uv run sfac data download alpaca --timeframe 1H --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+```
+
+`--refresh` (D-397) writes a new version file beside each old one; nothing is overwritten.
+
+**No other symbol needs a refresh** on today's evidence: 10 of the 11 known splits are `adjusted`,
+the two 1H `no_data_on_split_date` rows (`GOOGL` 2022-07-18, `TSLA` 2022-08-25) were the download
+gap and only need the check re-run in T04h, and the 29 `reverse_split_suspect` rows of
+`docs/reviews/T04i_relisting_verdicts.csv` are decided by the MS-US-1D cross-check first
+(**P-74**), not by a download.
+
+**The hourly download is still running.** Counted at 2026-09-20 19:18 local: 2016–2019 832 of 832
+symbols, 2020 829, 2021 806, 2022 806, **2023 787**, 2024–2026 827. 2023 is the only short year
+(it was 237 at the T04i sweep). When the user confirms it is complete, the breach counts in
+`docs/reviews/T04i_review.md` §3 are regenerated with
+`uv run python scripts/analysis/T04i_daily_session.py` — the review keeps its run timestamp until
+then. More hourly data can only add breach days, so D-395 cannot be overturned by it.
+
 ## For stream A
+
+- **D-398 (supervisor, closing P-73) changes what happens to a re-used ticker: it is trimmed, not
+  excluded.** Any frozen stretch — identical close **and zero true range**, ≥ 10 sessions
+  (`relisting.frozen_min_sessions` in `configs/data/alpaca.yaml`) — is removed whatever caused it;
+  where the re-use boundary is identifiable the series is kept **from that boundary onward**;
+  leading pre-listing padding is trimmed and the symbol stays; only an unidentifiable boundary
+  excludes. A symbol whose remaining history is then too short for a split fails `SplitManager`
+  with `HistoryTooShortError` (D-008) and drops out that way — it is never hand-excluded.
+- **D-388, T04i: eleven affected symbols are Moneta mapping targets and every one is KEPT.**
+  The re-sweep over all 6,711 daily symbols (`docs/reviews/T04i_relisting_verdicts.csv`, column
+  `moneta_target`) gives:
+
+  | symbol | verdict | boundary | dropped → kept bars | why it is kept |
+  |---|---|---|---|---|
+  | `MBLY` | trim | 2022-10-26 | 1,716 → 977 | Mobileye N.V. acquired 2017; Mobileye Global re-listed Oct 2022 |
+  | `SNOW` | trim | 2020-09-16 | 1,006 → 1,509 | Snowflake IPO Sept 2020 |
+  | `SE` | trim | 2017-10-20 | 454 → 2,239 | Spectra Energy merged 2017; Sea Limited listed Oct 2017 |
+  | `CTRA` | trim | 2021-10-04 | 728 → 1,152 | Contura → AMR; Coterra took `CTRA` Oct 2021 |
+  | `MARA` | trim | 2017-10-30 | 252 → 2,233 | same company, a long halt |
+  | `GRAB` | trim | 2020-12-01 | 570 → 1,456 | leading pre-listing padding |
+  | `DOW` | padding cut | — | 396 frozen bars → 2,297 | pre-spin-off padding, no level break |
+  | `CHPT` `DKNG` `HYLN` `VFS` | padding cut | — | 10–19 frozen bars each | short interior pads |
+
+  All eleven are live and broker-tradable and stay in the universe with a shorter, honest history.
+  The trimming itself is **T04k**-shaped work. Nothing under `configs/costs/` was touched.
+- **No universe symbol is added or removed by T04i.** `configs/universe/us_equity_daily_excluded.csv`
+  is written and **empty**, so stream A's `configs/universe.yaml` needs no change from this task —
+  the T04f regeneration listed below is still the outstanding one.
 
 - **D-388 (broker mapping boundary), re-run against the real feed on 2026-09-20.** Two Moneta
   research targets are removed by the raw builder output and are **kept** under D-388:

@@ -38,6 +38,7 @@ def run(client: FakeClient, symbols: list[str], tmp_path: Path, **kw: object) ->
         now=kw.pop("now", NOW),  # type: ignore[arg-type]
         sleep=lambda s: None,
         rng=random.Random(0),
+        refresh=bool(kw.pop("refresh", False)),
     )
 
 
@@ -60,6 +61,28 @@ def test_F_0_1_2_resume_skips_completed_chunks(tmp_path: Path) -> None:
     again = run(client, ["AAPL", "TSLA"], tmp_path)
     assert again.chunks_written == 0 and again.chunks_skipped == 2
     assert len(client.calls) == 1
+
+
+def test_F_0_1_2_refresh_redownloads_a_complete_chunk_to_a_new_version(tmp_path: Path) -> None:
+    """D-397: a bad chunk (e.g. AVGO's unapplied split) is refetched, never overwritten."""
+    client = FakeClient(load_fixture("daily_2020.json"))
+    run(client, ["AAPL"], tmp_path)
+    again = run(client, ["AAPL"], tmp_path, refresh=True)
+    assert again.chunks_written == 1 and again.chunks_skipped == 0
+    d = tmp_path / "us_equity" / "alpaca_sip_split" / "1D" / "AAPL"
+    assert sorted(p.name for p in d.glob("*.parquet")) == ["2020.parquet", "2020.v2.parquet"]
+    for name in ("2020.parquet", "2020.v2.parquet"):
+        assert read_manifest(d / name)["complete"] is True  # type: ignore[index]
+    assert read_manifest(d / "2020.v2.parquet")["refresh"] is True  # type: ignore[index]
+
+
+def test_F_0_1_2_refresh_is_scoped_to_the_requested_symbols_and_years(tmp_path: Path) -> None:
+    client = FakeClient(load_fixture("daily_2020.json"))
+    run(client, ["AAPL", "TSLA"], tmp_path)
+    run(client, ["AAPL"], tmp_path, refresh=True)
+    root = tmp_path / "us_equity" / "alpaca_sip_split" / "1D"
+    assert len(list((root / "AAPL").glob("*.parquet"))) == 2
+    assert len(list((root / "TSLA").glob("*.parquet"))) == 1  # untouched
 
 
 def test_F_0_1_2_incomplete_year_is_redownloaded_to_new_version(tmp_path: Path) -> None:
@@ -212,3 +235,22 @@ def test_F_0_1_2_credentials_only_from_env_and_never_logged(
     for f in tmp_path.rglob("*.json"):
         text = f.read_text(encoding="utf-8")
         assert FAKE_KEY not in text and FAKE_SECRET not in text
+
+
+def test_F_0_1_2_refresh_without_symbols_is_refused_by_the_cli(tmp_path: Path) -> None:
+    """D-397: `--refresh` must be scoped, so a refresh can never redownload a whole universe."""
+    from typer.testing import CliRunner
+
+    from strategy_factory.cli import app
+
+    universe = tmp_path / "u.csv"
+    universe.write_text("symbol\nAVGO\nAAPL\n", encoding="utf-8")
+    runner = CliRunner()
+    args = ["data", "download", "alpaca", "--timeframe", "1D", "--universe", str(universe)]
+    out = runner.invoke(app, [*args, "--refresh"])
+    assert out.exit_code != 0
+    assert "--refresh needs an explicit --symbols list" in out.output
+    # without --universe and without --symbols the earlier guard fires instead
+    plain = runner.invoke(app, ["data", "download", "alpaca", "--timeframe", "1D", "--refresh"])
+    assert plain.exit_code != 0
+    assert "--universe" in plain.output

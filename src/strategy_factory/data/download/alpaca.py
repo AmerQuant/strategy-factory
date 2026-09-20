@@ -219,6 +219,7 @@ def write_chunk(
     request: dict[str, Any],
     complete: bool,
     library_version: str,
+    refresh: bool = False,
 ) -> Path:
     df = bars_to_frame(rows)
     buf = io.BytesIO()
@@ -234,6 +235,7 @@ def write_chunk(
         "downloaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "row_count": df.height,
         "complete": complete,
+        "refresh": refresh,
     }
     return write_immutable(target, buf.getvalue(), manifest)
 
@@ -303,8 +305,16 @@ def run_download(
     now: dt.datetime | None = None,
     sleep: Callable[[float], None] = time.sleep,
     rng: random.Random | None = None,
+    refresh: bool = False,
 ) -> DownloadReport:
-    """Download ``symbols`` for ``[start, end]`` year by year; resumable and immutable."""
+    """Download ``symbols`` for ``[start, end]`` year by year; resumable and immutable.
+
+    ``refresh`` re-fetches the selected symbol-years **even when they are already complete**
+    (D-397): the fix for a chunk whose content is wrong rather than missing, such as AVGO's
+    unapplied 2024 split. It never overwrites -- each refetch lands in the next version file
+    beside the old one (D-028) and its manifest carries ``refresh: true``. Scope it with
+    ``--symbols`` and ``--start/--end``; a refresh of everything would redownload everything.
+    """
     if timeframe not in TIMEFRAMES:
         raise ConfigError(f"timeframe must be one of {TIMEFRAMES}, got {timeframe!r}")
     now = now or dt.datetime.now(dt.UTC)
@@ -313,7 +323,11 @@ def run_download(
     for year in range(start.year, end.year + 1):
         lo, hi, full_year = chunk_bounds(year, start, end)
         complete = full_year and hi <= now
-        pending = [s for s in symbols if not is_chunk_complete(raw_root, timeframe, s, year)]
+        pending = (
+            list(symbols)
+            if refresh
+            else [s for s in symbols if not is_chunk_complete(raw_root, timeframe, s, year)]
+        )
         report.chunks_skipped += len(symbols) - len(pending)
         for batch in batched(pending, size):
             request = {
@@ -349,7 +363,15 @@ def run_download(
             for sym in batch:
                 rows = data.get(sym, [])
                 write_chunk(
-                    raw_root, timeframe, sym, year, rows, request, complete, client.library_version
+                    raw_root,
+                    timeframe,
+                    sym,
+                    year,
+                    rows,
+                    request,
+                    complete,
+                    client.library_version,
+                    refresh=refresh,
                 )
                 report.chunks_written += 1
                 report.rows_written += len(rows)
