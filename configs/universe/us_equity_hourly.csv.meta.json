@@ -1,5 +1,5 @@
 {
-  "built_at": "2026-09-19T11:25:27+00:00",
+  "built_at": "2026-09-20T13:22:00+00:00",
   "history_start": "2016-01-01",
   "pit_source": {
     "file": "D:\\AmerAndish\\Projects\\Trade\\StrategyFactory_data\\raw\\reference\\sp500_pit\\fja05680_sp500_20260919.csv",
@@ -15,7 +15,10 @@
       "commodities"
     ]
   },
-  "method": "snapshot in force on history_start plus every change snapshot after it; union of tickers; first/last snapshot date per ticker (first clipped to history_start; last = dataset's latest date for current members)",
+  "method": "snapshot in force on history_start plus every change snapshot after it; union of tickers; first/last snapshot date per ticker (first clipped to history_start; last = dataset's latest date for current members); symbol = PIT ticker followed through Alpaca name changes (symbol_changes.csv + manual)",
+  "symbol_changes": "configs\\universe\\symbol_changes.csv",
   "sp500_pit": 745,
+  "renamed": 37,
+  "rows": 800,
   "etf": 82
 }
