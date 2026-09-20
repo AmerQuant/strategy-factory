@@ -12,8 +12,10 @@ from strategy_factory.core.errors import ConfigError, SfacError
 from strategy_factory.core.streams import (
     DEFAULT_OWNERSHIP,
     check_all,
+    check_session,
     load_ownership,
     read_migrations,
+    stream_of_folder,
 )
 
 streams_app = typer.Typer(
@@ -109,3 +111,43 @@ def streams_check(
             typer.echo(f"ok   {GUARD_TITLES[guard]}")
     if failed:
         raise typer.Exit(code=1)
+
+
+@streams_app.command("session")
+def streams_session(
+    stream: Annotated[
+        str | None,
+        typer.Option(help="The stream this session is (A / B); omit for a spawned session."),
+    ] = None,
+    ownership: Annotated[Path, typer.Option(help="Ownership file.")] = DEFAULT_OWNERSHIP,
+) -> None:
+    """Session-start check (D-357 (1) and (5)): the worktree and branch must match the stream.
+
+    Every session works in its **own worktree on its own branch** and may never switch the
+    checkout of a folder it does not own. A spawned or helper session omits ``--stream`` and
+    must be in a folder no stream owns.
+    """
+    try:
+        rules = load_ownership(ownership)
+        folder = _git("rev-parse", "--show-toplevel").strip()
+        branch = _git("branch", "--show-current").strip()
+        problems = check_session(folder, branch, rules, stream)
+    except SfacError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    owner = stream_of_folder(folder, rules)
+    typer.echo(f"worktree: {folder}")
+    typer.echo(f"branch  : {branch or '(detached)'}")
+    typer.echo(f"folder  : {'stream ' + owner if owner else 'no stream (own worktree)'}")
+    if problems:
+        typer.echo("\nFAIL session setup (D-357 (1)):", err=True)
+        for problem in problems:
+            typer.echo(f"  - {problem}", err=True)
+        typer.echo(
+            "\nStop and report. Do NOT switch branches to fix this -- "
+            "that is the move D-357 (1) forbids.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo("ok   this session is in its own worktree on its own branch")

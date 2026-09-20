@@ -13,6 +13,10 @@ Two Claude Code sessions work on this repository at the same time. The rules are
 3. **One Alembic head** -- the migration graph has exactly one head, so two streams cannot
    both add a migration.
 
+:func: is the session-start check of D-357 (1) and (5): every session works in
+its **own worktree on its own branch** and may never switch the checkout of a folder it does
+not own.
+
 Every function here is pure: the caller supplies the changed paths, the added rows and the
 migration files. :mod:`strategy_factory.core.cli_streams` collects them from git.
 """
@@ -21,7 +25,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Literal
 
 import yaml
@@ -53,6 +57,7 @@ class StreamSpec(BaseModel):
 
     name: str
     branch_prefix: str = Field(min_length=2)
+    folder: str = ""  # D-357 (1): the only folder this stream may work in
     decisions: tuple[int, int]
     pending: tuple[int, int]
 
@@ -267,3 +272,65 @@ def check_all(
         "ids": check_ids(stream, added_rows, existing_rows, ownership),
         "alembic": check_single_head(migrations),
     }
+
+
+# --------------------------------------------------------------------------------------
+# Session start: the folder and the branch must match the stream (D-357 (1) and (5))
+# --------------------------------------------------------------------------------------
+def stream_of_folder(folder: str, ownership: Ownership) -> str | None:
+    """The stream that owns the worktree folder ``folder``; ``None`` = nobody's (D-357 (1)).
+
+    ``folder`` is matched on its **last path component**, so any parent directory works.
+    A folder no stream owns is a spawned or helper session's own worktree, which is exactly
+    what D-357 (1) asks for.
+    """
+    name = PurePath(folder.replace("\\", "/")).name
+    for key, spec in ownership.streams.items():
+        if spec.folder and spec.folder == name:
+            return key
+    return None
+
+
+def check_session(
+    folder: str, branch: str, ownership: Ownership, stream: str | None = None
+) -> list[str]:
+    """Problems with where this session is working (D-357 (1), checked at session start).
+
+    ``stream`` is the stream the session claims to be; ``None`` for a spawned or helper
+    session, which must be in a folder no stream owns.
+
+    The rule this enforces: **every session works in its own worktree on its own branch, and
+    may never switch the checkout of a folder it does not own.** A session sitting in another
+    stream's folder is the failure mode that cost stream A a mid-task branch switch.
+    """
+    problems: list[str] = []
+    owner = stream_of_folder(folder, ownership)
+    branch_stream = ownership.stream_of_branch(branch)
+    if stream is not None and stream not in ownership.streams:
+        return [f"unknown stream {stream!r}; known: {sorted(ownership.streams)}"]
+
+    if stream is None:
+        if owner is not None:
+            problems.append(
+                f"this folder belongs to stream {owner} ({ownership.streams[owner].name}); a "
+                "spawned or helper session needs its own worktree -- "
+                "`git worktree add <path> -b a/<task> origin/main` (D-357 (1))"
+            )
+    elif owner is None:
+        problems.append(
+            f"stream {stream} works in {ownership.streams[stream].folder!r}, but this worktree "
+            f"is {PurePath(folder.replace(chr(92), '/')).name!r} (D-357 (1))"
+        )
+    elif owner != stream:
+        problems.append(
+            f"this folder belongs to stream {owner}, not stream {stream}; never switch the "
+            "checkout of a folder you do not own (D-357 (1))"
+        )
+
+    if branch_stream is not None and stream is not None and branch_stream != stream:
+        problems.append(
+            f"branch {branch!r} belongs to stream {branch_stream}, not stream {stream} (D-357)"
+        )
+    if branch_stream is not None and stream is None and owner is not None:
+        problems.append(f"branch {branch!r} carries stream {branch_stream}'s prefix")
+    return problems

@@ -17,11 +17,23 @@ with your own status file, `docs/streams/A.md` or `docs/streams/B.md`.
 
 The supervisor keeps **D-355 … D-359** (used up) and **D-600 … D-699**, decisions only.
 
-## 1. One folder, one session (D-357 (1))
+## 1. One worktree, one session (D-357 (1), amended 2026-09-21)
 
-- Each session works **only in its own folder** and **never runs git in the other one**. A
-  worktree shares the object store: a `git checkout`, `rebase` or `branch -D` run from the wrong
-  folder can move or delete the other stream's branch under its feet.
+- **Every session works in its own git worktree, on its own branch** — this includes **spawned
+  and helper sessions**, not just the two streams. Stream A owns `StrategyFactory`, stream B
+  owns `StrategyFactory_B`; anything else gets a worktree of its own:
+
+  ```bash
+  git worktree add ../StrategyFactory_<task> -b a/<task> origin/main
+  ```
+
+- **A session may never switch the checkout of a folder it does not own.** A worktree shares
+  the object store: a `git checkout`, `rebase` or `branch -D` run from the wrong folder moves
+  the other session's branch under its feet, and its uncommitted work lands on a branch it
+  never chose. This is not theoretical — on 2026-09-21 a spawned session switched stream A's
+  folder off `a/T11-parity` mid-task, which is why the rule is now explicit.
+- Each session **never runs git in another session's folder** at all, not even a read that
+  changes state (`checkout`, `switch`, `restore`, `stash`, `reset`).
 - **Every new branch carries its stream's prefix**, `a/` or `b/`, and has exactly **one owner**.
   Branches created before this protocol are **grandfathered**: they keep their names and are not
   checked.
@@ -84,11 +96,16 @@ uv run sfac streams check --base origin/main
 At the start of every session, check that the folder and the branch match the stream:
 
 ```bash
-git worktree list
-git branch --show-current
+uv run sfac streams session --stream A
 ```
 
-If the current worktree is not this stream's folder, or the branch carries the other stream's
-prefix, **stop and report** — do not "fix" it by switching branches.
+It prints the worktree, the branch and the stream it belongs to, and **fails** when the folder
+is another stream's, when the branch carries another stream's prefix, or when the folder is
+owned by a stream other than the one given. The manual equivalent is `git worktree list` plus
+`git branch --show-current`.
+
+If the check fails, **stop and report** — do not "fix" it by switching branches, which is
+exactly the move D-357 (1) forbids. A spawned or helper session that finds itself in a stream's
+folder must make its own worktree instead.
 
 **No stream starts work until the supervisor confirms its setup.**

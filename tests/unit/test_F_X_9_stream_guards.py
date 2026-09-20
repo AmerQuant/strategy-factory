@@ -19,10 +19,12 @@ from strategy_factory.core.streams import (
     check_all,
     check_ids,
     check_paths,
+    check_session,
     check_single_head,
     load_ownership,
     parse_ids,
     read_migrations,
+    stream_of_folder,
 )
 
 REPO = Path(__file__).resolve().parents[2]
@@ -279,3 +281,89 @@ def test_F_X_9_streams_check_cli_fails_on_a_foreign_path(
     )
     assert result.exit_code == 1
     assert "FAIL path ownership" in result.output and "HANDOFF.md" in result.output
+
+
+# -- D-357 (1) amended: every session in its own worktree ------------------------------------
+def test_F_X_9_d357_folders_are_recorded_for_both_streams(rules: Ownership) -> None:
+    assert rules.streams["A"].folder == "StrategyFactory"
+    assert rules.streams["B"].folder == "StrategyFactory_B"
+    for path in ("D:/x/StrategyFactory", "/home/u/StrategyFactory", "StrategyFactory"):
+        assert stream_of_folder(path, rules) == "A", path
+    assert stream_of_folder("D:/x/StrategyFactory_B", rules) == "B"
+    assert stream_of_folder("D:/x/StrategyFactory_T11", rules) is None  # an own worktree
+    assert stream_of_folder("D:\\x\\StrategyFactory", rules) == "A"  # Windows separators
+
+
+def test_F_X_9_d357_a_stream_in_its_own_folder_is_fine(rules: Ownership) -> None:
+    assert check_session("D:/x/StrategyFactory", "a/T11-parity", rules, "A") == []
+    assert check_session("D:/x/StrategyFactory_B", "b/T04i", rules, "B") == []
+    # a grandfathered branch name is still fine in the right folder
+    assert check_session("D:/x/StrategyFactory", "docs/batch3-parity", rules, "A") == []
+
+
+def test_F_X_9_d357_a_session_may_not_sit_in_another_streams_folder(rules: Ownership) -> None:
+    problems = check_session("D:/x/StrategyFactory_B", "a/T11-parity", rules, "A")
+    assert len(problems) == 1
+    assert "belongs to stream B" in problems[0] and "do not own" in problems[0]
+    other = check_session("D:/x/StrategyFactory", "b/T04i", rules, "B")
+    assert any("belongs to stream A" in p for p in other)
+
+
+def test_F_X_9_d357_the_spawned_session_incident_is_caught(rules: Ownership) -> None:
+    """The real 2026-09-21 case: a spawned session in stream A's folder on its own branch."""
+    problems = check_session("D:/x/StrategyFactory", "a/fix-metrics-fixture-prices", rules, None)
+    assert problems, "a spawned session in stream A's folder must fail the check"
+    assert any("needs its own worktree" in p for p in problems)
+    assert any("git worktree add" in p for p in problems)
+    # the same session in a worktree of its own is fine
+    assert check_session("D:/x/wt_fix", "a/fix-metrics-fixture-prices", rules, None) == []
+
+
+def test_F_X_9_d357_a_stream_outside_its_folder_is_caught(rules: Ownership) -> None:
+    problems = check_session("D:/x/somewhere_else", "a/T11-parity", rules, "A")
+    assert len(problems) == 1 and "StrategyFactory" in problems[0]
+
+
+def test_F_X_9_d357_branch_prefix_must_match_the_stream(rules: Ownership) -> None:
+    problems = check_session("D:/x/StrategyFactory", "b/T04i", rules, "A")
+    assert any("belongs to stream B, not stream A" in p for p in problems)
+    assert check_session("D:/x/StrategyFactory", "a/T11", rules, "Z") == [
+        "unknown stream 'Z'; known: ['A', 'B']"
+    ]
+
+
+def test_F_X_9_d357_session_cli_passes_in_its_own_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(
+        "strategy_factory.core.cli_streams._git",
+        lambda *a: "D:/x/StrategyFactory_T11\n" if a[0] == "rev-parse" else "a/T11-parity\n",
+    )
+    result = CliRunner().invoke(app, ["streams", "session"])
+    assert result.exit_code == 0, result.output
+    assert "own worktree" in result.output
+
+
+def test_F_X_9_d357_session_cli_fails_in_another_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(
+        "strategy_factory.core.cli_streams._git",
+        lambda *a: "D:/x/StrategyFactory\n" if a[0] == "rev-parse" else "a/fix-something\n",
+    )
+    result = CliRunner().invoke(app, ["streams", "session"])
+    assert result.exit_code == 1
+    assert "FAIL session setup" in result.output
+    assert "Do NOT switch branches" in result.output
+
+
+def test_F_X_9_d357_protocol_states_the_worktree_rule() -> None:
+    """The rule must be written down where a session reads it, not only in code."""
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "own git worktree" in protocol
+    assert "may never switch the checkout of a folder it does not own" in protocol
+    assert "sfac streams session" in protocol  # the session-start check
+    assert "git worktree add" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    d357 = next(line for line in log.splitlines() if line.startswith("| D-357 |"))
+    assert "own git worktree" in d357 and "spawned" in d357
