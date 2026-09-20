@@ -20,11 +20,13 @@ streams:
   A:
     name: stream A (main folder, StrategyFactory)
     branch_prefix: "a/"
+    folder: StrategyFactory          # D-357 (1): the only folder this stream may work in
     decisions: [360, 379]        # D-360 … D-379
     pending: [40, 59]            # P-40 … P-59
   B:
     name: stream B (worktree, StrategyFactory_B)
     branch_prefix: "b/"
+    folder: StrategyFactory_B        # D-357 (1)
     decisions: [380, 399]        # D-380 … D-399
     pending: [60, 79]            # P-60 … P-79
 

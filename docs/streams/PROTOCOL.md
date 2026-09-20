@@ -17,11 +17,23 @@ with your own status file, `docs/streams/A.md` or `docs/streams/B.md`.
 
 The supervisor keeps **D-355 … D-359** (used up) and **D-600 … D-699**, decisions only.
 
-## 1. One folder, one session (D-357 (1))
+## 1. One worktree, one session (D-357 (1), amended 2026-09-21)
 
-- Each session works **only in its own folder** and **never runs git in the other one**. A
-  worktree shares the object store: a `git checkout`, `rebase` or `branch -D` run from the wrong
-  folder can move or delete the other stream's branch under its feet.
+- **Every session works in its own git worktree, on its own branch** — this includes **spawned
+  and helper sessions**, not just the two streams. Stream A owns `StrategyFactory`, stream B
+  owns `StrategyFactory_B`; anything else gets a worktree of its own:
+
+  ```bash
+  git worktree add ../StrategyFactory_<task> -b a/<task> origin/main
+  ```
+
+- **A session may never switch the checkout of a folder it does not own.** A worktree shares
+  the object store: a `git checkout`, `rebase` or `branch -D` run from the wrong folder moves
+  the other session's branch under its feet, and its uncommitted work lands on a branch it
+  never chose. This is not theoretical — on 2026-09-21 a spawned session switched stream A's
+  folder off `a/T11-parity` mid-task, which is why the rule is now explicit.
+- Each session **never runs git in another session's folder** at all, not even a read that
+  changes state (`checkout`, `switch`, `restore`, `stash`, `reset`).
 - **Every new branch carries its stream's prefix**, `a/` or `b/`, and has exactly **one owner**.
   Branches created before this protocol are **grandfathered**: they keep their names and are not
   checked.
@@ -44,7 +56,9 @@ Changing any of them also needs a **notice to the supervisor** in the PR body.
   `docs/streams/B.md` so A can regenerate.
 
 **Append-only, per your own ID range:** `docs/decisions/decisions_log.md` and
-`docs/decisions/pending.md`. Never edit or renumber another stream's row. A conflict in either
+`docs/decisions/pending.md`. Never edit or renumber another stream's row. A row **may be
+amended in place** when the supervisor asks for it — the guard allows an amendment inside your
+own range and inside the supervisor's, and never a deletion (**D-369**). A conflict in either
 file is resolved by **keeping every row in ID order**, one row per ID; when the same ID appears
 twice, the more resolved version wins (answered beats open; the higher `D-` number wins).
 
@@ -69,7 +83,11 @@ Everything not listed is **shared**: `docs/tasks/`, `docs/reviews/`, `docs/adr/`
    `D-600 … D-699`) are accepted from either stream, because the supervisor dictates those and
    one of the streams has to write them down; they cover decisions only, so a `P-` number
    always belongs to the stream that raised the question.
-   (Rows added by an unprefixed, grandfathered branch are only checked for duplicates.)
+   The guard also reads the rows a branch **removes** (**D-369**): an id that is added *and*
+   removed is an **amendment in place**, which keeps one row per id and passes the same range
+   check as a new row; an id removed and not added back is a **deletion** and always fails.
+   Rows added by an unprefixed, grandfathered branch are checked for duplicates only — and
+   such a branch may not amend at all, because no range check applies to it.
 3. **A single Alembic head** — the migration graph must have exactly one head, so two streams
    cannot both add a migration.
 
@@ -81,14 +99,27 @@ uv run sfac streams check --base origin/main
 
 ## 5. Session start (D-357 (5))
 
-At the start of every session, check that the folder and the branch match the stream:
+At the start of every session, check that the worktree and the branch match the session:
 
 ```bash
-git worktree list
-git branch --show-current
+uv run sfac streams session --stream A     # stream A's own session, or a helper working for it
+uv run sfac streams session                # a spawned or helper session that cannot name one
 ```
 
-If the current worktree is not this stream's folder, or the branch carries the other stream's
-prefix, **stop and report** — do not "fix" it by switching branches.
+**Run the form that describes you.** A spawned or helper session that passes `--stream A`
+while sitting in stream A's folder is claiming to *be* stream A, and the check has no way to
+know better — that is exactly the incident of D-357 (1). Omit `--stream` when you are not the
+stream's own session; pass it only to have your branch prefix checked as well, and only from a
+worktree of your own.
+
+It prints the worktree, the branch and the folder's owner, and **fails** when the folder
+belongs to another stream, when a session with no stream sits in a stream's folder, when the
+branch carries another stream's prefix, or when `HEAD` is detached. Working in a worktree **no
+stream owns** is always fine — that is what a scratch worktree is for. The manual equivalent is
+`git worktree list` plus `git branch --show-current`.
+
+If the check fails, **stop and report** — do not "fix" it by switching branches, which is
+exactly the move D-357 (1) forbids. A spawned or helper session that finds itself in a stream's
+folder must make its own worktree instead.
 
 **No stream starts work until the supervisor confirms its setup.**

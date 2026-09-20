@@ -13,6 +13,10 @@ Two Claude Code sessions work on this repository at the same time. The rules are
 3. **One Alembic head** -- the migration graph has exactly one head, so two streams cannot
    both add a migration.
 
+:func:`check_session` is the session-start check of D-357 (1) and (5): every session works
+in its **own worktree on its own branch** and may never switch the checkout of a folder it
+does not own.
+
 Every function here is pure: the caller supplies the changed paths, the added rows and the
 migration files. :mod:`strategy_factory.core.cli_streams` collects them from git.
 """
@@ -21,7 +25,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Literal
 
 import yaml
@@ -53,6 +57,7 @@ class StreamSpec(BaseModel):
 
     name: str
     branch_prefix: str = Field(min_length=2)
+    folder: str = ""  # D-357 (1): the only folder this stream may work in
     decisions: tuple[int, int]
     pending: tuple[int, int]
 
@@ -189,18 +194,43 @@ def check_ids(
     added_rows: Iterable[str],
     existing_rows: Iterable[str],
     ownership: Ownership,
+    removed_rows: Iterable[str] = (),
 ) -> list[str]:
-    """Problems with the IDs a branch adds: duplicates, or outside the stream's range."""
+    """Problems with the IDs a branch adds: duplicates, deletions, or outside its range.
+
+    An id that is added **and** removed by the same branch is an **amendment in place**
+    (D-369): the row replaces its own earlier version, so the log keeps exactly one row per
+    id. A row that is removed and not added back is a **deletion** and always fails -- the log
+    is append-only apart from amendments (D-357 (2)).
+
+    An amendment passes exactly the same range check as a new row, so a stream can amend its
+    own rows and the ones it carries for the supervisor, but **never another stream's**. An
+    unprefixed (grandfathered) branch, which no range check applies to, may not amend at all.
+    The guard reads the two append-only files as one pool, so it cannot tell a row *moved*
+    between them from an amendment; that is a review matter, not a guard one.
+    """
     added = parse_ids(added_rows)
     existing = set(parse_ids(existing_rows))
+    removed = set(parse_ids(removed_rows))
     problems: list[str] = []
     seen: set[tuple[str, int]] = set()
+    for kind, number in sorted(removed - set(added)):
+        problems.append(
+            f"{kind}-{number}: removed from the log; rows may be amended in place, "
+            "never deleted (D-355 (5), D-369)"
+        )
     for kind, number in added:
         label = f"{kind}-{number}"
-        if (kind, number) in existing or (kind, number) in seen:
+        amended = (kind, number) in removed
+        if ((kind, number) in existing and not amended) or (kind, number) in seen:
             problems.append(f"{label}: duplicate id (it already exists)")
         seen.add((kind, number))
-        if stream is None:  # grandfathered branch: duplicates only
+        if stream is None:  # grandfathered branch: duplicates only ...
+            if amended:  # ... but it may not rewrite a row either (D-369)
+                problems.append(
+                    f"{label}: an unprefixed branch may not amend a row; put the amendment on "
+                    "the owning stream's `a/` or `b/` branch (D-369)"
+                )
             continue
         if ownership.supervisor is not None and ownership.supervisor.covers(kind, number):
             continue  # a decision the supervisor dictated (D-355): any stream may carry it
@@ -259,11 +289,75 @@ def check_all(
     existing_rows: Sequence[str],
     migrations: Mapping[str, str],
     ownership: Ownership,
+    removed_rows: Sequence[str] = (),
 ) -> dict[str, list[str]]:
     """``{guard: problems}`` for the three guards; every list empty means the branch is clean."""
     stream = ownership.stream_of_branch(branch)
     return {
         "paths": check_paths(stream, changed, ownership),
-        "ids": check_ids(stream, added_rows, existing_rows, ownership),
+        "ids": check_ids(stream, added_rows, existing_rows, ownership, removed_rows),
         "alembic": check_single_head(migrations),
     }
+
+
+# --------------------------------------------------------------------------------------
+# Session start: the folder and the branch must match the stream (D-357 (1) and (5))
+# --------------------------------------------------------------------------------------
+def stream_of_folder(folder: str, ownership: Ownership) -> str | None:
+    """The stream that owns the worktree folder ``folder``; ``None`` = nobody's (D-357 (1)).
+
+    ``folder`` is matched on its **last path component**, so any parent directory works.
+    A folder no stream owns is a spawned or helper session's own worktree, which is exactly
+    what D-357 (1) asks for.
+    """
+    name = PurePath(folder.replace("\\", "/")).name
+    for key, spec in ownership.streams.items():
+        if spec.folder and spec.folder == name:
+            return key
+    return None
+
+
+def check_session(
+    folder: str, branch: str, ownership: Ownership, stream: str | None = None
+) -> list[str]:
+    """Problems with where this session is working (D-357 (1), checked at session start).
+
+    ``stream`` is the stream the session belongs to; ``None`` for a **spawned or helper**
+    session, which cannot name one and must therefore be in a folder no stream owns. A helper
+    that knows which stream it works for passes that stream, so its branch prefix is checked
+    too -- it is still not allowed into that stream's folder.
+
+    The rule this enforces: **every session works in its own worktree on its own branch, and
+    may never switch the checkout of a folder it does not own.** A stream owns its home folder
+    (``ownership.yaml``) *and* any worktree no stream owns, which is what a scratch worktree
+    is; another stream's home folder is always out of bounds.
+    """
+    problems: list[str] = []
+    owner = stream_of_folder(folder, ownership)
+    branch_stream = ownership.stream_of_branch(branch)
+    if stream is not None and stream not in ownership.streams:
+        return [f"unknown stream {stream!r}; known: {sorted(ownership.streams)}"]
+
+    if not branch:  # a detached HEAD is nobody's branch, and a `git checkout <sha>` leaves one
+        problems.append("detached HEAD: a session works on its own branch (D-357 (1))")
+
+    if owner is not None and owner != stream:
+        if stream is None:
+            problems.append(
+                f"this folder belongs to stream {owner} ({ownership.streams[owner].name}); a "
+                "spawned or helper session needs its own worktree -- "
+                "`git worktree add <path> -b a/<task> origin/main` (D-357 (1))"
+            )
+        else:
+            problems.append(
+                f"this folder belongs to stream {owner}, not stream {stream}; never switch the "
+                "checkout of a folder you do not own (D-357 (1))"
+            )
+
+    if branch_stream is not None and stream is not None and branch_stream != stream:
+        problems.append(
+            f"branch {branch!r} belongs to stream {branch_stream}, not stream {stream} (D-357)"
+        )
+    if branch_stream is not None and stream is None and owner is not None:
+        problems.append(f"branch {branch!r} carries stream {branch_stream}'s prefix")
+    return problems

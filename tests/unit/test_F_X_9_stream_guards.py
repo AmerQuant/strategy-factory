@@ -19,10 +19,12 @@ from strategy_factory.core.streams import (
     check_all,
     check_ids,
     check_paths,
+    check_session,
     check_single_head,
     load_ownership,
     parse_ids,
     read_migrations,
+    stream_of_folder,
 )
 
 REPO = Path(__file__).resolve().parents[2]
@@ -279,3 +281,216 @@ def test_F_X_9_streams_check_cli_fails_on_a_foreign_path(
     )
     assert result.exit_code == 1
     assert "FAIL path ownership" in result.output and "HANDOFF.md" in result.output
+
+
+# -- D-357 (1) amended: every session in its own worktree ------------------------------------
+def test_F_X_9_d357_folders_are_recorded_for_both_streams(rules: Ownership) -> None:
+    assert rules.streams["A"].folder == "StrategyFactory"
+    assert rules.streams["B"].folder == "StrategyFactory_B"
+    for path in ("D:/x/StrategyFactory", "/home/u/StrategyFactory", "StrategyFactory"):
+        assert stream_of_folder(path, rules) == "A", path
+    assert stream_of_folder("D:/x/StrategyFactory_B", rules) == "B"
+    assert stream_of_folder("D:/x/StrategyFactory_T11", rules) is None  # an own worktree
+    assert stream_of_folder("D:\\x\\StrategyFactory", rules) == "A"  # Windows separators
+
+
+def test_F_X_9_d357_a_stream_in_its_own_folder_is_fine(rules: Ownership) -> None:
+    assert check_session("D:/x/StrategyFactory", "a/T11-parity", rules, "A") == []
+    assert check_session("D:/x/StrategyFactory_B", "b/T04i", rules, "B") == []
+    # a grandfathered branch name is still fine in the right folder
+    assert check_session("D:/x/StrategyFactory", "docs/batch3-parity", rules, "A") == []
+
+
+def test_F_X_9_d357_a_session_may_not_sit_in_another_streams_folder(rules: Ownership) -> None:
+    problems = check_session("D:/x/StrategyFactory_B", "a/T11-parity", rules, "A")
+    assert len(problems) == 1
+    assert "belongs to stream B" in problems[0] and "do not own" in problems[0]
+    other = check_session("D:/x/StrategyFactory", "b/T04i", rules, "B")
+    assert any("belongs to stream A" in p for p in other)
+
+
+def test_F_X_9_d357_the_spawned_session_incident_is_caught(rules: Ownership) -> None:
+    """The real 2026-09-21 case: a spawned session in stream A's folder on its own branch."""
+    problems = check_session("D:/x/StrategyFactory", "a/fix-metrics-fixture-prices", rules, None)
+    assert problems, "a spawned session in stream A's folder must fail the check"
+    assert any("needs its own worktree" in p for p in problems)
+    assert any("git worktree add" in p for p in problems)
+    # the same session in a worktree of its own is fine
+    assert check_session("D:/x/wt_fix", "a/fix-metrics-fixture-prices", rules, None) == []
+
+
+def test_F_X_9_d357_a_scratch_worktree_is_allowed(rules: Ownership) -> None:
+    """A folder no stream owns is a worktree of the session's own -- exactly what D-357 asks."""
+    assert check_session("D:/x/wt_T11", "a/T11-parity", rules, "A") == []
+    assert check_session("D:/x/somewhere_else", "b/T04i", rules, "B") == []
+
+
+def test_F_X_9_d357_a_detached_head_is_caught(rules: Ownership) -> None:
+    """`git checkout <sha>` in somebody else's folder leaves exactly this state."""
+    for stream in ("A", None):
+        problems = check_session("D:/x/wt_T11", "", rules, stream)
+        assert any("detached HEAD" in p for p in problems), stream
+    # and in a stream's own folder it is still wrong: a session works on its own branch
+    assert any("detached HEAD" in p for p in check_session("D:/x/StrategyFactory", "", rules, "A"))
+
+
+def test_F_X_9_d357_a_helper_that_names_its_stream_has_its_branch_checked(
+    rules: Ownership,
+) -> None:
+    """Naming the stream buys the prefix check; it still does not open that stream's folder."""
+    assert check_session("D:/x/wt_fix", "a/fix-metrics", rules, "A") == []
+    foreign = check_session("D:/x/wt_fix", "b/T04i", rules, "A")
+    assert len(foreign) == 1 and "belongs to stream B, not stream A" in foreign[0]
+    assert any(
+        "needs its own worktree" in p
+        for p in check_session("D:/x/StrategyFactory", "a/fix-metrics", rules, None)
+    )
+
+
+def test_F_X_9_d357_branch_prefix_must_match_the_stream(rules: Ownership) -> None:
+    problems = check_session("D:/x/StrategyFactory", "b/T04i", rules, "A")
+    assert any("belongs to stream B, not stream A" in p for p in problems)
+    assert check_session("D:/x/StrategyFactory", "a/T11", rules, "Z") == [
+        "unknown stream 'Z'; known: ['A', 'B']"
+    ]
+
+
+def test_F_X_9_d357_session_cli_passes_in_its_own_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(
+        "strategy_factory.core.cli_streams._git",
+        lambda *a: "D:/x/StrategyFactory_T11\n" if a[0] == "rev-parse" else "a/T11-parity\n",
+    )
+    result = CliRunner().invoke(app, ["streams", "session"])
+    assert result.exit_code == 0, result.output
+    assert "own worktree" in result.output
+
+
+def test_F_X_9_d357_session_cli_fails_in_another_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(
+        "strategy_factory.core.cli_streams._git",
+        lambda *a: "D:/x/StrategyFactory\n" if a[0] == "rev-parse" else "a/fix-something\n",
+    )
+    result = CliRunner().invoke(app, ["streams", "session"])
+    assert result.exit_code == 1
+    assert "FAIL session setup" in result.output
+    assert "Do NOT switch branches" in result.output
+
+
+def test_F_X_9_d357_protocol_states_the_worktree_rule() -> None:
+    """The rule must be written down where a session reads it, not only in code."""
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "own git worktree" in protocol
+    assert "may never switch the checkout of a folder it does not own" in protocol
+    assert "sfac streams session" in protocol  # the session-start check
+    assert "git worktree add" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    d357 = next(line for line in log.splitlines() if line.startswith("| D-357 |"))
+    assert "own git worktree" in d357 and "spawned" in d357
+
+
+# -- D-369: an amendment in place is not a duplicate -----------------------------------------
+def test_F_X_9_d369_an_amended_row_is_not_a_duplicate(rules: Ownership) -> None:
+    existing = ["| D-357 | old text |", "| D-356 | x |"]
+    amended = ["| D-357 | new text |"]
+    removed = ["| D-357 | old text |"]
+    assert check_ids("A", amended, existing, rules, removed) == []
+    # without the removal it is still a second row with the same id
+    assert any("duplicate id" in p for p in check_ids("A", amended, existing, rules))
+    # an amendment still has to pass the range check: stream A may not rewrite a D-380 row
+    foreign = check_ids(
+        "A", ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(foreign) == 1 and "outside stream A's range" in foreign[0]
+
+
+def test_F_X_9_d369_a_deleted_row_always_fails(rules: Ownership) -> None:
+    problems = check_ids("A", [], ["| D-356 | x |"], rules, ["| D-356 | x |"])
+    assert len(problems) == 1
+    assert "removed from the log" in problems[0] and "never deleted" in problems[0]
+    # a grandfathered branch may not delete rows either
+    assert check_ids(None, [], ["| D-356 | x |"], rules, ["| D-356 | x |"]) != []
+
+
+def test_F_X_9_d369_this_branch_amends_d357_and_passes_the_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must accept exactly what this branch does to D-357 (1)."""
+    monkeypatch.chdir(REPO)
+    old = "| D-357 | **Stream protocol** old text | accepted |"
+    new = "| D-357 | **Stream protocol** amended text | accepted |"
+    monkeypatch.setattr("strategy_factory.core.cli_streams.added_rows", lambda base, f: [new])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.removed_rows", lambda base, f: [old])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.base_rows", lambda base, f: [old])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.changed_paths", lambda base: [])
+    result = CliRunner().invoke(
+        app, ["streams", "check", "--base", "HEAD", "--branch", "a/protocol-worktrees"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "ok   decision / pending ids" in result.output
+
+
+def test_F_X_9_d369_an_unprefixed_branch_may_not_amend(rules: Ownership) -> None:
+    """No range check applies to a grandfathered branch, so an amendment there is unguarded."""
+    problems = check_ids(
+        None, ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(problems) == 1 and "may not amend" in problems[0]
+    # it may still add a new row in any range, as before
+    assert check_ids(None, ["| D-380 | new |"], ["| D-356 | x |"], rules) == []
+
+
+def test_F_X_9_d369_a_stream_may_not_amend_another_streams_row(rules: Ownership) -> None:
+    amend_b = check_ids(
+        "A", ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(amend_b) == 1 and "outside stream A's range" in amend_b[0]
+    amend_a = check_ids(
+        "B", ["| P-44 | rewritten |"], ["| P-44 | old |"], rules, ["| P-44 | old |"]
+    )
+    assert len(amend_a) == 1 and "outside stream B's range" in amend_a[0]
+    # its own rows are fine
+    assert (
+        check_ids("A", ["| D-360 | amended |"], ["| D-360 | old |"], rules, ["| D-360 | old |"])
+        == []
+    )
+
+
+def test_F_X_9_d369_a_supervisor_row_may_be_amended_by_either_stream(rules: Ownership) -> None:
+    """What this branch does to D-357. The guard allows it; the supervisor's word authorises it.
+
+    Documented as a stated limit of D-369: the guard cannot tell an instructed amendment of a
+    supervisor row from an uninstructed one, exactly as it cannot for a newly added one.
+    """
+    for stream in ("A", "B"):
+        for number in (357, 600):
+            row_old = [f"| D-{number} | old |"]
+            row_new = [f"| D-{number} | amended |"]
+            assert check_ids(stream, row_new, row_old, rules, row_old) == [], (stream, number)
+
+
+def test_F_X_9_d369_removed_rows_reads_real_git_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`git diff -U0` opens each file with `--- a/<path>`; that is a header, not a removed row."""
+    from strategy_factory.core.cli_streams import added_rows, removed_rows
+
+    monkeypatch.chdir(REPO)
+    files = ("docs/decisions/decisions_log.md",)
+    raw = subprocess.run(
+        ["git", "diff", "-U0", "HEAD~1..HEAD", "--", *files],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO,
+    ).stdout
+    assert any(line.startswith("--- ") for line in raw.splitlines()), "no file header to ignore"
+    removed = removed_rows("HEAD~1", files)
+    assert not any(line.startswith("-") for line in removed), removed  # no `--- a/...` leaked
+    assert not any(line.startswith("+") for line in added_rows("HEAD~1", files))
+    # and the parsed ids of a real diff are table rows, not diff noise
+    for kind, number in parse_ids(removed) + parse_ids(added_rows("HEAD~1", files)):
+        assert kind in ("D", "P") and number > 0

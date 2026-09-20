@@ -12,8 +12,10 @@ from strategy_factory.core.errors import ConfigError, SfacError
 from strategy_factory.core.streams import (
     DEFAULT_OWNERSHIP,
     check_all,
+    check_session,
     load_ownership,
     read_migrations,
+    stream_of_folder,
 )
 
 streams_app = typer.Typer(
@@ -54,6 +56,21 @@ def added_rows(base: str, files: tuple[str, ...]) -> list[str]:
     ]
 
 
+def removed_rows(base: str, files: tuple[str, ...]) -> list[str]:
+    """Lines this branch **removes** from ``files`` (without the leading ``-``).
+
+    Together with :func:`added_rows` this tells an amendment in place from a deletion or a
+    duplicate id (D-369).
+    """
+    merge_base = _git("merge-base", base, "HEAD").strip()
+    diff = _git("diff", "-U0", f"{merge_base}..HEAD", "--", *files)
+    return [
+        line[1:]
+        for line in diff.splitlines()
+        if line.startswith("-") and not line.startswith("---")
+    ]
+
+
 def base_rows(base: str, files: tuple[str, ...]) -> list[str]:
     """The rows those files already had at the merge base."""
     merge_base = _git("merge-base", base, "HEAD").strip()
@@ -90,6 +107,7 @@ def streams_check(
             base_rows(base, files),
             read_migrations(versions),
             rules,
+            removed_rows(base, files),
         )
     except SfacError as exc:
         typer.echo(f"error: {exc}", err=True)
@@ -109,3 +127,45 @@ def streams_check(
             typer.echo(f"ok   {GUARD_TITLES[guard]}")
     if failed:
         raise typer.Exit(code=1)
+
+
+@streams_app.command("session")
+def streams_session(
+    stream: Annotated[
+        str | None,
+        typer.Option(help="The stream this session IS (A / B); omit for a spawned or helper one."),
+    ] = None,
+    ownership: Annotated[Path, typer.Option(help="Ownership file.")] = DEFAULT_OWNERSHIP,
+) -> None:
+    """Session-start check (D-357 (1) and (5)): the worktree and branch must match the session.
+
+    Every session works in its **own worktree on its own branch** and may never switch the
+    checkout of a folder it does not own. A spawned or helper session **omits** ``--stream``
+    and must be in a folder no stream owns; passing ``--stream`` from a stream's folder claims
+    to *be* that stream, which is the incident D-357 (1) exists for. A worktree no stream owns
+    is always allowed -- that is what a scratch worktree is.
+    """
+    try:
+        rules = load_ownership(ownership)
+        folder = _git("rev-parse", "--show-toplevel").strip()
+        branch = _git("branch", "--show-current").strip()
+        problems = check_session(folder, branch, rules, stream)
+    except SfacError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    owner = stream_of_folder(folder, rules)
+    typer.echo(f"worktree: {folder}")
+    typer.echo(f"branch  : {branch or '(detached)'}")
+    typer.echo(f"folder  : {'stream ' + owner if owner else 'no stream (own worktree)'}")
+    if problems:
+        typer.echo("\nFAIL session setup (D-357 (1)):", err=True)
+        for problem in problems:
+            typer.echo(f"  - {problem}", err=True)
+        typer.echo(
+            "\nStop and report. Do NOT switch branches to fix this -- "
+            "that is the move D-357 (1) forbids.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo("ok   this session is in its own worktree on its own branch")
