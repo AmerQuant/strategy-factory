@@ -1,4 +1,4 @@
-# HANDOFF — Strategy Factory (v4, 2026-09-20)
+# HANDOFF — Strategy Factory (v5, 2026-09-21)
 
 Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0), `docs/decisions/pending.md`, the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`) and the feature list (`docs/features.md`).
 
@@ -33,35 +33,63 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | T04e | Data-layer follow-up (hash v2, calendar, renames, pilots) | ✅ merged (#4) — **phase-B pilot analysis pending the Alpaca hourly download** |
 | T05 | Data quality, resampling, split manager | ✅ merged (batch 2a, #7) |
 | T06 | Cost model (placeholder profiles) | ✅ merged (batch 2a, #7) |
-| T06b | Moneta cost profiles, broker mapping, broker universe | 🟡 **done, blocked on P-28** — branch `feat/T06b-moneta-costs` (3096c72), review + addendum written, D-350 applied, D-341 rebuild done (471 mapped, 106 review rows). Waiting for the user's `-IncludeInactive` asset list and `symbol_overrides.csv`. |
+| T06b | Moneta cost profiles, broker mapping, broker universe | 🟡 **done, blocked on P-28** — PR [#13](https://github.com/AmerQuant/strategy-factory/pull/13), branch `feat/T06b-moneta-costs` (3096c72). D-350 applied, D-341 rebuild done (471 mapped, 106 review rows). Waiting for the user's `-IncludeInactive` asset list and `symbol_overrides.csv`. |
 | T07 | Components and indicators | ✅ merged (#6) |
-| T08 | Engine — **critical (D-402)** | 🟢 **approved by the supervisor**, awaiting merge — branch `feat/T08-engine` (c39da49 + docs), stacked on T06b. Merge **after** T06b, rebased onto `main`, CI green. |
+| T08 | Engine — **critical (D-402)** | 🟢 **approved**, awaiting merge — PR [#14](https://github.com/AmerQuant/strategy-factory/pull/14), branch `feat/T08-engine`, stacked on T06b. Merge **after** T06b, rebased onto `main`, CI green. |
 | T09 | Metrics and result containers | ✅ merged (#8) |
 | T10a | Gate engine, pipeline config, universe | ✅ merged (batch 2a, #7) |
-| T10b | Executor (F-0.3.7) + metric-name registry, run-level config hash, holdout stage guard | 📝 **planned** — task file `docs/tasks/T10b_executor_metric_names.md` (d3aaa69); plan approved with three additions (§5 below). Sections 2 and 4 are **critical (D-339)**. |
-| T11 … T15 | Parity, stages 1–3, orchestrator/CLI/reports/self-tests | later |
+| T10b | Executor (F-0.3.7), metric-name registry, run config hash, holdout stage guard | 🟢 **done and approved** (both CRITICAL parts, D-339) — PR [#15](https://github.com/AmerQuant/strategy-factory/pull/15), branch `feat/T10b-executor-metric-names`, stacked on T08. Review: `docs/reviews/T10b_review.md`. |
+| T11 | Parity (TradingView) — **critical (D-402)** | ⏭ next; references exist (D-348), notes in §8 |
+| T12 … T15 | Stages 1–3, orchestrator/CLI/reports/self-tests | later; T12 carries D-354 (§5) |
 
-## 4. Batch 2b status
+## 4. Batch 2b status — complete, awaiting merges
 
-`main` = `docs/batch2b` merged (PR #11, 6a30bc3). D-312 … D-350 are in the decisions log; **no open batch-2b `P-` questions** (`pending.md`: P-05 … P-35 all answered; P-28's *coverage criterion* still needs the user's overrides).
+`main` = `docs/batch2b` (PR #11) + `docs/batch2b-2` (PR #12, D-351 … D-354). **All three batch-2b
+tasks are implemented, reviewed and approved.** `pending.md` has no open questions left; P-28's
+coverage criterion still needs the user's overrides (D-341).
 
-Branch stack: `main` → `feat/T06b-moneta-costs` → `feat/T08-engine` (→ `feat/T10b-…` next).
+Branch stack: `main` → `feat/T06b-moneta-costs` → `feat/T08-engine` → `feat/T10b-executor-metric-names`.
 
-| Task | Branch | Review | Next step |
-|---|---|---|---|
-| T06b | `feat/T06b-moneta-costs` | `docs/reviews/T06b_review.md` (+ 2026-09-20 addendum) | user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` → rebuild → user fills `configs/costs/moneta/symbol_overrides.csv` → coverage criterion closes |
-| T08 | `feat/T08-engine` | `docs/reviews/T08_review.md` (+ addendum) | approved; merge after T06b |
-| T10b | `feat/T10b-…` (to create) | — | execute the approved plan |
+| Task | PR | Base | Review | State |
+|---|---|---|---|---|
+| T06b | [#13](https://github.com/AmerQuant/strategy-factory/pull/13) | `main` | `docs/reviews/T06b_review.md` (+ addendum) | blocked on P-28 |
+| T08 | [#14](https://github.com/AmerQuant/strategy-factory/pull/14) | `feat/T06b-moneta-costs` | `docs/reviews/T08_review.md` (+ addendum) | approved |
+| T10b | [#15](https://github.com/AmerQuant/strategy-factory/pull/15) | `feat/T08-engine` | `docs/reviews/T10b_review.md` (+ addendum) | approved |
 
-Merge order: T06b → T08 → T10b, each rebased onto `main`, CI green (ruff, format, mypy, fast suite, parity + leakage + oracle, `-m db` with 0 skipped). Merge only on "Approved. Merge …" (D-401).
+### Merge sequence (D-401: only on "Approved. Merge …", CI green)
 
-## 5. T10b plan additions (approved 2026-09-20)
+1. **P-28 closes first:** the user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` and
+   names the file; then `sfac costs moneta build` + `sfac universe generate` are repeated and the
+   user fills `configs/costs/moneta/symbol_overrides.csv`. T06b's coverage criterion (548/548)
+   closes and its generated files are rebuilt on the branch.
+2. **T06b → `main`**, then **T08 → `main`**, then **T10b → `main`**, each rebased onto `main` with
+   CI green.
 
-The task file `docs/tasks/T10b_executor_metric_names.md` was approved with these changes; everything else in it stands.
+**Known merge mechanics (checked with a merge probe, 2026-09-21):** only
+`docs/decisions/pending.md` conflicts, and only at the end of its table, because `main` already
+carries P-36 … P-38 while the branches carry P-28 … P-30 (T06b) and P-31 … P-35 (T08).
+**Resolution: keep every row, in ID order.** `decisions_log.md` and all code files auto-merge
+cleanly. T10b's `pending.md` was already aligned with `main`, so it does not conflict.
 
-- **(a) `config_hash` must also cover the cost inputs:** the resolved cost-profile content hash per symbol, the Moneta spec SHA-256, `configs/data/fx_conversion.yaml` (pairs and peg) and the conversion pairs' snapshot hashes. Tests: regenerating a profile with a different spread changes the hash; `sfac reproduce` fails loudly when the stored cost hash no longer matches.
-- **(b) The allowed holdout stage (`s06_robust`) is a constant in code, not a config value** (D-306: enforced in code). A test proves that no config can change it.
-- **(c) The run row stores the code version** (git commit + dirty flag) if it does not already — **stored, not hashed**.
+## 5. Decisions from the T10b review (2026-09-21) and the T12 notes
+
+- **D-351** (P-36) — the executor `auto` budget: both `auto` → `workers = floor(sqrt(cpu))`,
+  `numba_threads = cpu // workers`; one given → the other is `max(1, cpu // given)`; both given
+  and over `cpu_count` → error (D-334). Accepted on the T10b benchmark (20 cores: 4 × 5 fastest);
+  **revisit if the stage-2/3 grid shapes differ.**
+- **D-352** (P-37, changed) — `code_version` is `<sha>-dirty` for uncommitted tracked changes **or
+  untracked files under `src/` or `configs/`**; untracked files elsewhere do not count. Stored,
+  never hashed. Implemented on the T10b branch.
+- **D-353** (P-38) — until T04d there is no futures flag in a pipeline config, so
+  `validate_config` requires `parity_qty_step` for every `tradingview` run while `run_backtest`
+  keeps the futures exemption (contracts, D-329). T04d adds the flag and the same exemption.
+- **D-354 — T12 notes (carry into the T12 task file and its acceptance):**
+  1. Stage code takes the engine settings **only** from the run's `PipelineConfig.engine`;
+     `DEFAULT_ENGINE_CONFIG` is forbidden in stage code (**grep test**), so `config_hash`
+     describes what the run actually reads.
+  2. A stage passes its stage id from its own stage constant; a **grep test** ensures the literal
+     `"s06_robust"` appears only in `data/split.py` and the stage-6 module.
+  3. F-0.7.4 stays **partial** until the bit-identical rerun through `RunContext` is proven.
 
 ## 6. Data status
 
@@ -80,11 +108,11 @@ Data expansion is frozen until the project is built (D-030).
 
 ## 7. Open items
 
-- **P-28 — broker mapping coverage (blocks T06b).** The user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` and gives Claude Code the file name; then `sfac costs moneta build` + `sfac universe generate` are repeated and the user fills `configs/costs/moneta/symbol_overrides.csv` for what is left (106 review rows today: 17 same ticker/no name, 13 same ticker/other wording — `AMCX` is suspicious —, 48 name-only, 27 no match, 1 unmappable `ALIBABA`). The 548/548 criterion stays open until then (D-341).
+- **P-28 — broker mapping coverage (blocks T06b, in progress).** The user is running `scripts/download_alpaca_assets.ps1 -IncludeInactive`; next is `sfac costs moneta build` + `sfac universe generate` and the user's `configs/costs/moneta/symbol_overrides.csv` for what is left (106 review rows today: 17 same ticker/no name, 13 same ticker/other wording — `AMCX` is suspicious —, 48 name-only, 27 no match, 1 unmappable `ALIBABA`). The 548/548 criterion stays open until then (D-341).
 - **`universe_filter` must go back to `broker` (D-342, D-524)** in `configs/pipeline/mvp_daily.yaml` before the first real stage-1 run. It runs with `all` only while P-28 is open.
 - **P-04 is closed by D-348.** The TradingView exports exist; T11 runs parity mode on the exported OHLC as-is (no D-010 Sunday merge, no resampling, no Alpaca/Dukascopy bars), with the Pine settings recorded in the parity config.
 - P-01 (edge-type addendum) and P-02 (futures, blocks T04d) are in the decisions log, section G. P-03 (broker costs) is addressed by T06b.
-- `pending.md` has no open batch-2b questions.
+- `pending.md` has no open questions: P-36 … P-38 were answered by D-351 … D-353.
 
 ## 8. T11 notes (parity only — check before or during T11)
 
