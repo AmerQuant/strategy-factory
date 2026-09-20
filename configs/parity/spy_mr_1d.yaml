@@ -32,6 +32,11 @@ engine:
   disaster_stop_atr: 3.0         # script input "Disaster stop (ATR)" = 3
   atr_length: 14                 # must equal pine.atr_length (D-343)
   futures_contracts: 1
+  parity_tick_size: 0.01          # D-366: syminfo.mintick, from the report's
+                                 # Properties sheet ("Tick size"); must equal
+                                 # pine.tick_size
+  entry_requires_flat_at_signal: true   # D-367: the script gates on
+                                 # `strategy.position_size == 0` at the signal close
   parity_qty_step: 1             # D-347: BATS:SPY
 
 # strategy: the Pine rules are RSI(2) < 10 entry, exit on close > previous high, 5-bar time

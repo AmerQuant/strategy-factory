@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 import yaml
 
+from strategy_factory.core.config import EngineConfig
 from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.core.parity_config import (
     PARITY_DIR,
@@ -68,6 +69,7 @@ ENGINE: dict[str, Any] = {
     "atr_length": 14,
     "futures_contracts": 1,
     "parity_qty_step": 1,
+    "parity_tick_size": 0.01,
 }
 
 
@@ -640,3 +642,90 @@ def test_F_0_3_8_the_repo_parity_configs_describe_the_real_references() -> None:
         for field, value in from_source.items():
             assert recorded[field] == value, f"{cfg_name}: {field}"
         assert cross_check_properties(recorded, load_properties(fixture(xlsx), mani)) == []
+
+
+# -- D-366 / D-367: the two parity-only engine options ---------------------------------------
+def test_F_0_3_8_d366_tick_rounding_applies_only_in_parity_mode() -> None:
+    """The option reaches the engine in parity mode and never in research mode."""
+    from strategy_factory.pipeline.backtest import parity_inputs
+
+    cfg = EngineConfig(
+        parity_qty_step=1.0, parity_tick_size=0.01, entry_requires_flat_at_signal=True
+    )
+    parity = parity_inputs(cfg, "tradingview")
+    assert parity.tick_size == 0.01 and parity.entry_requires_flat is True
+    research = parity_inputs(cfg, "pessimistic")
+    assert research.tick_size is None and research.entry_requires_flat is False
+
+
+def test_F_0_3_8_d366_engine_defaults_are_the_research_behaviour() -> None:
+    cfg = EngineConfig()
+    assert cfg.parity_tick_size is None
+    assert cfg.entry_requires_flat_at_signal is False
+
+
+def test_F_0_3_8_d366_ticks_round_half_away_from_zero() -> None:
+    from strategy_factory.engine.kernel import _ticks
+
+    assert _ticks(0.025, 0.01) == pytest.approx(0.03)  # half rounds up, not to even
+    assert _ticks(0.035, 0.01) == pytest.approx(0.04)
+    assert _ticks(0.0249, 0.01) == pytest.approx(0.02)
+    assert _ticks(1.234, 0.0) == pytest.approx(1.234)  # no tick size: unchanged
+
+
+def test_F_0_3_8_d366_parity_config_requires_the_mintick(tmp_path: Path) -> None:
+    from strategy_factory.core.parity_config import ParityConfig
+
+    base = config_dict()
+    base["engine"] = {**ENGINE, "parity_tick_size": None}
+    with pytest.raises(ValueError, match="parity_tick_size"):
+        ParityConfig.model_validate(base)
+    base["engine"] = {**ENGINE, "parity_tick_size": 0.05}
+    with pytest.raises(ValueError, match="must equal the symbol's tick size"):
+        ParityConfig.model_validate(base)
+    base["engine"] = {**ENGINE, "parity_tick_size": 0.01}
+    assert ParityConfig.model_validate(base).engine.parity_tick_size == 0.01
+
+
+def test_F_0_3_8_d367_flat_gate_blocks_a_same_close_reentry() -> None:
+    """The engine re-enters on the close that schedules an exit; the gate stops it (D-336)."""
+    import numpy as np
+
+    from strategy_factory.engine.api import (
+        CostInputs,
+        ExitParams,
+        MarketArrays,
+        ParityInputs,
+        SizingInputs,
+        simulate,
+    )
+
+    n = 12
+    close = np.full(n, 100.0)
+    market = MarketArrays(close.copy(), close + 1, close - 1, close.copy(), np.full(n, 1.0))
+    entry = np.ones(n, dtype=np.bool_)  # a signal on every bar
+    exit_sig = np.zeros(n, dtype=np.bool_)
+    exit_sig[3] = True  # schedules an exit at the close of bar 3, filling at bar 4's open
+    exit_sig[7] = True  # and a second one, so the re-entered trade closes and is visible
+    zeros = np.zeros(n)
+    costs = CostInputs(
+        zeros.copy(), zeros.copy(), 0.0, zeros.copy(), zeros.copy(),
+        np.zeros(n, dtype=np.bool_), np.zeros(n, dtype=np.bool_), (0, 0.0, 0.0, 0.0),
+    )  # fmt: skip
+    sizing = SizingInputs(mode=0, notional=1000.0, initial_capital=100_000.0)
+    exits = ExitParams(disaster_atr=99.0)
+
+    def run(flat_gate: bool) -> list[int]:
+        r = simulate(
+            market, entry, exit_sig, 1, exits, costs, sizing, 1,
+            parity=ParityInputs(entry_requires_flat=flat_gate),
+        )  # fmt: skip
+        return r.entry_idx.tolist()
+
+    default, gated = run(False), run(True)
+    assert default[0] == gated[0] == 1  # the first entry is the same
+    # D-336: the default re-enters at the very open where the exit filled (bar 4)
+    assert default[1] == 4
+    # D-367: the Pine gate refuses that re-entry, so the next entry is a bar later
+    assert gated[1] == 5
+    assert default != gated

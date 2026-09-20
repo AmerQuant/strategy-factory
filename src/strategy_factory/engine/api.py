@@ -52,6 +52,19 @@ class SizingInputs:
 
 
 @dataclass(frozen=True)
+class ParityInputs:
+    """Behaviour a parity run mirrors from TradingView; both are off in research mode.
+
+    ``tick_size`` rounds stop and target distances to whole ticks measured from the fill
+    (D-366); ``entry_requires_flat`` refuses a re-entry on the close that schedules the exit,
+    like Pine's ``strategy.position_size == 0`` gate (D-367, default = D-336).
+    """
+
+    tick_size: float | None = None
+    entry_requires_flat: bool = False
+
+
+@dataclass(frozen=True)
 class ExitParams:
     time_exit_bars: int = 0  # 0 = unused
     sl_atr: float = math.nan  # NaN = unused
@@ -115,6 +128,7 @@ def _common(
     fx_close: Any,
     s: SizingInputs,
     intrabar_mode: int,
+    parity: ParityInputs,
 ) -> tuple[Any, ...]:
     n = np.asarray(m.close).shape[0]
     if n < 2:
@@ -148,7 +162,7 @@ def _common(
         int(s.mode), float(s.notional), float(s.contracts), float(s.point_value),
         float(s.contract_size), float(s.volume_step), float(s.min_volume),
         float(s.parity_qty_step or 0.0), float(s.step_rel_tol), float(s.initial_capital),
-        int(intrabar_mode),
+        int(intrabar_mode), float(parity.tick_size or 0.0), bool(parity.entry_requires_flat),
     )  # fmt: skip
 
 
@@ -163,18 +177,19 @@ def simulate(
     intrabar_mode: int,
     fx_open: Any = None,
     fx_close: Any = None,
+    parity: ParityInputs | None = None,
 ) -> SimResult:
     """One run with its trade list (see :mod:`strategy_factory.engine.kernel`)."""
     a = _common(market, direction, exits.disaster_atr, costs, fx_open, fx_close, sizing,
-                intrabar_mode)  # fmt: skip
+                intrabar_mode, parity or ParityInputs())  # fmt: skip
     n = a[0].shape[0]
     (o, h, lo, c, atr, d, dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im) = a  # fmt: skip
+     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im, ptk, erf) = a  # fmt: skip
     out = k.simulate_one(
         o, h, lo, c, atr, _b(entry_sig, n, "entry_sig"), _b(exit_sig, n, "exit_sig"), d,
         int(exits.time_exit_bars), float(exits.sl_atr), float(exits.tp_atr),
         float(exits.trail_atr), dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im,
+        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im, ptk, erf,
     )  # fmt: skip
     fields_: list[Any] = [*out[:18], float(out[19]), int(out[20])]
     return SimResult(*fields_)
@@ -195,10 +210,11 @@ def simulate_grid(
     intrabar_mode: int,
     fx_open: Any = None,
     fx_close: Any = None,
+    parity: ParityInputs | None = None,
 ) -> GridResult:
     """Many configurations (columns) in parallel (``prange``); metrics inputs only."""
     a = _common(market, direction, disaster_atr, costs, fx_open, fx_close, sizing,
-                intrabar_mode)  # fmt: skip
+                intrabar_mode, parity or ParityInputs())  # fmt: skip
     n = a[0].shape[0]
     ent = np.asarray(entry_matrix, dtype=np.bool_)
     ext = np.asarray(exit_matrix, dtype=np.bool_)
@@ -213,12 +229,12 @@ def simulate_grid(
         return arr
 
     (o, h, lo, c, atr, d, dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im) = a  # fmt: skip
+     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im, ptk, erf) = a  # fmt: skip
     eq, ip, ncl, nsk = k.simulate_grid_kernel(
         o, h, lo, c, atr, ent, ext, d,
         col(time_exit_bars, np.int64, "time_exit_bars"), col(sl_atr, np.float64, "sl_atr"),
         col(tp_atr, np.float64, "tp_atr"), col(trail_atr, np.float64, "trail_atr"), dis,
         hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im,
+        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im, ptk, erf,
     )  # fmt: skip
     return GridResult(eq, ip, ncl, nsk)

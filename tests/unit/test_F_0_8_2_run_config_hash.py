@@ -158,11 +158,17 @@ def test_F_0_8_2_engine_yaml_and_model_defaults_cannot_drift() -> None:
     path = REPO / "configs" / "engine" / "default.yaml"
     from_yaml = yaml.safe_load(path.read_text(encoding="utf-8"))
     defaults = EngineConfig()
-    assert set(from_yaml) == set(EngineConfig.model_fields) - {"parity_qty_step"}
+    # the two fields with no meaningful default stay commented out in the YAML (D-347, D-366)
+    no_default = {"parity_qty_step", "parity_tick_size"}
+    assert set(from_yaml) == set(EngineConfig.model_fields) - no_default
     for key, value in from_yaml.items():
         assert value == getattr(defaults, key), f"{key}: YAML {value} != model default"
     assert defaults.parity_qty_step is None  # no default: a parity run must state it (D-347)
-    assert "# parity_qty_step" in path.read_text(encoding="utf-8")  # documented, not set
+    assert defaults.parity_tick_size is None  # likewise the mintick (D-366)
+    text = path.read_text(encoding="utf-8")
+    for key in no_default:
+        assert f"# {key}" in text, f"{key} must be documented in the YAML, commented out"
+    assert defaults.entry_requires_flat_at_signal is False  # D-367: the research behaviour
 
 
 @pytest.mark.parametrize(

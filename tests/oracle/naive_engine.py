@@ -91,6 +91,7 @@ def run(
     notional: float = 100_000.0, contracts: float = 1.0, point_value: float = 1.0,
     contract_size: float = 1.0, step: float = 1.0, min_volume: float = 1.0,
     parity_qty_step: float | None = None, step_tol: float = 1e-9,
+    parity_tick: float | None = None, entry_requires_flat: bool = False,
     capital: float = 100_000.0, mode: str = "pessimistic",
 ) -> NaiveResult:  # fmt: skip
     n = len(c)
@@ -184,16 +185,31 @@ def run(
             else:
                 a = atr[s]
                 base = o[j]
-                stops = {DISASTER_STOP: base - dr * disaster * a}
-                if sl is not None:
-                    stops[STOP_LOSS] = base - dr * sl * a
-                if trail is not None:
-                    stops[TRAILING_STOP] = base - dr * trail * a
                 fill = base + dr * fill_cost(j)
+
+                # D-366: with a tick size the distance is whole ticks (math.round, half away
+                # from zero) measured from the FILL; without one it is unrounded from the open.
+                def lvl(
+                    mult: float,
+                    sign: float = -1.0,
+                    _a: float = a,
+                    _base: float = base,
+                    _fill: float = fill,
+                ) -> float:
+                    if parity_tick:
+                        ticks = math.floor(abs(mult * _a) / parity_tick + 0.5) * parity_tick
+                        return _fill + sign * dr * ticks
+                    return _base + sign * dr * mult * _a
+
+                stops = {DISASTER_STOP: lvl(disaster)}
+                if sl is not None:
+                    stops[STOP_LOSS] = lvl(sl)
+                if trail is not None:
+                    stops[TRAILING_STOP] = lvl(trail)
                 cm = commission(comm_code, comm_p, qty, fill)
                 pos = Position(
                     j, base, fill, qty, a, stops,
-                    None if tp is None else base + dr * tp * a, trail, base,
+                    None if tp is None else lvl(tp, 1.0), trail, base,
                     {
                         "spread": qty * half_spread[j] * point_value * fxc[j],
                         "slip": qty * (slip_fixed[j] + slip_frac * a) * point_value * fxc[j],
@@ -258,7 +274,10 @@ def run(
             costs = p.entry_costs["spread"] + p.entry_costs["slip"] + p.entry_costs["comm"] + p.swap
             open_pnl = dr * p.qty * (c[j] - p.base) * point_value * fxc[j] - costs
         flat_or_leaving = pos is None or want_exit is not None
-        if entry[j] and j < n - 1 and atr[j] > 0 and flat_or_leaving:
+        # D-367: with `entry_requires_flat` the Pine gate `strategy.position_size == 0`
+        # refuses a re-entry on the close that schedules the exit.
+        may_enter = (pos is None) if entry_requires_flat else flat_or_leaving
+        if entry[j] and j < n - 1 and atr[j] > 0 and may_enter:
             want_entry = True
         res.equity.append(capital + realized + open_pnl)
         res.in_position.append(pos is not None)

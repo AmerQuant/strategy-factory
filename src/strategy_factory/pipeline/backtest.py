@@ -47,6 +47,7 @@ from strategy_factory.engine.api import (
     CostInputs,
     ExitParams,
     MarketArrays,
+    ParityInputs,
     SimResult,
     SizingInputs,
     simulate,
@@ -139,6 +140,20 @@ def sizing_inputs(
         step_rel_tol=STEP_REL_TOL,
         contracts=cfg.futures_contracts,
         point_value=futures.point_value if futures is not None else 1.0,
+    )
+
+
+def parity_inputs(cfg: EngineConfig, intrabar_mode: IntrabarMode) -> ParityInputs:
+    """The TradingView-mirroring options, **only** in parity mode (D-366, D-367).
+
+    A research run gets the defaults whatever the config says, so a stray parity setting can
+    never change a research result.
+    """
+    if intrabar_mode != "tradingview":
+        return ParityInputs()
+    return ParityInputs(
+        tick_size=cfg.parity_tick_size,
+        entry_requires_flat=cfg.entry_requires_flat_at_signal,
     )
 
 
@@ -249,6 +264,7 @@ def run_backtest(
         MODES[intrabar_mode],
         None if fx is None else fx.fx_open,
         None if fx is None else fx.fx_close,
+        parity_inputs(cfg, intrabar_mode),
     )
     meta = RunMeta(
         symbol=symbol,

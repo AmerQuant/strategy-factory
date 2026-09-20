@@ -87,6 +87,19 @@ def research_lots(notional_usd, price_usd, contract_size, volume_step, min_volum
 
 
 @njit(cache=True)
+def _ticks(distance, tick):
+    """``distance`` as whole ticks, rounded half **away from zero** like Pine's ``math.round``.
+
+    Pine writes stop and target distances as ``math.round(k * atr / syminfo.mintick)``; the
+    level is then that many ticks from the fill. ``math.floor(x + 0.5)`` is half-up, which for
+    a non-negative distance is half away from zero.
+    """
+    if tick <= 0.0:
+        return distance
+    return math.floor(abs(distance) / tick + 0.5) * tick
+
+
+@njit(cache=True)
 def _core(
     open_, high, low, close, atr, entry_sig, exit_sig, direction,
     time_exit_bars, sl_atr, tp_atr, trail_atr, disaster_atr,
@@ -94,7 +107,7 @@ def _core(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode, record,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat, record,
     t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
     t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
     equity, in_pos, realized_out,
@@ -215,14 +228,27 @@ def _core(
                 c_swap = 0.0
                 fav = 0.0
                 adv = 0.0
-                lvl_dis = e_base - d * disaster_atr * atr_e
-                if use_sl:
-                    lvl_sl = e_base - d * sl_atr * atr_e
-                if use_tp:
-                    lvl_tp = e_base + d * tp_atr * atr_e
-                if use_trail:
-                    lvl_tr = e_base - d * trail_atr * atr_e
-                    extreme = e_base
+                # D-366: in parity mode with a tick size, TradingView turns the distance into
+                # whole ticks (math.round, half away from zero) and measures it from the
+                # ACTUAL FILL price. Research mode keeps the unrounded level from the raw open.
+                if parity_tick > 0.0:
+                    lvl_dis = e_fill - d * _ticks(disaster_atr * atr_e, parity_tick)
+                    if use_sl:
+                        lvl_sl = e_fill - d * _ticks(sl_atr * atr_e, parity_tick)
+                    if use_tp:
+                        lvl_tp = e_fill + d * _ticks(tp_atr * atr_e, parity_tick)
+                    if use_trail:
+                        lvl_tr = e_fill - d * _ticks(trail_atr * atr_e, parity_tick)
+                        extreme = e_base
+                else:
+                    lvl_dis = e_base - d * disaster_atr * atr_e
+                    if use_sl:
+                        lvl_sl = e_base - d * sl_atr * atr_e
+                    if use_tp:
+                        lvl_tp = e_base + d * tp_atr * atr_e
+                    if use_trail:
+                        lvl_tr = e_base - d * trail_atr * atr_e
+                        extreme = e_base
         # ---------------------------------------------------------------- intrabar
         if in_trade:
             best = -1.0e300
@@ -311,7 +337,10 @@ def _core(
                 d * qty * (close[j] - e_base) * point_value * fx_close[j]
                 - c_spread - c_slip - c_comm - c_swap
             )  # fmt: skip
-        if entry_sig[j] and j < n - 1 and atr[j] > 0.0 and (not in_trade or pend_exit):
+        # D-367: `entry_requires_flat` mirrors Pine's `strategy.position_size == 0` gate, which
+        # refuses a re-entry on the close that schedules the exit. Default off = D-336.
+        may_enter = (not in_trade) if entry_requires_flat else (not in_trade or pend_exit)
+        if entry_sig[j] and j < n - 1 and atr[j] > 0.0 and may_enter:
             pend_entry = True
         equity[j] = initial_capital + realized + open_pnl
         in_pos[j] = in_trade
@@ -367,7 +396,7 @@ def simulate_one(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat,
 ):  # fmt: skip
     """One run with its trade list. Returns (trade arrays..., equity, in_position, realized,
     n_trades, open_pnl_end, n_skipped_min_volume)."""
@@ -397,7 +426,7 @@ def simulate_one(
         c_code, c_p0, c_p1, c_p2, comm_in_quote,
         fx_open, fx_close, sizing_mode, notional, contracts, point_value,
         contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-        initial_capital, intrabar_mode, True,
+        initial_capital, intrabar_mode, parity_tick, entry_requires_flat, True,
         t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
         t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
         equity, in_pos, realized,
@@ -418,7 +447,7 @@ def simulate_grid_kernel(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat,
 ):  # fmt: skip
     """Configurations = columns of ``entry_mat``/``exit_mat`` (``n x k``) and entries of the
     per-configuration exit parameter arrays (length ``k``). Returns ``equity (k x n)``,
@@ -445,7 +474,7 @@ def simulate_grid_kernel(
             c_code, c_p0, c_p1, c_p2, comm_in_quote,
             fx_open, fx_close, sizing_mode, notional, contracts, point_value,
             contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-            initial_capital, intrabar_mode, False,
+            initial_capital, intrabar_mode, parity_tick, entry_requires_flat, False,
             dummy_i, dummy_i, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f,
             dummy_f, dummy_f, dummy_f, dummy_i, dummy_f, dummy_f, dummy_f,
             eq, ip, realized,

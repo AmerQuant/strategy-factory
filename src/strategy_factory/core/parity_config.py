@@ -129,6 +129,16 @@ class ParityConfig(_Frozen):
             )
         if self.engine.initial_capital != self.pine.initial_capital:
             raise ValueError("engine.initial_capital must equal the Pine initial capital")
+        if self.engine.parity_tick_size is None:
+            raise ValueError(
+                "a parity run needs engine.parity_tick_size (D-366): the symbol's mintick, "
+                "which the Pine scripts divide the stop and target distances by"
+            )
+        if self.engine.parity_tick_size != self.pine.tick_size:
+            raise ValueError(
+                f"engine.parity_tick_size {self.engine.parity_tick_size} must equal the "
+                f"symbol's tick size {self.pine.tick_size} (D-366)"
+            )
         return self
 
     def canonical(self) -> dict[str, Any]:
