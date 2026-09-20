@@ -190,8 +190,59 @@ def test_F_0_8_2_parity_run_without_the_step_is_refused(tmp_path: Path) -> None:
     cfg = pipeline(tmp_path, intrabar_mode="tradingview")
     with pytest.raises(ConfigError, match="need parity_qty_step"):
         validate_config(cfg)
-    ok = cfg.model_copy(update={"engine": EngineConfig(parity_qty_step=1.0)})
+    ok = pipeline(
+        tmp_path,
+        intrabar_mode="tradingview",
+        engine={"parity_qty_step": 1.0, "atr_length": 14},  # D-343, see the next test
+    )
     validate_config(ok)
+
+
+def test_F_0_8_2_parity_run_must_state_the_pine_atr_length(tmp_path: Path) -> None:
+    """D-343: a parity run reproduces a Pine script, so it states that script's ATR length."""
+    from strategy_factory.core.config import PARITY_ATR_LENGTH_REQUIRED
+
+    implicit = pipeline(tmp_path, intrabar_mode="tradingview", engine={"parity_qty_step": 1.0})
+    assert implicit.engine.atr_length == 14  # the research default is there...
+    with pytest.raises(ConfigError, match=r"must set engine.atr_length explicitly"):
+        validate_config(implicit)  # ... but it was not chosen for this run
+    # stating it explicitly is enough, even when it equals the default
+    for length in (14, 21):
+        explicit = pipeline(
+            tmp_path,
+            intrabar_mode="tradingview",
+            engine={"parity_qty_step": 1.0, "atr_length": length},
+        )
+        validate_config(explicit)
+    assert PARITY_ATR_LENGTH_REQUIRED  # the message is shared, like the step message
+    # a research run is unaffected
+    validate_config(pipeline(tmp_path))
+
+
+def test_F_0_8_2_run_cannot_start_without_resolved_cost_inputs(
+    tmp_path: Path, store_root: Path
+) -> None:
+    """Costs are mandatory (CLAUDE.md rule 4): an unresolved run is refused at start."""
+    from strategy_factory.core.config import require_resolved, start_run
+
+    cfg = resolved(tmp_path, store_root)
+    assert require_resolved(cfg) is cfg
+    without = cfg.model_copy(update={"cost_inputs": None})
+    with pytest.raises(ConfigError, match="unresolved cost_inputs"):
+        require_resolved(without)
+    assert cfg.cost_inputs is not None
+    partial = cfg.model_copy(
+        update={"cost_inputs": cfg.cost_inputs.model_copy(update={"profiles": {}})}
+    )
+    with pytest.raises(ConfigError, match="unresolved cost_inputs"):
+        require_resolved(partial)
+
+    class Writer:
+        def start_run(self, *a: Any, **k: Any) -> None:
+            raise AssertionError("must not be reached")
+
+    with pytest.raises(ConfigError, match="unresolved cost_inputs"):
+        start_run(without, Writer())
 
 
 def test_F_0_8_2_parity_config_message_equals_the_engine_message(tmp_path: Path) -> None:
@@ -319,6 +370,48 @@ def test_F_0_8_2_check_cost_inputs_detects_a_changed_fx_config(
         stored, costs_dir=costs_dir(tmp_path), fx_config_path=fx_config(tmp_path, peg=7.90)
     )
     assert problems == ["configs/data/fx_conversion.yaml changed (pairs or pegs, D-307)"]
+
+
+def test_F_0_8_2_check_cost_inputs_detects_a_changed_conversion_pair(
+    tmp_path: Path, store_root: Path
+) -> None:
+    """A run's conversion pairs are part of its costs (D-316)."""
+    stored = resolved(tmp_path, store_root).canonical()
+    cdir = costs_dir(tmp_path)
+    profile = json.loads(json.dumps(PROFILE))
+    profile["quote_ccy"] = "EUR"  # the same run would now need EURUSD
+    (cdir / "test_share.yaml").write_text(yaml.safe_dump(profile), encoding="utf-8")
+    problems = check_cost_inputs(stored, costs_dir=cdir, fx_config_path=fx_config(tmp_path))
+    assert any("conversion pairs the run needs changed" in p for p in problems)
+    assert any("EURUSD" in p for p in problems)
+
+
+def test_F_0_8_2_moneta_spec_sha_is_recorded_when_a_moneta_profile_is_used(
+    tmp_path: Path, store_root: Path
+) -> None:
+    """A Moneta-derived profile binds the run to the broker file's SHA-256 (D-340)."""
+    cdir = costs_dir(tmp_path)
+    moneta = cdir / "moneta"
+    moneta.mkdir()
+    (cdir / "test_share.yaml").unlink()
+    (moneta / "moneta_profiles.yaml").write_text(
+        yaml.safe_dump({"profiles": [PROFILE]}), encoding="utf-8"
+    )
+    (moneta / "moneta_spec.csv.meta.json").write_text(
+        json.dumps({"source": "x.xlsx", "sha256": "a" * 64}), encoding="utf-8"
+    )
+    fx = fx_config(tmp_path)
+    cfg = resolve_config(pipeline(tmp_path), store_root, costs_dir=cdir, fx_config_path=fx)
+    assert cfg.cost_inputs is not None
+    assert cfg.cost_inputs.moneta_spec_sha256 == "a" * 64
+    assert check_cost_inputs(cfg.canonical(), costs_dir=cdir, fx_config_path=fx) == []
+    (moneta / "moneta_spec.csv.meta.json").write_text(
+        json.dumps({"source": "x.xlsx", "sha256": "b" * 64}), encoding="utf-8"
+    )
+    problems = check_cost_inputs(cfg.canonical(), costs_dir=cdir, fx_config_path=fx)
+    assert problems == [
+        "Moneta broker spec changed (D-340): run used aaaaaaaaaaaa, configs give bbbbbbbbbbbb"
+    ]
 
 
 def test_F_0_8_2_check_cost_inputs_reports_a_run_without_them(

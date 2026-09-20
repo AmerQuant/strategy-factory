@@ -51,3 +51,20 @@ def resolve_env(
         else:
             out[key] = (None, "not set")
     return out
+
+
+#: Set in every executor worker process (F-0.3.7, D-012/D-334). Only the parent process may
+#: write to the registry, so :class:`~strategy_factory.registry.writer.RegistryWriter` refuses
+#: to be created where this is set: workers return results, the parent writes them.
+EXECUTOR_WORKER_ENV = "SFAC_EXECUTOR_WORKER"
+
+
+def mark_executor_worker() -> None:
+    """Mark this process as an executor worker (called by the pool initializer)."""
+    os.environ[EXECUTOR_WORKER_ENV] = "1"
+
+
+def in_executor_worker(environ: Mapping[str, str] | None = None) -> bool:
+    """True inside an executor worker process."""
+    env = os.environ if environ is None else environ
+    return bool(env.get(EXECUTOR_WORKER_ENV))

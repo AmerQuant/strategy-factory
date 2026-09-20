@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from strategy_factory.engine.api import CostInputs, MarketArrays, SizingInputs
-from strategy_factory.pipeline.executor import GridJob, WorkUnit, run_grid, unit_seed
+from strategy_factory.pipeline.executor import GridJob, WorkUnit, run_grid
 
 T0 = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
 
@@ -82,7 +82,7 @@ def run_unit(unit: WorkUnit) -> dict[str, Any]:
     table = run_grid(job, chunk_cols=payload.get("chunk_cols"))
     return {
         "key": unit.key,
-        "seed": unit_seed(payload["run_seed"], unit.key),
+        "seed": unit.seed,  # filled by `seeded` in the parent (D-334)
         "pid": os.getpid(),
         "metrics": {name: values.tolist() for name, values in sorted(table.items())},
     }
@@ -105,3 +105,22 @@ def numba_threads(unit: WorkUnit) -> int:
     import numba
 
     return int(numba.get_num_threads())
+
+
+def write_from_worker(unit: WorkUnit) -> str:
+    """Try to create a registry writer inside the worker (D-012: the parent writes)."""
+    from typing import cast
+
+    from sqlalchemy import Engine
+
+    from strategy_factory.registry.writer import RegistryWriter
+
+    RegistryWriter(cast(Engine, None))
+    return unit.key
+
+
+def worker_flag(unit: WorkUnit) -> bool:
+    """Whether this process is marked as an executor worker."""
+    from strategy_factory.core.env import in_executor_worker
+
+    return in_executor_worker()

@@ -18,10 +18,12 @@ from fixtures.executor import (
     grid_job,
     numba_threads,
     run_unit,
+    worker_flag,
+    write_from_worker,
 )
 from sqlalchemy import Engine, func, select
 
-from strategy_factory.core.errors import ConfigError, ExecutorError
+from strategy_factory.core.errors import ConfigError, ExecutorError, RegistryError
 from strategy_factory.pipeline.executor import (
     BYTES_PER_CELL,
     ExecutorConfig,
@@ -34,6 +36,7 @@ from strategy_factory.pipeline.executor import (
     make_executor,
     resolve_budget,
     run_grid,
+    seeded,
     unit_seed,
     unit_seeds,
 )
@@ -122,6 +125,18 @@ def test_F_0_3_7_seeds_come_from_the_run_seed_and_the_unit_key() -> None:
     assert all(0 <= s < 2**63 for s in seeds.values())
 
 
+def test_F_0_3_7_seeded_units_carry_their_seed_into_the_worker() -> None:
+    """The parent fills the seed; a worker never derives one from its process (D-334)."""
+    work = seeded(42, units(n_bars=300, n_configs=4, run_seed=42))
+    assert [u.seed for u in work] == [unit_seed(42, u.key) for u in work]
+    assert [u.key for u in work] == [u.key for u in units()]  # nothing else changes
+    ex = LocalExecutor(ExecutorConfig(workers=2, numba_threads=1), cpu_count=8)
+    parallel = ex.map(run_unit, work)
+    assert [r["seed"] for r in parallel] == [u.seed for u in work]
+    assert without_pid(parallel) == without_pid(SerialExecutor().map(run_unit, work))
+    assert [u.seed for u in seeded(43, work)] != [u.seed for u in work]
+
+
 # -- order, identity, failures --------------------------------------------------------------
 def test_F_0_3_7_results_are_in_input_order_serial_and_parallel() -> None:
     work = units()
@@ -143,8 +158,26 @@ def test_F_0_3_7_failing_unit_reports_its_key_and_keeps_the_finished_results() -
     assert list(err.value.failed) == ["QQQ|1D|s02_screen"]
     kept = [r for r in err.value.results if r is not None]
     assert kept == ["SPY|1D|s02_screen", "AAPL|1D|s02_screen", "EURUSD|1D|s02_screen"]
-    with pytest.raises(ExecutorError, match="QQQ"):
+    with pytest.raises(ExecutorError) as serial_err:
         SerialExecutor().map(fail_on_qqq, work)
+    # both executors run every unit and report the same failure (docstring: parallel == serial)
+    assert str(serial_err.value) == str(err.value)
+    assert serial_err.value.results == err.value.results
+    assert list(serial_err.value.failed) == list(err.value.failed)
+
+
+def test_F_0_3_7_d012_only_the_parent_writes_to_the_registry() -> None:
+    """A worker that tries to open a registry writer is refused (D-012, D-334)."""
+    from strategy_factory.core.env import in_executor_worker
+
+    assert not in_executor_worker()  # the parent is not marked
+    ex = LocalExecutor(ExecutorConfig(workers=2, numba_threads=1), cpu_count=8)
+    assert ex.map(worker_flag, units()[:2]) == [True, True]
+    with pytest.raises(ExecutorError) as err:
+        ex.map(write_from_worker, units()[:1])
+    assert "only the parent process writes to the registry" in str(err.value)
+    assert isinstance(next(iter(err.value.failed.values())), RegistryError)
+    assert not in_executor_worker()  # and the parent is still not marked afterwards
 
 
 def test_F_0_3_7_make_executor_picks_serial_for_one_worker() -> None:

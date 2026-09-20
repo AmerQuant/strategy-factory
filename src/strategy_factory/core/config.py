@@ -168,6 +168,12 @@ PARITY_STEP_REQUIRED = (
     "parity (tradingview) runs need parity_qty_step in the engine config (D-347): the "
     "TradingView quantity step of the symbol, e.g. 1 for BATS:SPY, 0.01 for OANDA:XAUUSD"
 )
+#: D-343: a parity run reproduces a Pine script, so its ATR length is the script's, never the
+#: research default. The config must state it, even when it happens to equal the default.
+PARITY_ATR_LENGTH_REQUIRED = (
+    "parity (tradingview) runs must set engine.atr_length explicitly (D-343): it is the ATR "
+    "length of the Pine script being reproduced, not the research default"
+)
 
 
 def load_pipeline_config(path: Path) -> PipelineConfig:
@@ -208,8 +214,11 @@ def validate_config(cfg: PipelineConfig, config_path: Path | None = None) -> Non
     unknown = [s for s in cfg.stages if s not in gates.stages]
     if unknown:
         problems.append(f"stages without gates: {unknown}")
-    if cfg.intrabar_mode == "tradingview" and cfg.engine.parity_qty_step is None:
-        problems.append(PARITY_STEP_REQUIRED)
+    if cfg.intrabar_mode == "tradingview":
+        if cfg.engine.parity_qty_step is None:
+            problems.append(PARITY_STEP_REQUIRED)
+        if "atr_length" not in cfg.engine.model_fields_set:
+            problems.append(PARITY_ATR_LENGTH_REQUIRED)
     if problems:
         raise ConfigError(
             "pipeline config invalid: " + "; ".join(problems), config_path=config_path
@@ -389,15 +398,28 @@ def check_cost_inputs(
         )
     if dict(recorded.get("fx_conversion") or {}) != fx.model_dump(mode="json"):
         problems.append("configs/data/fx_conversion.yaml changed (pairs or pegs, D-307)")
+    was_pairs = set(recorded.get("conversion_snapshots") or {})
+    now_pairs = set(conversion_pairs_for(quote, fx_config_path)[0])
+    if was_pairs != now_pairs:
+        problems.append(
+            f"the conversion pairs the run needs changed (D-316): run used "
+            f"{sorted(was_pairs) or 'none'}, configs give {sorted(now_pairs) or 'none'}"
+        )
     return problems
 
 
 def require_resolved(cfg: PipelineConfig) -> PipelineConfig:
-    """Refuse a config whose data snapshots are not resolved (a run needs them)."""
+    """Refuse a config whose data snapshots or cost inputs are not resolved (a run needs both)."""
     if not cfg.is_resolved:
         raise ConfigError(
             "pipeline config has unresolved data_snapshots; resolve it at run start "
             "(sfac config resolve) -- a run cannot start without its data snapshot hashes"
+        )
+    if cfg.cost_inputs is None or set(cfg.cost_inputs.profiles) != set(cfg.symbols):
+        raise ConfigError(
+            "pipeline config has unresolved cost_inputs; resolve it at run start "
+            "(sfac config resolve) -- costs are mandatory (CLAUDE.md rule 4) and a run that "
+            "does not record them cannot be reproduced"
         )
     return cfg
 

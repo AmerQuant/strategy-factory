@@ -6,6 +6,8 @@
   enforced by the ``UNIQUE(candidate_id)`` constraint of ``holdout_access`` in the database,
   so it holds across processes and connections.
 * An empty decision reason is rejected (Python check + ``CHECK`` constraint).
+* **Only the parent process writes** (D-012, D-334): creating a writer inside an executor
+  worker raises. Workers return their results; the parent turns them into rows.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from sqlalchemy import Engine, insert, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
+from strategy_factory.core.env import in_executor_worker
 from strategy_factory.core.errors import HoldoutAccessError, RegistryError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.registry.tables import (
@@ -230,6 +233,12 @@ class RegistryWriter:
     """Batched registry writer; use as a context manager so the trial buffer is flushed."""
 
     def __init__(self, engine: Engine, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
+        if in_executor_worker():
+            raise RegistryError(
+                "only the parent process writes to the registry (D-012, D-334): an executor "
+                "worker must return its results and let the parent write them",
+                stage="registry",
+            )
         if batch_size <= 0:
             raise RegistryError("batch_size must be positive", stage="registry")
         self.engine = engine

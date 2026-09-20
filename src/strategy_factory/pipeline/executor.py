@@ -22,8 +22,9 @@ Rules
 * **Only the parent writes to the registry** (D-012, D-334): workers return results, the
   parent turns them into trial rows and hands them to the batched ``RegistryWriter``. One
   trial per evaluated configuration (F-0.7.1).
-* A failing unit does not lose the finished ones: :class:`ExecutorError` carries the results
-  of the units that completed and names every failed unit by its key.
+* A failing unit does not lose the finished ones: both executors run **every** unit, then
+  raise one :class:`ExecutorError` that carries the results of the units that completed (with
+  ``None`` where a unit failed) and names every failed unit by its key.
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ import yaml
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from strategy_factory.core.env import mark_executor_worker
 from strategy_factory.core.errors import ConfigError, ExecutorError
 from strategy_factory.engine.api import CostInputs, MarketArrays, SizingInputs, simulate_grid
 from strategy_factory.metrics.batch import core_metrics_batch
@@ -143,12 +145,18 @@ def resolve_budget(cfg: ExecutorConfig, cpu_count: int | None = None) -> ThreadB
 # --------------------------------------------------------------------------------------
 @dataclass(frozen=True)
 class WorkUnit:
-    """One unit of work: a symbol, a timeframe and a stage (design §10), plus its payload."""
+    """One unit of work: a symbol, a timeframe and a stage (design §10), plus its payload.
+
+    ``seed`` is filled by :func:`seeded` before the units are handed to an executor, so the
+    work function reads it from the unit instead of deriving anything from the process it
+    runs in (D-334).
+    """
 
     symbol: str
     timeframe: str
     stage: str
     payload: Any = None
+    seed: int | None = None
 
     @property
     def key(self) -> str:
@@ -177,6 +185,15 @@ def unit_seeds(run_seed: int, units: Iterable[object]) -> dict[str, int]:
     return {unit_key(u): unit_seed(run_seed, unit_key(u)) for u in units}
 
 
+def seeded(run_seed: int, units: Iterable[WorkUnit]) -> list[WorkUnit]:
+    """``units`` with their seed filled from ``(run_seed, key)`` (D-334).
+
+    Call this once in the parent; a worker then never derives a seed itself, so a unit
+    computed serially and in parallel starts from the same state.
+    """
+    return [replace(u, seed=unit_seed(run_seed, u.key)) for u in units]
+
+
 # --------------------------------------------------------------------------------------
 # Executors
 # --------------------------------------------------------------------------------------
@@ -192,29 +209,45 @@ class SerialExecutor:
     name = "serial"
 
     def map(self, fn: Callable[[Any], Any], work_units: Sequence[Any]) -> list[Any]:
-        results: list[Any] = []
-        for unit in work_units:
+        units = list(work_units)
+        results: list[Any] = [None] * len(units)
+        failed: dict[str, BaseException] = {}
+        for i, unit in enumerate(units):
             try:
-                results.append(fn(unit))
-            except Exception as exc:  # any worker error, re-raised with the unit key
-                results.append(None)
-                raise ExecutorError(
-                    f"work unit {unit_key(unit)!r} failed: {exc}",
-                    results=results,
-                    failed={unit_key(unit): exc},
-                ) from exc
+                results[i] = fn(unit)
+            except Exception as exc:  # any unit error, reported per unit below
+                failed[unit_key(unit)] = exc
+        if failed:
+            raise _failure(units, results, failed)
         return results
 
 
-def _init_worker(numba_threads: int) -> None:
-    """Worker start-up: pin the Numba thread count before any kernel compiles or runs."""
-    os.environ.setdefault("NUMBA_NUM_THREADS", str(max(1, numba_threads)))
-    try:
-        import numba
+def _failure(
+    units: Sequence[Any], results: list[Any], failed: dict[str, BaseException]
+) -> ExecutorError:
+    """One error shape for both executors: every failed key, the finished results kept."""
+    names = ", ".join(sorted(failed))
+    first = next(iter(failed.values()))
+    return ExecutorError(
+        f"{len(failed)} of {len(units)} work unit(s) failed: {names} "
+        f"(first error: {first}); {len(units) - len(failed)} result(s) kept",
+        results=results,
+        failed=failed,
+    )
 
-        numba.set_num_threads(max(1, numba_threads))
-    except (ImportError, ValueError):  # pragma: no cover - numba is a hard dependency
-        pass
+
+def _init_worker(numba_threads: int) -> None:
+    """Worker start-up: mark the process and pin the Numba thread count before any kernel.
+
+    The count is clamped to Numba's own maximum (``NUMBA_NUM_THREADS``, fixed when numba is
+    imported), so an environment that allows fewer threads than the budget lowers the budget
+    instead of failing silently. Any other failure kills the worker loudly.
+    """
+    import numba
+
+    mark_executor_worker()  # D-012: a worker may not write to the registry
+    allowed = int(getattr(numba.config, "NUMBA_NUM_THREADS", numba_threads))
+    numba.set_num_threads(max(1, min(numba_threads, allowed)))
 
 
 class LocalExecutor:
@@ -246,14 +279,7 @@ class LocalExecutor:
                 except Exception as exc:  # any worker error, reported per unit below
                     failed[unit_key(unit)] = exc
         if failed:
-            names = ", ".join(sorted(failed))
-            first = next(iter(failed.values()))
-            raise ExecutorError(
-                f"{len(failed)} of {len(units)} work unit(s) failed: {names} "
-                f"(first error: {first}); {len(units) - len(failed)} result(s) kept",
-                results=results,
-                failed=failed,
-            )
+            raise _failure(units, results, failed)
         return results
 
 
