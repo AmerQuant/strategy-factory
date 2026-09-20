@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-399**, **P-75**.
+Next free here: **D-400** (range exhausted — ask the supervisor), **P-75**.
 
 ## Rules that bind this stream (D-355)
 
@@ -44,7 +44,7 @@ Next free here: **D-399**, **P-75**.
 - **Benchmarks** run only when stream A is idle.
 - Every branch **rebases onto `main`** before its merge. D-401 and D-402 are unchanged.
 
-## Status (2026-09-21, amended the same day after the P-73 answer)
+## Status (2026-09-21, amended the same day: T04i merged, T04g done)
 
 Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 `docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`, `T04k`; decisions
@@ -53,24 +53,30 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ⏭ → T04k → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch `b/T04i-phaseb-hourly`, T04i approved by the supervisor together with
-the P-73 answer (D-398); next is **T04g** (1D ingest) on `b/T04g-alpaca-daily-ingest` from `main`.
+**Current position:** branch **`b/T04g-alpaca-daily-ingest`** at `4491fa6`, rebased onto
+`a48f6f4` (stream A's PR #22). T04i is **merged** (PR #21). **T04g is complete** — 6,707 of 6,711
+daily symbols are in the snapshot store — and waits for review; next is **T04k**, then T04h when
+the 1H download is confirmed complete.
+
+**Blocked on nothing.** Open questions P-68 … P-70 do not block; P-71 … P-74 are answered
+(D-395 … D-399). **Stream B's decision range D-380 … D-399 is now exhausted** — a further stream-B
+decision needs a new range from the supervisor.
 
 | item | state |
 |---|---|
-| worktree | on `b/T04i-phaseb-hourly`; `uv sync` done |
+| worktree | on `b/T04g-alpaca-daily-ingest`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
 | batch 3-data plan | **approved** 2026-09-21; order changed by **D-358** to T04f → T04i → T04g → T04h |
 | T04f | **done**, PR [#19](https://github.com/AmerQuant/strategy-factory/pull/19) — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | **still filling.** Counted 2026-09-20 19:18 local over 832 folders: 2016–2019 832, 2020 829, 2021 806, 2022 806, **2023 787**, 2024–2026 827. 2023 is the only short year (237 at the T04i sweep, 787 now). T04h waits for the user's "download complete" (D-386, no `--allow-gaps`) |
-| Alpaca 1D / 1H ingest | not started. **T04g is no longer gated**: D-033 is decided (D-395) and the exclusion file is empty. T04h still waits on the 1H download (D-386) |
+| Alpaca 1D / 1H ingest | **1D done** (T04g, see below). T04h still waits on the 1H download (D-386) |
 | NYSE calendar (D-025) | **done in T04f** (PR #19): `configs/calendars/nyse_sessions.csv`, 2,765 sessions, 0 differences against the deleted `nyse_early_closes.yaml` (D-393); `configs/universe/symbol_changes.csv` written from the 42-row `NAME_CHANGE` feed |
 | T04e phase-B pilot | **hourly part closed by T04i** (D-395). The Yahoo part (first/last dates, `^TNX` scale) and the Dukascopy v1→v2 re-hash stay open — see the runbook's "Deferred" |
-| snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
-| T04i | **approved** (supervisor, with the P-73 answer); PR open, merging next. **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
+| snapshot store | **6,710 snapshots**: 6,707 Alpaca 1D (`hash_version = 2`, `session = exchange`, all read-only, one reference each) + the 3 Dukascopy Q1-2024 pilots, which are still `hash_version = 1` (the T04e v1→v2 re-hash is deferred to T04j) |
+| T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
 | T04k | planned (`docs/tasks/T04k_clean_daily_snapshot.md`), after T04g and **before T12** (D-396). It now also applies **D-398** (cut every frozen stretch, trim to the boundary); its trims wait on **P-74** |
-| T04g | **next** — `b/T04g-alpaca-daily-ingest` from `main`. `configs/universe/us_equity_daily_excluded.csv` exists and is **empty**, so the ingest covers the full 6,711-symbol universe |
+| T04g | **done**, waiting for review. **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
@@ -109,10 +115,32 @@ The daily universe is unchanged at 6,711 rows.
 `EQR` and `IR` are Moneta targets kept under D-388; `FISV` (broker `FI`, D-356) stays because the
 chain `FISV→FI→FISV` resolves back to it.
 
+## FOR STREAM A — two things from T04g
+
+1. **`test_F_X_9_d369_removed_rows_reads_real_git_output` was changed (one range, same intent).**
+   Stream A's new D-369 test diffs `HEAD~1..HEAD` over `docs/decisions/decisions_log.md` and
+   asserts the diff carries a `--- a/…` header. That holds only when the previous commit happened
+   to edit the log, so it fails on **any** branch whose last commit does not — it failed on
+   `b/T04g-alpaca-daily-ingest`. It now diffs from the parent of the **last commit that touched the
+   file** (an ancestor of `HEAD`, so `base..HEAD` still carries the change). The assertions are
+   untouched. Stream A owns the file; revert or reshape it freely, but the `HEAD~1` assumption
+   needs to go either way.
+2. **Stream B independently hit the same guard defect and reverted its fix.** While T04g was
+   running, answering P-74 tripped `sfac streams check` with "P-74: duplicate id". Stream B
+   implemented the same `removed_rows` exemption, then found stream A had already merged it as
+   **D-369** (`01ce80f`, PR #22), reverted its own version and rebased onto `a48f6f4`.
+   `src/strategy_factory/core/streams.py` and `cli_streams.py` carry **only** stream A's code.
+3. **`configs/universe.yaml` needs no regeneration for T04i or T04g.** No symbol was added to or
+   removed from `configs/universe/*.csv` by either task; the new file
+   `configs/universe/us_equity_daily_excluded.csv` is **empty** (D-398). The outstanding
+   regeneration is still the T04f one below.
+
 ## For the user — one network run, before T04g
 
 **AVGO's 10:1 split of 2024-07-15 is not applied** in either timeframe (unadjusted from 2016 to
-2024-07-12; see `docs/reviews/T04i_review.md` §4 and §6b). Run, from this worktree:
+2024-07-12; see `docs/reviews/T04i_review.md` §4 and §6b). **T04g confirmed it against the real
+feed and left AVGO out of the store** (D-397), so it is missing from the daily universe until this
+runs. From this worktree:
 
 ```
 uv run sfac data download alpaca --timeframe 1D --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh

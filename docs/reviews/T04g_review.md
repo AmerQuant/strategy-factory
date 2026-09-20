@@ -11,12 +11,11 @@
 | `src/strategy_factory/data/ingest.py` | **D-397**: an `unadjusted` known split returns `unadjusted_split` and writes **nothing** |
 | `src/strategy_factory/data/cli_alpaca.py` | `--universe` / `--excluded` on `sfac data ingest alpaca`; the summary counts every outcome |
 | `src/strategy_factory/data/cli_prep.py` | **D-391**: one `_quality/summary_<source>_<timeframe>.md` per group plus the index, and `--max-rows` |
-| `src/strategy_factory/core/streams.py`, `cli_streams.py` | the ID guard no longer reads an **edited** pending row as a duplicate (§7) |
 | `scripts/ingest/T04g_ingest_daily.py` | the chunked run (D-385), one CLI invocation per 250 symbols, timestamped log |
 | `scripts/ingest/T04g_verify.py` | the catalog/store integrity assertions of the task's §4 |
 | `scripts/ingest/T04g_report.py` | the split-check and quality aggregates quoted below |
 | `docs/reviews/T04g_known_splits_1D.csv`, `T04g_split_warnings_1D.csv`, `T04g_quality_1D.csv` | the evidence behind every table |
-| tests | **11 new** — see §8 |
+| tests | **9 new** — see §8 |
 
 ## 2. The ingest
 
@@ -232,23 +231,28 @@ carries the rule and its acceptance test. **T04g proceeded as is**, which is wha
    lost — but the command exited 1. Fixed with `infer_schema_length=None` and a regression test
    that plants exactly that shape. This is why the events file holds two `quality` events per
    snapshot: the command ran once before the fix and once after.
-2. **`sfac streams check` rejected answering a question raised on an earlier branch.** P-74 was
-   added on the merged T04i branch; answering it here rewrites that row, the diff shows it as an
-   added `+ | P-74 | …` line, and the duplicate guard failed the build. The guard's purpose is to
-   catch a **new** ID that collides, not an edit, so `check_ids` now takes the branch's **removed**
-   rows and treats an ID that is both removed and added as edited in place. The range check still
-   applies to an edited row, so a stream cannot smuggle in another stream's ID by rewriting it.
-   Tested. **This is shared code that stream A authored (D-357), so it is called out here and in
-   `docs/streams/B.md`.** Without it, every future answer to an already-merged pending question
-   fails CI — P-68, P-69 and P-70 are next.
-
-   **The trade-off, stated plainly.** The exemption keys on "this branch also removes a row with
-   that ID", so it also lifts the duplicate check from a rewritten **supervisor-range** row
-   (`D-355 … D-359`, `D-600 … D-699`), whose range check is skipped by design. Editing such a row
-   was previously caught as a duplicate, by accident rather than by intent. Adding a *second* row
-   for an existing ID is still caught, and the range check still fires on an edited row (both
-   tested). The append-only rule of `docs/streams/PROTOCOL.md` §2 remains the convention; the guard
-   now enforces it only against genuine additions.
+2. **`sfac streams check` rejected answering a question raised on an earlier branch — already
+   fixed by stream A, so nothing was changed here.** P-74 was added on the merged T04i branch;
+   answering it on this branch rewrites that row, the diff shows it as an added `+ | P-74 | …`
+   line, and the duplicate guard failed the build. I implemented a fix (treat an ID that the
+   branch also *removes* as edited in place), and while checking the tests found that
+   **stream A had already landed exactly that fix as D-369** — `an amendment in place is not a
+   duplicate id`, commit `01ce80f`, merged in PR #22 while T04g was running, together with the
+   `removed_rows` plumbing and eight tests of its own, including one that reads real `git` output.
+   **My duplicate implementation was reverted and the branch rebased onto `a48f6f4`**, so
+   `src/strategy_factory/core/streams.py` and `cli_streams.py` are untouched by stream B and the
+   guard passes on stream A's code. The episode is worth recording because it is what the protocol
+   is for: two streams hit the same defect within an hour, and the one that owns the file won.
+3. **One of stream A's new D-369 tests depended on the shape of the branch's history.**
+   `test_F_X_9_d369_removed_rows_reads_real_git_output` diffed `HEAD~1..HEAD` over
+   `docs/decisions/decisions_log.md` and asserted the diff has a `--- a/…` header; that holds only
+   when the previous commit happened to edit the log. On this branch the previous commit is the
+   T04g review, so the diff was empty and the test failed — it would fail on **any** branch whose
+   last commit does not touch the decisions log. Changed to diff from the parent of the **last
+   commit that touched the file** (an ancestor of `HEAD`, so `base..HEAD` still carries the
+   change): the assertion and its intent are unchanged, only the range is chosen rather than
+   assumed. This is a **stream-A test file** — the change is minimal and is reported to stream A in
+   `docs/streams/B.md`.
 
 ## 8. Tests added
 
@@ -263,12 +267,11 @@ carries the rule and its acceptance test. **T04g proceeded as is**, which is wha
 | `test_F_0_1_6_D_391_a_large_run_does_not_print_every_row` | `--max-rows` |
 | `test_F_0_1_2_D_397_the_cli_still_exits_zero_when_a_symbol_is_unadjusted` | the run's exit code is 0 although one symbol failed |
 | `test_F_0_1_6_T04g_the_summary_survives_a_late_first_break_hour` | the schema-inference crash of §7 (1): **120 rows**, so the default `infer_schema_length=100` really raises, and `summary_frame` really fixes it |
-| `test_F_X_9_answering_an_earlier_question_is_an_edit_not_a_duplicate` | the guard fix of §7 (2), and that the range check still applies |
 
 ## 9. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                            1226 passed, 1 failed (see below)
+uv run pytest -m "not slow"                            1242 passed, 1 failed (see below)
 uv run pytest tests/parity tests/leakage tests/oracle    283 passed
 uv run pytest -m db                                       21 passed, 0 skipped
 uv run ruff check . / ruff format --check .             clean
