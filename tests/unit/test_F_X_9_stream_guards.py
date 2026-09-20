@@ -42,7 +42,8 @@ def migration(revision: str, down: str | None) -> str:
 # -- the repo's own ownership file -----------------------------------------------------------
 def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert set(rules.streams) == {"A", "B"}
-    assert rules.supervisor is not None and rules.supervisor.decisions == (355, 359)
+    assert rules.supervisor is not None
+    assert rules.supervisor.decisions == ((355, 359), (600, 699))
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
     assert rules.streams["A"].decisions == (360, 379) and rules.streams["A"].pending == (40, 59)
     assert rules.streams["B"].decisions == (380, 399) and rules.streams["B"].pending == (60, 79)
@@ -152,18 +153,62 @@ def test_F_X_9_guard_ids_range_and_duplicates(rules: Ownership) -> None:
 
 
 def test_F_X_9_supervisor_decisions_are_allowed_from_any_stream(rules: Ownership) -> None:
-    """D-355 keeps D-355 … D-359 for the supervisor; whichever stream carries one may add it."""
+    """D-355 keeps its ranges for the supervisor; whichever stream carries one may add it."""
     existing = ["| D-354 | x |"]
     for stream in ("A", "B"):
-        for number in (355, 357, 359):
+        for number in (355, 357, 359, 600, 650, 699):
             assert check_ids(stream, [f"| D-{number} | supervisor |"], existing, rules) == []
-    # the range is decisions only: P-357 is still judged against the stream's pending range
+    # the ranges are decisions only: P-357 is still judged against the stream's pending range
     assert check_ids("A", ["| P-357 | not a decision |"], existing, rules) != []
-    # just outside it, the stream range applies again
-    out = check_ids("A", ["| D-354 | too low |"], [], rules)
-    assert len(out) == 1 and "the supervisor's range is D-355 … D-359" in out[0]
+    assert check_ids("A", ["| P-600 | not a decision |"], existing, rules) != []
+    # just outside them, the stream range applies again
+    for number in (354, 599, 700):
+        out = check_ids("A", [f"| D-{number} | outside |"], [], rules)
+        assert len(out) == 1, number
+        assert "the supervisor's range is D-355 … D-359 and D-600 … D-699" in out[0]
     # and a supervisor id is still checked for duplicates
     assert check_ids("A", ["| D-357 | dup |"], ["| D-357 | already |"], rules) != []
+
+
+def test_F_X_9_d600_range_accepts_from_either_stream_and_still_catches_duplicates(
+    rules: Ownership,
+) -> None:
+    """The second supervisor range, added when D-355 … D-359 was used up."""
+    existing = ["| D-600 | already taken |"]
+    for stream in ("A", "B", None):
+        assert check_ids(stream, ["| D-601 | new supervisor decision |"], [], rules) == []
+        dup = check_ids(stream, ["| D-600 | same id again |"], existing, rules)
+        assert len(dup) == 1 and "duplicate id" in dup[0], stream
+    # twice within one branch is a duplicate too
+    twice = check_ids("A", ["| D-605 | a |", "| D-605 | b |"], [], rules)
+    assert any("duplicate id" in p for p in twice)
+
+
+def test_F_X_9_supervisor_ranges_accept_one_pair_or_a_list(tmp_path: Path) -> None:
+    """The YAML may give a single ``[lo, hi]`` pair or a list of them."""
+    base: dict[str, Any] = {
+        "streams": {
+            "A": {"name": "a", "branch_prefix": "a/", "decisions": [1, 9], "pending": [1, 9]}
+        },
+        "owners": {},
+    }
+    path = tmp_path / "ownership.yaml"
+    path.write_text(yaml.safe_dump({**base, "supervisor": {"decisions": [20, 29]}}), "utf-8")
+    one = load_ownership(path)
+    assert one.supervisor is not None and one.supervisor.decisions == ((20, 29),)
+    assert one.supervisor.covers("D", 25) and not one.supervisor.covers("D", 30)
+    path.write_text(
+        yaml.safe_dump({**base, "supervisor": {"decisions": [[20, 29], [40, 49]]}}), "utf-8"
+    )
+    two = load_ownership(path)
+    assert two.supervisor is not None and two.supervisor.decisions == ((20, 29), (40, 49))
+    assert two.supervisor.covers("D", 45) and not two.supervisor.covers("D", 35)
+    path.write_text(yaml.safe_dump({**base, "supervisor": {"decisions": [[29, 20]]}}), "utf-8")
+    with pytest.raises(ConfigError, match="inverted"):
+        load_ownership(path)
+    path.write_text(yaml.safe_dump({**base, "supervisor": {"decisions": []}}), "utf-8")
+    with pytest.raises(ConfigError, match="at least one decision range"):
+        load_ownership(path)
 
 
 # -- guard 3: one Alembic head ---------------------------------------------------------------

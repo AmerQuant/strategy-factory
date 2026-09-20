@@ -7,7 +7,7 @@ Two Claude Code sessions work on this repository at the same time. The rules are
 1. **Path ownership** -- a branch named ``a/...`` or ``b/...`` may not change a path owned by
    the other stream.
 2. **ID discipline** -- every ``D-nnn`` / ``P-nn`` row a branch *adds* must be unique and
-   inside the adding stream's range, or inside the **supervisor's** range (D-355 … D-359),
+   inside the adding stream's range, or inside one of the **supervisor's** decision ranges,
    which any stream may carry because the supervisor dictates those. An unprefixed
    (grandfathered) branch is checked for duplicates only.
 3. **One Alembic head** -- the migration graph has exactly one head, so two streams cannot
@@ -22,10 +22,17 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from strategy_factory.core.errors import ConfigError
 
@@ -62,14 +69,39 @@ class StreamSpec(BaseModel):
 
 
 class SupervisorRange(BaseModel):
-    """The supervisor's own decision range (D-355): allowed from any branch."""
+    """The supervisor's own decision ranges (D-355): allowed from any branch.
+
+    There is more than one because a range can be used up: ``D-355 … D-359`` was, so
+    ``D-600 … D-699`` was added next to it. Decisions only -- a ``P-`` number always belongs
+    to the stream that raised the question.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    decisions: tuple[int, int]
+    decisions: tuple[tuple[int, int], ...]
+
+    @field_validator("decisions", mode="before")
+    @classmethod
+    def _as_ranges(cls, value: Any) -> Any:
+        """Accept one ``[lo, hi]`` pair as well as a list of them."""
+        if isinstance(value, (list, tuple)) and value and all(isinstance(v, int) for v in value):
+            return (tuple(value),)
+        return value
+
+    @model_validator(mode="after")
+    def _ordered(self) -> SupervisorRange:
+        if not self.decisions:
+            raise ValueError("the supervisor needs at least one decision range")
+        for lo, hi in self.decisions:
+            if lo > hi:
+                raise ValueError(f"supervisor decision range ({lo}, {hi}) is inverted")
+        return self
 
     def covers(self, kind: str, number: int) -> bool:
-        return kind == "D" and self.decisions[0] <= number <= self.decisions[1]
+        return kind == "D" and any(lo <= number <= hi for lo, hi in self.decisions)
+
+    def describe(self) -> str:
+        return " and ".join(f"D-{lo} … D-{hi}" for lo, hi in self.decisions)
 
 
 class Ownership(BaseModel):
@@ -177,8 +209,7 @@ def check_ids(
             lo, hi = spec.decisions if kind == "D" else spec.pending
             extra = ""
             if ownership.supervisor is not None and kind == "D":
-                slo, shi = ownership.supervisor.decisions
-                extra = f"; the supervisor's range is D-{slo} … D-{shi}"
+                extra = f"; the supervisor's range is {ownership.supervisor.describe()}"
             problems.append(
                 f"{label}: outside stream {stream}'s range {kind}-{lo} … {kind}-{hi} (D-355){extra}"
             )
