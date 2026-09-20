@@ -58,5 +58,9 @@ Next free here: **D-360**, **P-40**.
 
 ### Owed to stream B
 
-- `sfac universe generate` after each stream-B merge (D-394); nothing listed yet.
+- **D-394 after #19 (T04f): done** on `a/universe-regen`. `configs/universe.yaml` regenerated
+  from the T04f symbol lists: 26 symbols lost `1H` and 5 gained it, exactly stream B's list;
+  no symbol entered or left the universe; hourly symbols 856 -> 835. `costs validate` 6742
+  assigned / 521 profiles and `universe validate` 6749 symbols both unchanged.
+- Next stream-B merge: run `sfac universe generate` again (D-394).
 - Nothing under `configs/costs/` needs changing for D-388 (checked against the merged T06b).
