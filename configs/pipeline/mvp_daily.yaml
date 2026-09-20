@@ -8,3 +8,6 @@ gates: configs/gates/default.yaml
 intrabar_mode: pessimistic
 seed: 42
 cost_stress: [1.5, 2.0, 3.0]
+# D-342 satisfied: the mapping review is closed (P-28 -> D-356), SPY, QQQ and AAPL are broker
+# symbols, so the config is back on the D-524 default.
+universe_filter: broker

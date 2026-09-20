@@ -1,16 +1,17 @@
-# Cost-profile assignments (T06). A symbol entry wins over its asset-class group.
+# Cost-profile assignments (T06, T06b). A symbol entry wins over its asset-class group.
 # Every symbol of the tradable universe (configs/universe/us_equity_*.csv, dukascopy.csv)
 # must resolve to a profile: `sfac costs validate` fails otherwise (costs are mandatory).
+#
+# Broker-mapped symbols are assigned in the GENERATED moneta/assignments.yaml
+# (`sfac costs moneta build`, D-520); a symbol may not appear in both files.
+# US equities that are not at the broker use the generated D-324 proxy (status placeholder,
+# results report-only per D-524). The T06 placeholder groups below stay as the fallback for
+# Dukascopy symbols without a broker mapping (none today: all 29 are mapped, D-323).
 groups:                                 # asset_class -> profile
-  us_equity: us_equity_default
+  us_equity: us_share_cfd_proxy
   fx: fx_default
   metal: metal_default
   index_cfd: index_cfd_default
   energy_cfd: energy_cfd_default
-symbols:                                # symbol -> profile (+ overrides of profile fields)
-  USDJPY: {profile: fx_default, overrides: {pip_size: 0.01}}
-  EURJPY: {profile: fx_default, overrides: {pip_size: 0.01}}
-  GBPJPY: {profile: fx_default, overrides: {pip_size: 0.01}}
-  AUDJPY: {profile: fx_default, overrides: {pip_size: 0.01}}
-  CADJPY: {profile: fx_default, overrides: {pip_size: 0.01}}
+symbols: {}                             # symbol -> {profile, overrides}
 stress_multipliers: [1.5, 2.0, 3.0]     # F-0.2.4: applied to spread and slippage only

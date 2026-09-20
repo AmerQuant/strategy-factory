@@ -1,18 +1,31 @@
-"""Cost-profile schema, profile files and symbol assignments (F-0.2.1, F-0.2.3, F-0.2.4).
+"""Cost-profile schema, profile files and symbol assignments (F-0.2.1, F-0.2.2, F-0.2.3, F-0.2.4).
 
 Conventions:
 
 * **Spread values are full spreads** (ask - bid); the engine arrays carry half of them.
 * Amounts are in ``price`` units, ``bps`` of the fill price, or ``pip`` (``pip_size``
   price units; the profile or a symbol override must define ``pip_size``).
-* **Swap values are credits to the position** per unit of notional per day; a negative
-  value is a charge. ``annual_rate`` is divided by ``day_count``.
+* **Swap values are credits to the position**; a negative value is a charge.
+  ``annual_rate`` is divided by ``day_count`` (Moneta: 360, D-320; default 365).
+  ``points_per_day``: ``points x point_size`` price units per instrument unit per day.
+  ``currency_per_lot_day``: quote-currency amount per lot per day (D-321). The engine turns
+  every model into money on the mark-to-market notional of the rollover bar (D-312).
 * Commission ``per_lot``: lots = quantity (instrument units, e.g. EUR for EURUSD) /
-  ``lot_size``; the amount is charged per side.
+  ``lot_size``; the amount is charged per side. ``per_order``: a fixed amount per side
+  (D-319). Every commission model has a ``currency`` (USD by default); the engine converts
+  it only when it is the quote currency (D-328).
+* Spread ``broker_scaled`` (D-523, F-0.2.2): the hourly shape of the snapshot spread, scaled
+  so its bar-weighted mean over the **development** bars equals ``broker_spread`` (D-340).
+* Instrument fields (D-313, D-314, D-315): ``contract_size`` (instrument units per lot),
+  ``volume_step`` and ``min_volume`` in **lots**. A profile that does not set them gets the
+  D-314 assumption (1 unit per lot, step 1, minimum 1) with ``volume_step_assumed``.
 
 Files: every ``configs/costs/*.yaml`` except ``assignments.yaml`` holds one profile;
 ``assignments.yaml`` maps asset classes (groups) and symbols to profiles, with optional
-per-symbol overrides. **An unassigned symbol is an error: costs are mandatory.**
+per-symbol overrides. The generated Moneta files (T06b) add ``moneta/moneta_profiles.yaml``
+(a list under ``profiles``) and ``moneta/assignments.yaml`` (symbol entries); a symbol listed
+in both assignment files is an error. **An unassigned symbol is an error: costs are
+mandatory.**
 """
 
 from __future__ import annotations
@@ -34,6 +47,8 @@ WEEKDAY_NUMBER: dict[str, int] = {
     "MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6, "SUN": 7,
 }  # fmt: skip
 ASSIGNMENTS_FILE = "assignments.yaml"
+MONETA_DIR = "moneta"
+MONETA_PROFILES_FILE = "moneta_profiles.yaml"
 
 
 class _Frozen(BaseModel):
@@ -81,20 +96,39 @@ class SpreadFromData(_Frozen):
         return value
 
 
-Spread = Annotated[SpreadFixed | SpreadHourly | SpreadFromData, Field(discriminator="mode")]
+class SpreadBrokerScaled(_Frozen):
+    """Hourly median shape of the snapshot spread scaled to the broker's reference spread.
+
+    ``broker_spread`` is the broker's full spread in price units. The scale factor is fitted
+    so the bar-weighted mean of the hourly table over the development bars equals it; hours
+    without data, or a snapshot without a spread column, use ``broker_spread`` itself.
+    """
+
+    mode: Literal["broker_scaled"] = "broker_scaled"
+    broker_spread: float = Field(gt=0)
+
+
+Spread = Annotated[
+    SpreadFixed | SpreadHourly | SpreadFromData | SpreadBrokerScaled,
+    Field(discriminator="mode"),
+]
 
 
 # -- commission --------------------------------------------------------------------------
-class CommissionNone(_Frozen):
+class _Commission(_Frozen):
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+
+class CommissionNone(_Commission):
     model: Literal["none"] = "none"
 
 
-class CommissionPercent(_Frozen):
+class CommissionPercent(_Commission):
     model: Literal["percent"] = "percent"
     rate: float = Field(ge=0)  # fraction of the traded value, per side
 
 
-class CommissionPerShare(_Frozen):
+class CommissionPerShare(_Commission):
     model: Literal["per_share"] = "per_share"
     per_share: float = Field(ge=0)
     min_per_order: float = Field(default=0.0, ge=0)
@@ -107,14 +141,21 @@ class CommissionPerShare(_Frozen):
         return self
 
 
-class CommissionPerLot(_Frozen):
+class CommissionPerLot(_Commission):
     model: Literal["per_lot"] = "per_lot"
     lot_size: float = Field(gt=0)  # instrument units per lot
     per_lot_per_side: float = Field(ge=0)
 
 
+class CommissionPerOrder(_Commission):
+    """A fixed amount per order, i.e. per side (D-319)."""
+
+    model: Literal["per_order"] = "per_order"
+    amount: float = Field(ge=0)
+
+
 Commission = Annotated[
-    CommissionNone | CommissionPercent | CommissionPerShare | CommissionPerLot,
+    CommissionNone | CommissionPercent | CommissionPerShare | CommissionPerLot | CommissionPerOrder,
     Field(discriminator="model"),
 ]
 
@@ -164,11 +205,22 @@ class SwapAnnualRate(RolloverRules):
 
 class SwapPoints(RolloverRules):
     model: Literal["points_per_day"] = "points_per_day"
-    long: float  # price points per instrument unit per day; negative = charge
+    long: float  # points per instrument unit per day; negative = charge
+    short: float
+    point_size: float = Field(default=1.0, gt=0)  # price units per point (1.0 = price units)
+
+
+class SwapCurrencyPerLot(RolloverRules):
+    """Quote-currency amount per lot per day (Moneta ``in currency``, D-321)."""
+
+    model: Literal["currency_per_lot_day"] = "currency_per_lot_day"
+    long: float
     short: float
 
 
-Swap = Annotated[SwapNone | SwapAnnualRate | SwapPoints, Field(discriminator="model")]
+Swap = Annotated[
+    SwapNone | SwapAnnualRate | SwapPoints | SwapCurrencyPerLot, Field(discriminator="model")
+]
 
 
 class Slippage(_Frozen):
@@ -185,13 +237,22 @@ class CostProfile(_Frozen):
     commission: Commission
     swap: Swap
     slippage: Slippage = Field(default_factory=Slippage)
+    # instrument (D-307, D-313 ... D-315); defaults = the D-314 assumption
+    broker_symbol: str | None = None
+    quote_ccy: str = Field(default="USD", min_length=3, max_length=3)
+    point_value: float | None = Field(default=None, gt=0)  # money per point per lot (quote ccy)
+    contract_size: float = Field(default=1.0, gt=0)  # instrument units per lot
+    volume_step: float = Field(default=1.0, gt=0)  # lots
+    min_volume: float = Field(default=1.0, gt=0)  # lots
+    volume_step_assumed: bool = True
+    to_verify: tuple[str, ...] = ()
 
     @property
     def is_placeholder(self) -> bool:
         return self.status == "placeholder"
 
     @model_validator(mode="after")
-    def _pips_need_pip_size(self) -> CostProfile:
+    def _checks(self) -> CostProfile:
         amounts: list[Amount] = [self.slippage.fixed]
         if isinstance(self.spread, SpreadFixed):
             amounts.append(self.spread.fixed)
@@ -202,6 +263,8 @@ class CostProfile(_Frozen):
         )
         if uses_pip and self.pip_size is None:
             raise ValueError(f"profile {self.name!r} uses pips but defines no pip_size")
+        if self.min_volume < self.volume_step * (1.0 - 1e-9):
+            raise ValueError(f"profile {self.name!r}: min_volume below volume_step")
         return self
 
 
@@ -237,7 +300,8 @@ class CostsConfig(_Frozen):
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+        data = yaml.load(path.read_text(encoding="utf-8"), Loader=loader) or {}
     except (OSError, yaml.YAMLError) as exc:
         raise ConfigError(f"cannot read config: {exc}", config_path=path) from exc
     if not isinstance(data, dict):
@@ -245,30 +309,58 @@ def _read_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
+def _add(profiles: dict[str, CostProfile], data: Any, path: Path) -> None:
+    try:
+        prof = CostProfile.model_validate(data)
+    except ValidationError as exc:
+        raise ConfigError(f"invalid cost profile: {exc}", config_path=path) from exc
+    if prof.name in profiles:
+        raise ConfigError(f"duplicate cost profile name {prof.name!r}", config_path=path)
+    profiles[prof.name] = prof
+
+
 def load_profiles(costs_dir: Path) -> dict[str, CostProfile]:
-    """Every profile file in ``costs_dir`` (all ``*.yaml`` except the assignments)."""
+    """Every profile file in ``costs_dir`` plus the generated Moneta profiles, if present."""
     profiles: dict[str, CostProfile] = {}
     for path in sorted(costs_dir.glob("*.yaml")):
         if path.name == ASSIGNMENTS_FILE:
             continue
-        try:
-            prof = CostProfile.model_validate(_read_yaml(path))
-        except ValidationError as exc:
-            raise ConfigError(f"invalid cost profile: {exc}", config_path=path) from exc
-        if prof.name in profiles:
-            raise ConfigError(f"duplicate cost profile name {prof.name!r}", config_path=path)
-        profiles[prof.name] = prof
+        _add(profiles, _read_yaml(path), path)
+    generated = costs_dir / MONETA_DIR / MONETA_PROFILES_FILE
+    if generated.is_file():
+        items = _read_yaml(generated).get("profiles") or []
+        if not isinstance(items, list):
+            raise ConfigError("'profiles' must be a list", config_path=generated)
+        for item in items:
+            _add(profiles, item, generated)
     return profiles
 
 
-def load_assignments(costs_dir: Path) -> Assignments:
-    path = costs_dir / ASSIGNMENTS_FILE
-    if not path.is_file():
-        raise ConfigError("cost assignments not found (costs are mandatory)", config_path=path)
+def _assignments(path: Path) -> Assignments:
     try:
         return Assignments.model_validate(_read_yaml(path))
     except ValidationError as exc:
         raise ConfigError(f"invalid cost assignments: {exc}", config_path=path) from exc
+
+
+def load_assignments(costs_dir: Path) -> Assignments:
+    """``assignments.yaml`` merged with the generated ``moneta/assignments.yaml``."""
+    path = costs_dir / ASSIGNMENTS_FILE
+    if not path.is_file():
+        raise ConfigError("cost assignments not found (costs are mandatory)", config_path=path)
+    base = _assignments(path)
+    generated = costs_dir / MONETA_DIR / ASSIGNMENTS_FILE
+    if not generated.is_file():
+        return base
+    extra = _assignments(generated)
+    if extra.groups:
+        raise ConfigError("generated assignments may not define groups", config_path=generated)
+    both = sorted(set(base.symbols) & set(extra.symbols))
+    if both:
+        raise ConfigError(
+            f"symbols assigned in both assignment files: {both[:10]}", config_path=generated
+        )
+    return base.model_copy(update={"symbols": {**base.symbols, **extra.symbols}})
 
 
 def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

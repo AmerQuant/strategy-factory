@@ -1,0 +1,9 @@
+{
+  "source": "reference/broker/moneta/MT5Moneta-ECN_specification-1.xlsx",
+  "sha256": "f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199",
+  "size_bytes": 143708,
+  "file_date": "2026-09-19",
+  "manifest_checked": true,
+  "imported_at": "2026-09-19T19:20:04+00:00",
+  "rows": 1057
+}
