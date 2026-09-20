@@ -23,7 +23,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** | **P-40 … P-59** |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 |
 
-Next free here: **D-360**, **P-40**.
+Next free here: **D-370**, **P-45**.
 
 ## Rules that bind this stream (D-355)
 
@@ -43,7 +43,7 @@ Next free here: **D-360**, **P-40**.
 
 ## Status — 2026-09-21
 
-**Branch `a/T11-parity`, commit `7416278`** (pushed, CI green). Everything below is on that
+**Branch `a/T11-parity`, commit `c81b54f`** (pushed, CI green); **`a/protocol-worktrees`, commit `01ce80f`** (pushed, **PR #22**, waiting on CI and on "Approved. Merge"). Everything below is on that
 branch unless it says otherwise. Read with `HANDOFF.md`; together they are enough to resume
 this stream from scratch.
 
@@ -99,8 +99,21 @@ folder. Stream A recovered by backing its own edit out of that branch and using 
 worktree for `a/T11-parity`; nothing was lost (all T11 work was already committed and pushed).
 **A spawned session must get its own worktree.**
 
+**Closed by PR #22** (`a/protocol-worktrees`, waiting on "Approved. Merge"): D-357 (1) is
+amended in place — *every* session, spawned or helper included, works in **its own git worktree
+on its own branch** and **may never switch the checkout of a folder it does not own** — and the
+rule is now enforced, not only written: `uv run sfac streams session --stream A` at session
+start prints the worktree, the branch and the folder's owner and **fails** when a session sits
+in a folder it does not own, refusing to suggest switching branches. Nine tests cover it,
+including the incident itself. Amending D-357 in place would have failed the ID guard as a
+duplicate, so **D-369** teaches `check_ids` the difference: an id added *and* removed is an
+amendment (range check still applies), an id removed and not added back is a deletion and
+always fails.
+
 ### Next actions, in order
 
+0. **PR #22** (`a/protocol-worktrees`) — CI green, then **stop for "Approved. Merge"**. After
+   it merges, rebase `a/T11-parity` onto `main`.
 1. TF exports arrive → fixtures, manifest note, both one-sided comparisons.
 2. `docs/reviews/T11_review.md`, then **stop for "Approved"** (D-402).
 2b. Plan the D-368 task (metrics fixture + the Hypothesis CI policy) **after** T11.
@@ -110,5 +123,5 @@ worktree for `a/T11-parity`; nothing was lost (all T11 work was already committe
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-368** used (next free **D-369**); pending **P-40 … P-44** used
+Stream A decisions **D-360 … D-369** used (next free **D-370**); pending **P-40 … P-44** used
 (next free **P-45**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
