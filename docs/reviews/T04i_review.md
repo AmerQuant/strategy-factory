@@ -530,7 +530,7 @@ instead of seven, because the 10-session threshold catches more of them.
 Re-run after the D-398 amendment (2026-09-20):
 
 ```
-uv run pytest -m "not slow"                          1214 passed
+uv run pytest -m "not slow"                          1216 passed (on main after the stream-A universe regeneration)
 uv run pytest tests/parity tests/leakage                280 passed
 uv run pytest tests/parity tests/leakage tests/oracle   283 passed
 uv run pytest -m db                                  21 passed, 0 skipped
