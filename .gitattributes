@@ -8,3 +8,7 @@
 *.parquet binary
 *.png binary
 *.gz binary
+
+# D-359: the parity reference fixtures are byte-identical copies of the raw store and their
+# sha256 is asserted against it. Never normalize them, or the hashes stop matching.
+tests/fixtures/parity/** binary

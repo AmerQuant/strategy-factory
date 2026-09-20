@@ -7,6 +7,11 @@
   row count, and writes manifest.json next to them. The loader verifies the hash on every
   load, so the references cannot change unnoticed (as in D-340).
 
+  It covers all six references: the two chart exports (.csv), the two Strategy Tester reports
+  (.xlsx) and the two Pine sources (.pine). Row counts are written for the .csv exports; for
+  an .xlsx the Trades sheet row count is reported by the loader, not here, so the value is
+  null. The repo fixtures of D-359 carry their own manifest, generated from these files.
+
   Run this once the TradingView exports are in place, and again whenever a reference is
   replaced. It only ever writes manifest.json; the exports themselves are never touched
   (the raw store is read-only, CLAUDE.md rule 11).
@@ -45,13 +50,25 @@ $root = Get-RawRoot -Given $RawRoot
 $dir = Join-Path $root $SubPath
 if (-not (Test-Path $dir)) { throw "parity folder not found: $dir" }
 
-$files = Get-ChildItem -Path $dir -File | Where-Object { $_.Name -ne 'manifest.json' } | Sort-Object Name
+$expected = @('.csv', '.xlsx', '.pine')
+$files = Get-ChildItem -Path $dir -File |
+    Where-Object { $_.Name -ne 'manifest.json' } |
+    Sort-Object Name
 if (-not $files) { throw "no parity reference files in $dir" }
+
+$kinds = $files | Group-Object Extension | ForEach-Object { "$($_.Name) x$($_.Count)" }
+Write-Host "$($files.Count) file(s): $($kinds -join ', ')"
+$unexpected = $files | Where-Object { $expected -notcontains $_.Extension }
+if ($unexpected) {
+    Write-Warning "unexpected file type(s): $(($unexpected | ForEach-Object Name) -join ', ')"
+}
+Write-Host ''
 
 $entries = [ordered]@{}
 foreach ($f in $files) {
     $sha = (Get-FileHash -Path $f.FullName -Algorithm SHA256).Hash.ToLower()
-    # Row count excludes the header; CSV only, other file types report null.
+    # Row count excludes the header; CSV only. An .xlsx or .pine reports null: the sheet row
+    # count comes from the loader, and a source file has no rows to speak of.
     $rows = $null
     if ($f.Extension -eq '.csv') {
         $rows = [Math]::Max(0, ((Get-Content -LiteralPath $f.FullName | Measure-Object -Line).Lines - 1))

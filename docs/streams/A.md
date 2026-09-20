@@ -54,19 +54,24 @@ Next free here: **D-360**, **P-40**.
 
 ### T11: what is built and what is waiting
 
+All six references are in place (2 chart CSVs, 2 Strategy Tester `.xlsx`, 2 `.pine`) and read
+correctly; **D-359** puts byte-identical copies in `tests/fixtures/parity/` (1.9 MB) so the
+gate can run in CI.
+
 | section | state |
 |---|---|
-| §1 reference store (`data/parity_refs.py`) | done — chart-data and trade-list readers, manifest verified on every load, bars used exactly as exported |
-| §2 parity config (`core/parity_config.py`, `configs/parity/`) | done — every D-348 Pine setting required; templates for both references |
-| §3 parity costs (`costs/parity.py`) | done — built from the `pine` block alone (D-362) |
-| manifest script (`scripts/write_parity_manifest.ps1`) | done — the user runs it once the exports are there (D-360, D-031) |
-| §6 report scaffolding (`selftest/parity_report.py`) | done — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
-| **§4 comparison + gate** | **waiting on the trade lists** (D-360). The gate test is added *with* them, so `main` never carries a permanently failing test; T11 does not merge until it passes. |
-| §3 strategy mapping | waiting on the Pine sources (D-361) |
+| §1 reference store (`selftest/parity_refs.py`) | done — chart data, the `.xlsx` Trades and Properties sheets (openpyxl imported lazily, D-317), the Pine `strategy()` parser and the Properties cross-check; manifest verified on every load; bars used exactly as exported |
+| §2 parity config (`core/parity_config.py`, `configs/parity/`) | done — both configs filled from their Pine sources, cross-checked against the reports (**no disagreement**) |
+| §3 parity costs (`costs/parity.py`) | done — from the `pine` block alone (D-362) |
+| manifest script | done — extended to all six files; **the user runs it** (D-360, D-031) |
+| §6 report scaffolding | done — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
+| **§4 comparison + gate** | **the only part left** |
+| §3 strategy mapping | the Pine rules are known; mapping them to registered components is part of §4's work (D-361) |
 
-### Owed to stream B
+**D-349 (a) cannot be verified by these references:** neither script uses a trailing stop (MR:
+previous-high exit, 5-bar limit, 3-ATR stop; TF: 2-ATR stop, 4-ATR target, 50-bar limit). It
+**stays `to_verify`** and the T11 review must say so.
 
-- `sfac universe generate` after each stream-B merge (D-394); nothing listed yet.
 
 ### Owed to stream B
 

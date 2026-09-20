@@ -8,7 +8,11 @@ Read first: `CLAUDE.md`, `docs/decisions/decisions_log.md`, `docs/reviews/T08_re
 
 ## 0. Blocking inputs — the references are incomplete today
 
-`SFAC_RAW_ROOT/reference/tradingview/parity/` currently holds **only OHLC**:
+**Resolved 2026-09-21.** All six references are in place and read correctly, the fixtures of
+**D-359** make them available to CI, and P-40 … P-43 are answered by D-360 … D-363. The
+original finding is kept below for the record.
+
+`SFAC_RAW_ROOT/reference/tradingview/parity/` held **only OHLC** when this task was planned:
 
 | file | rows | range (UTC) | notes |
 |---|---|---|---|
@@ -87,9 +91,11 @@ engine is changed and the change is recorded as a decision (stream-A range **D-3
 The two HANDOFF §8 notes are checked explicitly:
 1. **ATR warm-up entries** — the engine only enters when `atr[j] > 0`; TradingView may enter
    during the warm-up. Compare the **first** trades of each export.
-2. **Trailing ATR basis** — the engine trails from the ATR **at entry** (fixed per trade); Pine
-   often recomputes it from the current ATR each bar (D-349 a). Read the TF script before
-   deciding; if it recomputes, the engine's parity branch changes and D-349 (a) is superseded.
+2. **Trailing ATR basis** — **neither reference uses a trailing stop.** The MR script exits on
+   `close > high[1]`, a 5-bar time limit or a 3-ATR stop; the TF script uses a 2-ATR stop, a
+   4-ATR target and a 50-bar time limit. **D-349 (a) therefore cannot be verified by these
+   references and stays `to_verify`** — it needs a third reference with `strategy.exit`
+   trailing, or a decision to leave it unverified. This must be stated in the T11 review.
 
 ### 6. Report (`docs/reviews/T11_review.md` + a parity report artifact)
 Per reference: bar count, date range, settings used, matched-trade share, net-profit difference,

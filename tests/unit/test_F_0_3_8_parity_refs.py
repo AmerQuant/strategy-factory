@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import json
+import zoneinfo
 from pathlib import Path
 from typing import Any
 
@@ -24,12 +25,19 @@ from strategy_factory.core.parity_config import (
     load_parity_config,
 )
 from strategy_factory.costs.parity import PARITY_PROFILE, commission_params, parity_cost_arrays
-from strategy_factory.data.parity_refs import (
+from strategy_factory.selftest.parity_refs import (
     MANIFEST,
     ChartData,
+    cross_check_properties,
+    fixture,
+    fixture_dir,
     load_chart_data,
     load_manifest,
+    load_properties,
+    load_strategy_report,
     load_trade_list,
+    pine_settings_from_source,
+    raw_dir,
     sha256_of,
     verify,
 )
@@ -221,36 +229,6 @@ def test_F_0_3_8_loading_never_writes_to_the_raw_store(refs: Path) -> None:
     load_chart_data(refs / "CHART.csv")
     load_trade_list(refs / "TRADES.csv")
     assert {p.name: p.stat().st_mtime_ns for p in refs.iterdir()} == before
-
-
-# -- the real exports ------------------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("name", "rows", "first", "last"),
-    [
-        ("BATS_SPY, 1D.csv", 8467, "1993-01-29T14:30:00+00:00", "2026-09-18T13:30:00+00:00"),
-        ("OANDA_XAUUSD, 60.csv", 21986, "2023-01-02T23:00:00+00:00", "2026-09-18T20:00:00+00:00"),
-    ],
-)
-def test_F_0_3_8_real_exports_load(name: str, rows: int, first: str, last: str) -> None:
-    """The two D-348 references, if the raw store is present on this machine."""
-    from strategy_factory.data.download.rawfiles import raw_root
-
-    try:
-        root = raw_root()
-    except ConfigError:
-        pytest.skip("SFAC_RAW_ROOT is not set (CI has no raw store)")
-    folder = root / "reference" / "tradingview" / "parity"
-    path = folder / name
-    if not path.is_file():
-        pytest.skip(f"{name} is not in this machine's raw store")
-    if not (folder / MANIFEST).is_file():
-        pytest.skip(
-            "the parity manifest is not written yet (run scripts/write_parity_manifest.ps1)"
-        )
-    chart = load_chart_data(path)
-    assert len(chart) == rows
-    got_first, got_last = chart.range()
-    assert got_first.isoformat() == first and got_last.isoformat() == last
 
 
 # -- §2 the parity config --------------------------------------------------------------------
@@ -466,3 +444,199 @@ def test_F_0_3_8_reference_summary_names_the_missing_inputs() -> None:
     assert "NOT AVAILABLE YET (D-360)" in text  # no trade list
     assert "NOT MAPPED YET (D-361)" in text  # no strategy
     assert "atr_length 14" in text and "pine block only (D-362)" in text
+
+
+# -- D-359: the repo fixtures, so the gate can run in CI -------------------------------------
+MR_XLSX = "SF_parity_MR_-_RSI2_daily_BATS_SPY_2026-09-20.xlsx"
+TF_XLSX = "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20.xlsx"
+MR_PINE = "SF parity MR - RSI2 daily.pine"
+TF_PINE = "SF parity TF - Donchian 1H.pine"
+NY = zoneinfo.ZoneInfo("America/New_York")
+SIX = (
+    "BATS_SPY, 1D.csv",
+    "OANDA_XAUUSD, 60.csv",
+    MR_PINE,
+    TF_PINE,
+    MR_XLSX,
+    TF_XLSX,
+)
+
+
+def test_F_0_3_8_d359_all_six_references_are_committed_fixtures() -> None:
+    """The gate reads these, so it never skips (CLAUDE.md rule 9)."""
+    names = {p.name for p in fixture_dir().iterdir()}
+    assert names == {*SIX, MANIFEST}
+    entries = load_manifest(fixture_dir())
+    assert set(entries) == set(SIX)
+    total = sum(fixture(n).stat().st_size for n in SIX)
+    assert total < 4 * 1024 * 1024, f"{total / 1024 / 1024:.1f} MB is too much for the repo"
+
+
+def test_F_0_3_8_d359_every_fixture_matches_its_own_manifest() -> None:
+    """The fixture manifest is checked on every load, exactly like the raw one."""
+    entries = load_manifest(fixture_dir())
+    for name in SIX:
+        assert verify(fixture(name), entries) == entries[name]["sha256"]
+
+
+def test_F_0_3_8_d359_fixtures_match_the_raw_store() -> None:
+    """The raw store stays the source of truth (D-359); skipped only where it is absent."""
+    raw = raw_dir()
+    if raw is None:
+        pytest.skip("SFAC_RAW_ROOT is not set (CI has no raw store)")
+    if not (raw / MANIFEST).is_file():
+        pytest.skip("the raw parity manifest is not written yet")
+    raw_entries = load_manifest(raw)
+    fixture_entries = load_manifest(fixture_dir())
+    assert set(fixture_entries) <= set(raw_entries)
+    for name, entry in fixture_entries.items():
+        assert entry["sha256"] == raw_entries[name]["sha256"], name
+        assert sha256_of(fixture(name)) == raw_entries[name]["sha256"], name
+
+
+def test_F_0_3_8_d359_fixture_lookup_errors_are_clear() -> None:
+    with pytest.raises(ConfigError, match="not found; have"):
+        fixture("nope.csv")
+
+
+# -- the real references, read from the fixtures ---------------------------------------------
+@pytest.mark.parametrize(
+    ("name", "rows", "first", "last"),
+    [
+        ("BATS_SPY, 1D.csv", 8467, "1993-01-29T14:30:00+00:00", "2026-09-18T13:30:00+00:00"),
+        ("OANDA_XAUUSD, 60.csv", 21986, "2023-01-02T23:00:00+00:00", "2026-09-18T20:00:00+00:00"),
+    ],
+)
+def test_F_0_3_8_fixture_chart_exports_load(name: str, rows: int, first: str, last: str) -> None:
+    chart = load_chart_data(fixture(name), load_manifest(fixture_dir()))
+    assert len(chart) == rows
+    got_first, got_last = chart.range()
+    assert got_first.isoformat() == first and got_last.isoformat() == last
+    assert chart.high.min() >= chart.low.min()
+
+
+@pytest.mark.parametrize(
+    ("xlsx", "rows", "closed", "open_trades", "net", "reasons"),
+    [
+        (MR_XLSX, 924, 462, [], 185_810.06, {"PrevHigh": 365, "SL": 35, "Time": 62}),
+        (TF_XLSX, 1745, 872, [873], -24_372.65, {"SL": 544, "TP": 273, "Time": 55}),
+    ],
+)
+def test_F_0_3_8_strategy_reports_load(
+    xlsx: str, rows: int, closed: int, open_trades: list[int], net: float, reasons: dict[str, int]
+) -> None:
+    """The Trades sheet: exit-before-entry rows, an open trade dropped from the pairs."""
+    from collections import Counter
+
+    trades = load_strategy_report(fixture(xlsx), NY, load_manifest(fixture_dir()))
+    assert len(trades) == rows
+    pairs = trades.trades()
+    assert len(pairs) == closed
+    assert trades.open_trades() == open_trades
+    assert trades.net_profit() == pytest.approx(net, abs=0.01)
+    assert dict(Counter(x.signal for _, x in pairs)) == reasons
+    assert all(e.kind == "entry" and x.kind == "exit" for e, x in pairs)
+    assert all(e.when <= x.when for e, x in pairs)
+
+
+def test_F_0_3_8_trade_times_are_in_the_chart_timezone() -> None:
+    """America/New_York, verified against the chart export (D-348 records the timezone)."""
+    mani = load_manifest(fixture_dir())
+    trades = load_strategy_report(fixture(TF_XLSX), NY, mani)
+    entry, _ = trades.trades()[0]
+    assert entry.when == dt.datetime(2023, 1, 4, 8, 0, tzinfo=dt.UTC)  # 03:00 New York
+    chart = load_chart_data(fixture("OANDA_XAUUSD, 60.csv"), mani)
+    assert chart.open[chart.index_of(entry.when)] == pytest.approx(entry.price)
+    # read as UTC instead, the same row lands on a bar whose open is a different price
+    as_utc = load_strategy_report(fixture(TF_XLSX), dt.UTC, mani).trades()[0][0]
+    assert chart.open[chart.index_of(as_utc.when)] != pytest.approx(entry.price)
+
+
+def test_F_0_3_8_daily_trades_match_their_bar_by_date() -> None:
+    """A daily trade row carries no time of day, so the bar is found by date."""
+    mani = load_manifest(fixture_dir())
+    trades = load_strategy_report(fixture(MR_XLSX), NY, mani)
+    chart = load_chart_data(fixture("BATS_SPY, 1D.csv"), mani)
+    entry, exit_ = trades.trades()[0]
+    assert entry.when == dt.datetime(1993, 2, 19, 5, 0, tzinfo=dt.UTC)  # midnight New York
+    with pytest.raises(DataError, match="not a bar start"):
+        chart.index_of(entry.when)  # 05:00 UTC is not a bar; the bar is stamped 14:30 UTC
+    i = chart.index_on_date(entry.when)
+    assert chart.open[i] == pytest.approx(entry.price, abs=0.005)  # the export rounds to 2 dp
+    j = chart.index_on_date(exit_.when)
+    assert chart.open[j] == pytest.approx(exit_.price, abs=0.005)
+    with pytest.raises(DataError, match="matches 0 bars"):
+        chart.index_on_date(dt.datetime(1993, 2, 20, tzinfo=dt.UTC))  # a Saturday
+
+
+# -- the Pine sources and the Properties cross-check ------------------------------------------
+@pytest.mark.parametrize(
+    ("pine_name", "xlsx", "tick"),
+    [(MR_PINE, MR_XLSX, 0.01), (TF_PINE, TF_XLSX, 0.001)],
+)
+def test_F_0_3_8_pine_settings_agree_with_the_properties_sheet(
+    pine_name: str, xlsx: str, tick: float
+) -> None:
+    """The strategy() call is the definition; the Properties sheet is what actually ran."""
+    mani = load_manifest(fixture_dir())
+    source = fixture(pine_name).read_text(encoding="utf-8-sig")
+    settings = pine_settings_from_source(source, tick_size=tick, atr_length=14)
+    assert settings["initial_capital"] == 100_000.0
+    assert settings["qty_type"] == "cash_amount" and settings["qty_value"] == 100_000.0
+    assert settings["commission_type"] == "percent" and settings["commission_value"] == 0.02
+    assert settings["slippage_ticks"] == 0 and settings["pyramiding"] == 0
+    assert settings["process_orders_on_close"] is False
+    assert settings["calc_on_every_tick"] is False
+    assert settings["bar_magnifier"] is False
+    properties = load_properties(fixture(xlsx), mani)
+    assert properties["Tick size"].startswith(str(tick)[:4])
+    assert cross_check_properties(settings, properties) == []
+
+
+def test_F_0_3_8_cross_check_reports_a_disagreement() -> None:
+    mani = load_manifest(fixture_dir())
+    properties = load_properties(fixture(MR_XLSX), mani)
+    source = fixture(MR_PINE).read_text(encoding="utf-8-sig")
+    settings = pine_settings_from_source(source, tick_size=0.01, atr_length=14)
+    for field, value, expect in (
+        ("commission_value", 0.05, "Commission"),
+        ("initial_capital", 50_000.0, "Initial capital"),
+        ("slippage_ticks", 2, "Slippage"),
+        ("bar_magnifier", True, "Bar detalization"),
+        ("calc_on_every_tick", True, "Script execution"),
+    ):
+        problems = cross_check_properties({**settings, field: value}, properties)
+        assert len(problems) == 1 and problems[0].startswith(expect), (field, problems)
+    assert cross_check_properties(settings, {}) == []  # no sheet: nothing to disagree with
+
+
+def test_F_0_3_8_pine_parser_rejects_what_it_does_not_understand() -> None:
+    with pytest.raises(DataError, match="no strategy"):
+        pine_settings_from_source("// just a comment\n", 0.01, 14)
+    with pytest.raises(DataError, match="unknown default_qty_type"):
+        pine_settings_from_source('strategy("x", default_qty_type = strategy.made_up)\n', 0.01, 14)
+    with pytest.raises(DataError, match="unknown commission_type"):
+        pine_settings_from_source(
+            'strategy("x", commission_type = strategy.commission.made_up)\n', 0.01, 14
+        )
+
+
+def test_F_0_3_8_the_repo_parity_configs_describe_the_real_references() -> None:
+    """Each config's `pine` block must be exactly what its Pine source and report say."""
+    mani = load_manifest(fixture_dir())
+    for cfg_name, pine_name, xlsx in (
+        ("spy_mr_1d.yaml", MR_PINE, MR_XLSX),
+        ("xauusd_tf_1h.yaml", TF_PINE, TF_XLSX),
+    ):
+        cfg = load_parity_config(REPO / PARITY_DIR / cfg_name)
+        assert cfg.reference.trade_list == xlsx
+        assert cfg.pine.export_timezone == "America/New_York"
+        from_source = pine_settings_from_source(
+            fixture(pine_name).read_text(encoding="utf-8-sig"),
+            tick_size=cfg.pine.tick_size,
+            atr_length=cfg.pine.atr_length,
+        )
+        recorded = cfg.pine.model_dump()
+        for field, value in from_source.items():
+            assert recorded[field] == value, f"{cfg_name}: {field}"
+        assert cross_check_properties(recorded, load_properties(fixture(xlsx), mani)) == []
