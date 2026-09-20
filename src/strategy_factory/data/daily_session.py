@@ -107,6 +107,19 @@ def raw_extremes(raw_hourly: pl.DataFrame, timezone: str) -> pl.DataFrame:
     )
 
 
+def with_atr(daily: pl.DataFrame, length: int = 14) -> pl.DataFrame:
+    """Add ``atr`` -- the rolling mean true range -- so a breach can be sized against the bar."""
+    prev_close = pl.col("close").shift(1)
+    true_range = pl.max_horizontal(
+        pl.col("high") - pl.col("low"),
+        (pl.col("high") - prev_close).abs(),
+        (pl.col("low") - prev_close).abs(),
+    )
+    return daily.sort("ts").with_columns(
+        true_range.rolling_mean(window_size=length, min_samples=length).alias("atr")
+    )
+
+
 def breaches(
     daily: pl.DataFrame,
     rth: pl.DataFrame,
@@ -121,11 +134,13 @@ def breaches(
     reported in basis points of that day's close, so they are comparable across symbols and
     price levels.
     """
-    day = daily.select(
+    frame = daily if "atr" in daily.columns else with_atr(daily)
+    day = frame.select(
         pl.col("ts").dt.date().alias("session_date"),
         pl.col("high").alias("daily_high"),
         pl.col("low").alias("daily_low"),
         pl.col("close").alias("daily_close"),
+        pl.col("atr"),
     )
     joined = day.join(rth, on="session_date", how="inner").join(raw, on="session_date", how="left")
     if expected is None:
@@ -138,6 +153,19 @@ def breaches(
         ((pl.col("rth_low") - pl.col("daily_low")) * bps).alias("breach_low_bps"),
     ).with_columns(
         pl.max_horizontal("breach_high_bps", "breach_low_bps").alias("breach_bps"),
+    )
+    out = out.with_columns(
+        pl.when(pl.col("atr") > 0)
+        .then(
+            pl.max_horizontal("breach_high_bps", "breach_low_bps")
+            * pl.col("daily_close")
+            / 1e4
+            / pl.col("atr")
+        )
+        .otherwise(None)
+        .alias("breach_atr_frac"),
+        (pl.col("breach_high_bps") > eps_bps).alias("high_side"),
+        (pl.col("breach_low_bps") > eps_bps).alias("low_side"),
     )
     high_ok = pl.col("daily_high") <= pl.col("raw_high") * (1 + eps_bps / 1e4)
     low_ok = pl.col("daily_low") >= pl.col("raw_low") * (1 - eps_bps / 1e4)

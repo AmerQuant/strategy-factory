@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-398**, **P-73**.
+Next free here: **D-398**, **P-74**.
 
 ## Rules that bind this stream (D-355)
 
@@ -63,7 +63,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 | NYSE calendar (D-025) | not started; the T04e fetch was never run, so `configs/calendars/nyse_sessions.csv`, `configs/universe/symbol_changes.csv` and the raw calendar/corporate-action files are all missing. T04f §1 is the user's PowerShell run |
 | T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
-| T04i | **complete**, stopped for "Approved". **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`). Findings: 15,559 unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; **379 re-used-ticker candidates over 329 symbols**, 296 of them frozen-price stretches a gap test cannot see. Review: `docs/reviews/T04i_review.md` |
+| T04i | **complete**, stopped for "Approved". **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; **347 re-used-ticker candidates over 297 symbols**, most of them frozen-price stretches a gap test cannot see, 7 of them Moneta targets that are kept (D-388). **P-73** open. Review: `docs/reviews/T04i_review.md` |
 | T04k | planned (`docs/tasks/T04k_clean_daily_snapshot.md`), after T04g and **before T12** (D-396) |
 | T12 | not started |
 
@@ -116,6 +116,24 @@ uv run sfac data download alpaca --timeframe 1H --symbols AVGO --start 2016-01-0
 `--refresh` (D-397) writes a new version file beside each old one; nothing is overwritten.
 
 ## For stream A
+
+- **D-388, T04i: seven re-used-ticker candidates are Moneta mapping targets and are KEPT.**
+  The sweep over all 6,711 daily symbols (`docs/reviews/T04i_relisted_candidates.csv`, column
+  `moneta_target`) flags these, and none is excluded:
+
+  | symbol | why it is on the list | why it is kept |
+  |---|---|---|
+  | `MBLY` | 1,297 frozen bars, 62.94 → 28.97 | Mobileye N.V. acquired 2017; Mobileye Global re-listed Oct 2022 |
+  | `SNOW` | 610 frozen bars + a 260-day gap, 23.71 → 253.93 | Snowflake IPO Sept 2020 |
+  | `SE` | 166 frozen bars, 41.00 → 16.26 | Spectra Energy merged 2017; Sea Limited listed Oct 2017 |
+  | `CTRA` | 168 frozen bars, 12.93 → 22.77 | Contura → AMR; Coterra took `CTRA` Oct 2021 |
+  | `MARA` | 304-day gap, 27.52 → 6.40 | same company, a long halt |
+  | `GRAB` | 570 padded bars | pre-listing padding, not a candidate |
+  | `DOW` | 397 frozen bars, no level break | pre-spin-off padding, not a candidate |
+
+  All seven are live and broker-tradable. Their padded or pre-re-use history is still unusable —
+  the series should start at its first real bar — which is **T04k**-shaped work, not a reason to
+  drop a tradable symbol. Nothing under `configs/costs/` was touched.
 
 - **D-388 (broker mapping boundary), re-run against the real feed on 2026-09-20.** Two Moneta
   research targets are removed by the raw builder output and are **kept** under D-388:

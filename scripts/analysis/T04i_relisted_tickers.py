@@ -33,9 +33,12 @@ from strategy_factory.data.relisting import (
 DAILY_DIR = ("us_equity", "alpaca_sip_split", "1D")
 UNIVERSE = Path("configs") / "universe" / "us_equity_daily.csv"
 OUT_DEFAULT = Path("docs") / "reviews" / "T04i_relisted_candidates.csv"
+MONETA_MAP = Path("configs") / "costs" / "moneta" / "symbol_map.csv"
+MONETA_OVERRIDES = Path("configs") / "costs" / "moneta" / "symbol_overrides.csv"
 COLUMNS = [
     "symbol",
     "reason",
+    "moneta_target",
     "last_date_before_gap",
     "first_date_after_gap",
     "gap_days",
@@ -72,6 +75,13 @@ def main() -> None:
         with UNIVERSE.open(encoding="utf-8", newline="") as fh:
             symbols = [r["symbol"] for r in csv.DictReader(fh)]
 
+    # D-388: a candidate that is a Moneta mapping target is KEPT and reported, never dropped.
+    moneta: set[str] = set()
+    for path, column in ((MONETA_MAP, "research_symbol"), (MONETA_OVERRIDES, "research_symbol")):
+        if path.is_file():
+            with path.open(encoding="utf-8", newline="") as fh:
+                moneta |= {r[column] for r in csv.DictReader(fh) if r.get(column)}
+
     rows: list[dict[str, object]] = []
     for i, sym in enumerate(symbols, 1):
         files = latest_year_files(daily_dir / sym)
@@ -85,7 +95,7 @@ def main() -> None:
         )
         if frame.height < 2:
             continue
-        rows += relisting_candidates(
+        found = relisting_candidates(
             sym,
             frame["d"].to_list(),
             frame["c"].to_list(),
@@ -94,6 +104,9 @@ def main() -> None:
             args.gap_days,
             args.stale_days,
         )
+        for row in found:
+            row["moneta_target"] = sym in moneta
+        rows += found
         if i % 500 == 0:
             print(f"  {i}/{len(symbols)} symbols, {len(rows)} candidates", flush=True)
 

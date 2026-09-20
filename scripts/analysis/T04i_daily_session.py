@@ -70,6 +70,12 @@ def main() -> None:
     expected = expected_bars(
         load_sessions(cfg.hourly_session.sessions_file), cfg.hourly_session.first_bar
     )
+    # symbol class for the "breaches by class" table: the hourly universe says etf vs index member
+    classes: dict[str, str] = {}
+    universe = Path("configs") / "universe" / "us_equity_hourly.csv"
+    if universe.is_file():
+        with universe.open(encoding="utf-8", newline="") as fh:
+            classes = {r["symbol"]: r["reason"] for r in csv.DictReader(fh)}
 
     if args.symbols:
         symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
@@ -96,7 +102,9 @@ def main() -> None:
         raw = raw_extremes(
             pl.concat([pl.read_parquet(f).select("t", "h", "l") for f in h_files]), tz
         )
-        found = breaches(daily, rth, raw, sym, expected=expected)
+        found = breaches(daily, rth, raw, sym, expected=expected).with_columns(
+            pl.lit(classes.get(sym, "unknown")).alias("symbol_class")
+        )
         all_breaches.append(found)
         counts = dict(found.group_by("breach_class").len().iter_rows())
         years = covered_years(rth)
@@ -111,6 +119,10 @@ def main() -> None:
                 UNEXPLAINED: counts.get(UNEXPLAINED, 0),
                 INCOMPLETE_HOURLY_DAY: counts.get(INCOMPLETE_HOURLY_DAY, 0),
                 NO_RAW_HOURS: counts.get(NO_RAW_HOURS, 0),
+                "symbol_class": classes.get(sym, "unknown"),
+                "high_side_days": int(found["high_side"].sum()),
+                "low_side_days": int(found["low_side"].sum()),
+                "both_sides_days": int((found["high_side"] & found["low_side"]).sum()),
                 "max_breach_bps": round(found["breach_bps"].max() or 0.0, 2),
                 "error": "",
             }
@@ -132,6 +144,10 @@ def main() -> None:
             pl.col("breach_bps").round(3),
             pl.col("breach_high_bps").round(3),
             pl.col("breach_low_bps").round(3),
+            pl.col("breach_atr_frac").round(3),
+            "high_side",
+            "low_side",
+            "symbol_class",
             "daily_high",
             "daily_low",
             "daily_close",
@@ -149,6 +165,10 @@ def main() -> None:
         "hourly_year_count",
         "days_compared",
         "breach_days",
+        "symbol_class",
+        "high_side_days",
+        "low_side_days",
+        "both_sides_days",
         EXTENDED_HOURS,
         UNEXPLAINED,
         INCOMPLETE_HOURLY_DAY,

@@ -17,6 +17,7 @@ from strategy_factory.data.daily_session import (
     expected_bars,
     raw_extremes,
     rth_extremes,
+    with_atr,
 )
 
 NY = "America/New_York"
@@ -145,3 +146,31 @@ def test_F_0_1_2_complete_day_still_classifies_normally() -> None:
     expected = expected_bars({DAY: ("09:30", "16:00")}, "09:00")
     out = breaches(_daily(105.0, 98.0, 100.0), rth, raw, "TEST", expected=expected)
     assert out.row(0, named=True)["breach_class"] == EXTENDED_HOURS
+
+
+def test_F_0_1_2_breach_is_also_reported_against_the_bar_atr() -> None:
+    """The task asks for the breach as a fraction of the day's range, not only in bps."""
+    days = 20
+    ts = [
+        dt.datetime.combine(DAY, dt.time(0), tzinfo=dt.UTC) - dt.timedelta(days=days - 1 - i)
+        for i in range(days)
+    ]
+    daily = with_atr(
+        pl.DataFrame(
+            {
+                "ts": ts,
+                "high": [101.0] * days,
+                "low": [99.0] * days,
+                "close": [100.0] * days,
+            }
+        )
+    )
+    assert daily["atr"][-1] == 2.0  # high - low on every bar
+
+    rth = rth_extremes(_hourly([100.5] * 7, [99.5] * 7), NY)
+    raw = raw_extremes(_raw(list(range(9, 16)), [100.5] * 7, [99.5] * 7), NY)
+    out = breaches(daily, rth, raw, "TEST")  # only DAY exists on both sides
+    assert out.height == 1
+    row = out.row(0, named=True)
+    assert row["high_side"] is True and row["low_side"] is True
+    assert round(row["breach_atr_frac"], 3) == round((101.0 - 100.5) / 2.0, 3)

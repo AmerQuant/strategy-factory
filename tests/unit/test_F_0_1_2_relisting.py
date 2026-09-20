@@ -49,16 +49,30 @@ def test_F_0_1_2_a_known_split_inside_the_gap_explains_the_break() -> None:
     assert relisting_candidates("SPLIT", dates, closes, JUMP, frozenset()) != []
 
 
-def test_F_0_1_2_a_frozen_stretch_is_a_candidate_even_without_a_gap() -> None:
-    """The PX shape: the feed pads the dead years with the last price, so there is no gap."""
+def _frozen(before: float, frozen: float, after: float, n: int = 749) -> tuple[list, list]:
     dates: list[dt.date] = []
     closes: list[float] = []
     day = START
-    for n, close in ((300, 165.0), (749, 164.5), (300, 12.0)):
-        for _ in range(n):
+    for count, close in ((300, before), (n, frozen), (300, after)):
+        for _ in range(count):
             dates.append(day)
             closes.append(close)
             day += dt.timedelta(days=1)
+    return dates, closes
+
+
+def test_F_0_1_2_a_frozen_stretch_without_a_level_break_is_not_a_d383_candidate() -> None:
+    """D-383 is about a ticker re-used by another company; padding alone is not that."""
+    dates, closes = _frozen(2.94, 2.94, 3.15, n=315)  # the FI shape
+    got = relisting_candidates("FILIKE", dates, closes, JUMP)
+    assert got, "the frozen stretch must still be reported"
+    assert not [r for r in got if r["reason"] in ("stale_run", "trading_gap")]
+    assert {r["reason"] for r in got} <= {"padding_only", "pre_listing_padding"}
+
+
+def test_F_0_1_2_a_frozen_stretch_is_a_candidate_even_without_a_gap() -> None:
+    """The PX shape: the feed pads the dead years with the last price, so there is no gap."""
+    dates, closes = _frozen(165.0, 164.5, 12.0)  # the PX shape
     got = [
         r for r in relisting_candidates("PXLIKE", dates, closes, JUMP) if r["reason"] == "stale_run"
     ]
@@ -74,10 +88,9 @@ def test_F_0_1_2_a_short_flat_stretch_is_not_a_candidate() -> None:
 
 
 def test_F_0_1_2_the_stale_threshold_is_a_parameter() -> None:
-    dates, _ = _series([(100, 100.0)])
-    frozen = [5.0] * 100
-    assert relisting_candidates("F", dates, frozen, JUMP, stale_days=200) == []
-    assert relisting_candidates("F", dates, frozen, JUMP, stale_days=60) != []
+    dates, closes = _frozen(100.0, 5.0, 100.0, n=100)
+    assert relisting_candidates("F", dates, closes, JUMP, stale_days=400) == []
+    assert relisting_candidates("F", dates, closes, JUMP, stale_days=60) != []
 
 
 def test_F_0_1_2_a_clean_series_yields_nothing() -> None:
