@@ -48,6 +48,7 @@ class SizingInputs:
     step_rel_tol: float = 0.0
     contracts: float = 1.0
     point_value: float = 1.0
+    parity_qty_step: float | None = None  # required in parity mode (D-347), no default
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,11 @@ def _common(
         raise ValueError("unknown intrabar mode")
     if s.mode not in (k.SIZE_RESEARCH, k.SIZE_CONTRACTS, k.SIZE_PARITY):
         raise ValueError("unknown sizing mode")
+    if s.mode == k.SIZE_PARITY and not (s.parity_qty_step is not None and s.parity_qty_step > 0):
+        raise ValueError(
+            "parity sizing needs a positive parity_qty_step per run (D-347): the TradingView "
+            "quantity step of the symbol, e.g. 1 for BATS:SPY, 0.01 for OANDA:XAUUSD"
+        )
     code, p0, p1, p2 = c.commission_params
     one = np.ones(n)
     return (
@@ -141,7 +147,8 @@ def _common(
         one if fx_close is None else _f(fx_close, n, "fx_close"),
         int(s.mode), float(s.notional), float(s.contracts), float(s.point_value),
         float(s.contract_size), float(s.volume_step), float(s.min_volume),
-        float(s.step_rel_tol), float(s.initial_capital), int(intrabar_mode),
+        float(s.parity_qty_step or 0.0), float(s.step_rel_tol), float(s.initial_capital),
+        int(intrabar_mode),
     )  # fmt: skip
 
 
@@ -162,12 +169,12 @@ def simulate(
                 intrabar_mode)  # fmt: skip
     n = a[0].shape[0]
     (o, h, lo, c, atr, d, dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-     fo, fc, sm, nt, ct, pv, cs, vs, mv, tol, cap, im) = a  # fmt: skip
+     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im) = a  # fmt: skip
     out = k.simulate_one(
         o, h, lo, c, atr, _b(entry_sig, n, "entry_sig"), _b(exit_sig, n, "exit_sig"), d,
         int(exits.time_exit_bars), float(exits.sl_atr), float(exits.tp_atr),
         float(exits.trail_atr), dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-        fo, fc, sm, nt, ct, pv, cs, vs, mv, tol, cap, im,
+        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im,
     )  # fmt: skip
     fields_: list[Any] = [*out[:18], float(out[19]), int(out[20])]
     return SimResult(*fields_)
@@ -206,12 +213,12 @@ def simulate_grid(
         return arr
 
     (o, h, lo, c, atr, d, dis, hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-     fo, fc, sm, nt, ct, pv, cs, vs, mv, tol, cap, im) = a  # fmt: skip
+     fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im) = a  # fmt: skip
     eq, ip, ncl, nsk = k.simulate_grid_kernel(
         o, h, lo, c, atr, ent, ext, d,
         col(time_exit_bars, np.int64, "time_exit_bars"), col(sl_atr, np.float64, "sl_atr"),
         col(tp_atr, np.float64, "tp_atr"), col(trail_atr, np.float64, "trail_atr"), dis,
         hs, sf, saf, swl, sws, rm, tm, cc, p0, p1, p2, ciq,
-        fo, fc, sm, nt, ct, pv, cs, vs, mv, tol, cap, im,
+        fo, fc, sm, nt, ct, pv, cs, vs, mv, pqs, tol, cap, im,
     )  # fmt: skip
     return GridResult(eq, ip, ncl, nsk)

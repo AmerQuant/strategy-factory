@@ -196,18 +196,66 @@ def grid_of(case: Case, k_: int) -> Any:
 
 
 # -- 4. parity sizing unaffected by the rounding (D-313, D-337) ----------------------------------
-def test_F_0_3_1_parity_mode_is_not_rounded_nor_skipped() -> None:
-    sim = run_engine(expensive_case(sizing="parity", mode="tradingview"))
-    assert sim.n_skipped_min_volume == 0
-    assert sim.qty[0] == pytest.approx(100_000.0 / 2_000_000.0)  # notional / signal close
+def parity_case(price: float, qty_step: float, **kw: Any) -> Case:
     n = 6
-    o = np.full(n, 211.07)
-    base = {"o": o, "h": o * 1.001, "lo": o * 0.999, "c": o.copy(), "atr": np.full(n, 2.0),
-            "entry": flags(n, 1), "exit_": flags(n, 3), "step": 0.1, "min_volume": 0.1}  # fmt: skip
-    research = run_engine(Case(**base))
-    parity = run_engine(Case(**base, sizing="parity", mode="tradingview"))
-    assert research.qty[0] == pytest.approx(473.7)
-    assert parity.qty[0] == pytest.approx(100_000.0 / 211.07, rel=1e-15)  # 473.7765...
+    o = np.full(n, price)
+    base: dict[str, Any] = {
+        "o": o, "h": o * 1.001, "lo": o * 0.999, "c": o.copy(), "atr": np.full(n, price * 0.02),
+        "entry": flags(n, 1), "exit_": flags(n, 3), "sizing": "parity", "mode": "tradingview",
+        "parity_qty_step": qty_step, "step": 0.1, "min_volume": 0.1,
+    }  # fmt: skip
+    base.update(kw)
+    return Case(**base)
+
+
+@pytest.mark.parametrize(
+    ("price", "step", "expected"),
+    [
+        (211.07, 1.0, 473.0),  # BATS:SPY-like: 473.7765... -> 473 whole shares
+        (2345.67, 0.01, 42.63),  # OANDA:XAUUSD-like: 42.63354... -> 42.63
+        (100.0, 1.0, 1000.0),  # an exact multiple survives the float guard
+        (0.4, 0.01, 250_000.0),  # 250000.0 exactly, with a fractional step
+    ],
+)
+def test_F_0_3_1_d347_parity_qty_floored_to_the_tradingview_step(
+    price: float, step: float, expected: float
+) -> None:
+    """D-347: qty = floor(notional / close[signal] / step) x step (the exports show flooring)."""
+    sim = run_engine(parity_case(price, step))  # step here is the TradingView quantity step
+    assert sim.qty[0] == pytest.approx(expected, rel=1e-12)
+    assert sim.qty[0] * price <= 100_000.0 + 1e-6
+    assert sim.n_skipped_min_volume == 0
+    to_result(parity_case(price, step), sim)
+
+
+def test_F_0_3_1_d347_parity_qty_zero_is_skipped_and_counted() -> None:
+    sim = run_engine(parity_case(2_000_000.0, 1.0))  # 0.05 -> floor 0 -> no trade
+    assert sim.entry_idx.size == 0 and sim.n_skipped_min_volume == 1
+    assert not sim.in_position.any()
+
+
+def test_F_0_3_1_d347_parity_ignores_the_broker_step_and_minimum() -> None:
+    """The broker volume step and minimum volume never apply in parity mode (D-347)."""
+    loose = run_engine(parity_case(211.07, 0.01, step=1.0, min_volume=10_000.0))
+    assert loose.qty[0] == pytest.approx(473.77) and loose.n_skipped_min_volume == 0
+    research = run_engine(parity_case(211.07, 0.01, sizing="research", mode="pessimistic"))
+    assert research.qty[0] == pytest.approx(473.7)  # broker step 0.1 (D-315), not the TV step
+
+
+def test_F_0_3_1_d347_parity_step_is_required() -> None:
+    with pytest.raises(ValueError, match="parity_qty_step"):
+        run_engine(parity_case(211.07, 1.0).with_(parity_qty_step=None))
+    with pytest.raises(ValueError, match="parity_qty_step"):
+        run_engine(parity_case(211.07, 1.0).with_(parity_qty_step=0.0))
+    bars = signal_bars()
+    costs = build_cost_arrays(bars, profile({"model": "none"}), timeframe="1D")
+    with pytest.raises(ConfigError, match="parity_qty_step"):
+        run_backtest(bars, SPEC, costs, symbol="X", timeframe="1D", direction="long",
+                     intrabar_mode="tradingview", config=CFG)  # fmt: skip
+    parity_cfg = CFG.model_copy(update={"parity_qty_step": 1.0})
+    res = run_backtest(bars, SPEC, costs, symbol="X", timeframe="1D", direction="long",
+                       intrabar_mode="tradingview", config=parity_cfg)  # fmt: skip
+    assert np.all(res.trades.qty == np.floor(res.trades.qty))  # whole shares at step 1
 
 
 # -- D-327: a stop exit inside a rollover bar -----------------------------------------------------

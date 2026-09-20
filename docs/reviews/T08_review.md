@@ -46,7 +46,7 @@ Modes: intrabar 0 = tradingview, 1 = pessimistic. Sizing 0 = research lots, 1 = 
    - Then a scheduled entry fills (D-336). Sizing:
      - research: `floor(notional / (open[j] × fx_open[j] × contract_size) / step) × step` lots (D-315, D-328); below the minimum volume the entry is skipped and counted (D-313);
      - futures: fixed contracts (D-329);
-     - parity: `notional / (close[j−1] × fx_close[j−1])` (D-337).
+     - parity: `floor(notional / (close[j−1] × fx_close[j−1]) / parity_qty_step) × parity_qty_step` (D-337, **D-347**); the broker step and minimum never apply, and qty 0 is a counted skip.
    - Levels come from the raw open of the entry bar and `atr[j−1]` (D-326).
 2. **Intrabar.**
    - Stops (disaster, SL, trailing) and TP are checked via high/low, from the entry bar on.
@@ -60,21 +60,18 @@ Modes: intrabar 0 = tradingview, 1 = pessimistic. Sizing 0 = research lots, 1 = 
    - An entry is scheduled when flat or when an exit is scheduled, if `j < n−1` and `atr[j] > 0`.
    - Equity is marked to market (D-003).
 
-## `to_verify` list (parity mode, D-338; also in the kernel docstring)
+## `to_verify` list after D-347 / D-349 (parity mode only; also in the kernel docstring)
 - O→H→L→C path and its tie (D-335).
 - Exit + re-entry at one open (D-336).
 - No swap on intrabar exits in rollover bars (D-327).
-- Parity sizing (D-337).
+- The trailing level moving only at the bar close (D-349 (a)): **final in research**, to be
+  matched against the Pine script in parity.
+- The parity conversion rate, the signal bar's `fx_close` (D-349 (h)); no non-USD parity
+  reference exists yet.
 
-Applied in both modes (P-34):
-- the trailing level moves at the close only;
-- a gap through the target fills at the open;
-- stop tie order;
-- stops are checked on the entry bar;
-- a signal exit beats a time exit on the same close;
-- the MAE/MFE definition;
-- exit slippage uses `atr[j−1]`;
-- parity sizing converts with `fx_close` of the signal bar.
+**Removed from the list:** the parity sizing basis. D-347 confirms the signal-bar close and
+adds the flooring, so D-337's "unrounded" part is superseded. The other choices of D-349
+((b)–(g), (i)) are confirmed as implemented and are no longer open.
 
 ## Hand-computed fixtures (`tests/unit/test_F_0_3_1_engine.py`)
 | Fixture | Numbers |
@@ -91,7 +88,7 @@ Applied in both modes (P-34):
 | **D-312** multi-day swap, changing price, triple day, long and short, non-USD; engine = hand = T06b `round_trip_cost` | `test_F_0_3_1_engine_sizing_swap.py::test_F_0_3_1_d312_*` |
 | **D-313/D-315** floor to the step (share CFD 473.7; FX 0.92 lot), notional ≤ 100k | `test_F_0_3_1_d315_qty_floored_to_the_volume_step` |
 | **D-313** skip below the minimum: no trade, flat, counted; RunMeta; gate dict; grid | `test_F_0_3_1_d313_signal_below_minimum_volume_is_skipped` |
-| **Parity unaffected by rounding** (D-337) | `test_F_0_3_1_parity_mode_is_not_rounded_nor_skipped` |
+| **D-347** parity floors to the TradingView step (BATS:SPY 1 → 473; OANDA:XAUUSD 0.01 → 42.63; exact multiples; fractional step), qty 0 skipped and counted, the broker step and minimum ignored, the step required in the kernel API and in `run_backtest` | `test_F_0_3_1_d347_parity_qty_floored_to_the_tradingview_step`, `_d347_parity_qty_zero_is_skipped_and_counted`, `_d347_parity_ignores_the_broker_step_and_minimum`, `_d347_parity_step_is_required` |
 | **D-314/D-329** flags reach RunMeta (futures carry both flags) | `test_F_0_3_1_run_backtest_flags_and_validation` |
 | **D-327** stop inside a rollover bar: charge / no credit / parity none | `test_F_0_3_1_d327_stop_inside_a_rollover_bar` |
 | **D-328** qty depends only on the fill-bar open rate | `test_F_0_3_1_d328_sizing_uses_the_fill_bar_open_rate_only` |
@@ -118,8 +115,8 @@ Applied in both modes (P-34):
 ## Benchmark (`scripts/bench_engine.py`, development machine, 20 cores)
 | Run | Wall time |
 |---|---|
-| `simulate`: 60,000 hourly bars, 2,204 trades | **3.2 ms** |
-| `simulate_grid`: 2,000 configurations × 2,500 bars (192,884 trades), 20 threads | **16.1 ms** |
+| `simulate`: 60,000 hourly bars, 2,204 trades | **3.3 ms** |
+| `simulate_grid`: 2,000 configurations × 2,500 bars (192,884 trades), 20 threads | **17.8 ms** |
 
 These numbers are only reported; there are no thresholds.
 
@@ -128,7 +125,7 @@ These numbers are only reported; there are no thresholds.
 |---|---|
 | `ruff check .` / `ruff format --check .` | ✅ / ✅ |
 | `mypy src` (strict for `pipeline.backtest`, `data`) | ✅ 93 files |
-| `pytest -m "not slow"` | ✅ **1035 passed** |
+| `pytest -m "not slow"` | ✅ **1042 passed** |
 | `pytest tests/parity tests/leakage tests/oracle` | ✅ **283 passed**, 0 skipped |
 | `pytest -m db` | ✅ 16 passed, **0 skipped** |
 | acceptance-reviewer subagent | run; findings fixed (below) |
@@ -173,3 +170,59 @@ Reviewer findings and fixes:
 - **P-35:** vectorbt.
 - For T10b: `spec_hash` covers only the spec. The run-level config hash must also include the engine config and the intrabar mode. The T08 gate names must be registered (D-309/D-333).
 - Reminder: **P-04**, the TradingView exports, is needed before T11.
+
+
+---
+
+## Addendum (2026-09-20): supervisor review, D-347 … D-350
+
+### D-347 — parity sizing is floored (required change)
+The TradingView exports show TradingView sizing at the signal bar's close and rounding the
+quantity **down** to the symbol's quantity step. Implemented as
+`qty = floor(notional / (close[signal] × fx_close[signal]) / parity_qty_step) × parity_qty_step`
+with the research float guard (1e-9). `parity_qty_step` is a **required per-run parity input**
+with no default, like the Pine ATR length (D-343):
+
+| layer | change |
+|---|---|
+| `engine/kernel.py` | new `parity_qty_step` argument on `_core`, `simulate_one` and `simulate_grid_kernel`; the parity branch floors instead of using the raw quantity; qty 0 counts as a skip |
+| `engine/api.py` | `SizingInputs.parity_qty_step` (`None` by default); a parity run without a positive step raises before any kernel call |
+| `pipeline/backtest.py` | `EngineConfig.parity_qty_step` (parity section with the Pine ATR length); `run_backtest` refuses a `tradingview` run without it |
+| `configs/engine/default.yaml` | commented parity section: no default, BATS:SPY 1, OANDA:XAUUSD 0.01 |
+| `tests/oracle/naive_engine.py` | parity branch rewritten **from the D-347 text**; `parity_qty_step` is a parameter and Hypothesis draws it (oracle and property suites) |
+
+Hand cases replace the old "unrounded" test: 211.07 at step 1 → 473 shares; 2345.67 at step
+0.01 → 42.63; exact multiples (1000 at step 1, 250000 at step 0.01) survive the float guard;
+2,000,000 at step 1 → qty 0, no trade, counted; the broker step 1 / minimum 10,000 are ignored
+while research sizing on the same bars still gives 473.7 (broker step 0.1).
+
+### D-349 — engine choices
+All confirmed as implemented. One code change was needed: **(f) MAE/MFE now use the exit
+fill**, not the exit base price (the bars held still contribute their high/low, and the
+conversion is the exit bar's rate). The kernel and the naive oracle were both updated, the
+latter from the decision text. The hand fixtures were unaffected: their extremes come from the
+bars, not the exit. `to_verify` now holds only (a) trailing in parity and (h) the parity
+conversion rate.
+
+### D-348 — parity references (P-04 closed)
+Recorded for T11: BATS:SPY 1D and OANDA:XAUUSD 1H, run on the exported OHLC as-is, with the
+Pine settings in the parity config. Nothing to implement in T08 beyond D-347 and the parity
+inputs it introduces.
+
+### D-350 — T06b
+Implemented on `feat/T06b-moneta-costs` (see the addendum of the T06b review): the empty-hour
+fill rule, cost shares on charges only with `swap_credit_usd`, and an error when an override
+maps onto an incomplete broker row.
+
+### State after the change
+| Command | Result |
+|---|---|
+| `ruff check .` / `ruff format --check .` | ✅ / ✅ |
+| `mypy src` | ✅ 93 files |
+| `pytest -m "not slow"` | ✅ **1042 passed** |
+| `pytest tests/parity tests/leakage tests/oracle` | ✅ **283 passed**, 0 skipped |
+| `pytest -m db` | ✅ 16 passed, 0 skipped |
+| benchmark | `simulate` 3.3 ms; `simulate_grid` 17.8 ms |
+
+`pending.md` has no open batch-2b questions left; P-28's coverage criterion still needs the
+user's overrides before T06b merges (D-341).

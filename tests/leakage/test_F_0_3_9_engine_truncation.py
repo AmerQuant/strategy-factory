@@ -35,7 +35,7 @@ EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
 T0 = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
 CFG = EngineConfig(
     initial_capital=100_000.0, notional=100_000.0, disaster_stop_atr=3.0, atr_length=14,
-    futures_contracts=1.0,
+    futures_contracts=1.0, parity_qty_step=1.0,  # D-347: parity runs need the TV quantity step
 )  # fmt: skip
 PROFILE = CostProfile.model_validate(
     {

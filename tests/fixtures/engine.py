@@ -61,6 +61,7 @@ class Case:
     contract_size: float = 1.0
     step: float = 1.0
     min_volume: float = 1.0
+    parity_qty_step: float | None = None  # required in parity mode (D-347)
     step_tol: float = 1e-9
     capital: float = 100_000.0
     mode: str = "pessimistic"
@@ -120,6 +121,7 @@ def run_engine(case: Case) -> SimResult:
         contract_size=case.contract_size,
         volume_step=case.step,
         min_volume=case.min_volume,
+        parity_qty_step=case.parity_qty_step,
         step_rel_tol=case.step_tol,
         contracts=case.contracts,
         point_value=case.point_value,
@@ -154,7 +156,8 @@ def run_oracle(case: Case) -> Any:
         fx_open=case.fx_open, fx_close=case.fx_close, sizing=case.sizing,
         notional=case.notional, contracts=case.contracts, point_value=case.point_value,
         contract_size=case.contract_size, step=case.step, min_volume=case.min_volume,
-        step_tol=case.step_tol, capital=case.capital, mode=case.mode,
+        parity_qty_step=case.parity_qty_step, step_tol=case.step_tol, capital=case.capital,
+        mode=case.mode,
     )  # fmt: skip
 
 

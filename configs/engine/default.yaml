@@ -5,3 +5,6 @@ disaster_stop_atr: 3.0         # D-130: fixed, never optimized
 atr_length: 14                 # D-343: configurable default (TradingView ta.atr default);
                                # parity runs pass the length of the Pine script they reproduce
 futures_contracts: 1           # D-329: fixed contract count for futures (flagged)
+# Parity section (D-347): the TradingView quantity step of the symbol, e.g. 1 for BATS:SPY and
+# 0.01 for OANDA:XAUUSD. No default: a parity run must set it (with the Pine ATR length, D-343).
+# parity_qty_step: 1

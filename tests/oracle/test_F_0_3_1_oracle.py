@@ -65,6 +65,7 @@ def cases(draw: Any) -> Case:
         "point_value": draw(st.sampled_from([1.0, 50.0])) if sizing == "contracts" else 1.0,
         "step": draw(st.sampled_from([1.0, 0.1, 0.01])),
         "contract_size": draw(st.sampled_from([1.0, 1000.0])),
+        "parity_qty_step": draw(st.sampled_from([1.0, 0.01, 0.5])),  # D-347
     }  # fmt: skip
     kw["min_volume"] = kw["step"] * draw(st.sampled_from([1, 2]))
     kw["comm_p"] = {
@@ -115,6 +116,7 @@ def test_F_0_3_1_oracle_sweep_covers_every_path() -> None:
             disaster=float(rng.uniform(0.5, 3.0)), sizing=sizing,
             mode="tradingview" if seed % 6 < 3 else "pessimistic",
             notional=[100_000.0, 5.0][int(rng.integers(0, 2))], step=0.1, min_volume=0.1,
+            parity_qty_step=float(rng.choice([1.0, 0.01])),  # D-347
         )  # fmt: skip
         case.swap_long = np.full(n, -0.001)
         case.swap_short = np.full(n, -0.001)

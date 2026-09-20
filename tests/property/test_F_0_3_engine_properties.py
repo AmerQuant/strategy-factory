@@ -38,6 +38,7 @@ def cases(draw: Any, costs: bool = True) -> Case:
         mode=draw(st.sampled_from(["pessimistic", "tradingview"])),
         step=draw(st.sampled_from([1.0, 0.1])), min_volume=draw(st.sampled_from([1.0, 0.1])),
         notional=draw(st.sampled_from([100_000.0, 1000.0, 5.0])),
+        parity_qty_step=draw(st.sampled_from([1.0, 0.01, 0.5])),  # D-347
     )  # fmt: skip
     case.min_volume = max(case.min_volume, case.step)
     if costs:
@@ -157,7 +158,7 @@ def test_F_0_3_1_batch_equals_single(one: list[Case], n_cfg: int, data: Any) -> 
                    (case.comm_code, *case.comm_p), case.comm_in_quote),  # type: ignore[arg-type]
         SizingInputs(SIZE[case.sizing], case.notional, case.capital, case.contract_size,
                      case.step, case.min_volume, case.step_tol, case.contracts,
-                     case.point_value),
+                     case.point_value, case.parity_qty_step),
         k.MODE_PESSIMISTIC if case.mode == "pessimistic" else k.MODE_TRADINGVIEW,
         case.fx_open, case.fx_close,
     )  # fmt: skip

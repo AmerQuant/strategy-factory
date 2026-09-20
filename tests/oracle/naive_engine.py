@@ -90,7 +90,8 @@ def run(
     fx_open: Any = None, fx_close: Any = None, sizing: str = "research",
     notional: float = 100_000.0, contracts: float = 1.0, point_value: float = 1.0,
     contract_size: float = 1.0, step: float = 1.0, min_volume: float = 1.0,
-    step_tol: float = 1e-9, capital: float = 100_000.0, mode: str = "pessimistic",
+    parity_qty_step: float | None = None, step_tol: float = 1e-9,
+    capital: float = 100_000.0, mode: str = "pessimistic",
 ) -> NaiveResult:  # fmt: skip
     n = len(c)
     fxo = [1.0] * n if fx_open is None else [float(x) for x in fx_open]
@@ -110,10 +111,10 @@ def run(
         assert pos is not None
         p = pos
         f = fxc[j]
-        gap = dr * (base - p.base)
+        exit_fill = base - dr * fill_cost(j)
+        gap = dr * (exit_fill - p.base)  # D-349 (f): the excursion counts the exit FILL
         p.best = max(p.best, gap)
         p.worst = max(p.worst, -gap)
-        exit_fill = base - dr * fill_cost(j)
         spread = p.entry_costs["spread"] + p.qty * half_spread[j] * point_value * f
         slip = (
             p.entry_costs["slip"]
@@ -173,9 +174,11 @@ def run(
                 ok = k_steps >= math.ceil(min_volume / step * (1 - step_tol))
             elif sizing == "contracts":
                 qty, ok = contracts, True
-            else:  # parity
-                qty = notional / (c[s] * fxc[s])
-                ok = qty > 0
+            else:  # parity (D-347): floor to the TradingView quantity step of the symbol
+                assert parity_qty_step and parity_qty_step > 0, "parity needs parity_qty_step"
+                raw = notional / (c[s] * fxc[s])
+                qty = math.floor(raw / parity_qty_step * (1 + step_tol)) * parity_qty_step
+                ok = qty > 0  # the broker step and minimum volume never apply here
             if not ok:
                 res.n_skipped += 1
             else:

@@ -9,7 +9,9 @@ Sizing mode (D-313, D-329, D-337): futures -> fixed contracts; ``tradingview`` i
 of the cost profile.
 
 ``atr_length`` is a configurable default of 14 (D-343); a **parity run passes the length of
-the Pine script it reproduces** through its own :class:`EngineConfig`.
+the Pine script it reproduces** through its own :class:`EngineConfig`, together with
+``parity_qty_step``, the TradingView quantity step of the symbol (D-347; no default, required
+whenever ``intrabar_mode`` is ``tradingview``).
 
 :class:`BacktestSpec` is the **interim** strategy contract (D-344): it is replaced by
 ``StrategySpec`` (design §4) once exit components exist. Its ``spec_hash`` covers the spec
@@ -63,6 +65,8 @@ class EngineConfig(_Frozen):
     disaster_stop_atr: float = Field(gt=0)
     atr_length: int = Field(ge=1)
     futures_contracts: float = Field(gt=0)
+    # parity section (D-343, D-347): both come from the Pine script of the run; no default
+    parity_qty_step: float | None = Field(default=None, gt=0)
 
 
 def load_engine_config(path: Path | None = None) -> EngineConfig:
@@ -131,6 +135,7 @@ def sizing_inputs(
         mode = k.SIZE_RESEARCH
     return SizingInputs(
         mode=mode,
+        parity_qty_step=cfg.parity_qty_step,
         notional=cfg.notional,
         initial_capital=cfg.initial_capital,
         contract_size=costs.contract_size,
@@ -231,6 +236,11 @@ def run_backtest(
         if not spec.exit.signal_exit
         else np.asarray(exit_signal, dtype=np.bool_)
     )
+    if intrabar_mode == "tradingview" and futures is None and cfg.parity_qty_step is None:
+        raise ConfigError(
+            "parity (tradingview) runs need parity_qty_step in the engine config (D-347): the "
+            "TradingView quantity step of the symbol, e.g. 1 for BATS:SPY, 0.01 for OANDA:XAUUSD"
+        )
     if fx is not None and fx.quote_ccy != costs.quote_ccy:
         raise ConfigError(f"conversion for {fx.quote_ccy}, profile quotes {costs.quote_ccy}")
     if fx is None and costs.quote_ccy != "USD":

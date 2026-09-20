@@ -28,21 +28,24 @@ D-326 ... D-338):
 * Sizing: mode 0 research (D-313, D-315, D-328): ``lots = floor(notional /
   (open[j] x fx_open[j] x contract_size) / step) x step``, ``qty = lots x contract_size``;
   below ``min_volume`` the entry is skipped and counted. Mode 1 futures: ``qty = contracts``
-  (D-329). Mode 2 parity (D-337, to_verify): ``qty = notional / (close[j-1] x
-  fx_close[j-1])``, unrounded, never skipped.
-* Parity choices marked **to_verify until T11** (D-338 rule 1): the O->H->L->C path and its
-  tie (D-335); exit + re-entry at one open (D-336); no swap on intrabar exits in rollover bars
-  (D-327); sizing ``notional / (close[j-1] x fx_close[j-1])`` (D-337); and, applied in both
-  modes: the trailing level moves only at the close; a gap through the target fills at the
-  open; stop ties go stop loss, trailing, disaster; stops are checked on the entry bar itself;
-  the MAE/MFE definition below.
+  (D-329). Mode 2 parity (D-337, D-347): ``qty = floor(notional / (close[j-1] x
+  fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard;
+  ``parity_qty_step`` is required per run (BATS:SPY 1, OANDA:XAUUSD 0.01) and the broker step
+  and minimum volume are never applied. ``qty = 0`` is a skip.
+* Parity choices still marked **to_verify until T11** (D-338 rule 1, D-349): the O->H->L->C
+  path and its tie (D-335); exit + re-entry at one open (D-336); no swap on intrabar exits in
+  rollover bars (D-327); the trailing level moving only at the close (D-349 (a); final in
+  research, to match against the Pine script in parity); and the parity conversion rate
+  (D-349 (h)). The sizing basis of D-337 is confirmed by the exports and is no longer
+  to_verify; the remaining choices of D-349 ((b)-(g), (i)) are confirmed as implemented.
 * Money (USD): ``pnl_gross = dir x qty x (exit_base - entry_base) x point_value x
   fx_close[exit]``; spread and slippage cost ``qty x amount x point_value x fx_close`` of the
   fill bar; commission from :func:`commission_kernel`, converted with ``fx_close`` of the fill
   bar only when it is in the quote currency; ``pnl_net = pnl_gross - costs``. Fill prices
   (``entry_price``/``exit_price``) include half-spread and slippage.
-* MAE/MFE (money, >= 0): extremes of the bars held at the close (entry .. exit-1) and the
-  exit base price, relative to the entry base price, converted with ``fx_close[exit]``.
+* MAE/MFE (money, >= 0, D-349 (f)): the **high/low** of every bar held at its close
+  (entry .. exit-1) and the **exit fill**, relative to the entry base price, converted with
+  ``fx_close[exit]``. Diagnostic only (not part of the D-011 parity criterion).
 * Equity at each close: capital + realized + ``dir x qty x (close - entry_base) x pv x
   fx_close`` - the entry costs - the swap so far.
 """
@@ -90,7 +93,7 @@ def _core(
     half_spread, slip_fixed, slip_atr_frac, swap_long, swap_short, rollover, triple,
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
-    contract_size, volume_step, min_volume, step_tol,
+    contract_size, volume_step, min_volume, parity_qty_step, step_tol,
     initial_capital, intrabar_mode, record,
     t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
     t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
@@ -162,13 +165,14 @@ def _core(
                 x_reason = TAKE_PROFIT
                 x_base = o
         if exit_now:
-            dist = d * (x_base - e_base)
+            x_fill = x_base - d * (half_spread[j] + slip_fixed[j] + slip_atr_frac * atr[j - 1])
+            dist = d * (x_fill - e_base)
             if dist > fav:
                 fav = dist
             if -dist > adv:
                 adv = -dist
             realized, n_trades, n_closed = _close_trade(
-                j, x_base, x_reason, 0.0, d, e_idx, e_base, e_fill, qty, atr_e, c_spread,
+                j, x_base, x_fill, x_reason, 0.0, d, e_idx, e_base, e_fill, qty, atr_e, c_spread,
                 c_slip, c_comm, c_swap, fav, adv, half_spread, slip_fixed, slip_atr_frac, atr,
                 c_code, c_p0, c_p1, c_p2, comm_in_quote, fx_close, point_value, realized,
                 n_trades, n_closed, record, t_entry, t_exit, t_qty, t_entry_price,
@@ -190,8 +194,9 @@ def _core(
                 q = lots * contract_size
             elif sizing_mode == SIZE_CONTRACTS:
                 q = contracts
-            else:
-                q = notional / (close[s] * fx_close[s])
+            else:  # D-347: TradingView sizes at the signal close and floors to its step
+                steps = notional / (close[s] * fx_close[s]) / parity_qty_step
+                q = math.floor(steps * (1.0 + step_tol)) * parity_qty_step
             if skip or not q > 0.0:
                 n_skipped += 1
             else:
@@ -252,8 +257,9 @@ def _core(
                 take = TAKE_PROFIT
             if take >= 0:
                 x_base = lvl_tp if take == TAKE_PROFIT else stop_lv
-                # excursions of the bars held at a close, plus the exit price
-                dist = d * (x_base - e_base)
+                x_fill = x_base - d * (half_spread[j] + slip_fixed[j] + slip_atr_frac * atr[j - 1])
+                # excursions of the bars held at a close, plus the exit fill (D-349 (f))
+                dist = d * (x_fill - e_base)
                 if dist > fav:
                     fav = dist
                 if -dist > adv:
@@ -265,7 +271,7 @@ def _core(
                         days = 3.0 if triple[j] else 1.0
                         extra_swap = -rate * days * qty * close[j] * point_value * fx_close[j]
                 realized, n_trades, n_closed = _close_trade(
-                    j, x_base, take, extra_swap, d, e_idx, e_base, e_fill, qty, atr_e,
+                    j, x_base, x_fill, take, extra_swap, d, e_idx, e_base, e_fill, qty, atr_e,
                     c_spread, c_slip, c_comm, c_swap, fav, adv, half_spread, slip_fixed,
                     slip_atr_frac, atr, c_code, c_p0, c_p1, c_p2, comm_in_quote, fx_close,
                     point_value, realized, n_trades, n_closed, record, t_entry, t_exit, t_qty,
@@ -318,7 +324,7 @@ def _core(
 
 @njit(cache=True)
 def _close_trade(
-    j, x_base, reason, extra_swap, d, e_idx, e_base, e_fill, qty, atr_e, c_spread, c_slip,
+    j, x_base, x_fill, reason, extra_swap, d, e_idx, e_base, e_fill, qty, atr_e, c_spread, c_slip,
     c_comm, c_swap, fav, adv, half_spread, slip_fixed, slip_atr_frac, atr, c_code, c_p0,
     c_p1, c_p2, comm_in_quote, fx_close, point_value, realized, n_trades, n_closed, record,
     t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip, t_comm,
@@ -326,8 +332,6 @@ def _close_trade(
 ):  # fmt: skip
     f = fx_close[j]
     ref = atr[j - 1] if j >= 1 else 0.0
-    cost_px = half_spread[j] + slip_fixed[j] + slip_atr_frac * ref
-    x_fill = x_base - d * cost_px
     gross = d * qty * (x_base - e_base) * point_value * f
     sp = c_spread + qty * half_spread[j] * point_value * f
     sl = c_slip + qty * (slip_fixed[j] + slip_atr_frac * ref) * point_value * f
@@ -362,7 +366,7 @@ def simulate_one(
     half_spread, slip_fixed, slip_atr_frac, swap_long, swap_short, rollover, triple,
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
-    contract_size, volume_step, min_volume, step_tol,
+    contract_size, volume_step, min_volume, parity_qty_step, step_tol,
     initial_capital, intrabar_mode,
 ):  # fmt: skip
     """One run with its trade list. Returns (trade arrays..., equity, in_position, realized,
@@ -392,7 +396,7 @@ def simulate_one(
         half_spread, slip_fixed, slip_atr_frac, swap_long, swap_short, rollover, triple,
         c_code, c_p0, c_p1, c_p2, comm_in_quote,
         fx_open, fx_close, sizing_mode, notional, contracts, point_value,
-        contract_size, volume_step, min_volume, step_tol,
+        contract_size, volume_step, min_volume, parity_qty_step, step_tol,
         initial_capital, intrabar_mode, True,
         t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
         t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
@@ -413,7 +417,7 @@ def simulate_grid_kernel(
     half_spread, slip_fixed, slip_atr_frac, swap_long, swap_short, rollover, triple,
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
-    contract_size, volume_step, min_volume, step_tol,
+    contract_size, volume_step, min_volume, parity_qty_step, step_tol,
     initial_capital, intrabar_mode,
 ):  # fmt: skip
     """Configurations = columns of ``entry_mat``/``exit_mat`` (``n x k``) and entries of the
@@ -440,7 +444,7 @@ def simulate_grid_kernel(
             half_spread, slip_fixed, slip_atr_frac, swap_long, swap_short, rollover, triple,
             c_code, c_p0, c_p1, c_p2, comm_in_quote,
             fx_open, fx_close, sizing_mode, notional, contracts, point_value,
-            contract_size, volume_step, min_volume, step_tol,
+            contract_size, volume_step, min_volume, parity_qty_step, step_tol,
             initial_capital, intrabar_mode, False,
             dummy_i, dummy_i, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f,
             dummy_f, dummy_f, dummy_f, dummy_i, dummy_f, dummy_f, dummy_f,
