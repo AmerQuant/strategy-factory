@@ -43,7 +43,7 @@ Next free here: **D-370**, **P-45**.
 
 ## Status — 2026-09-21
 
-**Branch `a/T11-parity`, commit `c81b54f`** (pushed, CI green); **`a/protocol-worktrees`, commit `01ce80f`** (pushed, **PR #22**, waiting on CI and on "Approved. Merge"). Everything below is on that
+**Branch `a/T11-parity`, commit `c81b54f`** (pushed, CI green); **`a/protocol-worktrees`, commit `389fc04`** (pushed, **PR #22**, waiting on CI and on "Approved. Merge"). Everything below is on that
 branch unless it says otherwise. Read with `HANDOFF.md`; together they are enough to resume
 this stream from scratch.
 
@@ -108,7 +108,12 @@ in a folder it does not own, refusing to suggest switching branches. Nine tests 
 including the incident itself. Amending D-357 in place would have failed the ID guard as a
 duplicate, so **D-369** teaches `check_ids` the difference: an id added *and* removed is an
 amendment (range check still applies), an id removed and not added back is a deletion and
-always fails.
+always fails. The `acceptance-reviewer` found four real holes in the first two commits
+(an unprefixed branch could amend any row, a detached HEAD passed the session check, a helper
+could not get its branch prefix checked, and PROTOCOL documented only the form a spawned
+session must *not* use) plus one the amendment itself contradicted (stream A in its own
+scratch worktree was reported as a problem); all are fixed in `389fc04`, each reproduced
+first. The file now has 34 tests.
 
 ### Next actions, in order
 
