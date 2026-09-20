@@ -1,7 +1,7 @@
 # T04g — Alpaca 1D ingest: 6,711 symbols → snapshots, catalog and quality reports
 
 **Features:** F-0.1.2 (Alpaca adapter), F-0.1.6 (quality report per symbol), F-0.1.8 (immutable snapshots, catalog), F-0.1.9 groundwork (split check) · **Priority:** MVP · **Depends on:** **T04f**, **T04i** (D-033 decided)
-**Branch:** `feat/T04g-alpaca-daily-ingest` from `feat/T04i-phaseb-hourly`.
+**Branch:** `b/T04g-alpaca-daily-ingest` from `b/T04i-phaseb-hourly`.
 
 Read first: `CLAUDE.md`, decisions **D-010**, **D-021**, **D-022**, **D-028**, **D-029**, **D-033**
 (decided in T04i — this task ingests with the decided value), and `docs/reviews/T04a_review.md`,
@@ -70,8 +70,8 @@ uv run sfac data quality --all
 per chunk, with the T04f calendar in place.
 - `missing_bars` and `session_violations` must be **executed**, never `skipped` (without the
   calendar they are silently skipped and the snapshot still reports `ok` — see T04f).
-- `_quality/summary.md` will have ~7.5 k rows once the 1H set is included. If that is unwieldy,
-  split it per timeframe; see **P-64**.
+- Summaries are per `(source, timeframe)` with an index (**D-391**, implemented in T04h): the
+  `alpaca / 1D` summary has ~6.7 k rows of its own and is not mixed with the 1H group.
 - Aggregate in the review: count per `quality_status`, the twenty worst `missing_pct`, every
   `critical`, and the count of snapshots whose `zero_volume` or `stale_prices` check failed
   (expected to be common among delisted micro caps — report, do not suppress).
@@ -88,7 +88,11 @@ After the run, assert and report:
 ## Out of scope
 - Any download (D-031).
 - Dukascopy and Yahoo ingest (deferred, see the runbook).
-- Registering snapshots or splits in the PostgreSQL registry — see **P-63**.
+- Registering snapshots or splits in the PostgreSQL registry — **D-390**: left to the first
+  pipeline run.
+- `sfac universe generate` and `configs/universe.yaml` — stream A's (**D-394**). The exclusion file
+  changes the universe, so every excluded symbol goes into the "Symbols for stream A" table of
+  `docs/streams/B.md`.
 - `SplitManager` development/holdout splits over the new snapshots (T05 code exists; running it over
   6,711 symbols is a separate decision).
 

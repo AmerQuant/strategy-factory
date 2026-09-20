@@ -1,7 +1,7 @@
 # T04i — T04e phase-B analysis on the hourly data, and the daily-session decision (D-033)
 
 **Features:** F-0.1.2 (Alpaca adapter: session filter and metadata), F-0.1.6 (quality evidence), F-0.1.9 groundwork (split-adjustment control) · **Priority:** MVP · **Depends on:** **T04f**, **T04h** · **Blocks:** T04g
-**Branch:** `feat/T04i-phaseb-hourly` from `feat/T04h-alpaca-hourly-ingest`.
+**Branch:** `b/T04i-phaseb-hourly` from `b/T04h-alpaca-hourly-ingest`.
 
 Read first: `CLAUDE.md`, `docs/tasks/T04e_data_followup.md` **§8 phase B**, decisions **D-010**,
 **D-021**, **D-022**, **D-023**, **D-025**, **D-033** (the decision this task closes), and
@@ -96,6 +96,8 @@ sample and the report says so. If the hourly download is later completed (D-386)
   (v1 → v2 re-ingest of the three Q1-2024 pilot snapshots, which are still `hash_version 1` in the
   catalog). Both stay open; see the runbook's "Deferred" section.
 - Changing the adapter, the session filter or the quality config.
+- `sfac universe generate` and `configs/universe.yaml` — stream A's (**D-394**); the exclusions this
+  task decides are listed for stream A in `docs/streams/B.md`.
 
 ## Acceptance
 - The analysis module/CLI is committed with unit tests on a fixture (a synthetic day where the daily

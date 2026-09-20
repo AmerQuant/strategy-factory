@@ -1,7 +1,7 @@
 # T04f — Alpaca reference data: NYSE session calendar and symbol changes
 
 **Features:** F-0.1.2 (Alpaca adapter, session filter), F-0.1.6 (quality: schedule checks) · **Priority:** MVP · **Depends on:** T04e on `main` (the fetch/build code already exists) · **Blocks:** T04h, T04i, T04g
-**Branch:** `feat/T04f-alpaca-reference` from `docs/batch3-data`.
+**Branch:** `b/T04f-alpaca-reference` from `docs/batch3-data`.
 
 Read first: `CLAUDE.md`, decisions **D-024**, **D-025**, **D-028**, **D-031**, **D-033**, and `docs/tasks/T04e_data_followup.md` §5 and §6 (this task finishes the two items whose network run never happened).
 
@@ -79,7 +79,8 @@ The CLI writes it from the raw JSON (`build_sessions_csv`). After the run, verif
 
 Then **delete `configs/calendars/nyse_early_closes.yaml`** (T04e §6) together with its loader path,
 and check that nothing else reads it. Deletion happens **after** the diff report is in the review,
-and only if the report shows no unexplained disagreement (otherwise: stop and ask, see **P-66**).
+and only if the report shows no unexplained disagreement (**D-393**); an unexplained difference
+stops the task and is reported.
 
 `configs/calendars/nyse_sessions.csv` is committed (it is a config, not data).
 
@@ -137,6 +138,12 @@ them and validates the outcome:
   supervisor's confirmation.
 - The raw folders of dropped tickers are **not touched** (raw is immutable, D-028); they are simply
   not ingested.
+- **`configs/universe.yaml` is not regenerated and not edited (D-394).** It is stream A's generated
+  registry; rebuilding the hourly universe makes it stale (for example `ABC` currently sits in it
+  with `timeframes: [1D, 1H]` and this task removes the hourly row). Instead, every symbol added or
+  removed goes into the **"Symbols for stream A"** table of `docs/streams/B.md`, with the reason, so
+  stream A runs `sfac universe generate` after the merge. If `sfac universe validate` fails only
+  because of that staleness, report it — do not fix it here.
 
 Acceptance check to write as a test on a fixture: given a changes list containing `FB → META`,
 `build_hourly_universe` emits exactly one row for `META` with `pit_symbol = FB` and no `FB` row.
@@ -165,6 +172,7 @@ loud instead of silent:
 - Any ingest (T04g, T04h) and any analysis (T04i). **T04f does not wait for the 1H download**
   (P-62): it runs as soon as the plan is approved.
 - Any edit under `configs/costs/` — that is stream A's T06b (D-388).
+- `sfac universe generate` and any edit of `configs/universe.yaml` — stream A's (D-394).
 - Re-downloading the PIT list or any price data.
 - Dukascopy and Yahoo reference data.
 
@@ -181,6 +189,8 @@ loud instead of silent:
 - The exclusion rule (D-383) is applied, each of the 15 pairs has a stated verdict, and the
   re-run of the Moneta-target check (D-388) is in the review. Nothing under `configs/costs/` is
   modified by this task.
+- `configs/universe.yaml` is unchanged (D-394), and `docs/streams/B.md` lists every symbol this task
+  added to or removed from `configs/universe/`.
 - `uv run pytest -m "not slow"`, `uv run pytest tests/parity tests/leakage`, `ruff check`,
   `ruff format --check`, `mypy src` all pass; no network in tests.
 

@@ -1,7 +1,7 @@
 # T04h — Alpaca 1H ingest: raw → snapshots, catalog and quality reports
 
 **Features:** F-0.1.2 (Alpaca adapter), F-0.1.6 (quality report per symbol), F-0.1.8 (immutable snapshots, catalog) · **Priority:** MVP · **Depends on:** **T04f** · **Blocks:** T04i
-**Branch:** `feat/T04h-alpaca-hourly-ingest` from `feat/T04f-alpaca-reference`.
+**Branch:** `b/T04h-alpaca-hourly-ingest` from `b/T04f-alpaca-reference`.
 
 Read first: `CLAUDE.md`, decisions **D-010**, **D-022**, **D-023**, **D-024**, **D-025**, **D-028**, **D-029**, and `docs/reviews/T04a_review.md`, `docs/reviews/T05_review.md`.
 
@@ -85,7 +85,13 @@ Report, from the written snapshots (not from the raw files):
 uv run sfac data quality --all
 ```
 run per chunk (`--symbol` loop) or once at the end; it writes `_quality/<hash>.json|.md` per snapshot
-and `_quality/summary.md`, and records `quality_status` in the catalog.
+and records `quality_status` in the catalog.
+
+**Summary layout (D-391):** the single `_quality/summary.md` is replaced by one summary per
+`(source, timeframe)` — `_quality/summary_<source>_<timeframe>.md` — plus an index
+`_quality/summary.md` listing each group with its snapshot count and status counts. A run rewrites
+only the groups it touched, and the index. This is a small change to `cli_prep.quality_cmd`; it
+needs a test that a run over one group leaves the other group's summary byte-identical.
 
 - With the T04f calendar in place, `missing_bars` and `session_violations` must be **executed**, not
   `skipped`. A `skipped` schedule check anywhere in the 1H set is a **failure of this task**.

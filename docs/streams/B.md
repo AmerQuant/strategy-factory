@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-389**, **P-68**.
+Next free here: **D-395**, **P-68**.
 
 ## Rules that bind this stream (D-355)
 
@@ -46,15 +46,17 @@ Next free here: **D-389**, **P-68**.
 
 ## Status (2026-09-21)
 
-Batch 3-data is **planned**, awaiting "Plan approved". Plan on `docs/batch3-data`:
-`docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`; decisions **D-380 … D-388**
-(section I of the log), questions **P-60 … P-67** (P-61, P-62, P-67 answered 2026-09-21).
+Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
+`docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`; decisions **D-380 … D-394**
+(section I of the log); **P-60 … P-67 all closed**. Task branches use the `b/` prefix (D-357).
+**T04f is running**; T04h stays blocked until the 1H download is complete (D-386).
 
 | item | state |
 |---|---|
 | worktree | on `docs/batch3-data` at `main`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
-| batch 3-data plan | **drafted**, awaiting "Plan approved" |
+| batch 3-data plan | **approved** 2026-09-21 |
+| T04f | in progress on `b/T04f-alpaca-reference`; the PowerShell run is with the user |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | **incomplete** as of 2026-09-20: 2021 and 2022 missing for all 827 symbols, 2020 for 137, 2023 for 620; **no symbol has all eleven years**. The user is refilling 2020–2023. (This corrects the earlier "downloads complete" note.) |
 | Alpaca 1D / 1H ingest | not started — T04g is gated on D-033, T04h on the 1H download (D-386, no `--allow-gaps`) |
@@ -62,6 +64,23 @@ Batch 3-data is **planned**, awaiting "Plan approved". Plan on `docs/batch3-data
 | T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
 | T12 | not started |
+
+## Symbols for stream A (D-394)
+
+`configs/universe/` is stream B's; **`configs/universe.yaml` is stream A's and is not regenerated
+here**. Every symbol a stream-B rule adds to or removes from `configs/universe/*.csv` is listed
+below so stream A can run `sfac universe generate` after the merge. Until then
+`configs/universe.yaml` is knowingly stale.
+
+| symbol | timeframe(s) | change | rule | task |
+|---|---|---|---|---|
+| _(none yet — T04f fills this in after the `NAME_CHANGE` feed arrives)_ | | | | |
+
+Expected shape, from the planning evidence: up to 15 old-name hourly rows removed (candidates
+`ABC`, `ANTM`, `BLL`, `CHK`, `CTL`, `ECHO`, `FB`, `FLT`, `MMC`, `PKI`, `RE`, `UTX`, `WLTW`, `WRK`
+and the undecided side of `EQR/VMRK`), each replaced by its current name carrying `pit_symbol`;
+`EQR` is **kept** (D-388). `ABC` is the visible example: `configs/universe.yaml` currently lists it
+with `timeframes: [1D, 1H]`.
 
 ## For stream A
 

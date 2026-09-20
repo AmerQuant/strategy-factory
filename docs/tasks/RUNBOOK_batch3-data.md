@@ -18,6 +18,15 @@ else is local.
   folds it into `HANDOFF.md` at merges.
 - **Never edit `configs/costs/moneta/*`** (stream A's T06b). If a decision in this batch would
   affect it, report it to stream A instead — see T04f §3 and **D-388**.
+- **Universe ownership (D-394):** `configs/universe/` (the symbol lists, `symbol_changes.csv`,
+  `symbol_changes_manual.csv`, the exclusion file) is **stream B's**. `configs/universe.yaml` — the
+  generated registry read by `sfac costs validate` and the Moneta mapping — is **stream A's**:
+  never run `sfac universe generate`, never edit that file. Every symbol a stream-B rule adds or
+  removes goes into the "Symbols for stream A" table of `docs/streams/B.md`, and stream A
+  regenerates the registry after the merge. `configs/universe.yaml` is therefore **expected to be
+  stale** during this batch; a `sfac universe validate` failure caused only by that staleness is
+  not a stream-B defect — report it, do not fix it.
+- **Branch naming (D-357):** stream B's task branches are `b/<task>-<short-name>`.
 - Benchmarks and long ingests run only when stream A is idle; the T04g run is hours long, so
   agree the window with stream A first.
 - Every branch **rebases onto `main`** before its merge (D-401, D-402 unchanged).
@@ -55,10 +64,10 @@ So: **reference data → 1H ingest → phase-B analysis (decides D-033) → 1D i
 | Task | Branch | Based on | Critical (D-402) |
 |---|---|---|---|
 | — | `docs/batch3-data` (this plan) | `main` (rebased 2026-09-21 onto `origin/docs/batch3-data`, which carries `docs/streams/B.md` and D-355/D-356) | |
-| T04f | `feat/T04f-alpaca-reference` | `docs/batch3-data` | no |
-| T04h | `feat/T04h-alpaca-hourly-ingest` | T04f | no |
-| T04i | `feat/T04i-phaseb-hourly` | T04h | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
-| T04g | `feat/T04g-alpaca-daily-ingest` | T04i | no |
+| T04f | `b/T04f-alpaca-reference` | `docs/batch3-data` | no |
+| T04h | `b/T04h-alpaca-hourly-ingest` | T04f | no |
+| T04i | `b/T04i-phaseb-hourly` | T04h | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
+| T04g | `b/T04g-alpaca-daily-ingest` | T04i | no |
 
 `docs/batch3-data` sits on `main` (PR #16 merged, so D-355 and D-356 are in the log). The plan
 commit was originally drafted on `docs/batch2b` and was rebased onto `origin/docs/batch3-data` on
@@ -140,13 +149,16 @@ the review with its reason, per `CLAUDE.md`.
   report the numbers and ask; do **not** pick a value to keep going.
 - An acceptance command fails and the fix is outside the task's scope.
 - Any change would touch raw data, holdout data, parity fixtures or tolerances.
+- A change would be needed in `configs/universe.yaml` or under `configs/costs/` (stream A's files,
+  D-394 / D-388): record it for stream A and continue, or stop if the batch cannot proceed.
 
 ## End of batch
 1. Open the PR(s) with `gh`, body = the reviews (stacked, one per task).
 2. Update **`docs/streams/B.md`** (never `HANDOFF.md`, D-355): the data status (Alpaca 1D/1H
    ingested, the calendar generated), the T04e row (phase B closed for the hourly part), the
-   deferred items above, and anything to hand to stream A (D-388 reports). Stream A folds it into
-   `HANDOFF.md` at the merge.
+   deferred items above, and the **"Symbols for stream A"** table (every symbol added to or removed
+   from `configs/universe/`, so stream A can regenerate `configs/universe.yaml` — D-394) plus any
+   D-388 reports. Stream A folds it into `HANDOFF.md` at the merge.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
    merge order `docs/batch3-data` → T04f → T04h → T04i → T04g.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).
