@@ -56,13 +56,14 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 | worktree | on `docs/batch3-data` at `main`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
 | batch 3-data plan | **approved** 2026-09-21; order changed by **D-358** to T04f → T04i → T04g → T04h |
-| T04f | **done** — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
+| T04f | **done**, PR [#19](https://github.com/AmerQuant/strategy-factory/pull/19) — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | **incomplete** as of 2026-09-20: 2021 and 2022 missing for all 827 symbols, 2020 for 137, 2023 for 620; **no symbol has all eleven years**. The user is refilling 2020–2023. (This corrects the earlier "downloads complete" note.) |
 | Alpaca 1D / 1H ingest | not started — T04g is gated on D-033, T04h on the 1H download (D-386, no `--allow-gaps`) |
 | NYSE calendar (D-025) | not started; the T04e fetch was never run, so `configs/calendars/nyse_sessions.csv`, `configs/universe/symbol_changes.csv` and the raw calendar/corporate-action files are all missing. T04f §1 is the user's PowerShell run |
 | T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
+| T04i | **next** (D-358): phase-B analysis, closes D-033; stops for "Approved" |
 | T12 | not started |
 
 ## Symbols for stream A (D-394)
