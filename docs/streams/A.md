@@ -1,8 +1,12 @@
 # Stream A — main folder
 
 Working copy: `D:\AmerAndish\Projects\Trade\StrategyFactory` (the repository's main worktree).
-Governed by **D-355**. This file is stream A's status; `HANDOFF.md` is written **only by
-stream A**, at merges, from this file and `docs/streams/B.md`.
+Governed by **D-355** and **D-357**; the full rules are in `docs/streams/PROTOCOL.md` and the
+path ownership in `docs/streams/ownership.yaml`. This file is stream A's status; `HANDOFF.md` is
+written **only by stream A**, at merges, from this file and `docs/streams/B.md`.
+
+New branches here carry the **`a/`** prefix. Run the guards locally with
+`uv run sfac streams check --base origin/main`.
 
 ## Scope
 
