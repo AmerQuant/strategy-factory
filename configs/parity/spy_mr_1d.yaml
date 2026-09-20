@@ -39,5 +39,19 @@ engine:
                                  # `strategy.position_size == 0` at the signal close
   parity_qty_step: 1             # D-347: BATS:SPY
 
-# strategy: the Pine rules are RSI(2) < 10 entry, exit on close > previous high, 5-bar time
-# exit and a 3-ATR stop. Mapped to a registered component in section 3 of T11 (D-361).
+# The Pine rules, mapped to a registered component (T11 section 3, D-361):
+#   longSig = flat and r < 10          -> mr_rsi2_below_10, long
+#   close > high[1]                    -> signal exit, rule `close_above_prev_high` (D-370)
+#   barsHeld >= 5                      -> time_exit_bars: 5
+#   strategy.exit(loss = 3 * ATR)      -> the engine disaster stop, engine.disaster_stop_atr
+# The script has no target and no trailing stop, so tp_atr and trail_atr stay unset.
+strategy:
+  entry: mr_rsi2_below_10
+  direction: long
+  exit_signal: close_above_prev_high
+  exit:
+    signal_exit: true
+    time_exit_bars: 5
+  note: >-
+    The 3-ATR stop is the engine's disaster stop (D-130), not sl_atr: the script places it
+    once at entry and never moves it, which is what the disaster stop is.

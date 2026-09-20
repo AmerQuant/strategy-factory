@@ -17,6 +17,8 @@ import numpy as np
 import pytest
 import yaml
 
+from strategy_factory.components.base import ExitSpec
+from strategy_factory.components.registry import default_registry
 from strategy_factory.core.config import EngineConfig
 from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.core.parity_config import (
@@ -42,6 +44,7 @@ from strategy_factory.selftest.parity_refs import (
     sha256_of,
     verify,
 )
+from strategy_factory.selftest.parity_run import PARITY_EXIT_RULES
 
 REPO = Path(__file__).resolve().parents[2]
 T0 = dt.datetime(2024, 1, 2, 14, 30, tzinfo=dt.UTC)  # a SPY daily stamp: 09:30 New York
@@ -315,11 +318,21 @@ def test_F_0_3_8_repo_parity_templates_are_valid(tmp_path: Path) -> None:
     files = sorted((REPO / PARITY_DIR).glob("*.yaml"))
     assert {p.name for p in files} == {"spy_mr_1d.yaml", "xauusd_tf_1h.yaml"}
     steps = {}
+    mapped = set()
     for path in files:
         cfg = load_parity_config(path)
-        assert cfg.strategy is None  # filled once the Pine sources arrive (D-361)
         assert cfg.engine.atr_length == cfg.pine.atr_length
         steps[cfg.reference.symbol] = cfg.engine.parity_qty_step
+        if cfg.strategy is None:  # filled once the Pine sources arrive (D-361)
+            continue
+        mapped.add(cfg.name)
+        # a mapped strategy names a registered entry component and a valid exit spec (T11 §3)
+        default_registry().get(cfg.strategy.entry)
+        ExitSpec.model_validate(cfg.strategy.exit)
+        if cfg.strategy.exit_signal:  # D-370: and a known parity exit rule, if it uses one
+            assert cfg.strategy.exit_signal in PARITY_EXIT_RULES
+    # TF stays unmapped until its one-sided exports arrive (D-600)
+    assert mapped == {"spy_mr_1d"}
     assert steps == {"BATS:SPY": 1.0, "OANDA:XAUUSD": 0.01}  # D-347
     bad = tmp_path / "bad.yaml"
     bad.write_text(yaml.safe_dump({"name": "x"}), encoding="utf-8")

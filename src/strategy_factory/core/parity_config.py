@@ -99,6 +99,9 @@ class StrategyRef(_Frozen):
     entry_params: dict[str, Any] = Field(default_factory=dict)
     direction: Literal["long", "short"] = "long"
     exit: dict[str, Any] = Field(default_factory=dict)  # ExitSpec fields
+    #: D-370: the Pine exit *signal* rule, when the script has one that is not an ExitSpec
+    #: field (the MR script's `close > high[1]`). Implemented in selftest.parity_run.
+    exit_signal: str = ""
     note: str = ""
 
 
