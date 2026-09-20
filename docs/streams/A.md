@@ -41,43 +41,73 @@ Next free here: **D-360**, **P-40**.
 - Every branch **rebases onto `main`** before its merge. D-401 (merge only on "Approved.
   Merge …", CI green) and D-402 (critical tasks need supervisor review) are unchanged.
 
-## Status (2026-09-21)
+## Status — 2026-09-21
 
-**Batch 2b is closed.** All six PRs are on `main`: #11, #12, #16 (docs) and #13 (T06b),
-#14 (T08), #15 (T10b); `HANDOFF.md` v6 followed as #17.
+**Branch `a/T11-parity`, commit `7416278`** (pushed, CI green). Everything below is on that
+branch unless it says otherwise. Read with `HANDOFF.md`; together they are enough to resume
+this stream from scratch.
 
-| item | state |
+### Merged (nothing outstanding)
+
+| PR | content |
 |---|---|
-| batch 2b | ✅ merged (#13, #14, #15, #16, #17) |
-| D-357 stream protocol + CI guards | PR [#18](https://github.com/AmerQuant/strategy-factory/pull/18) — ⚠️ the `.github/workflows/ci.yml` commit is **local only**: this session's credential has no GitHub `workflow` scope. `gh auth refresh -h github.com -s workflow` unblocks it. |
-| **T11 parity** | §1, §2, §3 and the §6 scaffolding are **built** on `a/T11-parity`; **§4 (the comparison and the D-011 gate) is the only part left** and waits for the TradingView trade lists (D-360). |
+| #13 #14 #15 #16 #17 | batch 2b: T06b, T08, T10b, D-355/D-356, HANDOFF v6 |
+| #18 | D-357 stream protocol, `ownership.yaml`, the three CI guards |
+| #20 | D-394 universe regeneration after T04f, plus the supervisor range D-600…D-699 |
 
-### T11: what is built and what is waiting
-
-All six references are in place (2 chart CSVs, 2 Strategy Tester `.xlsx`, 2 `.pine`) and read
-correctly; **D-359** puts byte-identical copies in `tests/fixtures/parity/` (1.9 MB) so the
-gate can run in CI.
+### T11 parity — in progress, **critical (D-402)**
 
 | section | state |
 |---|---|
-| §1 reference store (`selftest/parity_refs.py`) | done — chart data, the `.xlsx` Trades and Properties sheets (openpyxl imported lazily, D-317), the Pine `strategy()` parser and the Properties cross-check; manifest verified on every load; bars used exactly as exported |
-| §2 parity config (`core/parity_config.py`, `configs/parity/`) | done — both configs filled from their Pine sources, cross-checked against the reports (**no disagreement**) |
-| §3 parity costs (`costs/parity.py`) | done — from the `pine` block alone (D-362) |
-| manifest script | done — extended to all six files; **the user runs it** (D-360, D-031) |
-| §6 report scaffolding | done — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
-| **§4 comparison + gate** | **the only part left** |
-| §3 strategy mapping | the Pine rules are known; mapping them to registered components is part of §4's work (D-361) |
+| §1 reference store (`selftest/parity_refs.py`) | **done** — chart CSV, the `.xlsx` Trades and Properties sheets (openpyxl lazy, D-317), the Pine `strategy()` parser, the Properties cross-check (no disagreement on either reference), manifest verified on every load |
+| §2 parity config (`core/parity_config.py`, `configs/parity/`) | **done** — every D-348 Pine setting required; mintick required and equal to `pine.tick_size` (D-366) |
+| §3 costs (`costs/parity.py`) | **done** — from the `pine` block alone (D-362) |
+| §3 strategy mapping | **done for MR** (`mr_rsi2_below_10`); TF maps to `tf_donchian20_breakout` |
+| §4 comparison (`selftest/parity_compare.py`) | **MR done and passing**; TF blocked, see below |
+| §5 `to_verify` | D-349 (a) **cannot** be verified by these references (neither script trails) — it stays `to_verify` and the review must say so |
+| §6 report (`selftest/parity_report.py`) | **done** — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
+| review `docs/reviews/T11_review.md` | **not written yet** — written after TF, then stop for "Approved" |
 
-**D-349 (a) cannot be verified by these references:** neither script uses a trailing stop (MR:
-previous-high exit, 5-bar limit, 3-ATR stop; TF: 2-ATR stop, 4-ATR target, 50-bar limit). It
-**stays `to_verify`** and the T11 review must say so.
+**MR / BATS:SPY 1D — D-011 PASS.** 462/462 matched (100.00 %); net profit 185,784.36 vs
+185,810.06 = **−25.70 USD**, 0.0138 % of |TV| and 0.0257 % of capital.
 
+Two engine options got it there, both **parity-only** and both proven unreachable from a
+research run: **D-366** tick rounding (whole ticks, half away from zero, measured from the
+fill) and **D-367** `entry_requires_flat_at_signal` (default off = D-336). The naive oracle
+implements both from the decision text; oracle and property suites pass.
 
-### Owed to stream B
+### Blocked, and on whom
 
-- **D-394 after #19 (T04f): done** on `a/universe-regen`. `configs/universe.yaml` regenerated
-  from the T04f symbol lists: 26 symbols lost `1H` and 5 gained it, exactly stream B's list;
-  no symbol entered or left the universe; hourly symbols 856 -> 835. `costs validate` 6742
-  assigned / 521 profiles and `universe validate` 6749 symbols both unchanged.
-- Next stream-B merge: run `sfac universe generate` again (D-394).
-- Nothing under `configs/costs/` needs changing for D-388 (checked against the merged T06b).
+- **TF / OANDA:XAUUSD — waiting on the user.** The current export is two-sided while the
+  engine runs one direction per run. **D-600** settles it: the two-sided export is superseded,
+  and the user is re-exporting **TF Long, TF Short, fresh OHLC and the new `.pine`**, then
+  re-running `scripts/write_parity_manifest.ps1`. The supervisor will send the file names.
+  Next steps once they arrive: add them to `tests/fixtures/parity/` with their manifest
+  (D-359), mark the two-sided export superseded in the manifest notes, run both one-sided
+  comparisons, then write the review.
+- **P-44 — waiting on the supervisor.** A cached Hypothesis example fails a metrics property
+  test and the `ci` profile hides it. Diagnosed: the **fixture** is wrong, not the invariant.
+  Not fixed inside T11; a separate session is doing the fixture half on
+  `a/fix-metrics-fixture-prices`.
+
+### ⚠️ Protocol incident (D-357 (1))
+
+On 2026-09-21 the spawned metrics-fixture session took over **this** working folder: it
+switched the checkout from `a/T11-parity` to `a/fix-metrics-fixture-prices` and edited files
+there, while stream A was mid-task. D-357 (1) requires each session to work only in its own
+folder. Stream A recovered by backing its own edit out of that branch and using a scratch
+worktree for `a/T11-parity`; nothing was lost (all T11 work was already committed and pushed).
+**A spawned session must get its own worktree.**
+
+### Next actions, in order
+
+1. TF exports arrive → fixtures, manifest note, both one-sided comparisons.
+2. `docs/reviews/T11_review.md`, then **stop for "Approved"** (D-402).
+3. After the merge: `HANDOFF.md` from this file and `docs/streams/B.md`.
+4. Owed to stream B: `sfac universe generate` after each stream-B merge (D-394). Done for
+   #19; nothing outstanding. Nothing under `configs/costs/` needs changing for D-388.
+
+### ID ranges used so far
+
+Stream A decisions **D-360 … D-367** used (next free **D-368**); pending **P-40 … P-44** used
+(next free **P-45**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
