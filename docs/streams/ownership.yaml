@@ -7,10 +7,14 @@
 # Matching: the longest matching prefix wins, so a specific file can override its folder.
 # `shared` paths may be changed by either stream; everything not listed is shared.
 
-# The supervisor's own range (D-355). A decision the supervisor dictates may be written by
-# whichever stream carries it, so the id guard accepts these from any branch.
+# The supervisor's own ranges (D-355). A decision the supervisor dictates may be written by
+# whichever stream carries it, so the id guard accepts these from any branch. Decisions only:
+# a P- number always belongs to the stream that raised the question.
+# D-355 … D-359 is used up (D-355, D-356, D-357, D-359), so D-600 … D-699 follows it.
 supervisor:
-  decisions: [355, 359]        # D-355 … D-359
+  decisions:
+    - [355, 359]
+    - [600, 699]
 
 streams:
   A:
