@@ -281,9 +281,11 @@ Two findings, both for the user's override work:
 ## Addendum 3 (2026-09-21): P-28 closed — the supervisor classification (D-356)
 
 `configs/costs/moneta/symbol_overrides.csv` now carries **109 rows**: the 4 pre-existing D-524
-maps plus the supervisor's classification of all **105** review rows (47 targets, 62
-`UNMAPPABLE`). **The F-0.9.1 coverage criterion is met for real: 548/548, with no row left
-waiting for a decision.**
+maps plus the supervisor's classification of all **105** review rows — **43 new override
+targets** (35 same-company, 3 from the successor check, 5 re-targeted) and **62 `UNMAPPABLE`**
+(D-356). `symbol_map.csv` therefore shows 47 `override` maps: those 43 plus the 4 older ones.
+**The F-0.9.1 coverage criterion is met for real: 548/548, with no row left waiting for a
+decision.**
 
 | | before P-28 | after |
 |---|---|---|
@@ -337,13 +339,16 @@ our close), and whether the stated rule holds:
    active) is **not** in the research universe. `TMH` ("Toyota Motor Corporation ADRhedged")
    *is* in the universe, but it is the hedged ADR and the instruction forbids it, so nothing is
    mapped.
-3. **`FI` → `FISV` mapped, but the price check disagrees.** `FISV` is the only Fiserv entry in
+3. **`FI` → `FISV` mapped; the price ratio is explained.** `FISV` is the only Fiserv entry in
    the Alpaca file (active, "Fiserv, Inc. Common Stock") and it is in the universe, so the
-   stated rule holds and the map was written. But the broker quote sample is 170.78 while the
+   stated rule holds and the map was written. The broker quote sample is 170.78 while the
    `FISV` series runs 44.75 (2016-01-04) → 47.19 (2026-09-18): **ratio 3.62**, with no
-   ticker-change break in the series. Name evidence and price evidence disagree; flagged for the
-   supervisor. The research `FI` is confirmed to be a different company (16.60 → 3.15, ends
-   2022-12-30), so `FI` → `FI` was correctly refused.
+   ticker-change break in the series. **Resolved by the supervisor (D-356):** the map is
+   accepted **on series identity** — the 3.62 ratio reflects the **old broker quote sample**
+   in the spec file together with **Fiserv's 2025 drop**, not a different company. The broker
+   symbol is still `FI`, and it is **checked in MT5 before any forward activation**. The
+   research `FI` is confirmed to be a different company (16.60 → 3.15, ends 2022-12-30), so
+   `FI` → `FI` was correctly refused.
 
 **v2 — every `UNMAPPABLE` ticker is absent from the research universe.** 60 tickers were checked
 in every format (`BRK.B` / `BRK-B` / `BRKB` style variants included). **59 are absent, as
