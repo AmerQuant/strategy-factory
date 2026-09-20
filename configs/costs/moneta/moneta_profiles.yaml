@@ -469,6 +469,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_AGG
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 818 (AGG); spread 1.15 points x 0.01 / quote sample 98.46 = 1.16799 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 1.167986999796872, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: AGG
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_AGNC
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 18 (AGNC); spread 6 points x 0.01 / quote sample 9.46 = 63.4249 bps
@@ -917,6 +945,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_ARKK
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 821 (ARKK); spread 1.56 points x 0.01 / quote sample 72.35 = 2.15619 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 2.1561852107809263, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: ARKK
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_AUDJPY+
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Forex&Metals row 5 (AUDJPY+)
@@ -1022,34 +1078,6 @@ profiles:
   min_volume: 0.01
   volume_step_assumed: false
   to_verify: [swap_non_usd_index]
-- name: moneta_AVB
-  status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 41 (AVB); spread 37 points x 0.01 / quote sample 200.57 = 18.4474 bps
-  pip_size: null
-  spread:
-    mode: fixed
-    fixed: {value: 18.447424839208256, unit: bps}
-  commission: {model: none}
-  swap:
-    model: annual_rate
-    long: -0.0688
-    short: -0.035
-    day_count: 360
-    rollover_time_local: '17:00'
-    rollover_tz: America/New_York
-    rollover_weekdays: [MON, TUE, WED, THU, FRI]
-    triple_weekday: FRI
-  slippage:
-    fixed: {value: 1.0, unit: bps}
-    atr_fraction: 0.0
-  broker_symbol: AVB
-  quote_ccy: USD
-  point_value: 0.01
-  contract_size: 1.0
-  volume_step: 0.1
-  min_volume: 0.1
-  volume_step_assumed: false
-  to_verify: []
 - name: moneta_AVGO
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 42 (AVGO); spread 45.74 points x 0.01 / quote sample 277.55 = 16.4799 bps
@@ -1358,34 +1386,6 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
-- name: moneta_BEN
-  status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 55 (BEN); spread 7 points x 0.01 / quote sample 24.84 = 28.1804 bps
-  pip_size: null
-  spread:
-    mode: fixed
-    fixed: {value: 28.180354267310793, unit: bps}
-  commission: {model: none}
-  swap:
-    model: annual_rate
-    long: -0.0688
-    short: -0.035
-    day_count: 360
-    rollover_time_local: '17:00'
-    rollover_tz: America/New_York
-    rollover_weekdays: [MON, TUE, WED, THU, FRI]
-    triple_weekday: FRI
-  slippage:
-    fixed: {value: 1.0, unit: bps}
-    atr_fraction: 0.0
-  broker_symbol: BEN
-  quote_ccy: USD
-  point_value: 0.01
-  contract_size: 1.0
-  volume_step: 0.1
-  min_volume: 0.1
-  volume_step_assumed: false
-  to_verify: []
 - name: moneta_BIIB
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 56 (BIIB); spread 34 points x 0.01 / quote sample 132.8 = 25.6024 bps
@@ -1638,6 +1638,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_BND
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 830 (BND); spread 1.05 points x 0.01 / quote sample 73.08 = 1.43678 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 1.4367816091954027, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: BND
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_BNGO
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 66 (BNGO); spread 10 points x 0.01 / quote sample 3.31 = 302.115 bps
@@ -1664,6 +1692,34 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_BNO
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 832 (BNO); spread 1.16 points x 0.01 / quote sample 30.73 = 3.77481 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 3.7748128864301984, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: BNO
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_BOX
@@ -1741,34 +1797,6 @@ profiles:
     fixed: {value: 1.0, unit: bps}
     atr_fraction: 0.0
   broker_symbol: BSX
-  quote_ccy: USD
-  point_value: 0.01
-  contract_size: 1.0
-  volume_step: 0.1
-  min_volume: 0.1
-  volume_step_assumed: false
-  to_verify: []
-- name: moneta_BTOG
-  status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 72 (BTOG); spread 6 points x 0.01 / quote sample 0.19 = 3157.89 bps
-  pip_size: null
-  spread:
-    mode: fixed
-    fixed: {value: 3157.894736842105, unit: bps}
-  commission: {model: none}
-  swap:
-    model: annual_rate
-    long: -0.0688
-    short: -0.035
-    day_count: 360
-    rollover_time_local: '17:00'
-    rollover_tz: America/New_York
-    rollover_weekdays: [MON, TUE, WED, THU, FRI]
-    triple_weekday: FRI
-  slippage:
-    fixed: {value: 1.0, unit: bps}
-    atr_fraction: 0.0
-  broker_symbol: BTOG
   quote_ccy: USD
   point_value: 0.01
   contract_size: 1.0
@@ -1963,6 +1991,34 @@ profiles:
     fixed: {value: 1.0, unit: bps}
     atr_fraction: 0.0
   broker_symbol: CB
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_CBOE
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 80 (CBOE); spread 47 points x 0.01 / quote sample 232.03 = 20.256 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 20.25600137913201, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: CBOE
   quote_ccy: USD
   point_value: 0.01
   contract_size: 1.0
@@ -2978,6 +3034,62 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_DBA
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 834 (DBA); spread 1.2 points x 0.01 / quote sample 25.9 = 4.6332 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 4.633204633204634, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: DBA
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_DBC
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 835 (DBC); spread 1.09 points x 0.01 / quote sample 22.29 = 4.89009 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 4.890085240017946, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: DBC
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_DBX
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 123 (DBX); spread 8 points x 0.01 / quote sample 27.62 = 28.9645 bps
@@ -3227,6 +3339,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_DLR
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 134 (DLR); spread 22 points x 0.01 / quote sample 171.16 = 12.8535 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 12.853470437017997, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: DLR
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_DLTR
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 135 (DLTR); spread 16 points x 0.01 / quote sample 104.68 = 15.2847 bps
@@ -3451,34 +3591,6 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
-- name: moneta_EA
-  status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 143 (EA); spread 22 points x 0.01 / quote sample 152.5 = 14.4262 bps
-  pip_size: null
-  spread:
-    mode: fixed
-    fixed: {value: 14.426229508196721, unit: bps}
-  commission: {model: none}
-  swap:
-    model: annual_rate
-    long: -0.0688
-    short: -0.035
-    day_count: 360
-    rollover_time_local: '17:00'
-    rollover_tz: America/New_York
-    rollover_weekdays: [MON, TUE, WED, THU, FRI]
-    triple_weekday: FRI
-  slippage:
-    fixed: {value: 1.0, unit: bps}
-    atr_fraction: 0.0
-  broker_symbol: EA
-  quote_ccy: USD
-  point_value: 0.01
-  contract_size: 1.0
-  volume_step: 0.1
-  min_volume: 0.1
-  volume_step_assumed: false
-  to_verify: []
 - name: moneta_EBAY
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 144 (EBAY); spread 10 points x 0.01 / quote sample 76.25 = 13.1148 bps
@@ -3589,6 +3701,62 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_EEM
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 836 (EEM); spread 1.03 points x 0.01 / quote sample 48.27 = 2.13383 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 2.133830536565154, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: EEM
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_EFA
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 837 (EFA); spread 1.12 points x 0.01 / quote sample 89.88 = 1.24611 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 1.2461059190031154, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: EFA
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_EMN
@@ -3759,13 +3927,13 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
-- name: moneta_EQR
+- name: moneta_ESS
   status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 155 (EQR); spread 12 points x 0.01 / quote sample 66.47 = 18.0533 bps
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 157 (ESS); spread 52 points x 0.01 / quote sample 284.65 = 18.268 bps
   pip_size: null
   spread:
     mode: fixed
-    fixed: {value: 18.053257108469985, unit: bps}
+    fixed: {value: 18.268048480590203, unit: bps}
   commission: {model: none}
   swap:
     model: annual_rate
@@ -3779,7 +3947,7 @@ profiles:
   slippage:
     fixed: {value: 1.0, unit: bps}
     atr_fraction: 0.0
-  broker_symbol: EQR
+  broker_symbol: ESS
   quote_ccy: USD
   point_value: 0.01
   contract_size: 1.0
@@ -4530,6 +4698,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_FXI
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 842 (FXI); spread 1.03 points x 0.01 / quote sample 36.17 = 2.84766 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 2.8476638097871163, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: FXI
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_GBPCHF+
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Forex&Metals row 30 (GBPCHF+)
@@ -4801,6 +4997,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_GLD
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 846 (GLD); spread 3.2 points x 0.01 / quote sample 305.43 = 1.0477 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 1.0477032380578202, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: GLD
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_GLW
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 189 (GLW); spread 9 points x 0.01 / quote sample 52.54 = 17.1298 bps
@@ -5051,6 +5275,34 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_GSG
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 850 (GSG); spread 1.12 points x 0.01 / quote sample 22.54 = 4.96894 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 4.968944099378883, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: GSG
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_GT
@@ -5638,34 +5890,6 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
-- name: moneta_IAC
-  status: verified
-  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 223 (IAC); spread 19 points x 0.01 / quote sample 39.84 = 47.6908 bps
-  pip_size: null
-  spread:
-    mode: fixed
-    fixed: {value: 47.69076305220883, unit: bps}
-  commission: {model: none}
-  swap:
-    model: annual_rate
-    long: -0.0688
-    short: -0.035
-    day_count: 360
-    rollover_time_local: '17:00'
-    rollover_tz: America/New_York
-    rollover_weekdays: [MON, TUE, WED, THU, FRI]
-    triple_weekday: FRI
-  slippage:
-    fixed: {value: 1.0, unit: bps}
-    atr_fraction: 0.0
-  broker_symbol: IAC
-  quote_ccy: USD
-  point_value: 0.01
-  contract_size: 1.0
-  volume_step: 0.1
-  min_volume: 0.1
-  volume_step_assumed: false
-  to_verify: []
 - name: moneta_IBM
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 224 (IBM); spread 33.24 points x 0.01 / quote sample 289.57 = 11.4791 bps
@@ -5776,6 +6000,34 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_ICLN
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 852 (ICLN); spread 1.09 points x 0.01 / quote sample 13.61 = 8.00882 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 8.008817046289495, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: ICLN
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_IDXX
@@ -6140,6 +6392,34 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_IWM
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 853 (IWM); spread 1.45 points x 0.01 / quote sample 223.64 = 0.648363 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 0.6483634412448579, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: IWM
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_JBL
@@ -8209,6 +8489,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_NFLX
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 325 (NFLX); spread 166.33 points x 0.01 / quote sample 1285 = 12.944 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 12.943968871595333, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: NFLX
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_NKE
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 327 (NKE); spread 14.4 points x 0.01 / quote sample 73.47 = 19.5998 bps
@@ -8342,6 +8650,34 @@ profiles:
     fixed: {value: 1.0, unit: bps}
     atr_fraction: 0.0
   broker_symbol: NTAP
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_NTRS
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 333 (NTRS); spread 22 points x 0.01 / quote sample 126.83 = 17.3461 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 17.346053772766695, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: NTRS
   quote_ccy: USD
   point_value: 0.01
   contract_size: 1.0
@@ -9439,6 +9775,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_QQQ
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 859 (QQQ); spread 2.13 points x 0.01 / quote sample 556.25 = 0.382921 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 0.3829213483146067, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: QQQ
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_QS
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 376 (QS); spread 6 points x 0.01 / quote sample 8.31 = 72.2022 bps
@@ -9971,6 +10335,62 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_SDS
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 861 (SDS); spread 1.07 points x 0.01 / quote sample 16.37 = 6.53635 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 6.536346976175932, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: SDS
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_SE
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 396 (SE); spread 57.7 points x 0.01 / quote sample 152.24 = 37.9007 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 37.90068313189701, unit: bps}
+  commission: {model: none}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: SE
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 0.1
+  min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_SENS
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 397 (SENS); spread 6 points x 0.01 / quote sample 0.47 = 1276.6 bps
@@ -10391,6 +10811,34 @@ profiles:
   min_volume: 0.1
   volume_step_assumed: false
   to_verify: []
+- name: moneta_SPY
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 865 (SPY); spread 1.34 points x 0.01 / quote sample 624.02 = 0.214737 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 0.21473670715682192, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: SPY
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_SRE
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 413 (SRE); spread 19 points x 0.01 / quote sample 74.38 = 25.5445 bps
@@ -10669,6 +11117,34 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_TAN
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 867 (TAN); spread 7.87 points x 0.01 / quote sample 38.56 = 20.4098 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 20.4097510373444, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: TAN
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_TDOC
@@ -11608,6 +12084,34 @@ profiles:
   min_volume: 0.01
   volume_step_assumed: false
   to_verify: []
+- name: moneta_USO
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 869 (USO); spread 1.34 points x 0.01 / quote sample 76.91 = 1.7423 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 1.74229619035236, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: USO
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
 - name: moneta_US2000.r
   status: verified
   source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Indices row 32 (US2000.r)
@@ -12299,6 +12803,90 @@ profiles:
   contract_size: 1.0
   volume_step: 0.1
   min_volume: 0.1
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_XLF
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 872 (XLF); spread 1.05 points x 0.01 / quote sample 52.37 = 2.00496 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 2.004964674431927, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: XLF
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_XLK
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 873 (XLK); spread 2.39 points x 0.01 / quote sample 257.82 = 0.927003 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 0.9270033356605384, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: XLK
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
+  volume_step_assumed: false
+  to_verify: []
+- name: moneta_XOP
+  status: verified
+  source_note: Moneta MT5 ECN spec MT5Moneta-ECN_specification-1.xlsx sha256=f71328881a4cdcff573e169e122a78a5274d96c1de8bd968c733643a71eb6199 file date 2026-09-19; sheet Share_CFDs row 874 (XOP); spread 4.25 points x 0.01 / quote sample 130.7 = 3.25172 bps
+  pip_size: null
+  spread:
+    mode: fixed
+    fixed: {value: 3.251721499617445, unit: bps}
+  commission: {model: per_order, amount: 12.0, currency: USD}
+  swap:
+    model: annual_rate
+    long: -0.0688
+    short: -0.035
+    day_count: 360
+    rollover_time_local: '17:00'
+    rollover_tz: America/New_York
+    rollover_weekdays: [MON, TUE, WED, THU, FRI]
+    triple_weekday: FRI
+  slippage:
+    fixed: {value: 1.0, unit: bps}
+    atr_fraction: 0.0
+  broker_symbol: XOP
+  quote_ccy: USD
+  point_value: 0.01
+  contract_size: 1.0
+  volume_step: 1.0
+  min_volume: 1.0
   volume_step_assumed: false
   to_verify: []
 - name: moneta_XRX

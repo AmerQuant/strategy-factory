@@ -66,10 +66,10 @@ def small_universe(tmp: Path) -> Path:
                 asset_class="us_equity",
                 reference_source="alpaca",
                 timeframes=("1D",),
-                cost_profile="us_share_cfd_proxy",  # not (yet) broker-mapped: D-324 proxy
+                cost_profile="moneta_SPY",  # broker-mapped since D-341 (Alpaca names)
                 calendar="nyse",
                 group="us_equity",
-                broker_symbol=None,
+                broker_symbol="SPY",
             ),
             entry(
                 "VIX",
@@ -268,7 +268,7 @@ def test_F_0_9_1_generation_from_existing_universes(tmp_path: Path) -> None:
     d = tmp_path / "u"
     d.mkdir()
     (d / "us_equity_daily.csv").write_text(
-        "symbol,source_of_listing\nSPY,x\nAAPL,x\n", encoding="utf-8"
+        "symbol,source_of_listing\nSPY,x\nAAPL,x\nAABA,x\n", encoding="utf-8"
     )
     (d / "us_equity_hourly.csv").write_text(
         "symbol,reason,first_member_date,last_member_date\nSPY,etf,,\nCCE,sp500_pit,,\n",
@@ -283,7 +283,9 @@ def test_F_0_9_1_generation_from_existing_universes(tmp_path: Path) -> None:
     assert by["SPY"].reference_source == "alpaca" and by["SPY"].calendar == "nyse"
     assert by["USDJPY"].cost_profile == "moneta_USDJPY+" and by["XAUUSD"].calendar == "24x5"
     assert by["USDJPY"].broker_symbol == "USDJPY+" and by["AAPL"].broker_symbol == "AAPL"
-    assert by["SPY"].broker_symbol is None and by["SPY"].cost_profile == "us_share_cfd_proxy"
+    assert by["SPY"].broker_symbol == "SPY" and by["SPY"].cost_profile == "moneta_SPY"
+    assert by["AABA"].broker_symbol is None  # not at the broker: the D-324 proxy
+    assert by["AABA"].cost_profile == "us_share_cfd_proxy"
     assert by["XAUUSD"].asset_class == "metal" and by["DEUIDXEUR"].group == "index_cfd"
     aux = [e for e in u.symbols if e.asset_class == "aux"]
     assert len(aux) == 7 and not any(e.tradable for e in aux)

@@ -630,6 +630,11 @@ def map_symbols(
             )
 
         if r.row_status != "ok":
+            if r.broker_symbol in over and over[r.broker_symbol]["research_symbol"] != UNMAPPABLE:
+                raise ConfigError(  # D-350 (1): never a silent placeholder
+                    f"{OVERRIDES_CSV}: {r.broker_symbol!r} maps to a {r.row_status} broker row "
+                    f"({r.status_reason}); an incomplete row cannot yield a cost profile"
+                )
             rev("unmappable", "", None, f"broker row {r.row_status}: {r.status_reason}")
             continue
         if r.broker_symbol in over:

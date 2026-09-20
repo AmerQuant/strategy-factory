@@ -209,7 +209,10 @@ def broker_scaled_table(
 ) -> tuple[HourlySpread, float]:
     """Hourly median shape scaled so its bar-weighted mean equals ``broker_spread`` (D-523).
 
-    The weights are the bars per UTC hour; hours without data get ``broker_spread``.
+    The weights are the bars per UTC hour. A UTC hour without data gets the **maximum of the
+    scaled profile** (D-350 (2)), the most conservative hour, not the broker reference; those
+    hours are listed in ``fallback_hours``. Hours without data carry no bars, so the
+    bar-weighted mean over the development bars still equals ``broker_spread``.
     Returns the table and the scale factor.
     """
     raw = hourly_spread_table(ts_us, spread, 1.0, math.nan)
@@ -218,7 +221,8 @@ def broker_scaled_table(
     if not has.any() or weighted <= 0:
         raise DataError("no positive spread data to scale to the broker spread")
     scale = broker_spread * float(raw.counts.sum()) / weighted
-    table = np.where(has, raw.full_spread * scale, broker_spread)
+    scaled = raw.full_spread * scale
+    table = np.where(has, scaled, float(np.max(scaled[has])))
     return HourlySpread(table, raw.counts, raw.fallback_hours), scale
 
 
@@ -274,10 +278,12 @@ def _resolve_broker_scaled(
         np.asarray(dev_bars["spread"], dtype=np.float64),
         sp.broker_spread,
     )
+    filled = len(table.fallback_hours)
     note = (
         f"{profile.source_note} [spread: hourly median shape x {scale:.6g} so the mean over "
         f"{int(table.counts.sum())} development bars = broker {sp.broker_spread:g}; "
-        f"broker spread in hours {list(table.fallback_hours)}]"
+        f"{filled} UTC hour(s) without data filled with the profile maximum "
+        f"{float(np.max(table.full_spread)):.6g} (D-350): {list(table.fallback_hours)}]"
     ).strip()
     hourly = SpreadHourly(hourly=tuple(float(v) for v in table.full_spread))
     return profile.model_copy(update={"spread": hourly, "source_note": note}), table
@@ -473,7 +479,14 @@ def round_trip_cost(
 
 
 def cost_breakdown_shares(costs: Mapping[str, float]) -> dict[str, float]:
-    """Each component's share of the total cost (D-525); a swap credit counts as 0 cost."""
-    parts = {k: max(float(costs[k]), 0.0) for k in ("spread", "slippage", "commission", "swap")}
-    total = sum(parts.values())
-    return {k: (v / total if total > 0 else 0.0) for k, v in parts.items()}
+    """Share of each component in the **charges** plus the swap credit (D-525, D-350 (3)).
+
+    Shares are computed on charges only, so they sum to 1 whenever anything was charged. A
+    swap credit never disappears into a 0 share: it is reported as ``swap_credit_usd``, a
+    positive amount that was credited to the position.
+    """
+    charges = {k: max(float(costs[k]), 0.0) for k in ("spread", "slippage", "commission", "swap")}
+    total = sum(charges.values())
+    out = {k: (v / total if total > 0 else 0.0) for k, v in charges.items()}
+    out["swap_credit_usd"] = max(-float(costs["swap"]), 0.0)
+    return out

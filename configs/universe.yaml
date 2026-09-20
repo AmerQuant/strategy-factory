@@ -4,7 +4,7 @@
 # timeframes, cost_profile (T06 assignments), calendar (nyse | 24x5 | 24x7), group (for the
 # cross-symbol validation later), tradable (aux series: false), broker_symbol (Moneta, T06b).
 
-generated_at: '2026-09-19T18:53:46+00:00'
+generated_at: '2026-09-20T08:08:04+00:00'
 sources:
   - configs/universe/us_equity_daily.csv
   - configs/universe/us_equity_hourly.csv
@@ -159,7 +159,7 @@ symbols:
   - {symbol: AGCC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AGCO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AGEN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: AGG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: AGG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_AGG, calendar: nyse, group: us_equity, tradable: true, broker_symbol: AGG}
   - {symbol: AGI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AGIG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AGIO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -453,7 +453,7 @@ symbols:
   - {symbol: ARI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ARII, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ARIS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: ARKK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: ARKK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_ARKK, calendar: nyse, group: us_equity, tradable: true, broker_symbol: ARKK}
   - {symbol: ARKO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ARKR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ARL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -581,7 +581,7 @@ symbols:
   - {symbol: AVAL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AVAT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AVAV, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: AVB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_AVB, calendar: nyse, group: us_equity, tradable: true, broker_symbol: AVB}
+  - {symbol: AVB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AVBC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AVBH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: AVBP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -726,7 +726,7 @@ symbols:
   - {symbol: BEL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BELFA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BELFB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: BEN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_BEN, calendar: nyse, group: us_equity, tradable: true, broker_symbol: BEN}
+  - {symbol: BEN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BENF, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BEP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BEPC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -854,7 +854,7 @@ symbols:
   - {symbol: BNBX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNCL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: BND, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: BND, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_BND, calendar: nyse, group: us_equity, tradable: true, broker_symbol: BND}
   - {symbol: BNED, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNGO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_BNGO, calendar: nyse, group: us_equity, tradable: true, broker_symbol: BNGO}
   - {symbol: BNGOU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -864,7 +864,7 @@ symbols:
   - {symbol: BNKU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNKZ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: BNO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: BNO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_BNO, calendar: nyse, group: us_equity, tradable: true, broker_symbol: BNO}
   - {symbol: BNRG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BNT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -962,7 +962,7 @@ symbols:
   - {symbol: BTGO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BTMD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BTOC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: BTOG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_BTOG, calendar: nyse, group: us_equity, tradable: true, broker_symbol: BTOG}
+  - {symbol: BTOG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BTQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BTTC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: BTU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -1086,7 +1086,7 @@ symbols:
   - {symbol: CBMG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: CBNA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: CBNK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: CBOE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: CBOE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_CBOE, calendar: nyse, group: us_equity, tradable: true, broker_symbol: CBOE}
   - {symbol: CBPO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: CBPX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: CBRE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -1625,8 +1625,8 @@ symbols:
   - {symbol: DAVE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DAY, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: DBA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: DBC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: DBA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_DBA, calendar: nyse, group: us_equity, tradable: true, broker_symbol: DBA}
+  - {symbol: DBC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_DBC, calendar: nyse, group: us_equity, tradable: true, broker_symbol: DBC}
   - {symbol: DBCA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DBD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DBGI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -1730,7 +1730,7 @@ symbols:
   - {symbol: DLO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DLPH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DLPN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: DLR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: DLR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_DLR, calendar: nyse, group: us_equity, tradable: true, broker_symbol: DLR}
   - {symbol: DLTH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DLTR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_DLTR, calendar: nyse, group: us_equity, tradable: true, broker_symbol: DLTR}
   - {symbol: DLX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -1859,7 +1859,7 @@ symbols:
   - {symbol: DZK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: DZZ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: E, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: EA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_EA, calendar: nyse, group: us_equity, tradable: true, broker_symbol: EA}
+  - {symbol: EA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EAF, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EAGLU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EARN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -1902,12 +1902,12 @@ symbols:
   - {symbol: EEH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EEI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EEIQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: EEM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: EEM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_EEM, calendar: nyse, group: us_equity, tradable: true, broker_symbol: EEM}
   - {symbol: EEP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EEQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EET, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EEX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: EFA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: EFA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_EFA, calendar: nyse, group: us_equity, tradable: true, broker_symbol: EFA}
   - {symbol: EFC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EFII, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EFO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2043,7 +2043,7 @@ symbols:
   - {symbol: EQIX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_EQIX, calendar: nyse, group: us_equity, tradable: true, broker_symbol: EQIX}
   - {symbol: EQM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EQPT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: EQR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_EQR, calendar: nyse, group: us_equity, tradable: true, broker_symbol: EQR}
+  - {symbol: EQR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EQS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EQT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: EQWS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2076,7 +2076,7 @@ symbols:
   - {symbol: ESPR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ESQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ESRX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: ESS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: ESS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_ESS, calendar: nyse, group: us_equity, tradable: true, broker_symbol: ESS}
   - {symbol: ESTA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ESTC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ESV, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2443,7 +2443,7 @@ symbols:
   - {symbol: FWONK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: FWRD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: FWRG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: FXI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: FXI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_FXI, calendar: nyse, group: us_equity, tradable: true, broker_symbol: FXI}
   - {symbol: FXNC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: G, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GABC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2564,7 +2564,7 @@ symbols:
   - {symbol: GLAS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GLBE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GLBS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: GLD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: GLD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_GLD, calendar: nyse, group: us_equity, tradable: true, broker_symbol: GLD}
   - {symbol: GLDG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GLDI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GLDM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2682,7 +2682,7 @@ symbols:
   - {symbol: GSBC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GSBD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GSD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: GSG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: GSG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_GSG, calendar: nyse, group: us_equity, tradable: true, broker_symbol: GSG}
   - {symbol: GSHD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GSHR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: GSIT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2958,7 +2958,7 @@ symbols:
   - {symbol: HYPD, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: HYPR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: HZO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: IAC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_IAC, calendar: nyse, group: us_equity, tradable: true, broker_symbol: IAC}
+  - {symbol: IAC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IACO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IACQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IAG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -2991,7 +2991,7 @@ symbols:
   - {symbol: ICFI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ICHR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ICL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_ICL, calendar: nyse, group: us_equity, tradable: true, broker_symbol: ICL}
-  - {symbol: ICLN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: ICLN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_ICLN, calendar: nyse, group: us_equity, tradable: true, broker_symbol: ICLN}
   - {symbol: ICLR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ICMB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: ICON, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -3207,7 +3207,7 @@ symbols:
   - {symbol: IWDL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IWF, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IWFL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: IWM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: IWM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_IWM, calendar: nyse, group: us_equity, tradable: true, broker_symbol: IWM}
   - {symbol: IWML, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IWR, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: IXHL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -4145,7 +4145,7 @@ symbols:
   - {symbol: NFG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NFGC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NFH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: NFLX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: NFLX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_NFLX, calendar: nyse, group: us_equity, tradable: true, broker_symbol: NFLX}
   - {symbol: NFX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NGEN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -4267,7 +4267,7 @@ symbols:
   - {symbol: NTRB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NTRI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NTRP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: NTRS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: NTRS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_NTRS, calendar: nyse, group: us_equity, tradable: true, broker_symbol: NTRS}
   - {symbol: NTSK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NTST, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: NTUS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -4934,7 +4934,7 @@ symbols:
   - {symbol: QNST, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: QNT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: QNTM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: QQQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: QQQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_QQQ, calendar: nyse, group: us_equity, tradable: true, broker_symbol: QQQ}
   - {symbol: QRED, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: QRHC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: QRTAV, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -5317,10 +5317,10 @@ symbols:
   - {symbol: SDOW, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SDP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SDRL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: SDS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: SDS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: moneta_SDS, calendar: nyse, group: us_equity, tradable: true, broker_symbol: SDS}
   - {symbol: SDST, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SDYL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: SE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: SE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_SE, calendar: nyse, group: us_equity, tradable: true, broker_symbol: SE}
   - {symbol: SEAT, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SEB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SEDG, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -5597,7 +5597,7 @@ symbols:
   - {symbol: SPWRV, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SPXC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SPXU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: SPY, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: SPY, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_SPY, calendar: nyse, group: us_equity, tradable: true, broker_symbol: SPY}
   - {symbol: SPYU, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SQM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: SQQQ, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -5766,7 +5766,7 @@ symbols:
   - {symbol: TAL, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: TALK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: TALO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: TAN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: TAN, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_TAN, calendar: nyse, group: us_equity, tradable: true, broker_symbol: TAN}
   - {symbol: TANH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: TAOP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: TAOX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -6195,7 +6195,7 @@ symbols:
   - {symbol: USML, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: USMV, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: USNA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: USO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: USO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_USO, calendar: nyse, group: us_equity, tradable: true, broker_symbol: USO}
   - {symbol: USOI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: USPH, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: UST, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -6589,9 +6589,9 @@ symbols:
   - {symbol: XLB, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XLC, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XLE, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: XLF, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: XLF, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_XLF, calendar: nyse, group: us_equity, tradable: true, broker_symbol: XLF}
   - {symbol: XLI, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: XLK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: XLK, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_XLK, calendar: nyse, group: us_equity, tradable: true, broker_symbol: XLK}
   - {symbol: XLNX, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XLO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XLP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
@@ -6610,7 +6610,7 @@ symbols:
   - {symbol: XOM, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XOMA, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XON, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
-  - {symbol: XOP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
+  - {symbol: XOP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D, 1H], cost_profile: moneta_XOP, calendar: nyse, group: us_equity, tradable: true, broker_symbol: XOP}
   - {symbol: XOS, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XOXO, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}
   - {symbol: XP, asset_class: us_equity, reference_source: alpaca, timeframes: [1D], cost_profile: us_share_cfd_proxy, calendar: nyse, group: us_equity, tradable: true, broker_symbol: null}

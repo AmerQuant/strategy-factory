@@ -17,6 +17,7 @@ symbols:
   AEP: {profile: moneta_AEP}
   AFG: {profile: moneta_AFG}
   AFL: {profile: moneta_AFL}
+  AGG: {profile: moneta_AGG}
   AGNC: {profile: moneta_AGNC}
   AIG: {profile: moneta_AIG}
   AKAM: {profile: moneta_AKAM}
@@ -33,11 +34,11 @@ symbols:
   APD: {profile: moneta_APD}
   APH: {profile: moneta_APH}
   APTV: {profile: moneta_APTV}
+  ARKK: {profile: moneta_ARKK}
   AUDJPY: {profile: moneta_AUDJPY+}
   AUDUSD: {profile: moneta_AUDUSD+}
   AUPH: {profile: moneta_AUPH}
   AUSIDXAUD: {profile: moneta_SPI200.r}
-  AVB: {profile: moneta_AVB}
   AVGO: {profile: moneta_AVGO}
   AXP: {profile: moneta_AXP}
   AZO: {profile: moneta_AZO}
@@ -49,7 +50,6 @@ symbols:
   BBY: {profile: moneta_BBY}
   BDX: {profile: moneta_BDX}
   BE: {profile: moneta_BE}
-  BEN: {profile: moneta_BEN}
   BIIB: {profile: moneta_BIIB}
   BKNG: {profile: moneta_BKNG}
   BKR: {profile: moneta_BKR}
@@ -59,11 +59,12 @@ symbols:
   BMBL: {profile: moneta_BMBL}
   BMRN: {profile: moneta_BMRN}
   BMY: {profile: moneta_BMY}
+  BND: {profile: moneta_BND}
   BNGO: {profile: moneta_BNGO}
+  BNO: {profile: moneta_BNO}
   BOX: {profile: moneta_BOX}
   BRENTCMDUSD: {profile: moneta_UKOUSD}
   BSX: {profile: moneta_BSX}
-  BTOG: {profile: moneta_BTOG}
   BUD: {profile: moneta_BUD}
   BX: {profile: moneta_BX}
   BYND: {profile: moneta_BYND}
@@ -71,6 +72,7 @@ symbols:
   CAH: {profile: moneta_CAH}
   CAT: {profile: moneta_CAT}
   CB: {profile: moneta_CB}
+  CBOE: {profile: moneta_CBOE}
   CCI: {profile: moneta_CCI}
   CDNS: {profile: moneta_CDNS}
   CFG: {profile: moneta_CFG}
@@ -107,6 +109,8 @@ symbols:
   D: {profile: moneta_D}
   DAL: {profile: moneta_DAL}
   DASH: {profile: moneta_DASH}
+  DBA: {profile: moneta_DBA}
+  DBC: {profile: moneta_DBC}
   DBX: {profile: moneta_DBX}
   DD: {profile: moneta_DD}
   DDOG: {profile: moneta_DDOG}
@@ -116,6 +120,7 @@ symbols:
   DHI: {profile: moneta_DHI}
   DHR: {profile: moneta_DHR}
   DKNG: {profile: moneta_DKNG}
+  DLR: {profile: moneta_DLR}
   DLTR: {profile: moneta_DLTR}
   DOCU: {profile: moneta_DOCU}
   DOW: {profile: moneta_DOW}
@@ -124,18 +129,19 @@ symbols:
   DVN: {profile: moneta_DVN}
   DXC: {profile: moneta_DXC}
   DXCM: {profile: moneta_DXCM}
-  EA: {profile: moneta_EA}
   EBAY: {profile: moneta_EBAY}
   EC: {profile: moneta_EC}
   ECL: {profile: moneta_ECL}
   ED: {profile: moneta_ED}
+  EEM: {profile: moneta_EEM}
+  EFA: {profile: moneta_EFA}
   EMN: {profile: moneta_EMN}
   EMR: {profile: moneta_EMR}
   ENPH: {profile: moneta_ENPH}
   EOG: {profile: moneta_EOG}
   EPD: {profile: moneta_EPD}
   EQIX: {profile: moneta_EQIX}
-  EQR: {profile: moneta_EQR}
+  ESS: {profile: moneta_ESS}
   ETD: {profile: moneta_ETD}
   ETN: {profile: moneta_ETN}
   ETSY: {profile: moneta_ETSY}
@@ -163,6 +169,7 @@ symbols:
   FTI: {profile: moneta_FTI}
   FTNT: {profile: moneta_FTNT}
   FTV: {profile: moneta_FTV}
+  FXI: {profile: moneta_FXI}
   GBPCHF: {profile: moneta_GBPCHF+}
   GBPJPY: {profile: moneta_GBPJPY+}
   GBPUSD: {profile: moneta_GBPUSD+}
@@ -173,6 +180,7 @@ symbols:
   GFS: {profile: moneta_GFS}
   GILD: {profile: moneta_GILD}
   GIS: {profile: moneta_GIS}
+  GLD: {profile: moneta_GLD}
   GLW: {profile: moneta_GLW}
   GM: {profile: moneta_GM}
   GNRC: {profile: moneta_GNRC}
@@ -182,6 +190,7 @@ symbols:
   GRAB: {profile: moneta_GRAB}
   GRPN: {profile: moneta_GRPN}
   GS: {profile: moneta_GS}
+  GSG: {profile: moneta_GSG}
   GT: {profile: moneta_GT}
   GWW: {profile: moneta_GWW}
   HAL: {profile: moneta_HAL}
@@ -203,11 +212,11 @@ symbols:
   HUM: {profile: moneta_HUM}
   HUT: {profile: moneta_HUT}
   HYLN: {profile: moneta_HYLN}
-  IAC: {profile: moneta_IAC}
   IBM: {profile: moneta_IBM}
   IBN: {profile: moneta_IBN}
   ICE: {profile: moneta_ICE}
   ICL: {profile: moneta_ICL}
+  ICLN: {profile: moneta_ICLN}
   IDXX: {profile: moneta_IDXX}
   ILMN: {profile: moneta_ILMN}
   INCY: {profile: moneta_INCY}
@@ -221,6 +230,7 @@ symbols:
   ISRG: {profile: moneta_ISRG}
   ITW: {profile: moneta_ITW}
   IVZ: {profile: moneta_IVZ}
+  IWM: {profile: moneta_IWM}
   JBL: {profile: moneta_JBL}
   JCI: {profile: moneta_JCI}
   JNJ: {profile: moneta_JNJ}
@@ -295,11 +305,13 @@ symbols:
   NEE: {profile: moneta_NEE}
   NEM: {profile: moneta_NEM}
   NET: {profile: moneta_NET}
+  NFLX: {profile: moneta_NFLX}
   NKE: {profile: moneta_NKE}
   NOC: {profile: moneta_NOC}
   NOW: {profile: moneta_NOW}
   NSC: {profile: moneta_NSC}
   NTAP: {profile: moneta_NTAP}
+  NTRS: {profile: moneta_NTRS}
   NUE: {profile: moneta_NUE}
   NVAX: {profile: moneta_NVAX}
   NVS: {profile: moneta_NVS}
@@ -339,6 +351,7 @@ symbols:
   PVH: {profile: moneta_PVH}
   PYPL: {profile: moneta_PYPL}
   QCOM: {profile: moneta_QCOM}
+  QQQ: {profile: moneta_QQQ}
   QS: {profile: moneta_QS}
   RACE: {profile: moneta_RACE}
   RBLX: {profile: moneta_RBLX}
@@ -358,6 +371,8 @@ symbols:
   RTX: {profile: moneta_RTX}
   SBUX: {profile: moneta_SBUX}
   SCHW: {profile: moneta_SCHW}
+  SDS: {profile: moneta_SDS}
+  SE: {profile: moneta_SE}
   SENS: {profile: moneta_SENS}
   SHOP: {profile: moneta_SHOP}
   SHW: {profile: moneta_SHW}
@@ -373,6 +388,7 @@ symbols:
   SPG: {profile: moneta_SPG}
   SPGI: {profile: moneta_SPGI}
   SPOT: {profile: moneta_SPOT}
+  SPY: {profile: moneta_SPY}
   SRE: {profile: moneta_SRE}
   STT: {profile: moneta_STT}
   STX: {profile: moneta_STX}
@@ -383,6 +399,7 @@ symbols:
   SYK: {profile: moneta_SYK}
   SYY: {profile: moneta_SYY}
   T: {profile: moneta_AT&T}
+  TAN: {profile: moneta_TAN}
   TDOC: {profile: moneta_TDOC}
   TEAM: {profile: moneta_TEAM}
   TEL: {profile: moneta_TEL}
@@ -417,6 +434,7 @@ symbols:
   USDCAD: {profile: moneta_USDCAD+}
   USDCHF: {profile: moneta_USDCHF+}
   USDJPY: {profile: moneta_USDJPY+}
+  USO: {profile: moneta_USO}
   USSC2000IDXUSD: {profile: moneta_US2000.r}
   VFC: {profile: moneta_VFC}
   VFS: {profile: moneta_VFS}
@@ -442,6 +460,9 @@ symbols:
   XAGUSD: {profile: moneta_XAGUSD}
   XAUUSD: {profile: moneta_XAUUSD+}
   XEL: {profile: moneta_XEL}
+  XLF: {profile: moneta_XLF}
+  XLK: {profile: moneta_XLK}
+  XOP: {profile: moneta_XOP}
   XRX: {profile: moneta_XRX}
   YUM: {profile: moneta_YUM}
   YUMC: {profile: moneta_YUMC}

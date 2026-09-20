@@ -738,12 +738,24 @@ def test_F_0_2_1_repo_profiles_volume_fields() -> None:
 
 
 def test_F_0_2_4_cost_breakdown_shares() -> None:
+    """D-350 (3): shares on charges only; a swap credit is reported, never dropped."""
     shares = cost_breakdown_shares({"spread": 2.0, "slippage": 1.0, "commission": 1.0, "swap": 4.0})
-    assert shares == {"spread": 0.25, "slippage": 0.125, "commission": 0.125, "swap": 0.5}
+    assert shares == {
+        "spread": 0.25,
+        "slippage": 0.125,
+        "commission": 0.125,
+        "swap": 0.5,
+        "swap_credit_usd": 0.0,
+    }
     credit = cost_breakdown_shares(
         {"spread": 1.0, "slippage": 0.0, "commission": 1.0, "swap": -3.0}
     )
-    assert credit["swap"] == 0.0 and credit["spread"] == 0.5
+    assert credit["swap"] == 0.0 and credit["swap_credit_usd"] == 3.0  # the credit stays visible
+    assert credit["spread"] == 0.5 and credit["spread"] + credit["commission"] == 1.0
+    nothing = cost_breakdown_shares(
+        {"spread": 0.0, "slippage": 0.0, "commission": 0.0, "swap": 0.0}
+    )
+    assert set(nothing.values()) == {0.0}
 
 
 # -- broker_scaled spread (F-0.2.2, D-523) ---------------------------------------------------
@@ -762,7 +774,9 @@ def test_F_0_2_2_broker_scaled_hand_computed() -> None:
     assert table.full_spread[0] == pytest.approx(2e-5) and table.full_spread[1] == pytest.approx(
         6e-5
     )
-    assert table.full_spread[5] == pytest.approx(4e-5) and 5 in table.fallback_hours
+    # D-350 (2): an hour without data takes the maximum of the scaled profile, not the broker
+    assert table.full_spread[5] == pytest.approx(6e-5) and 5 in table.fallback_hours
+    assert "22 UTC hour(s) without data filled with the profile maximum" in resolved.source_note
     hourly = np.asarray(resolved.spread.model_dump()["hourly"])
     assert np.mean(hourly[[0, 0, 1, 1]]) == pytest.approx(4e-5, rel=1e-12)
     with pytest.raises(ConfigError, match="broker_scaled"):
@@ -848,6 +862,23 @@ def test_F_0_9_1_mapping_overrides_unmappable_and_duplicates() -> None:
             [{"broker_symbol": "Q", "research_symbol": "AAPL"}],
             MCFG,
         )
+
+
+def test_F_0_2_1_d350_incomplete_row_never_yields_a_profile() -> None:
+    """D-350 (1): an incomplete broker row gives no profile, and mapping onto one is an error."""
+    jp = next(r for r in spec_all() if r.broker_symbol == "1605.JP")
+    assert jp.row_status == "incomplete"
+    with pytest.raises(ConfigError, match="broker row is incomplete"):
+        profile_dict(jp, "us_equity", SHA, cfg())
+    cfg_jp = MCFG.model_copy(update={"broker_regions": ("Stock JP",)})
+    over = [{"broker_symbol": "1605.JP", "research_symbol": "AAPL", "note": "x"}]
+    with pytest.raises(ConfigError, match="an incomplete row cannot yield a cost profile"):
+        map_symbols(spec_all(), RESEARCH, NAMES, [], over, cfg_jp)
+    # without an override it stays a review row, not a silent placeholder
+    review = {
+        v.broker_symbol: v for v in map_symbols(spec_all(), RESEARCH, NAMES, [], [], cfg_jp).review
+    }
+    assert review["1605.JP"].status == "unmappable"
 
 
 def test_F_0_9_1_name_score() -> None:

@@ -1,5 +1,9 @@
 # Broker <-> research symbol mapping rules (T06b, D-524, D-325). Hand-maintained.
-names_file: reference/quantplatform/assets/us_assets_2026-06-22.csv  # under SFAC_RAW_ROOT
+names_file: reference/alpaca/alpaca_assets_2026-09-20.csv  # under SFAC_RAW_ROOT; Alpaca assets incl. ETFs (D-341)
 broker_regions: ["Stock US", "ETF"]   # D-524: 491 US shares + 57 ETFs
 min_name_score: 0.80                  # identical ticker AND name similarity >= this -> auto-mapped
 candidate_min_score: 0.60             # name-only best match >= this -> review candidate (never auto)
+# D-341: an identical ticker whose name is another company is NEVER auto-mapped; it goes to the
+# review CSV and can only be resolved in symbol_overrides.csv. After running
+# scripts/download_alpaca_assets.ps1 (the user runs it, D-031), set names_file to the new raw
+# file (reference/alpaca/alpaca_assets_<date>.csv) and rebuild: the review list shrinks.

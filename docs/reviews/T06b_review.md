@@ -144,3 +144,38 @@ The result is in `CostArrays.commission_ccy`. The engine converts it only when `
 - **P-28:** closing the 127 mappings. Either the user reviews the CSV into `symbol_overrides.csv`, or the user runs a script that saves Alpaca asset names (including ETFs) as a raw reference file. This decides the coverage criterion.
 - **P-29:** `mvp_daily.yaml` filter.
 - **P-30:** the T06b assumptions (1)–(5).
+
+---
+
+## Addendum (2026-09-20): D-341 rebuild and D-350
+
+### D-341 — mapping rebuilt on the Alpaca asset names
+`scripts/download_alpaca_assets.ps1` (the user runs it, D-031; it picks the trading host from
+the key prefix) produced `reference/alpaca/alpaca_assets_2026-09-20.csv`: 14,354 rows, ETFs
+included, sha256 `4f9bf354…0a8c`. `mapping.yaml: names_file` points at it.
+
+| | before | after |
+|---|---|---|
+| mapped | 450 (29 manual, 4 override, 417 ticker+name) | **471** (29, 4, **438**) |
+| review CSV rows | 127 | **106** |
+| profiles | 456 | **477** |
+| broker universe | 450 | **471** (us_equity 442 + 29 Dukascopy) |
+
+SPY and QQQ are broker symbols now. A ticker match whose name is another company is still
+never auto-mapped (D-341); `ESL` (Estée Lauder vs our Esterline) is the test case.
+
+**The coverage criterion (548/548) is still open.** The 106 remaining rows are:
+17 same-ticker-no-name (delisted, absent from the Alpaca *active* list, `ESL` among them),
+13 same-ticker-other-wording (one suspicious: broker `AMCX` describes AMC Entertainment, which
+is `AMC` here), 48 name-only candidates (the automatic candidate is often wrong), 27 with no
+match, 1 unmappable (`ALIBABA` → BABA, not in the universe). They close with the user's
+overrides; a `-IncludeInactive` option on the script would resolve most of the first group.
+
+### D-350 — assumptions, two of them changed
+| item | outcome |
+|---|---|
+| (1) `incomplete` status and `status_reason` | accepted. An incomplete row yields no profile (`profile_dict` raises) and **an override onto one is now an error**, not a silent placeholder. Test: `test_F_0_2_1_d350_incomplete_row_never_yields_a_profile`. |
+| (2) UTC hours without spread data | **changed**: they take the **maximum of the scaled hourly profile** (the most conservative hour), not the broker reference, and `source_note` records how many hours were filled. Test: `test_F_0_2_2_broker_scaled_hand_computed` (hour 5 = 6e-5, the profile maximum, and the note names 22 filled hours). The bar-weighted mean over development bars still equals the broker spread, because filled hours carry no bars. |
+| (3) cost shares | **changed**: shares are computed on **charges only** and a swap credit is reported as `swap_credit_usd`, never dropped. Test: `test_F_0_2_4_cost_breakdown_shares`. |
+| (4) 1e-9 relative float guard on the quantity floor | accepted (research and parity sizing). |
+| (5) proxy spread | accepted: the median of the broker US shares' reference spreads, computed at build time and written to `source_note` (21.2224 bps with this file), never a literal in code. |
