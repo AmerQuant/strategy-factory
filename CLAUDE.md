@@ -1,5 +1,8 @@
 # CLAUDE.md — Strategy Factory
 
+**Two parallel streams run (D-355, D-357): read `docs/streams/PROTOCOL.md` and your
+`docs/streams/<A|B>.md` first.**
+
 Internal framework that runs every trading-strategy idea through one standard, reproducible, auditable funnel:
 market edge → method screening → entry/exit optimization → diagnostics & filters → robustness → statistics
 → report package → analyst review → portfolio → sizing → forward lifecycle.

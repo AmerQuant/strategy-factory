@@ -32,11 +32,22 @@ jobs:
       SFAC_DB_URL: postgresql+psycopg://sfac:sfac@localhost:5432/sfac
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the stream guards diff against the merge base with main
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - name: Install
         run: uv sync
+      - name: Stream guards (D-357)
+        # Path ownership, D-/P- id ranges and a single Alembic head. On a pull request the
+        # base is the PR's base branch; on a push it is origin/main.
+        run: |
+          git fetch --no-tags origin "${BASE#origin/}"
+          uv run sfac streams check --base "$BASE" --branch "$BRANCH"
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.event.pull_request.base.ref) || 'origin/main' }}
+          BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
       - name: Lint
         run: uv run ruff check .
       - name: Format
