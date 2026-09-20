@@ -2,8 +2,8 @@
 
 **Task:** `docs/tasks/T04i_phaseb_hourly_analysis.md` · **Branch:** `b/T04i-phaseb-hourly` from `main` (T04f merged, PR #19)
 **Features:** F-0.1.2 (adapter session filter and metadata), F-0.1.6 (quality evidence), F-0.1.9 groundwork (split-adjustment control)
-**Decisions used:** D-010, D-021, D-022, D-023, D-025, D-033, D-355, D-358, D-382, D-383, D-386, D-388, D-394
-**Supervisor answers folded in (2026-09-21):** **D-395** (D-033 accepted, `exchange`), **D-396** (P-71: quality checks + a derived clean snapshot, planned as **T04k**), **D-397** (P-72: an unadjusted split fails that symbol; `--refresh`).
+**Decisions used:** D-008, D-010, D-021, D-022, D-023, D-025, D-033, D-355, D-358, D-382, D-383, D-386, D-388, D-394
+**Supervisor answers folded in (2026-09-21):** **D-395** (D-033 accepted, `exchange`), **D-396** (P-71: quality checks + a derived clean snapshot, planned as **T04k**), **D-397** (P-72: an unadjusted split fails that symbol; `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it, and a re-used ticker with an identifiable boundary is **trimmed to that boundary instead of excluded** — §6a).
 
 ## 1. What was built
 
@@ -13,11 +13,14 @@
 | `scripts/analysis/T04i_daily_session.py` | the sweep: adapter **in memory**, no snapshot, no catalog row (D-382) |
 | `docs/reviews/T04i_breach_days.csv` | one row per breach day: symbol, date, class, both breaches in bps, and the prices behind them |
 | `docs/reviews/T04i_symbol_coverage.csv` | per symbol: hourly years covered, days compared, counts per class |
-| `tests/unit/test_F_0_1_2_daily_session.py` | 11 tests |
-| `src/strategy_factory/data/relisting.py` | re-used-ticker detection: `trading_gap` and `stale_run` |
-| `scripts/analysis/T04i_relisted_tickers.py` | the sweep over all 6,711 daily symbols |
-| `docs/reviews/T04i_relisted_candidates.csv` | 379 candidates over 329 symbols, worst level break first |
-| `tests/unit/test_F_0_1_2_relisting.py` | 7 tests |
+| `tests/unit/test_F_0_1_2_daily_session.py` | 12 tests |
+| `src/strategy_factory/data/relisting.py` | frozen stretches, re-used tickers and the **D-398 boundary**; pure, no I/O |
+| `configs/data/alpaca.yaml` → `relisting:` | `frozen_min_sessions: 10`, `gap_days: 200`, validated by `RelistingConfig` (rule 1) |
+| `scripts/analysis/T04i_relisted_tickers.py` | the sweep over all 6,711 daily symbols, `--write-exclusions` |
+| `docs/reviews/T04i_relisting_verdicts.csv` | **one row per symbol**: verdict, boundary, dropped span, what is left, `reverse_split_suspect` (797 rows) |
+| `docs/reviews/T04i_relisted_candidates.csv` | one row per frozen stretch or gap with its boundary (3,191 rows), worst level break first |
+| `configs/universe/us_equity_daily_excluded.csv` | the D-398 (4) exclusions — **empty**, header only |
+| `tests/unit/test_F_0_1_2_relisting.py` | 23 tests |
 | `sfac data download alpaca --refresh` | re-fetch named symbol-years into a **new version file** (D-397) |
 | `docs/tasks/T04k_clean_daily_snapshot.md` | the task D-396 asks for |
 
@@ -43,6 +46,22 @@ At this run:
 2022 filled in while T04i was being written (it was 0 at the first run); **2023 is the year still
 largely missing**. Every hourly statistic below is restricted to the days that exist, and a day
 whose hourly side is only partly downloaded is its own class rather than evidence (§3).
+
+**Coverage moved again while this review was being amended.** Re-counted at
+**2026-09-20 19:18 local** (newest 1H raw file), the same 832 folders now hold: 2016–2019 832,
+2020 829, 2021 806, 2022 806, **2023 787**, 2024–2026 827. 2023 has gone from 237 to 787 of 832
+and is the only year still short. **The breach counts in §3 are therefore the 15:21 UTC run and
+are deliberately left as they were**, with their timestamp, so every number in this review comes
+from one consistent sweep. They are regenerated — CSVs and tables together — once the user
+confirms the download is complete:
+
+```bash
+uv run python scripts/analysis/T04i_daily_session.py
+```
+
+More hourly data can only **add** breach days, never remove one, so the completed run cannot
+overturn D-395 (§7); what it will do is move most of the `incomplete_hourly_day` rows into a
+real class.
 
 ## 3. Breach classification
 
@@ -198,65 +217,160 @@ right fix is, which is why P-71 keeps them apart.
 - **Split check:** 10 of 11 known splits `adjusted`; AVGO is §4 and §6b.
 - **Re-used tickers:** §6a.
 
-## 6a. Re-used tickers — the candidate list for T04g (D-383)
+## 6a. Frozen stretches and re-used tickers — D-383 as amended by D-398
 
-Swept all **6,711** daily symbols → `docs/reviews/T04i_relisted_candidates.csv`, **379 rows over
-329 symbols**. D-383's wording ("a ticker re-used by another company") turned out to need **three**
-shapes, not the one the plan assumed; the extension is raised as **P-73**.
+**The supervisor answered P-73 on 2026-09-21 as D-398, and it changes the outcome, not only the
+wording.** D-383 said "a ticker re-used by another company is excluded for now". D-398 replaces
+that with four rules:
 
-| reason | rows | symbols | D-383 candidate? |
+1. **Any frozen stretch is removed from the series, whatever caused it** — consecutive bars with
+   an identical close **and zero true range**, the threshold in config, starting at **10 sessions**.
+   It is feed padding, not data.
+2. Where a ticker was re-used and **the boundary is identifiable**, the series is **kept from that
+   boundary onward** instead of the symbol being excluded; the boundary and the dropped span are
+   recorded.
+3. **Leading** pre-listing padding is trimmed and the symbol **stays**.
+4. Only where the boundary is **not** identifiable is the symbol excluded, and then it is listed.
+
+A symbol whose remaining history is then too short for a split (**D-008**) simply fails the split
+— `HistoryTooShortError`, already implemented in `data/split.py` — and drops out of the candidate
+universe. It is never hand-excluded for being short.
+
+### What changed in the code
+
+- `frozen_stretches()` now requires **zero true range** (`high == low == close`), not only an
+  identical close, so a genuinely quiet market is no longer mistaken for padding. There is a test
+  for exactly that: the same closes with a real high and low produce **no** stretch.
+- The threshold moved out of the script into **config** (`CLAUDE.md` rule 1):
+  `configs/data/alpaca.yaml` → `relisting.frozen_min_sessions: 10`, `relisting.gap_days: 200`,
+  validated by `RelistingConfig`. The CLI options still override them for an experiment.
+- `analyse_series()` returns a **`SeriesVerdict` per symbol**: verdict, `boundary_date`,
+  `boundary_reason`, the dropped span, the frozen bars cut out of the kept series, and what is
+  left. The boundary is the first **kept** bar after the **last** structural break — the end of a
+  leading pad, a padded stretch across which the level breaks, or a trading gap with the same
+  level break — and it skips any further padding that starts right at it.
+
+### The sweep, re-run over all 6,711 daily symbols
+
+Run at **2026-09-20 19:30 UTC**, thresholds `frozen ≥ 10 sessions`, `gap ≥ 200 days`,
+`jump_threshold = 0.40`. Reproduce with
+`uv run python scripts/analysis/T04i_relisted_tickers.py --write-exclusions`. Two artefacts now:
+
+| file | content |
+|---|---|
+| `docs/reviews/T04i_relisting_verdicts.csv` | **one row per symbol**: verdict, **`boundary_date`**, `boundary_reason`, `dropped_from/to`, `dropped_bars`, `frozen_bars_cut`, `kept_bars/from/to`, `moneta_target`, `reverse_split_suspect` |
+| `docs/reviews/T04i_relisted_candidates.csv` | one row per stretch or gap, each carrying its symbol's boundary and verdict |
+
+**797 symbols** are affected (11.9 % of the universe), over **3,191** evidence rows:
+
+| verdict | symbols | what happens |
+|---|---|---|
+| `trim_to_boundary` | **280** | D-398 (2)/(3): the series starts at the boundary; median **1,131** bars dropped, max 2,680 |
+| `frozen_removed` | **517** | D-398 (1) only: interior padding cut, the history stays; median **39** bars, 165 symbols lose ≤ 20 |
+| `exclude_boundary_unidentifiable` | **0** | D-398 (4) |
+
+| evidence row | rows | symbols | sets a boundary? |
 |---|---|---|---|
-| `stale_run` — frozen stretch **with** a level break | 146 | 143 | **yes** |
-| `trading_gap` — gap ≥ 200 days **with** a level break | 83 | 83 | **yes** |
-| `padding_only` — frozen, no level break | 118 | 96 | no — a dead listing; already a `stale_prices` quality finding |
-| `pre_listing_padding` — frozen from the very first bar | 32 | 32 | no — the feed padding backwards before an IPO |
+| `padding_only` — frozen, no level break | 2,885 | 576 | no — cut in place |
+| `stale_run` — frozen **with** a level break | 173 | 167 | yes (162 symbols) |
+| `trading_gap` — gap ≥ 200 days **with** a level break | 83 | 83 | yes (69 symbols) |
+| `pre_listing_padding` — frozen from the very first bar | 50 | 50 | yes (49 symbols) |
 
-**347 candidate rows over 297 symbols** (4.4 % of the universe).
+**`configs/universe/us_equity_daily_excluded.csv` is written and is empty** (header only): under
+D-398 every affected symbol keeps a shorter, honest history. That is the file T04g reads, so the
+1D ingest now runs over the **full 6,711-symbol universe**.
 
-**The gap test alone would have found only 83 of them, and would have missed both symbols T04f
-flagged.** `PX` and `FI` have no gap at all: the feed pads the dead stretch with the last close.
-`PX` is Praxair 2016–2018 at 96–169, then **749 consecutive bars at exactly 164.50**, then RPC Inc.
-from late 2021 at 12–15, identical to `RPC` day for day. That is the more dangerous shape — a gap
-is visibly missing data, a frozen price is silently tradeable and every indicator over it is
-meaningless.
+Dropping the threshold from 60 to 10 sessions is what widens the list from 379 rows / 329 symbols
+to 3,191 / 797. The zero-true-range requirement pulls the other way, and **not** by nothing — an
+earlier draft of this review claimed it changed no row, and that was wrong. Measured over all
+**6,705** comparable daily symbols, `frozen_stretches()` against the old close-only rule at the same
+10-session threshold:
 
-Worst cases, all the same story:
+| | zero true range (D-398) | close only (the old rule) |
+|---|---|---|
+| padded bars found | **202,729** | 212,530 |
+| symbols with an identical stretch set | 5,940 | — |
+| symbols where the two disagree | **765** | — |
+| symbols where close-only finds a stretch and D-398 finds none | **115** | — |
 
-| symbol | reason | frozen bars | close before | close after |
-|---|---|---|---|---|
-| `LINE` | `stale_run` | **2,056** | 0.155 | 80.78 |
-| `BIOA` | `stale_run` | 1,668 | 0.172 | 18.31 |
-| `SN` | `stale_run` | 1,119 | 0.375 | 42.31 |
-| `RELY` | `stale_run` | 780 | 0.509 | 48.45 |
-| `PX` | `stale_run` | 749 | 165.49 | 12.08 |
-| `AKTS` | `trading_gap` | — | 0.037 | 22.40 |
-| `FB` | `trading_gap` | — | 196.64 | 39.91 |
+The 9,801-bar difference (4.6 %) is mostly the **run's first bar**: a real bar whose close the pad
+then repeats is counted by a close-only rule and not by this one, so a "10-bar" close run is 9
+padded sessions and falls below the threshold (`AKO.A`, `ALN`, `AMJL` each lose exactly one
+10-bar run that way). That is the intended reading of D-398 — nine padded sessions are nine padded
+sessions — and it is what stops a genuinely quiet market from being cut.
 
-### D-388: seven candidates are Moneta mapping targets and are **kept**
+**145 of the 280 trimmed symbols keep fewer than 650 bars** and **61 fewer than 250** — below the
+embargo alone (`max_lookback_bars 200 + max_holding_bars 50`). Per D-398 they are **not** excluded
+here: they fail `SplitManager` with `HistoryTooShortError` when a stage tries to split them.
 
-The candidate CSV carries a `moneta_target` column so the rule cannot be applied blind. Seven
-symbols on the list are targets in `configs/costs/moneta/symbol_map.csv`, and **every one is a live,
-broker-tradable company** — several are genuine ticker re-uses, which is exactly the case D-388
-anticipates:
+Worked examples:
 
-| symbol | reason | evidence | why it is kept |
-|---|---|---|---|
-| `MBLY` | `stale_run` | 1,297 frozen bars, 62.94 → 28.97 | old Mobileye N.V. was acquired in 2017; Mobileye Global re-listed under the same ticker in Oct 2022 |
-| `SNOW` | `stale_run` + `trading_gap` | 610 frozen bars, 23.71 → 253.93 | the ticker's previous owner delisted; Snowflake IPO'd Sept 2020 |
-| `SE` | `stale_run` | 166 frozen bars, 41.00 → 16.26 | Spectra Energy merged in 2017; Sea Limited listed Oct 2017 |
-| `CTRA` | `stale_run` | 168 frozen bars, 12.93 → 22.77 | Contura became AMR (the feed's own `CTRA → AMR` row); Coterra took `CTRA` in Oct 2021 |
-| `MARA` | `trading_gap` | 304-day gap, 27.52 → 6.40 | same company, a long halt |
-| `GRAB` | `pre_listing_padding` | 570 padded bars | not a candidate at all — padding before the 2021 listing |
-| `DOW` | `padding_only` | 397 frozen bars, no level break | not a candidate — padding before the 2019 spin-off |
+| symbol | verdict | boundary | dropped | kept | what it is |
+|---|---|---|---|---|---|
+| `PX` | `trim_to_boundary` | 2021-10-21 | 1,461 bars (2016-01-04 … 2021-10-20) | 1,080 | Praxair + 749 frozen bars at 164.50, then RPC Inc. |
+| `FB` | `trim_to_boundary` | 2025-06-26 | 1,620 bars | 310 | Meta's history stays with `META`; `FB` keeps only the instrument that trades under it today |
+| `LINE` | `trim_to_boundary` | 2024-07-25 | 2,153 bars | 540 | 2,055 frozen bars at 0.18, then 80.78 |
+| `DOW` | `frozen_removed` | — | — | 2,297 | 396 padded bars before the spin-off, cut in place |
 
-**None of them is dropped, nothing under `configs/costs/` was touched, and all seven are listed for
-stream A in `docs/streams/B.md`** (D-388). Their padded or pre-re-use history is still unusable,
-which is a **T04k**-shaped problem (the series should start at the first real bar), not a reason to
-remove a tradable symbol from the universe.
+### D-388: the eleven Moneta targets, all kept
 
-Per D-383 this stays a **candidate list, not an exclusion list**: the supervisor confirms rows into
-`configs/universe/us_equity_daily_excluded.csv`, which T04g reads. Nothing in `configs/universe/`
-was changed by this task.
+The `moneta_target` column is on both artefacts. **Eleven** affected symbols are targets in
+`configs/costs/moneta/symbol_map.csv`; under D-398 **none is excluded** — five are trimmed to an
+honest boundary exactly as the supervisor's answer says, one loses leading padding, and five lose
+only interior padding:
+
+| symbol | verdict | boundary | dropped | kept | why |
+|---|---|---|---|---|---|
+| `MBLY` | `trim_to_boundary` | 2022-10-26 | 1,716 | 977 | old Mobileye N.V. acquired 2017; Mobileye Global re-listed Oct 2022 |
+| `SNOW` | `trim_to_boundary` | 2020-09-16 | 1,006 | 1,509 | Snowflake IPO Sept 2020 |
+| `SE` | `trim_to_boundary` | 2017-10-20 | 454 | 2,239 | Spectra Energy merged 2017; Sea Limited listed Oct 2017 |
+| `CTRA` | `trim_to_boundary` | 2021-10-04 | 728 | 1,152 | Contura → AMR; Coterra took `CTRA` Oct 2021 |
+| `MARA` | `trim_to_boundary` | 2017-10-30 | 252 | 2,233 | same company, a long halt — the pre-halt history goes with it |
+| `GRAB` | `trim_to_boundary` | 2020-12-01 | 570 | 1,456 | leading pre-listing padding (D-398 (3)) |
+| `DOW` | `frozen_removed` | — | 0 | 2,297 | 396 interior padded bars |
+| `CHPT` `DKNG` `HYLN` `VFS` | `frozen_removed` | — | 0 | 1,254–1,854 | 10–19 interior padded bars each |
+
+**Nothing under `configs/costs/` was touched** (D-388), and all eleven are listed for stream A in
+`docs/streams/B.md`.
+
+### One thing the fingerprint cannot tell apart — P-74
+
+A frozen stretch or a gap with a level break is *also* what an **unadjusted reverse split** looks
+like, and `configs/data/known_splits.csv` holds only **11** hand-picked splits.
+
+The artefact now says so per symbol. `reverse_split_suspect` in
+`T04i_relisting_verdicts.csv` is true when the **boundary-setting** break is **upward** and within
+**5 %** of one of the ratios a 1:n reverse split produces (`REVERSE_SPLIT_RATIOS` in
+`data/relisting.py`: 2, 2.5, 3, 4, 5, 6, 7, 8, 10, 12, 15, 16, 20, 25, 30, 40, 50, 60, 75, 100,
+120, 150, 200, 250, 300, 500, 1000). It is a flag on the evidence and never changes a verdict, and
+it has its own tests.
+
+**29 of the 280 trims (10.4 %) are flagged** — `ISRL`, `GRO`, `BIOA`, `LGCY`, `CART`, `SN`, `SHNY`,
+`DO` and 21 more; **none of them is a Moneta target**. A reverse split's signature is not a new
+company's, AVGO proves such splits exist in this feed (§4), and trimming one of these drops **real**
+history rather than a splice.
+
+The decisive test is already on disk and is the one that settled AVGO: the all-adjusted MS-US-1D
+cross-check (`us_equity/alpaca_sip_all/1D/us_<symbol>.csv`) runs **continuously** across a split
+and **breaks** across a re-use. Raised as **P-74**: run that cross-check over the 280 trims before
+**T04k** applies them. Nothing is blocked now — T04i writes evidence only, and T04g ingests the raw
+as-is with an empty exclusion file.
+
+### What this artefact does *not* see
+
+Three limits, stated so "797 affected, 0 exclusions" is not read as more than it is:
+
+- **A re-use with neither a gap nor a pad is invisible.** If a ticker is re-assigned and the new
+  instrument starts trading immediately, there is no fingerprint and no row. "0 exclusions" means
+  *no detected candidate lacked a boundary* — not *no undetected re-use exists*.
+- **A long halt is indistinguishable from a re-use.** `MARA` is the named case: the review calls it
+  "same company, a long halt", and D-398 still trims 252 bars of real pre-halt history because the
+  series cannot say which it was. The supervisor named `MARA` among the symbols to keep with a
+  shorter history, so that is the decided outcome; it is listed here because the same shape will
+  recur. P-74 covers only the reverse-split confusion.
+- **A trim can leave almost nothing.** Three symbols keep fewer than ten bars (`AT` 4, `SIC` 7,
+  `BURU` 5). Correct under D-398 and D-008 — they fail the split and drop out that way — but they
+  are not usable series.
 
 ## 6b. Every known split that is unadjusted (D-397)
 
@@ -287,6 +401,24 @@ overwritten (D-028) and the adapter picks the newest version. It **requires** an
 download shows the same break it is an Alpaca defect and AVGO goes on the exclusion list with this
 evidence.
 
+### Does any other symbol need a `--refresh`?
+
+**No — AVGO is the only symbol a refresh can be justified for today.** That is a statement about
+the evidence in hand, not a clean bill of health: it holds for the 11 splits in
+`known_splits.csv`, and group 3 below is an open list of suspects. Three groups were checked:
+
+1. **The known splits.** 10 of 11 are `adjusted` in 1D; AVGO is the single `unadjusted`, and it is
+   unadjusted in **both** timeframes, which is why both commands are needed.
+2. **`GOOGL` 2022-07-18 and `TSLA` 2022-08-25**, the two 1H `no_data_on_split_date` rows: that was
+   the **download gap**, not a defect. 2022 hourly has since filled to 806 symbols, so these need
+   the check **re-run** (T04h), not a refresh.
+3. **The 29 trimmed symbols flagged `reverse_split_suspect`** (§6a, P-74). They are suspects, not
+   findings: `known_splits.csv` holds only 11 splits, so the relisting sweep cannot tell a reverse
+   split from a re-use. The MS-US-1D cross-check settles each one, and any that comes back
+   continuous joins the refresh list **then**, with its own command. Refreshing 29 symbols ×
+   11 years on a hunch is not justified — and if several turn out to be unadjusted, the right
+   response is a systematic split re-check, not 29 hand-written commands.
+
 ## 7. D-033 — accepted as D-395
 
 The rule was fixed in the task before the numbers were seen: `RTH` only if the daily range is inside
@@ -314,11 +446,16 @@ overwrite — which becomes the research reference. T04g ingests the raw as-is.
 
 ## 8a. Left for later
 
-- the supervisor's confirmation of the 379 relisting candidates into
-  `configs/universe/us_equity_daily_excluded.csv` (T04g reads it);
-- the AVGO refresh (the command is in §6b; a network run, so the user's);
-- re-running the breach sweep once the hourly download completes, which will move the 2,178
-  `incomplete_hourly_day` rows into a real class.
+- the **AVGO refresh** — the two commands are in §6b; a network run, so the user's (D-031). No other
+  symbol needs one (§6b);
+- **re-running the breach sweep** once the user confirms the hourly download is complete, which
+  moves most of the 2,896 `incomplete_hourly_day` rows into a real class (§2 has the command and the
+  current coverage);
+- **P-74** — cross-checking the 280 D-398 trims (29 of them flagged `reverse_split_suspect`)
+  against the all-adjusted MS-US-1D series before **T04k** applies them, so an unadjusted reverse
+  split is not mistaken for a re-used ticker;
+- the exclusion file `configs/universe/us_equity_daily_excluded.csv` exists and is **empty**: under
+  D-398 nothing in this sweep is excluded, so T04g ingests the full 6,711-symbol universe.
 
 ## 9. Acceptance-reviewer findings
 
@@ -357,24 +494,61 @@ callers that pass the two frames separately, and it is tested; and the per-symbo
 in the sweep is deliberate — one unreadable symbol must not lose the other 825 — but it records the
 error in the coverage CSV, which showed 0 errors in this run.
 
+### Second round, after the D-398 amendment
+
+The subagent ran again on the amendment and found four defects and several limits; all are fixed
+above:
+
+1. **"37 round-multiple suspects" was not reproducible** — the count came from an ad-hoc list in a
+   scratch session. It is now `REVERSE_SPLIT_RATIOS` + `looks_like_reverse_split()` in
+   `data/relisting.py`, with tests, emitted as the `reverse_split_suspect` column, and the number
+   is **29**, recomputable from the committed CSV.
+2. **"the zero-true-range requirement removes nothing" was false.** Replaced by the measured
+   comparison over all 6,705 symbols (§6a): 765 symbols differ, 115 lose every stretch, 9,801 fewer
+   padded bars.
+3. **The acceptance block printed `tests/parity tests/leakage/oracle`**, which matches no tests.
+   Both real commands are now listed with their own counts.
+4. **`test_F_0_1_2_daily_session.py` was called 11 tests in §1 and 12 in §10**; it is 12.
+
+It also noted three things that were true but unstated, now in §6a: a re-use with neither a gap nor
+a pad is invisible to this artefact, a long halt cannot be told from a re-use (`MARA`), and three
+trims leave fewer than ten bars. And three gaps in the tests, now closed: nothing loaded
+`configs/data/alpaca.yaml` (so "the threshold is in config" was proved by inspection only), the
+`--refresh needs --symbols` CLI guard had no test, and the config-model defaults restated the module
+constants with nothing pinning them — `RelistingConfig` now imports them.
+
+**D-398 also superseded the shape of findings 2 and 3 of the first round.** The reviewer's point stood — a frozen
+stretch with no level break is not a re-used ticker — but the supervisor's answer removes the need
+to decide that before acting: **every** frozen stretch is cut, and the level break only decides
+whether the series also starts over at a boundary. The fingerprints and labels are unchanged;
+`padding_only` and `pre_listing_padding` are no longer "not a candidate, no action" but "cut the
+pad, keep the symbol". Finding 1 (the `moneta_target` column) stands and now covers eleven symbols
+instead of seven, because the 10-session threshold catches more of them.
+
 ## 10. Acceptance commands
 
+Re-run after the D-398 amendment (2026-09-20):
+
 ```
-uv run pytest -m "not slow"                  1198 passed
-uv run pytest tests/parity tests/leakage     280 passed
-uv run pytest -m db                          21 passed, 0 skipped
-uv run ruff check . / format --check .       clean
-uv run mypy src                              no issues in 100 source files
-uv run sfac streams check                    ownership, ids, alembic head: ok
+uv run pytest -m "not slow"                          1214 passed
+uv run pytest tests/parity tests/leakage                280 passed
+uv run pytest tests/parity tests/leakage tests/oracle   283 passed
+uv run pytest -m db                                  21 passed, 0 skipped
+uv run ruff check . / format --check .               clean
+uv run mypy src                                      no issues in 100 source files
+uv run sfac streams check --base origin/main         ownership, ids, alembic head: ok
 ```
 
-Tests added by T04i: **22** (12 breach detection, 8 re-used tickers, 2 for `--refresh`).
+Tests added by T04i: **38** (12 breach detection, **23** frozen stretches / re-used tickers /
+boundaries / thresholds-from-config / the P-74 flag, 3 for `--refresh` including the CLI guard).
 No new dependency. Nothing written to `SFAC_DATA_ROOT`; nothing under `configs/costs/` or
-`configs/universe.yaml` changed.
+`configs/universe.yaml` changed. `configs/universe/` gained one file,
+`us_equity_daily_excluded.csv`, which is empty (D-398).
 
 ## 11. Open questions
 
-
-- **P-73** — the two extra re-used-ticker fingerprints and their thresholds (§6a). Implemented as
-  described; the 347-row candidate list is evidence, not an exclusion list.
-- P-71 and P-72 are answered (D-395 … D-397) and are reflected above.
+- **P-74** (new) — an unadjusted reverse split is indistinguishable from a re-used ticker with the
+  evidence D-398 uses, and **29 of the 280 trims** carry that signature (§6a). The MS-US-1D
+  cross-check decides it; the question is whether to run it before **T04k** applies the trims.
+  It blocks nothing now: T04i writes evidence only and T04g ingests the raw as-is.
+- P-71, P-72 and **P-73** are answered (**D-395 … D-398**) and are folded into §2, §6a, §6b and §7.

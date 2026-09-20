@@ -235,3 +235,22 @@ def test_F_0_1_2_credentials_only_from_env_and_never_logged(
     for f in tmp_path.rglob("*.json"):
         text = f.read_text(encoding="utf-8")
         assert FAKE_KEY not in text and FAKE_SECRET not in text
+
+
+def test_F_0_1_2_refresh_without_symbols_is_refused_by_the_cli(tmp_path: Path) -> None:
+    """D-397: `--refresh` must be scoped, so a refresh can never redownload a whole universe."""
+    from typer.testing import CliRunner
+
+    from strategy_factory.cli import app
+
+    universe = tmp_path / "u.csv"
+    universe.write_text("symbol\nAVGO\nAAPL\n", encoding="utf-8")
+    runner = CliRunner()
+    args = ["data", "download", "alpaca", "--timeframe", "1D", "--universe", str(universe)]
+    out = runner.invoke(app, [*args, "--refresh"])
+    assert out.exit_code != 0
+    assert "--refresh needs an explicit --symbols list" in out.output
+    # without --universe and without --symbols the earlier guard fires instead
+    plain = runner.invoke(app, ["data", "download", "alpaca", "--timeframe", "1D", "--refresh"])
+    assert plain.exit_code != 0
+    assert "--universe" in plain.output

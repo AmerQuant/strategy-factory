@@ -1,10 +1,11 @@
 # T04k — Unsupported daily extremes: quality checks and the derived clean daily snapshot
 
-**Features:** F-0.1.6 (data-quality checks and report), F-0.1.8 (immutable snapshots, derived snapshots), F-0.1.9 groundwork · **Priority:** MVP · **Depends on:** **T04g** (the raw 1D snapshots) and ideally **T04h** (hourly coverage) · **Must be done before:** the first real stage-1 run (**T12**)
+**Features:** F-0.1.6 (data-quality checks and report), F-0.1.8 (immutable snapshots, derived snapshots), F-0.1.2 (frozen stretches and the re-use boundary, D-398), F-0.1.9 groundwork · **Priority:** MVP · **Depends on:** **T04g** (the raw 1D snapshots) and ideally **T04h** (hourly coverage) · **Must be done before:** the first real stage-1 run (**T12**)
 **Branch:** `b/T04k-clean-daily` from `b/T04g-alpaca-daily-ingest` (or from `main` once T04g is merged).
 
-Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396** (the decision this task implements),
-D-033, D-023, D-522, and `docs/reviews/T04i_review.md` — T04i measured the problem, this task fixes it.
+Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396** and **D-398** (the decisions this
+task implements), D-033, D-023, D-008, D-383, D-522, and `docs/reviews/T04i_review.md` — T04i
+measured both problems, this task fixes them.
 
 ## Why
 
@@ -50,6 +51,40 @@ Both checks report **counts per symbol and per date** — T04i showed the date-w
 rather than at a symbol. Severity is a config value; neither check is `critical` by default,
 because the clean snapshot (§2) is the remedy, not refusing the data.
 
+### 1b. Frozen stretches and the re-use boundary (D-398)
+
+**D-398** (the P-73 answer, which amends D-383) is applied here too, on the same derived snapshot,
+because it is the same kind of correction — the raw bars stay, the research series is honest:
+
+- **every frozen stretch is cut** — consecutive bars with an identical close and **zero true range**
+  (`high == low == close`), at least `relisting.frozen_min_sessions` (config, 10) long — whatever
+  caused it. It is feed padding, not data;
+- where a ticker was re-used and **the boundary is identifiable**, the series **starts at that
+  boundary**; the boundary and the dropped span go into the changed-bar log and the metadata. The
+  symbol is **not** excluded;
+- **leading** pre-listing padding is trimmed and the symbol stays;
+- only an **unidentifiable** boundary excludes a symbol, through
+  `configs/universe/us_equity_daily_excluded.csv` (T04i wrote it **empty**: no symbol in the 6,711
+  falls into that case).
+
+The detector is `strategy_factory.data.relisting.analyse_series`, already committed and tested in
+T04i; the per-symbol verdicts are `docs/reviews/T04i_relisting_verdicts.csv` (797 symbols: 280
+`trim_to_boundary`, 517 `frozen_removed`). **Re-run the sweep here** rather than reading that CSV as
+input — it is evidence, not a config.
+
+**A symbol whose remaining history is then too short is not touched further** (D-008, D-398):
+145 of the 280 trims keep fewer than 650 bars and 61 fewer than 250, and they simply fail
+`SplitManager` with `HistoryTooShortError` when a stage tries to split them. Do **not** add them to
+the exclusion file and do not shorten the split rules for them.
+
+**Blocked on P-74 for the trims only.** An unadjusted reverse split is indistinguishable from a
+re-used ticker on the evidence D-398 uses, and **29 of the 280 trims** carry the
+`reverse_split_suspect` flag (T04i §6a). A long halt is equally indistinguishable (`MARA`). Before the trims are applied, cross-check each `trim_to_boundary` level break
+against the all-adjusted MS-US-1D series (`us_equity/alpaca_sip_all/1D/us_<symbol>.csv`), which is
+continuous across a split and breaks across a re-use — the test that settled AVGO. A continuous
+cross-check means the symbol needs a **D-397 `--refresh`**, not a trim, and goes into the report for
+the user's network run. The frozen-stretch cut (D-398 (1)) is unaffected and needs no cross-check.
+
 ### 2. The derived clean daily snapshot (D-396 part 2)
 
 A **new** snapshot per symbol, never an overwrite (rule 10):
@@ -58,6 +93,9 @@ A **new** snapshot per symbol, never an overwrite (rule 10):
 - on a flagged day, **cap** the high and low to the RTH hourly range where hourly data exists;
 - otherwise **clip** a flagged wick to the body extreme (max/min of open and close);
 - `open` and `close` are **never** changed — only the extremes;
+- **D-398** additionally **removes bars**: the frozen stretches and everything before the
+  boundary. Removal is logged bar for bar like a cap, and the metadata carries `boundary_date`,
+  `dropped_bars` and `frozen_bars_cut` so the shorter series is self-explaining;
 - a **changed-bar log** beside the snapshot lists every touched bar with the old and the new value
   and which rule applied. Without it the transformation is not auditable and must not ship;
 - the metadata says what was applied: the rule, the config hash of the thresholds, and the counts.
@@ -66,7 +104,8 @@ A **new** snapshot per symbol, never an overwrite (rule 10):
   in the store and in the catalog, and a run can still name it explicitly.
 
 CLI: `sfac data clean daily [--symbols ...] [--set-reference]`, chunked and idempotent like the
-ingests (D-385).
+ingests (D-385). The extreme correction (D-396) and the frozen/boundary correction (D-398) are
+one pass over the symbol and one derived snapshot, not two.
 
 ### 3. Report
 
@@ -84,6 +123,10 @@ plainly, because that is the argument for making it the default reference.
 ## Acceptance
 - Both checks are implemented, configured from YAML, and each has tests on a fixture with a planted
   bad print, a planted extended-hours extreme and a genuinely volatile bar that must **not** flag.
+- **D-398:** a fixture symbol with a padded stretch, one with a leading pad and one with a re-use
+  boundary each produce the right clean series; the frozen bars are gone, the boundary is in the
+  metadata, and a symbol whose trimmed history is too short **fails the split** rather than being
+  excluded (test against `SplitManager`).
 - `daily_wick_outlier` runs for a symbol with **no** hourly data.
 - The clean snapshot exists for every raw 1D snapshot, has `derived_from` set, is the reference, and
   the raw snapshot is untouched and still in the catalog (test: the raw parquet's hash and mtime are
@@ -96,5 +139,7 @@ plainly, because that is the argument for making it the default reference.
 
 ## Review summary
 `docs/reviews/T04k_review.md`: the flagged counts per check, per symbol and per date; how many bars
-were capped versus clipped; the before/after range distribution; the changed-bar log's location and
-its replay test; deviations and open questions.
+were capped versus clipped; **how many were removed as padding and how many symbols were trimmed to
+a boundary (D-398), with the MS-US-1D cross-check verdict for each trim (P-74) and the resulting
+`--refresh` list**; how many trimmed symbols now fail the split (D-008); the before/after range
+distribution; the changed-bar log's location and its replay test; deviations and open questions.

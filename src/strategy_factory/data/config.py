@@ -23,6 +23,7 @@ from pydantic import (
 )
 
 from strategy_factory.core.errors import ConfigError
+from strategy_factory.data.relisting import DEFAULT_FROZEN_SESSIONS, DEFAULT_GAP_DAYS
 from strategy_factory.data.schema import Severity
 
 DEFAULT_ALPACA_CONFIG = Path("configs") / "data" / "alpaca.yaml"
@@ -75,6 +76,18 @@ class SplitCheckConfig(_Frozen):
     known_splits_file: Path = Path("configs") / "data" / "known_splits.csv"
 
 
+class RelistingConfig(_Frozen):
+    """Thresholds of the re-used-ticker / frozen-stretch rule (D-383, amended by **D-398**).
+
+    They are here and not in the analysis script because D-398 makes the frozen-stretch removal a
+    rule of the data itself (T04k applies it), and no threshold may live in code
+    (``CLAUDE.md`` rule 1).
+    """
+
+    frozen_min_sessions: int = Field(default=DEFAULT_FROZEN_SESSIONS, gt=0)
+    gap_days: int = Field(default=DEFAULT_GAP_DAYS, gt=0)
+
+
 class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
@@ -85,6 +98,7 @@ class AlpacaConfig(_Frozen):
     batch_size: dict[str, int] = Field(default_factory=lambda: {"1D": 100, "1H": 10})
     hourly_session: HourlySessionConfig = Field(default_factory=HourlySessionConfig)
     split_check: SplitCheckConfig = Field(default_factory=SplitCheckConfig)
+    relisting: RelistingConfig = Field(default_factory=RelistingConfig)
 
     @field_validator("batch_size")
     @classmethod
