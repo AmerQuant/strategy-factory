@@ -137,6 +137,38 @@ def reproduction_plan(engine: Engine, trial_id: int) -> dict[str, Any]:
     }
 
 
+def _engine_lines(config: Any) -> list[str]:
+    """The engine section and the cost inputs of a stored run config (T10b)."""
+    if not isinstance(config, dict):
+        return []
+    lines: list[str] = []
+    engine = config.get("engine")
+    if isinstance(engine, dict):
+        shown = ", ".join(f"{k}={v}" for k, v in sorted(engine.items()))
+        lines.append(f"engine        : {shown}")
+    lines.append(f"intrabar_mode : {config.get('intrabar_mode', '(not recorded)')}")
+    costs = config.get("cost_inputs")
+    if not isinstance(costs, dict):
+        lines.append("cost_inputs   : NOT RECORDED (run predates T10b; costs unverifiable)")
+        return lines
+    names = costs.get("profile_names") or {}
+    hashes = costs.get("profiles") or {}
+    for sym in sorted(hashes):
+        lines.append(f"cost_profile  : {sym} -> {names.get(sym, '?')} {str(hashes[sym])[:12]}")
+    lines.append(f"moneta_spec   : {str(costs.get('moneta_spec_sha256'))[:12]}")
+    for pair, tfs in sorted((costs.get("conversion_snapshots") or {}).items()):
+        for tf, ref in sorted(tfs.items()):
+            lines.append(f"fx_snapshot   : {pair} {tf} {str(ref.get('snapshot_hash'))[:12]}")
+    return lines
+
+
+def _dirty_note(code_version: Any) -> str:
+    """Marker for a run made from a dirty checkout (T10b): it is not reproducible."""
+    if isinstance(code_version, str) and code_version.endswith("-dirty"):
+        return "   (DIRTY checkout: uncommitted changes; not reproducible from the commit)"
+    return "   (git checkout this commit)"
+
+
 def format_plan(plan: dict[str, Any]) -> str:
     import json
 
@@ -150,11 +182,12 @@ def format_plan(plan: dict[str, Any]) -> str:
         f"candidate     : {plan['candidate_id'] or '(stage-1 probe, no candidate)'}",
         f"instrument    : {plan['symbol']} {plan['timeframe']} {plan['direction']}",
         f"config_hash   : {plan['config_hash']}",
-        f"code_version  : {plan['code_version']}   (git checkout this commit)",
+        f"code_version  : {plan['code_version']}{_dirty_note(plan['code_version'])}",
         f"seed          : {plan['seed']}",
         f"spec_hash     : {plan['spec_hash']}",
         f"params        : {json.dumps(plan['params'], sort_keys=True)}",
     ]
+    lines += _engine_lines(plan["config"])
     if snaps:
         lines += [f"snapshot_hash : {v}   ({p})" for p, v in snaps]
     else:

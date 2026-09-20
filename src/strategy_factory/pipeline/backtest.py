@@ -25,16 +25,20 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
-import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from strategy_factory.components.base import Bars, ExitSpec, ParamValue
 from strategy_factory.components.indicators import atr as atr_indicator
 from strategy_factory.components.registry import default_registry
+from strategy_factory.core.config import (
+    DEFAULT_ENGINE_CONFIG,
+    PARITY_STEP_REQUIRED,
+    EngineConfig,
+    load_engine_config,
+)
 from strategy_factory.core.errors import ConfigError
 from strategy_factory.costs.arrays import STEP_REL_TOL, CostArrays
 from strategy_factory.data.conversion import ConversionArrays
@@ -49,34 +53,25 @@ from strategy_factory.engine.api import (
 )
 from strategy_factory.metrics.containers import EquityCurve, RunMeta, RunResult, TradeLog
 
-DEFAULT_ENGINE_CONFIG = Path("configs") / "engine" / "default.yaml"
 Direction = Literal["long", "short"]
 IntrabarMode = Literal["tradingview", "pessimistic"]
 MODES: dict[str, int] = {"tradingview": k.MODE_TRADINGVIEW, "pessimistic": k.MODE_PESSIMISTIC}
 
+#: ``EngineConfig`` moved to :mod:`strategy_factory.core.config` in T10b, so a pipeline
+#: config can carry the engine section and the run ``config_hash`` covers it. The names stay
+#: importable from here, where T08 put them.
+__all__ = [
+    "DEFAULT_ENGINE_CONFIG",
+    "BacktestSpec",
+    "EngineConfig",
+    "FuturesSizing",
+    "load_engine_config",
+    "run_backtest",
+]
+
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class EngineConfig(_Frozen):
-    initial_capital: float = Field(gt=0)
-    notional: float = Field(gt=0)
-    disaster_stop_atr: float = Field(gt=0)
-    atr_length: int = Field(ge=1)
-    futures_contracts: float = Field(gt=0)
-    # parity section (D-343, D-347): both come from the Pine script of the run; no default
-    parity_qty_step: float | None = Field(default=None, gt=0)
-
-
-def load_engine_config(path: Path | None = None) -> EngineConfig:
-    target = path if path is not None else DEFAULT_ENGINE_CONFIG
-    try:
-        return EngineConfig.model_validate(yaml.safe_load(target.read_text(encoding="utf-8")))
-    except (OSError, yaml.YAMLError) as exc:
-        raise ConfigError(f"cannot read engine config: {exc}", config_path=target) from exc
-    except ValidationError as exc:
-        raise ConfigError(f"invalid engine config: {exc}", config_path=target) from exc
 
 
 class BacktestSpec(_Frozen):
@@ -237,10 +232,7 @@ def run_backtest(
         else np.asarray(exit_signal, dtype=np.bool_)
     )
     if intrabar_mode == "tradingview" and futures is None and cfg.parity_qty_step is None:
-        raise ConfigError(
-            "parity (tradingview) runs need parity_qty_step in the engine config (D-347): the "
-            "TradingView quantity step of the symbol, e.g. 1 for BATS:SPY, 0.01 for OANDA:XAUUSD"
-        )
+        raise ConfigError(PARITY_STEP_REQUIRED)
     if fx is not None and fx.quote_ccy != costs.quote_ccy:
         raise ConfigError(f"conversion for {fx.quote_ccy}, profile quotes {costs.quote_ccy}")
     if fx is None and costs.quote_ccy != "USD":

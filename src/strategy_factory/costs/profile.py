@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import hashlib
+import json
 import zoneinfo
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -49,6 +51,7 @@ WEEKDAY_NUMBER: dict[str, int] = {
 ASSIGNMENTS_FILE = "assignments.yaml"
 MONETA_DIR = "moneta"
 MONETA_PROFILES_FILE = "moneta_profiles.yaml"
+MONETA_SPEC_META = "moneta_spec.csv.meta.json"
 
 
 class _Frozen(BaseModel):
@@ -401,6 +404,53 @@ def resolve_profile(
                 f"invalid overrides for {symbol}: {exc}", symbol=symbol, config_path=where
             ) from exc
     return prof
+
+
+def profile_content_hash(profile: CostProfile) -> str:
+    """sha256 of the canonical JSON of a **resolved** profile (assignment overrides applied).
+
+    This is what the run-level ``config_hash`` binds a symbol's costs to (T10b): a changed
+    spread, commission, swap or volume step gives a different hash, so a result computed with
+    other costs can never carry the same run hash (CLAUDE.md rules 4 and 8).
+    """
+    data = json.dumps(
+        profile.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def moneta_spec_sha256(costs_dir: Path | None = None) -> str | None:
+    """SHA-256 of the broker xlsx behind the generated Moneta profiles (D-340), or ``None``.
+
+    It is read from the sidecar ``moneta/moneta_spec.csv.meta.json`` that
+    ``sfac costs moneta import`` writes; ``None`` when no Moneta import exists.
+    """
+    cdir = costs_dir if costs_dir is not None else Path("configs") / "costs"
+    path = cdir / MONETA_DIR / MONETA_SPEC_META
+    if not path.is_file():
+        return None
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"cannot read the Moneta spec sidecar: {exc}", config_path=path) from exc
+    sha = meta.get("sha256")
+    if not isinstance(sha, str) or len(sha) != 64:
+        raise ConfigError("Moneta spec sidecar has no sha256", config_path=path)
+    return sha
+
+
+def moneta_profile_names(costs_dir: Path | None = None) -> frozenset[str]:
+    """Names of the generated Moneta profiles (empty when there is no Moneta import)."""
+    cdir = costs_dir if costs_dir is not None else Path("configs") / "costs"
+    generated = cdir / MONETA_DIR / MONETA_PROFILES_FILE
+    if not generated.is_file():
+        return frozenset()
+    items = _read_yaml(generated).get("profiles") or []
+    if not isinstance(items, list):
+        raise ConfigError("'profiles' must be a list", config_path=generated)
+    return frozenset(
+        str(item["name"]) for item in items if isinstance(item, dict) and "name" in item
+    )
 
 
 def universe_symbols(cfg: CostsConfig) -> dict[str, str]:

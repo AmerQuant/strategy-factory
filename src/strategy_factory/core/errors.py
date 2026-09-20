@@ -64,3 +64,24 @@ class HoldoutAccessError(SfacError):
 
 class RegistryError(SfacError):
     """Trial-registry (PostgreSQL) read/write failure."""
+
+
+class ExecutorError(SfacError):
+    """A work unit failed in the executor (F-0.3.7).
+
+    ``results`` keeps what the finished units returned, in input order, with ``None`` where a
+    unit failed, so a long batch does not lose the work that did succeed. ``failed`` maps each
+    failed unit's key to its exception.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        results: list[object] | None = None,
+        failed: dict[str, BaseException] | None = None,
+        stage: str | None = None,
+    ) -> None:
+        super().__init__(message, stage=stage)
+        self.results: list[object] = results if results is not None else []
+        self.failed: dict[str, BaseException] = failed if failed is not None else {}

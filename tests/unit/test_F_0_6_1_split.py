@@ -22,6 +22,7 @@ from strategy_factory.data.config import SplitConfig, StalePriceConfig, load_qua
 from strategy_factory.data.quality import check_snapshot
 from strategy_factory.data.schema import SeriesMetadata
 from strategy_factory.data.split import (
+    HOLDOUT_STAGE,
     DataAccess,
     RegistryLedger,
     SplitManager,
@@ -119,12 +120,14 @@ def test_F_0_6_1_data_access_dev_only_and_holdout_once(tmp_path: Path) -> None:
     assert dev["ts"].max() == split.dev_end and dev["ts"].min() == split.dev_start
     arrays = access.arrays("TEST", "1D")
     assert arrays["close"].shape == (dev.height,)
-    hold = mgr.open_holdout("cand-1", "TEST", "1D")
+    hold = mgr.open_holdout("cand-1", "TEST", "1D", stage=HOLDOUT_STAGE)
     assert hold["ts"].min() == split.holdout_start and hold["ts"].max() == split.holdout_end
     assert ledger.accesses["cand-1"]["snapshot_hash"] == meta.snapshot_hash
     with pytest.raises(HoldoutAccessError):
-        mgr.open_holdout("cand-1", "TEST", "1D")
-    assert mgr.open_holdout("cand-2", "TEST", "1D").height == hold.height  # other candidate
+        mgr.open_holdout("cand-1", "TEST", "1D", stage=HOLDOUT_STAGE)
+    assert (
+        mgr.open_holdout("cand-2", "TEST", "1D", stage=HOLDOUT_STAGE).height == hold.height
+    )  # other candidate
 
 
 def test_F_0_6_1_holdout_access_logged_before_reading(tmp_path: Path) -> None:
@@ -141,7 +144,7 @@ def test_F_0_6_1_holdout_access_logged_before_reading(tmp_path: Path) -> None:
     mgr.registered(cat.get_reference("TEST", "1D"))  # split exists; reads only ts
     reads.clear()
     with pytest.raises(HoldoutAccessError):
-        mgr.open_holdout("c", "TEST", "1D")
+        mgr.open_holdout("c", "TEST", "1D", stage=HOLDOUT_STAGE)
     assert reads == []  # no bar was read when the access could not be recorded
 
 
@@ -158,7 +161,7 @@ def test_F_0_6_1_critical_quality_blocks_data_access(tmp_path: Path) -> None:
     with pytest.raises(DataError, match="critical quality check"):
         access.bars("TEST", "1D")
     with pytest.raises(DataError, match="critical quality check"):
-        access._splits.open_holdout("c", "TEST", "1D")
+        access._splits.open_holdout("c", "TEST", "1D", stage=HOLDOUT_STAGE)
 
 
 @settings(max_examples=30, deadline=None)
@@ -192,7 +195,7 @@ def test_F_0_6_1_data_access_never_returns_holdout_rows(
             assert "history too short" in str(exc)
             return
         split = access.split("TEST", tf)
-        hold = mgr.open_holdout("c", "TEST", tf)
+        hold = mgr.open_holdout("c", "TEST", tf, stage=HOLDOUT_STAGE)
     assert dev["ts"].max() < split.holdout_start
     assert not set(dev["ts"].to_list()) & set(hold["ts"].to_list())
     assert dev.height + split.embargo_bars + hold.height == n
@@ -247,13 +250,13 @@ def test_F_0_6_1_split_registered_and_second_holdout_access_raises(
             current_stage="s06",
         )
     )
-    hold = mgr.open_holdout("cand-1", "TEST", "1D")
+    hold = mgr.open_holdout("cand-1", "TEST", "1D", stage=HOLDOUT_STAGE)
     assert hold["ts"].min() == split.holdout_start
     with pytest.raises(HoldoutAccessError):
-        mgr.open_holdout("cand-1", "TEST", "1D")
+        mgr.open_holdout("cand-1", "TEST", "1D", stage=HOLDOUT_STAGE)
     other_process = SplitManager(RegistryLedger(second_engine), SplitConfig(), store, cat)
     with pytest.raises(HoldoutAccessError):
-        other_process.open_holdout("cand-1", "TEST", "1D")
+        other_process.open_holdout("cand-1", "TEST", "1D", stage=HOLDOUT_STAGE)
     with registry_engine.connect() as conn:
         assert conn.execute(select(func.count()).select_from(holdout_access)).scalar_one() == 1
         assert conn.execute(select(func.count()).select_from(splits)).scalar_one() == 1

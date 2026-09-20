@@ -105,17 +105,52 @@ def require_snapshots(config: Mapping[str, Any]) -> None:
         )
 
 
+DIRTY_SUFFIX = "-dirty"
+
+
+def _git(args: list[str], cwd: Path) -> str | None:
+    try:
+        out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
 def git_sha(cwd: Path | None = None) -> str:
     """HEAD commit of the checkout at ``cwd`` (default: this package's folder), else "unknown"."""
     where = cwd or Path(__file__).resolve().parent
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=where, capture_output=True, text=True, timeout=10
-        )
-    except (OSError, subprocess.SubprocessError):
+    out = _git(["rev-parse", "HEAD"], where)
+    if out is None:
         return "unknown"
-    sha = out.stdout.strip()
-    return sha if out.returncode == 0 and len(sha) == 40 else "unknown"
+    sha = out.strip()
+    return sha if len(sha) == 40 else "unknown"
+
+
+def git_dirty(cwd: Path | None = None) -> bool:
+    """True when the checkout has uncommitted tracked changes (``git status --porcelain``).
+
+    Untracked files do not count: they cannot change what the code does. An unavailable git
+    returns ``False``; :func:`code_version` already reports ``unknown`` in that case.
+    """
+    where = cwd or Path(__file__).resolve().parent
+    out = _git(["status", "--porcelain", "--untracked-files=no"], where)
+    return bool(out is not None and out.strip())
+
+
+def code_version(cwd: Path | None = None) -> str:
+    """What ran: ``<40-hex sha>``, ``<sha>-dirty`` or ``unknown`` (T10b).
+
+    One shape, **stored and never hashed** (`pipeline_runs.code_version`): a dirty working
+    tree must not change ``config_hash``, because the config did not change -- but a run made
+    from a dirty checkout is not reproducible from the commit alone, and the marker says so.
+    """
+    sha = git_sha(cwd)
+    if sha == "unknown":
+        return sha
+    return f"{sha}{DIRTY_SUFFIX}" if git_dirty(cwd) else sha
+
+
+_code_version = code_version  # module alias: `start_run` has a `code_version` parameter
 
 
 # --------------------------------------------------------------------------------------
@@ -230,7 +265,7 @@ class RegistryWriter:
                     id=run_id,
                     config=dict(config),
                     config_hash=config_hash(config),
-                    code_version=code_version or git_sha(),
+                    code_version=code_version or _code_version(),
                     seed=seed,
                     status="running",
                     notes=notes,

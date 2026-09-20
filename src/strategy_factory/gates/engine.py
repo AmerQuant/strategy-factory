@@ -17,6 +17,13 @@ Precedence: base < asset_class < timeframe < combined (``"<asset_class>/<timefra
 :meth:`GateEngine.evaluate` returns one :class:`CriterionResult` per criterion. A missing
 (or NaN) metric is a failure with reason ``metric_missing`` (``metric_nan``), never a pass.
 
+**Metric names (D-309, T10b):** :func:`load_gate_config` validates every metric of every
+stage and every override against the one registry in
+:mod:`strategy_factory.metrics.names`. An unknown metric is a :class:`ConfigError` at load
+time, so a typo can never silently become a permanently failing ``metric_missing`` criterion.
+:class:`GateConfig` built in code is not checked, so tests and experiments can use synthetic
+names; :func:`validate_metric_names` is the check itself.
+
 **Borderline (spec, stage 8 decisions):** exactly one failed criterion, it is not critical,
 and its value lies within ``borderline_tolerance`` (relative) of its threshold. A result with
 any critical failure is never borderline. A threshold of 0 has no relative distance, so such
@@ -91,17 +98,52 @@ class GateConfig(_Frozen):
         return value
 
 
+def metrics_used(cfg: GateConfig) -> dict[str, list[str]]:
+    """Metric name -> where it is used (``stage`` / ``asset_class:fx/stage`` ...), sorted."""
+    used: dict[str, list[str]] = {}
+    layers: list[tuple[str, StageGates]] = [("", cfg.stages)]
+    ov = cfg.overrides
+    for kind, table in (
+        ("asset_class", ov.asset_class),
+        ("timeframe", ov.timeframe),
+        ("combined", ov.combined),
+    ):
+        layers += [(f"{kind}:{key}/", stages) for key, stages in table.items()]
+    for prefix, stages in layers:
+        for stage, crits in stages.items():
+            for crit in crits:
+                used.setdefault(crit.metric, []).append(f"{prefix}{stage}")
+    return {name: sorted(where) for name, where in sorted(used.items())}
+
+
+def validate_metric_names(cfg: GateConfig, config_path: Path | None = None) -> None:
+    """Every metric of ``cfg`` must be in the metric-name registry (D-309)."""
+    from strategy_factory.metrics import names as metric_names
+
+    used = metrics_used(cfg)
+    unknown = metric_names.unknown(used)
+    if unknown:
+        detail = "; ".join(f"{name} (in {', '.join(used[name])})" for name in unknown)
+        raise ConfigError(
+            f"unknown metric(s) in the gate config: {detail}. Every gate metric must be "
+            "registered in strategy_factory.metrics.names (D-309)",
+            config_path=config_path,
+        )
+
+
 def load_gate_config(path: Path | None = None) -> GateConfig:
     target = path if path is not None else DEFAULT_GATES
     if not target.is_file():
         raise ConfigError("gate config not found", config_path=target)
     try:
         data = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
-        return GateConfig.model_validate(data)
+        cfg = GateConfig.model_validate(data)
     except (OSError, yaml.YAMLError) as exc:
         raise ConfigError(f"cannot read gate config: {exc}", config_path=target) from exc
     except ValidationError as exc:
         raise ConfigError(f"invalid gate config: {exc}", config_path=target) from exc
+    validate_metric_names(cfg, target)
+    return cfg
 
 
 class CriterionResult(_Frozen):

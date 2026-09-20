@@ -1,4 +1,7 @@
 # Engine run settings (T08). Every number cites a decision; none lives in code (CLAUDE.md rule 1).
+# The model with these defaults is strategy_factory.core.config.EngineConfig (T10b): this file
+# restates them, and a pipeline config may carry the same section under `engine:`, which is then
+# part of the run config_hash.
 initial_capital: 100000.0      # D-004
 notional: 100000.0             # D-004: fixed notional per trade (USD)
 disaster_stop_atr: 3.0         # D-130: fixed, never optimized

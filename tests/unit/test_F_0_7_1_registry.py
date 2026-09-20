@@ -252,12 +252,16 @@ def test_F_0_7_1_trial_rows_are_validated(registry_engine: Engine) -> None:
 
 @pytest.mark.db
 def test_F_0_7_1_config_hash_and_git_sha(registry_engine: Engine) -> None:
+    from strategy_factory.registry.writer import DIRTY_SUFFIX
+
     w = RegistryWriter(registry_engine)
     run_id = w.start_run(CONFIG, seed=3)
     run = one(registry_engine, T.pipeline_runs)
     assert run["id"] == run_id
     assert config_hash({"b": 1, "a": 2}) == config_hash({"a": 2, "b": 1})
-    assert len(str(run["code_version"])) == 40 or run["code_version"] == "unknown"
+    # T10b: <sha>, <sha>-dirty or unknown (the dirty flag is stored, never hashed)
+    version = str(run["code_version"])
+    assert version == "unknown" or len(version.removesuffix(DIRTY_SUFFIX)) == 40
 
 
 # -- migrations ------------------------------------------------------------------------------

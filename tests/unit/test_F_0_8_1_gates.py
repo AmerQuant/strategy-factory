@@ -138,7 +138,7 @@ def test_F_0_8_1_default_gates_as_specified() -> None:
         s: {c.metric: (c.op, c.threshold, c.critical) for c in cs} for s, cs in cfg.stages.items()
     }
     assert table["s01_probe"] == {
-        "min_trades": (">=", 30, False),
+        "n_trades": (">=", 30, False),  # D-301/D-333: closed trades
         "probe_percentile": (">=", 90, False),
         "profit_factor": (">=", 1.1, False),
     }
@@ -162,7 +162,7 @@ def test_F_0_8_1_default_gates_as_specified() -> None:
     assert table["s07_stats"]["pbo"] == ("<=", 0.25, False)
     e = GateEngine(cfg)
     one_h = {c.metric: c.threshold for c in e.criteria("s01_probe", {"timeframe": "1H"})}
-    assert one_h["min_trades"] == 100
+    assert one_h["n_trades"] == 100
 
 
 def test_F_0_8_1_unknown_stage_and_bad_config() -> None:

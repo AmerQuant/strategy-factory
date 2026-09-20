@@ -1,0 +1,146 @@
+"""F-0.7.4 / T10b (c): the run row stores the code version with a dirty flag.
+
+``code_version`` is ``<sha>``, ``<sha>-dirty`` or ``unknown``. It is **stored, not hashed**:
+a dirty working tree does not change ``config_hash``, because the config did not change --
+but the marker says the run cannot be reproduced from the commit alone.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+from fixtures.registry_db import schema_url
+from sqlalchemy import Engine, select
+from typer.testing import CliRunner
+
+from strategy_factory.cli import app
+from strategy_factory.core.config import PipelineConfig, config_hash
+from strategy_factory.registry import tables as T
+from strategy_factory.registry.writer import (
+    DIRTY_SUFFIX,
+    RegistryWriter,
+    code_version,
+    git_dirty,
+    git_sha,
+)
+
+CONFIG = {
+    "pipeline": "t10b",
+    "data_snapshots": {"SPY": {"1D": {"source": "alpaca", "snapshot_hash": "d" * 64}}},
+}
+
+
+def git(*args: str, cwd: Path) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A throw-away git checkout with one commit."""
+    root = tmp_path / "checkout"
+    root.mkdir()
+    git("init", "-q", cwd=root)
+    git("config", "user.email", "t@example.com", cwd=root)
+    git("config", "user.name", "T", cwd=root)
+    (root / "code.py").write_text("x = 1\n", encoding="utf-8")
+    git("add", "code.py", cwd=root)
+    git("commit", "-qm", "first", cwd=root)
+    return root
+
+
+def test_F_0_7_4_clean_checkout_gives_the_bare_commit(repo: Path) -> None:
+    sha = git_sha(repo)
+    assert len(sha) == 40 and not git_dirty(repo)
+    assert code_version(repo) == sha
+
+
+def test_F_0_7_4_dirty_checkout_is_marked(repo: Path) -> None:
+    (repo / "code.py").write_text("x = 2\n", encoding="utf-8")
+    assert git_dirty(repo)
+    assert code_version(repo) == f"{git_sha(repo)}{DIRTY_SUFFIX}"
+    assert code_version(repo) != git_sha(repo)
+
+
+def test_F_0_7_4_untracked_files_do_not_make_a_checkout_dirty(repo: Path) -> None:
+    (repo / "scratch.txt").write_text("notes\n", encoding="utf-8")
+    assert not git_dirty(repo)
+    assert code_version(repo) == git_sha(repo)
+
+
+def test_F_0_7_4_no_git_gives_unknown(tmp_path: Path) -> None:
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert git_sha(plain) == "unknown"
+    assert code_version(plain) == "unknown"
+
+
+def test_F_0_7_4_the_dirty_flag_is_not_part_of_the_config_hash(tmp_path: Path) -> None:
+    path = tmp_path / "u.yaml"
+    path.write_text(yaml.safe_dump({"symbols": []}), encoding="utf-8")
+    cfg = PipelineConfig.model_validate(
+        {
+            "universe": str(path),
+            "symbols": ["SPY"],
+            "timeframes": ["1D"],
+            "stages": ["s01_edge"],
+            "data_snapshots": CONFIG["data_snapshots"],
+        }
+    )
+    canonical = cfg.canonical()
+    assert "code_version" not in canonical  # stored on the run row, never hashed
+    before = config_hash(cfg)
+    assert config_hash(PipelineConfig.model_validate(canonical)) == before
+
+
+@pytest.mark.db
+def test_F_0_7_4_run_row_stores_the_code_version(
+    registry_engine: Engine, monkeypatch: pytest.MonkeyPatch, repo: Path
+) -> None:
+    (repo / "code.py").write_text("x = 3\n", encoding="utf-8")
+    dirty = code_version(repo)
+    writer = RegistryWriter(registry_engine)
+    given = writer.start_run(CONFIG, seed=1, code_version=dirty)
+    default = writer.start_run(CONFIG, seed=1)
+    with registry_engine.connect() as conn:
+        rows = dict(
+            conn.execute(select(T.pipeline_runs.c.id, T.pipeline_runs.c.code_version)).fetchall()  # type: ignore[arg-type]
+        )
+    assert rows[given] == dirty and rows[given].endswith(DIRTY_SUFFIX)
+    # the default comes from this checkout: a sha, possibly marked dirty, never empty
+    assert rows[default] == "unknown" or len(rows[default].removesuffix(DIRTY_SUFFIX)) == 40
+    # the two runs share one config hash: the code version is not part of it
+    with registry_engine.connect() as conn:
+        hashes = set(conn.execute(select(T.pipeline_runs.c.config_hash)).scalars())
+    assert len(hashes) == 1
+
+
+@pytest.mark.db
+def test_F_0_7_4_reproduce_marks_a_dirty_run(
+    registry_engine: Engine, registry_schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writer = RegistryWriter(registry_engine)
+    run_id = writer.start_run(CONFIG, seed=7, code_version=f"{'a' * 40}{DIRTY_SUFFIX}")
+    with writer:
+        writer.add_trials(
+            [
+                {
+                    "run_id": run_id,
+                    "stage": "s02_screen",
+                    "family_id": "fam",
+                    "spec_hash": "f" * 64,
+                    "params": {"n": 1},
+                }
+            ]
+        )
+    with registry_engine.connect() as conn:
+        trial_id = conn.execute(select(T.trials.c.id)).scalar_one()
+    monkeypatch.setenv(
+        "SFAC_DB_URL", schema_url(registry_schema).render_as_string(hide_password=False)
+    )
+    out = CliRunner().invoke(app, ["reproduce", "--trial", str(trial_id)])
+    assert out.exit_code == 0, out.output
+    assert "DIRTY checkout" in out.output
+    assert "cost_inputs   : NOT RECORDED" in out.output  # this run predates the cost inputs

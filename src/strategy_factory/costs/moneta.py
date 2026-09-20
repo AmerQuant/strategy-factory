@@ -46,6 +46,7 @@ from strategy_factory.costs.profile import (
     ASSIGNMENTS_FILE,
     MONETA_DIR,
     MONETA_PROFILES_FILE,
+    MONETA_SPEC_META,
     CostProfile,
     Slippage,
     Weekday,
@@ -54,7 +55,7 @@ from strategy_factory.costs.profile import (
 MONETA_CONFIG = "moneta.yaml"
 MAPPING_CONFIG = "mapping.yaml"
 SPEC_CSV = "moneta_spec.csv"
-SPEC_META = "moneta_spec.csv.meta.json"
+SPEC_META = MONETA_SPEC_META
 SYMBOL_MAP_CSV = "symbol_map.csv"
 DUKASCOPY_MAP_CSV = "dukascopy_map.csv"
 OVERRIDES_CSV = "symbol_overrides.csv"
