@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-395**, **P-71**.
+Next free here: **D-395**, **P-73**.
 
 ## Rules that bind this stream (D-355)
 
@@ -63,8 +63,21 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 | NYSE calendar (D-025) | not started; the T04e fetch was never run, so `configs/calendars/nyse_sessions.csv`, `configs/universe/symbol_changes.csv` and the raw calendar/corporate-action files are all missing. T04f §1 is the user's PowerShell run |
 | T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
-| T04i | **next** (D-358): phase-B analysis, closes D-033; stops for "Approved" |
+| T04i | analysis **done**, review written, **stopped for "Approved"**. D-033 deliberately **not** recorded (supervisor, 2026-09-21): the evidence says `exchange`, but the breaches need P-71 first. Two findings: 2,860 daily bars have an extreme the hourly feed does not support (worst: `SPY` low 69.005 vs a 695.41 close), and **AVGO's 10:1 split of 2024-07-15 is not applied** (P-72). Remaining: the relisted-ticker exclusion list for T04g |
 | T12 | not started |
+
+## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
+
+**T04f is merged into `main` (PR #19, 2026-09-21).** It changed
+`configs/universe/us_equity_hourly.csv` (827 → 806 rows, new `pit_symbol` column) and added
+`configs/universe/symbol_changes.csv` and the rejections in `symbol_changes_manual.csv`.
+`configs/universe.yaml` is stream A's file and was **deliberately not regenerated** by stream B,
+so it is now **stale**: it still lists the 26 removed tickers (`ABC` is the visible one, with
+`timeframes: [1D, 1H]`) and lacks the 5 added ones.
+
+Stream A: run `uv run sfac universe generate` and commit the result. Until then
+`sfac universe validate` and anything reading the registry see the old symbol set; a validate
+failure caused only by this staleness is expected, not a defect.
 
 ## Symbols for stream A (D-394)
 
