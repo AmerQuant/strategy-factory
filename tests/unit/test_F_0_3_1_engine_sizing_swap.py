@@ -5,7 +5,8 @@
 2. quantity floored to the volume step (share CFD, FX), notional <= 100,000;
 3. a signal below the minimum volume is skipped, counted, flagged (single run, grid, RunMeta,
    gate dict);
-4. parity (tradingview) sizing is unaffected by the rounding;
+4. parity (tradingview) sizing floors to the required TradingView quantity step (D-347), never
+   to the broker step or minimum volume;
 5. volume_step_assumed / contracts_fixed reach RunMeta.
 """
 
@@ -109,6 +110,71 @@ def test_F_0_3_1_d312_multi_day_swap_changing_price_triple_day(direction: int, r
     to_result(case, sim)
 
 
+def fx_daily(days: list[dt.date], close: list[float]) -> dict[str, np.ndarray]:
+    """Daily bars whose range is proportional (FX prices: +-0.5 would hit the disaster stop)."""
+    bars = daily(days, close)
+    c = bars["close"]
+    return {**bars, "high": c * 1.002, "low": c * 0.998}
+
+
+@pytest.mark.parametrize(
+    "closes",
+    [
+        [1.10, 1.10, 1.20, 1.05, 1.15, 1.12],  # the close moves every day
+        [1.10, 1.10, 1.02, 1.28, 1.18, 1.31],  # and takes another path (no stop is hit)
+    ],
+)
+def test_F_0_3_1_d312_points_per_day_swap_is_exact_and_price_independent(
+    closes: list[float],
+) -> None:
+    """D-312 for the points model (EURUSD-like): the per-notional normalisation is exact.
+
+    ``swap_long_per_notional_day`` divides by the bar's close and the engine multiplies by the
+    mark-to-market notional of the same bar, so the close cancels: the charge is
+    ``points x point size x |qty|`` per swap day, whatever the price does (T06b's 34.056).
+    """
+    p = profile(
+        {"model": "points_per_day", "long": -9.46, "short": 4.69, "point_size": 1e-05,
+         "triple_weekday": "WED", **ROLL},
+        contract_size=100_000.0, volume_step=0.01, min_volume=0.01,
+    )  # fmt: skip
+    bars = fx_daily(DAYS, closes)
+    costs = build_cost_arrays(bars, p, timeframe="1D")
+    case = case_from(bars, costs, notional=100_000.0)
+    sim = run_engine(case)
+    assert sim.entry_idx.tolist() == [1] and sim.exit_idx.tolist() == [5]  # one trade, held
+    qty = sim.qty[0]  # lots x contract size, floored to the 0.01 lot step at the fill open
+    # entry at the open of bar 1 (Wed), exit at the open of bar 5: Wed x3 (triple), Thu, Fri, Mon
+    swap_days = 3 + 1 + 1 + 1
+    hand = 9.46e-05 * qty * swap_days
+    assert sim.cost_swap[0] == pytest.approx(hand, rel=1e-12)
+    oracle = round_trip_cost(
+        costs, 1, 5, qty, 1, bars["open"][1], bars["open"][5], 1.0, 1.0, close=bars["close"]
+    )
+    assert sim.cost_swap[0] == pytest.approx(oracle["swap"], rel=1e-12)
+    short = run_engine(case.with_(direction=-1))
+    assert short.cost_swap[0] == pytest.approx(-4.69e-05 * short.qty[0] * swap_days, rel=1e-12)
+    to_result(case, sim)
+
+
+def test_F_0_3_1_d312_points_swap_does_not_depend_on_the_close() -> None:
+    """The same quantity and swap days give the same charge on two different price paths."""
+    p = profile(
+        {"model": "points_per_day", "long": -9.46, "short": 4.69, "point_size": 1e-05,
+         "triple_weekday": "WED", **ROLL},
+        contract_size=100_000.0, volume_step=0.01, min_volume=0.01,
+    )  # fmt: skip
+    charges = []
+    for closes in ([1.10] * 6, [1.10, 1.10, 1.24, 1.02, 1.19, 1.08]):
+        bars = fx_daily(DAYS, closes)
+        costs = build_cost_arrays(bars, p, timeframe="1D")
+        sim = run_engine(case_from(bars, costs, notional=100_000.0))
+        assert sim.entry_idx.tolist() == [1] and sim.exit_idx.tolist() == [5]
+        charges.append((sim.qty[0], sim.cost_swap[0]))
+    assert charges[0][0] == charges[1][0]  # same fill open -> same quantity
+    assert charges[0][1] == pytest.approx(charges[1][1], rel=1e-12)  # same swap, other prices
+
+
 def test_F_0_3_1_d312_non_usd_swap_converted_at_each_rollover_bar() -> None:
     p = profile(
         {"model": "currency_per_lot_day", "long": -3.4908, "short": 0.1106,
@@ -195,7 +261,7 @@ def grid_of(case: Case, k_: int) -> Any:
     )  # fmt: skip
 
 
-# -- 4. parity sizing unaffected by the rounding (D-313, D-337) ----------------------------------
+# -- 4. parity sizing floors to the TradingView quantity step (D-347) ----------------------------
 def parity_case(price: float, qty_step: float, **kw: Any) -> Case:
     n = 6
     o = np.full(n, price)
