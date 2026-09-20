@@ -7,6 +7,14 @@ The glue between the typed layers and the pure engine (T08, F-0.3.1). The engine
 Sizing mode (D-313, D-329, D-337): futures -> fixed contracts; ``tradingview`` intrabar mode
 (parity) -> TradingView sizing; otherwise research sizing floored to the broker volume step
 of the cost profile.
+
+``atr_length`` is a configurable default of 14 (D-343); a **parity run passes the length of
+the Pine script it reproduces** through its own :class:`EngineConfig`.
+
+:class:`BacktestSpec` is the **interim** strategy contract (D-344): it is replaced by
+``StrategySpec`` (design §4) once exit components exist. Its ``spec_hash`` covers the spec
+only, so the run-level config hash (T10b) must also cover the engine config and the intrabar
+mode.
 """
 
 from __future__ import annotations

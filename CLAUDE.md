@@ -74,7 +74,7 @@ uv run sfac --help
 - Test names start with the feature ID: `test_F_0_3_1_next_bar_open_fill`.
 - Each feature's acceptance criteria from `docs/features.md` must be covered by tests.
 - Engine invariants use Hypothesis (see design §6): P&L conservation, no same-bar execution, costs monotonic, truncation invariance, long/short mirror.
-- `tests/oracle/` compares simple strategies against vectorbt. vectorbt is a **test-only** dependency; never import it from `src/`.
+- `tests/oracle/` compares the engine with a **naive pure-Python reference engine** written from the rules (D-330, D-346); it shares no code with `engine/` and is never skipped. vectorbt is **not** a dependency (D-346); the external check is the TradingView parity test (T11).
 - Slow self-tests (random walk, planted edge) are marked `@pytest.mark.slow` and run nightly.
 
 ## Workflow (two phases per batch — standing prompt in `docs/STANDING_PROMPT.md`)

@@ -153,6 +153,18 @@ Reviewer findings and fixes:
 3. **`fx_peg` field and gate name** (P-33).
 4. **The ×3 triple-day multiplier is a literal** in the kernel. It is the definition in D-312, not a tunable number.
 
+## Supervisor decisions after this review (2026-09-20)
+- **D-343 (P-31):** ATR length 14 is a configurable default; a **parity run passes the length
+  of the Pine script** it reproduces (noted in `configs/engine/default.yaml` and the glue).
+- **D-344 (P-32):** `BacktestSpec` is accepted as interim and is replaced by `StrategySpec`
+  when exit components exist; `configs/data/fx_conversion.yaml` is accepted.
+- **D-345 (P-33):** accepted; the validator change is documented in the container-contract
+  section of `docs/reviews/T09_review.md`.
+- **D-346 (P-35):** **vectorbt is skipped.** The naive reference engine is the T08 oracle and
+  the T11 parity test is the external check. This supersedes the vectorbt-oracle part of
+  D-400; ADR-001 and CLAUDE.md carry the note.
+- **P-34 is still open** (engine choices not stated by the decisions).
+
 ## Open questions
 - **P-31:** ATR length 14.
 - **P-32:** the structural deviations above.

@@ -9,7 +9,12 @@ Two steps (D-317, D-340):
    a byte-identical CSV. The runtime never reads the xlsx.
 2. :func:`build` maps broker symbols to research symbols (D-323, D-324, D-325) and writes the
    generated ``moneta_profiles.yaml``, ``symbol_map.csv``, ``assignments.yaml`` and the
-   mapping review CSV for the user.
+   mapping review CSV for the user. A broker symbol whose ticker matches a research symbol but
+   whose **name belongs to another company is never ticker-mapped** (D-341, e.g. broker ``ESL``
+   = Estee Lauder vs research ``ESL``): only a manual override in ``symbol_overrides.csv`` can
+   map it. Names come from ``mapping.yaml: names_file``; after the Alpaca asset list (ETFs
+   included) is downloaded with ``scripts/download_alpaca_assets.ps1`` (the user runs it,
+   D-031), point that file at it and rebuild for a reduced review list.
 
 Units in the normalized table: ``point_size`` = 10^-digits; ``point_value`` = money per point
 per lot in ``quote_ccy``; ``contract_size`` = instrument units per lot; volumes in lots;
@@ -673,7 +678,7 @@ def map_symbols(
             sc = name_score(r.description, rname)
             if sc >= cfg.min_name_score:
                 mapped.append(MapRow(r.broker_symbol, r.broker_symbol, "ticker_exact", sc, ""))
-            else:
+            else:  # another company with the same ticker: manual override only (D-341)
                 rev("pending_review", r.broker_symbol, sc, "ticker match, name differs")
             continue
         cand, sc = best(r.description)

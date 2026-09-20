@@ -835,6 +835,11 @@ def test_F_0_9_1_mapping_rules() -> None:
     assert review["ZETAW"].status == "pending_review"  # name-only: never auto-mapped
     assert review["ZETAW"].candidate_research_symbol == "XYZ"
     assert review["ESL"].reason == "ticker match, name differs"  # same ticker, other company
+    # D-341: such a pair is never ticker-mapped; only a manual override can map it
+    assert "ESL" not in mapped and review["ESL"].status == "pending_review"
+    over = [{"broker_symbol": "ESL", "research_symbol": "ESL", "note": "confirmed by the user"}]
+    forced = map_symbols(spec_all(), RESEARCH, NAMES, [], over, MCFG)
+    assert ("ESL", "override") in {(m.research_symbol, m.method) for m in forced.mapped}
     assert review["SPY"].reason == "ticker match, no research name available"
     assert "SPY" not in mapped and "BITQ" not in mapped
 

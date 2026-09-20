@@ -54,6 +54,14 @@ Data expansion is frozen until the project is built (D-030).
 
 ## 5. Open items
 
+- **`universe_filter` must go back to `broker` (D-342, D-524)** before the first real stage-1
+  run: `configs/pipeline/mvp_daily.yaml` runs with `all` only until the broker mapping of SPY
+  and QQQ is confirmed (D-341 / P-28).
+- **Broker mapping (D-341):** the user runs `scripts/download_alpaca_assets.ps1`; then
+  `sfac costs moneta build` + `sfac universe generate` shrink the review list in
+  `docs/reviews/T06b_mapping_review.csv` (127 rows today).
+- **Open pending questions:** P-30 (T06b assumptions) and P-34 (engine choices T08).
+
 - **P-04 — parity reference exports:** TradingView trade lists and OHLC for the SPX500 daily MR strategy and one 1H TF strategy. **Remind the user before T11.**
 - P-01 (edge-type addendum), P-02 (futures) and P-03 (broker costs; addressed by T06b) are in the decisions log, section G.
 - Open questions from the batch-2a reviews (`docs/reviews/T05|T06|T10a_review.md`) not yet answered in the log.
