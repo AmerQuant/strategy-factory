@@ -33,7 +33,7 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | T04e | Data-layer follow-up (hash v2, calendar, renames, pilots) | ✅ merged (#4) — **phase-B pilot analysis pending the Alpaca hourly download** |
 | T05 | Data quality, resampling, split manager | ✅ merged (batch 2a, #7) |
 | T06 | Cost model (placeholder profiles) | ✅ merged (batch 2a, #7) |
-| T06b | Moneta cost profiles, broker mapping, broker universe | 🟡 **done, blocked on P-28** — PR [#13](https://github.com/AmerQuant/strategy-factory/pull/13), branch `feat/T06b-moneta-costs` (3096c72). D-350 applied, D-341 rebuild done (471 mapped, 106 review rows). Waiting for the user's `-IncludeInactive` asset list and `symbol_overrides.csv`. |
+| T06b | Moneta cost profiles, broker mapping, broker universe | 🟡 **done, blocked on P-28** — PR [#13](https://github.com/AmerQuant/strategy-factory/pull/13), branch `feat/T06b-moneta-costs` (2e7a730). D-350 applied; rebuilt on the `-IncludeInactive` list (**472 mapped, 105 review rows**). Waiting only for the user's `symbol_overrides.csv`. |
 | T07 | Components and indicators | ✅ merged (#6) |
 | T08 | Engine — **critical (D-402)** | 🟢 **approved**, awaiting merge — PR [#14](https://github.com/AmerQuant/strategy-factory/pull/14), branch `feat/T08-engine`, stacked on T06b. Merge **after** T06b, rebased onto `main`, CI green. |
 | T09 | Metrics and result containers | ✅ merged (#8) |
@@ -58,10 +58,10 @@ Branch stack: `main` → `feat/T06b-moneta-costs` → `feat/T08-engine` → `fea
 
 ### Merge sequence (D-401: only on "Approved. Merge …", CI green)
 
-1. **P-28 closes first:** the user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` and
-   names the file; then `sfac costs moneta build` + `sfac universe generate` are repeated and the
-   user fills `configs/costs/moneta/symbol_overrides.csv`. T06b's coverage criterion (548/548)
-   closes and its generated files are rebuilt on the branch.
+1. **P-28 closes first:** the `-IncludeInactive` list is in and the mapping is rebuilt on the
+   branch (2e7a730). What remains is the user's `configs/costs/moneta/symbol_overrides.csv` for
+   the 105 review rows; then `sfac costs moneta build` + `sfac universe generate` run once more
+   and T06b's coverage criterion (548/548) closes.
 2. **T06b → `main`**, then **T08 → `main`**, then **T10b → `main`**, each rebased onto `main` with
    CI green.
 
@@ -95,20 +95,20 @@ cleanly. T10b's `pending.md` was already aligned with `main`, so it does not con
 
 | Source | Status |
 |---|---|
-| Alpaca 1D (6,711 symbols, SIP, split-adjusted) | downloaded, **not ingested** yet |
-| Alpaca 1H (827 symbols) | **downloading** (user) |
-| Dukascopy h1 bid/ask (29 instruments, from 2010) | **downloading** (user); only the Q1-2024 pilot snapshots are in the catalog |
+| Alpaca 1D (6,711 symbols, SIP, split-adjusted) | ✅ download **complete**, **not ingested** yet |
+| Alpaca 1H (827 symbols) | ✅ download **complete**, **not ingested** yet |
+| Dukascopy h1 bid/ask (29 instruments, from 2010) | **still downloading** (user, several more days); only the Q1-2024 pilot snapshots are in the catalog |
 | Yahoo aux (7 series) | downloaded |
 | NYSE calendar (`configs/calendars/nyse_sessions.csv`) | to be generated from the Alpaca calendar fetch (D-025) |
 | Moneta broker spec | `SFAC_RAW_ROOT/reference/broker/moneta/MT5Moneta-ECN_specification-1.xlsx` (read-only, manifest next to it, not in git) |
-| Alpaca asset names (mapping) | `SFAC_RAW_ROOT/reference/alpaca/alpaca_assets_2026-09-20.csv`, 14,354 rows, active only. **A `-IncludeInactive` run is pending** (P-28). |
+| Alpaca asset names (mapping) | `SFAC_RAW_ROOT/reference/alpaca/alpaca_assets_2026-09-20.v2.csv`, sha256 `9a0e8dad…1e94c`: 33,276 rows = 14,354 active + 18,922 inactive, no duplicate tickers (D-341). The mapping is rebuilt on it. |
 | TradingView parity references (D-348) | `raw/reference/tradingview/parity/`: BATS:SPY 1D (MR) and OANDA:XAUUSD 1H (TF), trade list + OHLC each, immutable, SHA-256 in a manifest |
 
 Data expansion is frozen until the project is built (D-030).
 
 ## 7. Open items
 
-- **P-28 — broker mapping coverage (blocks T06b, in progress).** The user is running `scripts/download_alpaca_assets.ps1 -IncludeInactive`; next is `sfac costs moneta build` + `sfac universe generate` and the user's `configs/costs/moneta/symbol_overrides.csv` for what is left (106 review rows today: 17 same ticker/no name, 13 same ticker/other wording — `AMCX` is suspicious —, 48 name-only, 27 no match, 1 unmappable `ALIBABA`). The 548/548 criterion stays open until then (D-341).
+- **P-28 — broker mapping coverage (blocks T06b).** The `-IncludeInactive` list is in and the mapping is rebuilt (472 mapped, **105 review rows**). What is left needs the user's `configs/costs/moneta/symbol_overrides.csv`: 52 name-only candidates, 23 with no match, 15 with a matching ticker but **no name anywhere in the Alpaca file** (273 research symbols are missing from it, so no lookup can close them — `AVB`, `BK`, `EA`, `WBA` …), 14 same ticker/other wording (`AMCX` suspicious; the price check refutes `FI`, ratio 54) and 1 unmappable `ALIBABA`. The price check confirms `HES`, `DFS` and `GPS`. The 548/548 criterion stays open until then (D-341).
 - **`universe_filter` must go back to `broker` (D-342, D-524)** in `configs/pipeline/mvp_daily.yaml` before the first real stage-1 run. It runs with `all` only while P-28 is open.
 - **P-04 is closed by D-348.** The TradingView exports exist; T11 runs parity mode on the exported OHLC as-is (no D-010 Sunday merge, no resampling, no Alpaca/Dukascopy bars), with the Pine settings recorded in the parity config.
 - P-01 (edge-type addendum) and P-02 (futures, blocks T04d) are in the decisions log, section G. P-03 (broker costs) is addressed by T06b.
