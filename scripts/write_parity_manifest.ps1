@@ -87,6 +87,9 @@ $manifest = [ordered]@{
     files       = $entries
 }
 $out = Join-Path $dir 'manifest.json'
-$manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $out -Encoding utf8
+# UTF-8 without a BOM: Set-Content -Encoding utf8 adds one on Windows PowerShell 5.1, and a
+# BOM in a JSON file trips strict readers. The loader tolerates one either way.
+$json = $manifest | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($out, $json + "`n", (New-Object System.Text.UTF8Encoding $false))
 Write-Host ''
 Write-Host "wrote $out ($($files.Count) file(s))"

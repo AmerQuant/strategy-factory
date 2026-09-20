@@ -121,7 +121,9 @@ def load_manifest(folder: Path) -> dict[str, dict[str, Any]]:
             config_path=path,
         )
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        # utf-8-sig: PowerShell 5.1 writes a UTF-8 BOM, and the manifest script is a
+        # PowerShell script the user runs (D-031). A BOM must not make the manifest unreadable.
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ConfigError(f"cannot read the parity manifest: {exc}", config_path=path) from exc
     files = data.get("files") if isinstance(data, dict) else None
