@@ -31,9 +31,11 @@ process was running at planning time, so the download is either finished with ga
 Ingesting this as-is produces snapshots with a two-year hole in the middle of the sample, which
 would corrupt every later split (D-008 holdout is the last 20 % of the span) and every metric.
 
-**Therefore the ingest is gated — see D-386 / P-62.** The task starts by re-checking the table above
-with `sfac data ingest`'s own gap report; if 2021/2022 are still empty, it **stops and reports**
-rather than writing 827 snapshots that will have to be superseded.
+**P-62 answered 2026-09-21: no `--allow-gaps`. T04h waits until the 1H download is complete**
+(the user is refilling the missing years 2020–2023). The task starts by re-checking the table above
+with its own coverage report; if any year inside `[history_start, today)` is still missing for any
+symbol of the universe, it **stops and reports** rather than writing snapshots that would have to be
+superseded. T04f is not blocked by this and runs as soon as the plan is approved.
 
 ## Scope
 
@@ -42,20 +44,21 @@ rather than writing 827 snapshots that will have to be superseded.
   `sfac data coverage alpaca --timeframe 1H`): for every raw symbol, the years present, the years
   missing and the manifest `row_count` per year; written to
   `SFAC_RAW_ROOT/_reports/alpaca_coverage_1H.csv` and summarized on stdout.
-- The ingest refuses to run (exit 1, clear message) when a year inside
-  `[history_start, today)` is missing for **more than a configurable share** of symbols, unless
-  `--allow-gaps` is given. Default share and flag name go in `configs/data/alpaca.yaml`, not in code
-  (non-negotiable rule 1).
-- `--allow-gaps` writes the gap summary into the snapshot `notes` of every affected symbol, so the
-  limitation travels with the data.
+- The ingest **refuses to run** (exit 1, clear message naming the symbols and years) when a year
+  inside `[history_start, today)` is missing for any symbol of the universe. There is **no
+  `--allow-gaps` escape hatch** (P-62): a gapped 1H set is not ingested at all. The current partial
+  year is expected and is not a gap.
+- The only tolerance is configurable in `configs/data/alpaca.yaml`, not in code (non-negotiable
+  rule 1): which years count as in-range, and the per-symbol listing start (a symbol that listed in
+  2019 has no 2016 file and must not trip the gate).
 
 ### 2. Ingest (existing code, run in chunks — D-385)
 ```
 uv run sfac data ingest alpaca --timeframe 1H --set-reference --symbols <chunk>
 ```
-- Symbol list = `configs/universe/us_equity_hourly.csv` **after T04f** (rename-collapsed, with
-  `pit_symbol`). Do **not** use `raw_symbols()`, which would pick up the 15 dropped old tickers
-  (`FB`, `ABC`, `ANTM`, …) whose series splice two different companies — see T04f.
+- Symbol list = `configs/universe/us_equity_hourly.csv` **after T04f** (exclusion rule D-383
+  applied, with `pit_symbol`). Do **not** use `raw_symbols()`, which would pick up the dropped old
+  tickers (`FB`, `BLL`, …) whose series splice two different companies — see T04f §3.
 - Chunks of 100 symbols, one CLI invocation per chunk, output appended to a log. The operation is
   idempotent: an identical snapshot is returned from the store, `catalog.register` is a no-op for a
   known key and `set_reference` returns early when the reference is unchanged. An interrupted chunk
@@ -99,9 +102,10 @@ and `_quality/summary.md`, and records `quality_status` in the catalog.
 
 ## Acceptance
 - The coverage report exists and is reproduced in the review.
-- Either: every symbol of the post-T04f hourly universe has a snapshot, is the reference for
-  `(symbol, 1H)`, and is listed in the catalog with `hash_version = 2`;
-  or: the task **stopped** at the coverage gate with a precise report and nothing was written.
+- The coverage gate passed (no missing year for any universe symbol), **or** the task stopped at
+  the gate with a precise report and nothing was written. `--allow-gaps` does not exist (P-62).
+- When it ran: every symbol of the post-T04f hourly universe has a snapshot, is the reference for
+  `(symbol, 1H)`, and is listed in the catalog with `hash_version = 2`.
 - The kept New-York hours are exactly 09–15, and the bars-per-session distribution matches the
   calendar (7 regular / 4 early close), with every exception listed.
 - No snapshot exists for a dropped old ticker. The exact list is the one T04f produced from the

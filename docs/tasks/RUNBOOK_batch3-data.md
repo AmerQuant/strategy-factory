@@ -2,17 +2,29 @@
 
 Execute after the user writes **"Plan approved"**, in the worktree
 `D:\AmerAndish\Projects\Trade\StrategyFactory_B` (stream B, the **only** stream that writes to
-`SFAC_DATA_ROOT`). Read `CLAUDE.md` and `docs/decisions/decisions_log.md` first; this batch's
-assumptions are **D-380 … D-387** (proposed) and its open questions are **P-60 … P-67** in
-`docs/decisions/pending.md`.
+`SFAC_DATA_ROOT`). Read `CLAUDE.md`, **`docs/streams/B.md`**, **D-355** and
+`docs/decisions/decisions_log.md` first; this batch's assumptions are **D-380 … D-388** and its
+questions are **P-60 … P-67** in `docs/decisions/pending.md` (**P-61, P-62 and P-67 are answered**;
+see each task file).
 
 One network run is needed, at the very start of T04f, and **the user runs it** (D-031). Everything
 else is local.
 
-## The order is not the order of the brief — and why
+## Stream rules that bind this batch (D-355, `docs/streams/B.md`)
+- **Database:** this worktree's `.env` points at **`sfac_b`** on the shared Postgres (port 5433).
+  `docker compose` is owned by **stream A** — never start or stop a container from here.
+- **`SFAC_DATA_ROOT`:** stream B is the only writer. `SFAC_RAW_ROOT` is read-only for both streams.
+- **`HANDOFF.md` is never edited here.** Stream B's status lives in `docs/streams/B.md`; stream A
+  folds it into `HANDOFF.md` at merges.
+- **Never edit `configs/costs/moneta/*`** (stream A's T06b). If a decision in this batch would
+  affect it, report it to stream A instead — see T04f §3 and **D-388**.
+- Benchmarks and long ingests run only when stream A is idle; the T04g run is hours long, so
+  agree the window with stream A first.
+- Every branch **rebases onto `main`** before its merge (D-401, D-402 unchanged).
 
-The brief lists (1) ingest, (2) calendar, (3) phase-B analysis. Three measured facts force a
-different order:
+## The order is not the order of the brief — and why
+**Accepted by the supervisor on 2026-09-21.** The brief lists (1) ingest, (2) calendar,
+(3) phase-B analysis. Three measured facts force a different order:
 
 1. **The 1H ingest cannot run without the calendar.** `AlpacaAdapter.sessions` raises
    `ConfigError: NYSE session calendar not found` for every symbol; `configs/calendars/nyse_sessions.csv`
@@ -30,25 +42,27 @@ So: **reference data → 1H ingest → phase-B analysis (decides D-033) → 1D i
 
 ## Preconditions (stop if one fails)
 1. The worktree is on `docs/batch3-data`, working tree clean, `.env` present with
-   `SFAC_RAW_ROOT`, `SFAC_DATA_ROOT`, `SFAC_DB_URL` and the Alpaca keys.
+   `SFAC_RAW_ROOT`, `SFAC_DATA_ROOT`, `SFAC_DB_URL` (= `sfac_b`) and the Alpaca keys.
 2. `SFAC_RAW_ROOT/us_equity/alpaca_sip_split/1D` has 6,711 symbol folders × 11 years (verified
    2026-09-20).
-3. Docker Postgres reachable on port 5433 (D-305); `uv run pytest -m db` runs with 0 skipped.
+3. Postgres reachable on port 5433 (D-305) and `sfac_b` migrated to head; `uv run pytest -m db`
+   runs with 0 skipped. Do **not** start the container yourself (stream A owns it).
 4. No other stream is running `pytest` or any `sfac` command against `SFAC_DATA_ROOT`.
 5. Free space on `D:` ≥ 5 GB (the batch needs ≈ 1 GB; 165 GB free at planning time).
+6. **T04h only:** the user has confirmed the Alpaca 1H download is complete (see step 2).
 
 ## Branching (stacked)
 | Task | Branch | Based on | Critical (D-402) |
 |---|---|---|---|
-| — | `docs/batch3-data` (this plan) | `docs/batch2b` | |
+| — | `docs/batch3-data` (this plan) | `main` (rebased 2026-09-21 onto `origin/docs/batch3-data`, which carries `docs/streams/B.md` and D-355/D-356) | |
 | T04f | `feat/T04f-alpaca-reference` | `docs/batch3-data` | no |
 | T04h | `feat/T04h-alpaca-hourly-ingest` | T04f | no |
 | T04i | `feat/T04i-phaseb-hourly` | T04h | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
 | T04g | `feat/T04g-alpaca-daily-ingest` | T04i | no |
 
-`docs/batch3-data` is based on `docs/batch2b`, not on `main`, because the decisions log on `main`
-stops at D-346 and this batch appends after D-350. If batch 2b merges first the stack rebases onto
-`main` with no conflict.
+`docs/batch3-data` sits on `main` (PR #16 merged, so D-355 and D-356 are in the log). The plan
+commit was originally drafted on `docs/batch2b` and was rebased onto `origin/docs/batch3-data` on
+2026-09-21; nothing else in the stack is affected.
 
 ## Per-task loop
 1. Read the task file and every document it cites.
@@ -84,16 +98,17 @@ downloaded against `fja05680_sp500_20260919.csv`).
 
 A TLS/certificate error **stops the batch** and is reported verbatim. No CA-bundle workaround (D-031).
 
-### Step 1 — T04f (reference data + the metadata guard)
+### Step 1 — T04f (reference data + the metadata guard) — **runs on "Plan approved"**
 Validates the calendar, reproduces the calendar-vs-`nyse_early_closes.yaml` difference report,
-deletes the YAML, collapses the 15 rename pairs in the hourly universe, and adds the
-material-metadata guard to the store (D-384).
+deletes the YAML, applies the exclusion rule (D-383) to the hourly universe, and adds the
+material-metadata guard to the store (D-384). T04f does **not** wait for the 1H download.
 
-### Step 2 — T04h (1H ingest, 827 → ~812 symbols)
-**Gate first.** The 1H raw set is incomplete (2021 and 2022 missing for all 827 symbols; 2020 for
-137; 2023 for 620; no symbol has all eleven years). The task refuses to ingest behind that gate
-unless `--allow-gaps` is given (D-386, **P-62**). Expect this step to **stop and report** if the
-download has not finished by then.
+### Step 2 — T04h (1H ingest) — **blocked until the download is complete**
+**P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
+(2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
+years) and the user is refilling the missing years 2020–2023. T04h starts only after the user
+confirms the download is complete; its first action is the coverage report, and it **stops** if any
+year inside `[history_start, today)` is still missing for any symbol of the universe.
 
 ### Step 3 — T04i (phase-B analysis, closes D-033) — **stop for "Approved"**
 Writes no snapshots. Produces the RTH-vs-exchange breach evidence, the bars-per-day table, the META
@@ -111,7 +126,6 @@ reports.
 | **Dukascopy pilot re-hash v1 → v2** (T04e §1) | The three pilot snapshots (`EURUSD`, `XAUUSD`, `USA500IDXUSD` 1H) are still `hash_version = 1` in the catalog; T04e's "re-ingest and move the reference, event note `rehash v1→v2`" never ran | folds naturally into T04j |
 | **Yahoo aux ingest** (7 series, F-0.1.4/F-0.1.11) | Raw downloaded (`DX-Y.NYB, ^DJI, ^GSPC, ^NDX, ^RUT, ^TNX, ^VIX`), never ingested; the batch brief scopes phase B to the hourly data | a short follow-up task |
 | **Registry `data_snapshots` population** | No CLI writes the catalog into PostgreSQL today; the table is filled by run writers | **P-63** |
-| **1H re-ingest after the download completes** | If T04h runs with `--allow-gaps`, the gapped snapshots must be superseded and the reference moved | D-386 |
 
 ## Dependencies
 No new third-party dependency is expected in this batch. If one becomes necessary it is listed in
@@ -119,7 +133,9 @@ the review with its reason, per `CLAUDE.md`.
 
 ## Stop conditions
 - A TLS or network error in step 0.
-- The 1H coverage gate trips and the supervisor has not answered **P-62**.
+- The 1H coverage report still shows a missing year (P-62: no `--allow-gaps`) — stop and report.
+- The exclusion rule (D-383) would drop a symbol that is a target in `configs/costs/moneta`
+  (**D-388**): keep the symbol, change nothing under `configs/costs/`, and report it to stream A.
 - D-033 cannot be decided from the evidence (for example the breaches are frequent but tiny) —
   report the numbers and ask; do **not** pick a value to keep going.
 - An acceptance command fails and the fix is outside the task's scope.
@@ -127,8 +143,10 @@ the review with its reason, per `CLAUDE.md`.
 
 ## End of batch
 1. Open the PR(s) with `gh`, body = the reviews (stacked, one per task).
-2. Update `HANDOFF.md`: the data status table (Alpaca 1D/1H **ingested**, the calendar **generated**),
-   the T04e row (phase B closed for the hourly part), and the deferred items above.
+2. Update **`docs/streams/B.md`** (never `HANDOFF.md`, D-355): the data status (Alpaca 1D/1H
+   ingested, the calendar generated), the T04e row (phase B closed for the hourly part), the
+   deferred items above, and anything to hand to stream A (D-388 reports). Stream A folds it into
+   `HANDOFF.md` at the merge.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
    merge order `docs/batch3-data` → T04f → T04h → T04i → T04g.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).

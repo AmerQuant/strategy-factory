@@ -29,9 +29,11 @@ ingest"); with 6,711 symbols a wrong label is not correctable.
 ```
 uv run sfac data ingest alpaca --timeframe 1D --set-reference --symbols <chunk>
 ```
-- Symbol list = `configs/universe/us_equity_daily.csv` (6,711 rows) **minus** the relisted-ticker
-  exclusions confirmed from the T04i candidate list. Exclusions are recorded in a committed
-  `configs/universe/us_equity_daily_excluded.csv` (`symbol, reason, evidence`), not hard-coded.
+- Symbol list = `configs/universe/us_equity_daily.csv` (6,711 rows) **minus**
+  `configs/universe/us_equity_daily_excluded.csv` (`symbol, reason, evidence`), which T04i produces
+  by applying D-383 (old name covered by the current name → excluded; ticker re-used by another
+  company → excluded for now). Exclusions live in that committed file, never hard-coded, and a
+  symbol that is a Moneta mapping target is **kept** and reported to stream A instead (D-388).
 - Chunks of 250 symbols, one invocation per chunk, appended to a log with a timestamp per chunk.
   Idempotent and re-runnable (identical content → the stored snapshot is returned, `register` is a
   no-op for a known key, `set_reference` returns early).

@@ -84,8 +84,36 @@ and only if the report shows no unexplained disagreement (otherwise: stop and as
 `configs/calendars/nyse_sessions.csv` is committed (it is a config, not data).
 
 ### 3. Symbol changes → `configs/universe/symbol_changes.csv` and the hourly universe (D-024)
-`build_symbol_changes` + `build_hourly_universe` already implement the rule; this task runs them and
-validates the outcome:
+
+**P-61 answered 2026-09-21: yes — the symbol-changes fetch is in scope and runs in the same
+PowerShell run as the calendar (the user runs it, D-031).**
+
+**Exclusion rule (answer to P-61/P-67, recorded as D-383):**
+- an **old-name** series is excluded entirely when the **current-name** series covers its history;
+- a ticker **re-used by another company** is excluded for now;
+- the two cases are decided from the Alpaca `NAME_CHANGE` feed plus the series evidence (identical
+  history under both names → rename; a level break with no known split → re-use);
+- a symbol that neither rule covers is **kept** and listed in the review.
+
+**Guard (D-388): never edit `configs/costs/moneta/*`.** If the rule would remove a symbol that is a
+**target** of the T06b mapping, keep the symbol, change nothing under `configs/costs/`, and report
+it to stream A in the review and in `docs/streams/B.md`.
+
+Checked while planning against **`main`** (T06b merged as PR #13; `configs/costs/moneta/symbol_map.csv`,
+515 rows, and `symbol_overrides.csv`, 109 rows — byte-identical to the merged branch):
+
+| Moneta research target | broker symbol | status under the rule |
+|---|---|---|
+| `COR`, `LUMN`, `META`, `RTX` | `COR`, `LUMN`, `META`, `RTX` | current names — survive |
+| `MRSH` | `MMC` | current name (D-356 successor `MMC→MRSH`) — survives |
+| `BNY` | `BK` | current name (D-356 successor `BK→BNY`) — survives |
+| `EQR` | `EQR` | **near-miss:** the row-count heuristic paired `EQR/VMRK`, but `EQR` has continuous daily bars 2016→2026 (close 58.8–81.5 in 2016, 58.0–70.2 in 2026) and **`VMRK` has no daily raw data at all**, so the current-name series does **not** cover `EQR`'s history and the rule does **not** exclude it. Confirm against the `NAME_CHANGE` feed; if the feed contradicts this, stop and report to stream A rather than excluding `EQR`. |
+
+No old name of the 15 candidate pairs is a Moneta target, so on today's evidence the rule causes no
+collision. Re-run this check after the feed arrives and put the result in the review.
+
+`build_symbol_changes` + `build_hourly_universe` already implement the mechanics; this task runs
+them and validates the outcome:
 
 - `configs/universe/symbol_changes.csv` exists with `old_symbol, new_symbol, effective_date, source`
   and contains `FB → META` with `effective_date = 2022-06-09`.
@@ -93,9 +121,18 @@ validates the outcome:
   column, and the old ticker of each confirmed rename is **no longer a row of its own**; its
   historical ticker appears in `pit_symbol` of the surviving row (pipe-separated for chains).
 - **Report the reconciliation of the 15 measured pairs** (table above): for each pair say whether the
-  Alpaca `NAME_CHANGE` feed confirms it. Pairs the feed does **not** confirm (`EQR/VMRK`,
-  `MMC/MRSH`, `BALL/BLL`, `ECHO/SATS` look like candidates) are **not** silently merged — they are
-  listed in the review and raised as an open question. A pair that is a rename but is missing from
+  Alpaca `NAME_CHANGE` feed confirms it, and which side the rule keeps. Worked evidence from the
+  daily raw, to be reproduced on the real feed:
+  - `BLL/BALL` — `BLL` files for 2025 and 2026 exist but hold **0 rows**, `BALL` continues; textbook
+    old-name case, `BLL` excluded.
+  - `FB/META` — identical 2016–2020, then `FB` 2026 at close 42.0–45.6 against `META` 526–738;
+    re-used ticker, `FB` excluded.
+  - `ECHO/SATS` — identical 2016–2025, both live in 2026 at 104–142 with different bar counts;
+    **undecided from the series alone**, the feed decides.
+  - `EQR/VMRK` — see the Moneta table above: `EQR` is continuous and `VMRK` has no daily data;
+    the rule keeps `EQR`.
+- A pair the feed does not confirm is **not** silently merged: it is listed in the review, the
+  symbol is kept, and the question goes to `pending.md`. A pair that is a rename but is missing from
   the API goes into `configs/universe/symbol_changes_manual.csv` (manual rows win) only with the
   supervisor's confirmation.
 - The raw folders of dropped tickers are **not touched** (raw is immutable, D-028); they are simply
@@ -125,7 +162,9 @@ loud instead of silent:
 - This changes no existing snapshot and adds no dependency.
 
 ## Out of scope
-- Any ingest (T04g, T04h) and any analysis (T04i).
+- Any ingest (T04g, T04h) and any analysis (T04i). **T04f does not wait for the 1H download**
+  (P-62): it runs as soon as the plan is approved.
+- Any edit under `configs/costs/` — that is stream A's T06b (D-388).
 - Re-downloading the PIT list or any price data.
 - Dukascopy and Yahoo reference data.
 
@@ -139,6 +178,9 @@ loud instead of silent:
   `META` row carries `pit_symbol = FB`.
 - `configs/calendars/nyse_early_closes.yaml` is deleted and no code path references it.
 - The calendar-vs-YAML difference report is reproduced in the review.
+- The exclusion rule (D-383) is applied, each of the 15 pairs has a stated verdict, and the
+  re-run of the Moneta-target check (D-388) is in the review. Nothing under `configs/costs/` is
+  modified by this task.
 - `uv run pytest -m "not slow"`, `uv run pytest tests/parity tests/leakage`, `ruff check`,
   `ruff format --check`, `mypy src` all pass; no network in tests.
 

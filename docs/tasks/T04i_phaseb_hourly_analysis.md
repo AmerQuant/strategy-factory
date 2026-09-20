@@ -78,10 +78,17 @@ sample and the report says so. If the hourly download is later completed (D-386)
   verdict distribution. The known-split expectations from T04e (including **AVGO 2024-07-15**) are
   checked on the 1D adapter output in memory, since the 1D snapshots do not exist yet; measured on a
   scratch run, `AAPL 2020-08-31` and `NVDA 2021-07-20`, `2024-06-10` already come back `adjusted`.
-- **Relisted-ticker hazard (new, see P-67):** list every symbol whose daily close series has a gap of
-  ≥ 200 calendar days followed by a level break beyond `split_check.jump_threshold` that no known
-  split explains. `FB` is the worked example (2020 close 146–304, 2026 close 42.0–45.6). This is the
-  candidate exclusion list for T04g; the decision on each candidate is the supervisor's.
+- **Relisted-ticker hazard (P-67, answered 2026-09-21):** list every symbol whose daily close series
+  has a gap of ≥ 200 calendar days followed by a level break beyond `split_check.jump_threshold`
+  that no known split explains. `FB` is the worked example (2020 close 146–304, 2026 close
+  42.0–45.6). The **rule** is the same as T04f §3 (D-383): an old-name series is excluded when the
+  current-name series covers its history, and a ticker re-used by another company is excluded for
+  now. Apply it and produce `configs/universe/us_equity_daily_excluded.csv` for T04g; every
+  exclusion is listed with its evidence in the review.
+- **Moneta guard (D-388):** if the rule would drop a symbol that is a **target** in
+  `configs/costs/moneta/symbol_map.csv` or `symbol_overrides.csv`, **keep the symbol**, change
+  nothing under `configs/costs/`, and report it to stream A in the review and in
+  `docs/streams/B.md`. On today's evidence the only near-miss is `EQR` (see T04f §3).
 
 ## Out of scope
 - Writing any snapshot (see §1) and any 1D ingest (T04g).
@@ -98,7 +105,8 @@ sample and the report says so. If the hourly download is later completed (D-386)
 - `configs/data/alpaca.yaml` carries the decided `daily_session` value, with the comment replaced by
   a reference to D-033 and to the review.
 - The review contains: the breach tables, the bars-per-day table, the META evidence, the split-check
-  verdict distribution with the known-split table, and the relisted-ticker candidate list.
+  verdict distribution with the known-split table, the relisted-ticker list with each verdict under
+  D-383, and the D-388 check against the Moneta targets (nothing under `configs/costs/` modified).
 - `SFAC_DATA_ROOT` contains **no new snapshot** created by this task (checked against the catalog row
   count before and after).
 - `uv run pytest -m "not slow"`, `tests/parity tests/leakage`, `ruff check`, `ruff format --check`,
