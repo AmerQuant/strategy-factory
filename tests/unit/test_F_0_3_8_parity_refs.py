@@ -1,0 +1,464 @@
+"""F-0.3.8 sections 1-3: the parity reference store, the parity config and the Pine cost arrays.
+
+Decisions: D-348 (the references, used as exported), D-343/D-347 (the required parity inputs),
+D-362 (costs from the Pine settings only), D-363 (compare over the trade list's range).
+"""
+
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import json
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pytest
+import yaml
+
+from strategy_factory.core.errors import ConfigError, DataError
+from strategy_factory.core.parity_config import (
+    PARITY_DIR,
+    ParityConfig,
+    PineSettings,
+    load_parity_config,
+)
+from strategy_factory.costs.parity import PARITY_PROFILE, commission_params, parity_cost_arrays
+from strategy_factory.data.parity_refs import (
+    MANIFEST,
+    ChartData,
+    load_chart_data,
+    load_manifest,
+    load_trade_list,
+    sha256_of,
+    verify,
+)
+
+REPO = Path(__file__).resolve().parents[2]
+T0 = dt.datetime(2024, 1, 2, 14, 30, tzinfo=dt.UTC)  # a SPY daily stamp: 09:30 New York
+
+PINE: dict[str, Any] = {
+    "atr_length": 14,
+    "initial_capital": 100_000.0,
+    "qty_type": "cash_amount",
+    "qty_value": 100_000.0,
+    "commission_type": "none",
+    "commission_value": 0.0,
+    "slippage_ticks": 0,
+    "tick_size": 0.01,
+    "pyramiding": 0,
+    "process_orders_on_close": False,
+    "calc_on_every_tick": False,
+    "bar_magnifier": False,
+    "fill_assumptions": "next bar's open",
+    "export_timezone": "Etc/UTC",
+}
+ENGINE: dict[str, Any] = {
+    "initial_capital": 100_000.0,
+    "notional": 100_000.0,
+    "disaster_stop_atr": 3.0,
+    "atr_length": 14,
+    "futures_contracts": 1,
+    "parity_qty_step": 1,
+}
+
+
+# -- fixtures --------------------------------------------------------------------------------
+def write_chart(path: Path, n: int = 6, step_s: int = 86_400) -> Path:
+    rows = []
+    for i in range(n):
+        base = 100.0 + i
+        rows.append(
+            {
+                "time": int(T0.timestamp()) + i * step_s,
+                "open": base,
+                "high": base + 1.0,
+                "low": base - 1.0,
+                "close": base + 0.5,
+            }
+        )
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["time", "open", "high", "low", "close"])
+        w.writeheader()
+        w.writerows(rows)
+    return path
+
+
+def write_trades(path: Path) -> Path:
+    rows = [
+        ["1", "Entry long", "buy", "2024-01-03 14:30", "101", "10", "", ""],
+        ["1", "Exit long", "sell", "2024-01-05 14:30", "104", "10", "30", "30"],
+        ["2", "Entry short", "sellShort", "2024-01-08 14:30", "106", "10", "", ""],
+        ["2", "Exit short", "cover", "2024-01-09 14:30", "105", "10", "10", "40"],
+        ["3", "Entry long", "buy", "2024-01-10 14:30", "107", "10", "", ""],
+    ]
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(
+            [
+                "Trade #",
+                "Type",
+                "Signal",
+                "Date/Time",
+                "Price USD",
+                "Contracts",
+                "Profit USD",
+                "Cumulative profit USD",
+            ]
+        )
+        w.writerows(rows)
+    return path
+
+
+def write_manifest(folder: Path) -> Path:
+    files = {}
+    for p in sorted(folder.glob("*.csv")):
+        rows = sum(1 for _ in p.open(encoding="utf-8")) - 1
+        files[p.name] = {"sha256": sha256_of(p), "size_bytes": p.stat().st_size, "rows": rows}
+    path = folder / MANIFEST
+    path.write_text(json.dumps({"files": files}, indent=2), encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def refs(tmp_path: Path) -> Path:
+    write_chart(tmp_path / "CHART.csv")
+    write_trades(tmp_path / "TRADES.csv")
+    write_manifest(tmp_path)
+    return tmp_path
+
+
+# -- §1 the reference store ------------------------------------------------------------------
+def test_F_0_3_8_chart_data_is_used_exactly_as_exported(refs: Path) -> None:
+    """D-348: no Sunday merge, no resampling, no shift to 00:00 UTC."""
+    chart = load_chart_data(refs / "CHART.csv")
+    assert len(chart) == 6
+    first, last = chart.range()
+    assert first == T0 and first.hour == 14 and first.minute == 30  # the NY open, untouched
+    assert last == T0 + dt.timedelta(days=5)
+    np.testing.assert_array_equal(chart.ts_us, chart.ts * 1_000_000)
+    bars = chart.bars()
+    assert set(bars) == {"ts", "open", "high", "low", "close"}
+    assert bars["open"][0] == 100.0 and bars["close"][-1] == 105.5
+    assert chart.index_of(T0 + dt.timedelta(days=2)) == 2
+    with pytest.raises(DataError, match="not a bar start"):
+        chart.index_of(T0 + dt.timedelta(hours=1))
+
+
+def test_F_0_3_8_manifest_is_verified_on_every_load(refs: Path) -> None:
+    chart = load_chart_data(refs / "CHART.csv")
+    assert chart.sha256 == sha256_of(refs / "CHART.csv")
+    entries = load_manifest(refs)
+    assert set(entries) == {"CHART.csv", "TRADES.csv"}
+    assert entries["CHART.csv"]["rows"] == 6
+    # a single changed byte is caught
+    path = refs / "CHART.csv"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace("100.0", "100.1", 1), encoding="utf-8")
+    with pytest.raises(DataError, match="does not match the manifest"):
+        load_chart_data(path)
+
+
+def test_F_0_3_8_missing_or_incomplete_manifest_is_an_error(refs: Path) -> None:
+    (refs / MANIFEST).unlink()
+    with pytest.raises(ConfigError, match="parity manifest not found"):
+        load_chart_data(refs / "CHART.csv")
+    (refs / MANIFEST).write_text(json.dumps({"files": {}}), encoding="utf-8")
+    with pytest.raises(ConfigError, match="no 'files' mapping"):
+        load_chart_data(refs / "CHART.csv")
+    (refs / MANIFEST).write_text(
+        json.dumps({"files": {"OTHER.csv": {"sha256": "x"}}}), encoding="utf-8"
+    )
+    with pytest.raises(ConfigError, match="not listed in"):
+        verify(refs / "CHART.csv")
+
+
+def test_F_0_3_8_malformed_chart_exports_are_refused(tmp_path: Path) -> None:
+    bad = tmp_path / "CHART.csv"
+    bad.write_text("time,open,high,low\n1,2,3,4\n", encoding="utf-8")
+    write_manifest(tmp_path)
+    with pytest.raises(DataError, match="missing column"):
+        load_chart_data(bad)
+    bad.write_text("time,open,high,low,close\n20,1,2,0.5,1\n10,1,2,0.5,1\n", encoding="utf-8")
+    write_manifest(tmp_path)
+    with pytest.raises(DataError, match="not strictly increasing"):
+        load_chart_data(bad)
+    bad.write_text("time,open,high,low,close\n10,1,0.5,2,1\n", encoding="utf-8")
+    write_manifest(tmp_path)
+    with pytest.raises(DataError, match="high < low"):
+        load_chart_data(bad)
+
+
+def test_F_0_3_8_trade_list_pairs_entries_with_exits(refs: Path) -> None:
+    trades = load_trade_list(refs / "TRADES.csv")
+    assert len(trades) == 5
+    pairs = trades.trades()
+    assert len(pairs) == 2  # trade 3 is still open
+    assert trades.open_trades() == [3]
+    entry, exit_ = pairs[0]
+    assert entry.direction == 1 and entry.kind == "entry" and entry.price == 101.0
+    assert exit_.when == dt.datetime(2024, 1, 5, 14, 30, tzinfo=dt.UTC)
+    assert exit_.pnl == 30.0
+    assert pairs[1][0].direction == -1  # the short
+    assert trades.net_profit() == pytest.approx(40.0)
+    covered = trades.covered_range()  # D-363: the comparison range
+    assert covered[0] == dt.datetime(2024, 1, 3, 14, 30, tzinfo=dt.UTC)
+    assert covered[1] == dt.datetime(2024, 1, 9, 14, 30, tzinfo=dt.UTC)
+
+
+def test_F_0_3_8_trade_list_timezone_is_the_export_timezone(refs: Path) -> None:
+    """D-348 records the chart's timezone; the rows are converted to UTC with it."""
+    import zoneinfo
+
+    ny = load_trade_list(refs / "TRADES.csv", zoneinfo.ZoneInfo("America/New_York"))
+    utc = load_trade_list(refs / "TRADES.csv")
+    assert ny.rows[0].when == dt.datetime(2024, 1, 3, 19, 30, tzinfo=dt.UTC)  # 14:30 NY
+    assert utc.rows[0].when == dt.datetime(2024, 1, 3, 14, 30, tzinfo=dt.UTC)
+
+
+def test_F_0_3_8_loading_never_writes_to_the_raw_store(refs: Path) -> None:
+    before = {p.name: p.stat().st_mtime_ns for p in refs.iterdir()}
+    load_chart_data(refs / "CHART.csv")
+    load_trade_list(refs / "TRADES.csv")
+    assert {p.name: p.stat().st_mtime_ns for p in refs.iterdir()} == before
+
+
+# -- the real exports ------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("name", "rows", "first", "last"),
+    [
+        ("BATS_SPY, 1D.csv", 8467, "1993-01-29T14:30:00+00:00", "2026-09-18T13:30:00+00:00"),
+        ("OANDA_XAUUSD, 60.csv", 21986, "2023-01-02T23:00:00+00:00", "2026-09-18T20:00:00+00:00"),
+    ],
+)
+def test_F_0_3_8_real_exports_load(name: str, rows: int, first: str, last: str) -> None:
+    """The two D-348 references, if the raw store is present on this machine."""
+    from strategy_factory.data.download.rawfiles import raw_root
+
+    folder = raw_root() / "reference" / "tradingview" / "parity"
+    path = folder / name
+    if not path.is_file():
+        pytest.skip(f"{name} is not in this machine's raw store")
+    if not (folder / MANIFEST).is_file():
+        pytest.skip(
+            "the parity manifest is not written yet (run scripts/write_parity_manifest.ps1)"
+        )
+    chart = load_chart_data(path)
+    assert len(chart) == rows
+    got_first, got_last = chart.range()
+    assert got_first.isoformat() == first and got_last.isoformat() == last
+
+
+# -- §2 the parity config --------------------------------------------------------------------
+def config_dict(**over: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "name": "unit",
+        "reference": {
+            "chart_data": "CHART.csv",
+            "symbol": "BATS:SPY",
+            "timeframe": "1D",
+        },
+        "pine": dict(PINE),
+        "engine": dict(ENGINE),
+    }
+    for key, value in over.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            base[key] = {**base[key], **value}
+        else:
+            base[key] = value
+    return base
+
+
+def test_F_0_3_8_parity_config_requires_every_pine_field() -> None:
+    for field in PINE:
+        incomplete = {k: v for k, v in PINE.items() if k != field}
+        with pytest.raises(ValueError, match=field):
+            ParityConfig.model_validate(config_dict(pine=None) | {"pine": incomplete})
+
+
+def test_F_0_3_8_parity_config_requires_the_parity_inputs() -> None:
+    """D-347 the quantity step, D-343 the Pine ATR length."""
+    no_step = config_dict(engine={**ENGINE, "parity_qty_step": None})
+    with pytest.raises(ValueError, match="parity_qty_step"):
+        ParityConfig.model_validate(no_step)
+    mismatch = config_dict(engine={**ENGINE, "atr_length": 20})
+    with pytest.raises(ValueError, match="must equal the Pine"):
+        ParityConfig.model_validate(mismatch)
+    capital = config_dict(engine={**ENGINE, "initial_capital": 50_000.0})
+    with pytest.raises(ValueError, match="initial_capital"):
+        ParityConfig.model_validate(capital)
+    ok = ParityConfig.model_validate(config_dict())
+    assert ok.intrabar_mode == "tradingview"
+    assert ok.min_matched_share == 0.98 and ok.max_net_profit_diff == 0.03  # D-011
+
+
+def test_F_0_3_8_parity_config_refuses_unsupported_pine_settings() -> None:
+    with pytest.raises(ValueError, match="pyramiding"):
+        ParityConfig.model_validate(config_dict(pine={**PINE, "pyramiding": 2}))
+    with pytest.raises(ValueError, match="unknown IANA time zone"):
+        ParityConfig.model_validate(config_dict(pine={**PINE, "export_timezone": "Mars/Olympus"}))
+    with pytest.raises(ValueError, match="positive value"):
+        ParityConfig.model_validate(
+            config_dict(pine={**PINE, "commission_type": "percent", "commission_value": 0.0})
+        )
+
+
+def test_F_0_3_8_parity_config_hash_covers_every_pine_value() -> None:
+    base = ParityConfig.model_validate(config_dict())
+    for field, value in (
+        ("atr_length", 21),
+        ("slippage_ticks", 2),
+        ("commission_value", 1.0),
+        ("process_orders_on_close", True),
+        ("bar_magnifier", True),
+        ("export_timezone", "America/New_York"),
+    ):
+        pine = {**PINE, field: value}
+        if field == "atr_length":
+            other = ParityConfig.model_validate(
+                config_dict(pine=pine, engine={**ENGINE, "atr_length": value})
+            )
+        elif field == "commission_value":
+            other = ParityConfig.model_validate(
+                config_dict(pine={**pine, "commission_type": "percent"})
+            )
+        else:
+            other = ParityConfig.model_validate(config_dict(pine=pine))
+        assert other.content_hash() != base.content_hash(), field
+
+
+def test_F_0_3_8_repo_parity_templates_are_valid(tmp_path: Path) -> None:
+    files = sorted((REPO / PARITY_DIR).glob("*.yaml"))
+    assert {p.name for p in files} == {"spy_mr_1d.yaml", "xauusd_tf_1h.yaml"}
+    steps = {}
+    for path in files:
+        cfg = load_parity_config(path)
+        assert cfg.strategy is None  # filled once the Pine sources arrive (D-361)
+        assert cfg.engine.atr_length == cfg.pine.atr_length
+        steps[cfg.reference.symbol] = cfg.engine.parity_qty_step
+    assert steps == {"BATS:SPY": 1.0, "OANDA:XAUUSD": 0.01}  # D-347
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(yaml.safe_dump({"name": "x"}), encoding="utf-8")
+    with pytest.raises(ConfigError, match="invalid parity config"):
+        load_parity_config(bad)
+    with pytest.raises(ConfigError, match="not found"):
+        load_parity_config(tmp_path / "missing.yaml")
+
+
+# -- §3 costs from the Pine settings (D-362) -------------------------------------------------
+def test_F_0_3_8_d362_commission_params_per_pine_type() -> None:
+    def params(**over: Any) -> tuple[int, float, float, float]:
+        return commission_params(PineSettings.model_validate({**PINE, **over}))
+
+    assert params() == (0, 0.0, 0.0, 0.0)
+    assert params(commission_type="percent", commission_value=0.075) == (1, 0.00075, 0.0, 0.0)
+    per_contract = params(commission_type="per_contract", commission_value=0.005)
+    assert per_contract[:2] == (2, 0.005) and per_contract[3] == np.inf  # no min, no max
+    assert params(commission_type="per_order", commission_value=4.5) == (4, 4.5, 0.0, 0.0)
+
+
+def test_F_0_3_8_d362_cost_arrays_have_no_spread_and_no_swap() -> None:
+    pine = PineSettings.model_validate({**PINE, "slippage_ticks": 3, "tick_size": 0.01})
+    costs = parity_cost_arrays(pine, 5)
+    assert costs.profile_name == PARITY_PROFILE and not costs.placeholder
+    np.testing.assert_array_equal(costs.half_spread, np.zeros(5))  # TradingView: no spread
+    np.testing.assert_array_equal(costs.swap_long_per_notional_day, np.zeros(5))
+    np.testing.assert_array_equal(costs.swap_short_per_notional_day, np.zeros(5))
+    assert not costs.rollover_mask.any() and not costs.triple_mask.any()
+    np.testing.assert_allclose(costs.slippage_fixed, np.full(5, 0.03))  # 3 ticks x 0.01
+    assert costs.slippage_atr_frac == 0.0
+    assert costs.stress == 1.0 and costs.quote_ccy == "USD"
+    assert not costs.volume_step_assumed  # parity uses no broker step at all (D-347)
+    with pytest.raises(ConfigError, match="at least one bar"):
+        parity_cost_arrays(pine, 0)
+
+
+def test_F_0_3_8_d362_costs_never_come_from_a_moneta_profile() -> None:
+    """The parity arrays are built from `pine` alone: no profile is read."""
+    import strategy_factory.costs.parity as parity_module
+
+    source = Path(parity_module.__file__).read_text(encoding="utf-8")
+    for forbidden in ("resolve_profile", "load_profiles", "load_assignments", "moneta"):
+        assert forbidden not in source, forbidden
+
+
+def test_F_0_3_8_d362_commission_matches_the_kernel() -> None:
+    """The parity commission params go through the same kernel as every other run."""
+    from strategy_factory.engine.commission import commission_kernel
+
+    pine = PineSettings.model_validate(
+        {**PINE, "commission_type": "percent", "commission_value": 0.075}
+    )
+    code, p0, p1, p2 = commission_params(pine)
+    assert commission_kernel(code, p0, p1, p2, 10.0, 200.0) == pytest.approx(0.00075 * 10 * 200)
+    per_order = commission_params(
+        PineSettings.model_validate(
+            {**PINE, "commission_type": "per_order", "commission_value": 4.5}
+        )
+    )
+    assert commission_kernel(*per_order, 10.0, 200.0) == pytest.approx(4.5)
+
+
+def test_F_0_3_8_chart_data_feeds_run_backtest_unchanged(refs: Path) -> None:
+    """The bars mapping is what `run_backtest` takes, with the exported stamps."""
+    chart: ChartData = load_chart_data(refs / "CHART.csv")
+    bars = chart.bars()
+    assert bars["ts"].dtype == np.int64
+    assert bars["ts"][0] == int(T0.timestamp()) * 1_000_000
+    costs = parity_cost_arrays(PineSettings.model_validate(PINE), len(chart))
+    assert costs.half_spread.shape == (len(chart),)
+
+
+# -- section 6 scaffolding: the report and the D-011 verdict ---------------------------------
+def test_F_0_3_8_d364_net_profit_difference_is_reported_both_ways() -> None:
+    from strategy_factory.selftest.parity_report import NetProfitDiff
+
+    diff = NetProfitDiff(engine=10_400.0, tradingview=10_000.0, initial_capital=100_000.0)
+    assert diff.absolute == pytest.approx(400.0)
+    assert diff.relative_to_tv == pytest.approx(0.04)
+    assert diff.relative_to_capital == pytest.approx(0.004)
+    assert not diff.tv_profit_is_small
+    text = "\n".join(diff.lines())
+    assert "relative to |TV|" in text and "relative to capital" in text and "FLAG" not in text
+
+
+def test_F_0_3_8_d364_a_small_tv_profit_is_flagged_not_decided() -> None:
+    from strategy_factory.selftest.parity_report import NetProfitDiff
+
+    tiny = NetProfitDiff(engine=300.0, tradingview=100.0, initial_capital=100_000.0)
+    assert tiny.tv_profit_is_small  # 100 is 0.1 % of capital
+    assert tiny.relative_to_tv == pytest.approx(2.0)  # 200 % -- meaningless on its own
+    assert tiny.relative_to_capital == pytest.approx(0.002)
+    assert any("FLAG" in line for line in tiny.lines())
+    zero = NetProfitDiff(engine=50.0, tradingview=0.0, initial_capital=100_000.0)
+    assert zero.relative_to_tv is None and zero.tv_profit_is_small
+    assert "n/a" in "\n".join(zero.lines())
+
+
+def test_F_0_3_8_d011_verdict_uses_the_config_thresholds() -> None:
+    from strategy_factory.selftest.parity_report import verdict
+
+    cfg = ParityConfig.model_validate(config_dict())
+    good = verdict(cfg, matched_share=0.99, engine_net=10_200.0, tv_net=10_000.0)
+    assert good.trades_ok and good.profit_ok and good.passed
+    few = verdict(cfg, matched_share=0.97, engine_net=10_200.0, tv_net=10_000.0)
+    assert not few.trades_ok and not few.passed
+    far = verdict(cfg, matched_share=0.99, engine_net=11_000.0, tv_net=10_000.0)
+    assert far.trades_ok and not far.profit_ok  # 10 % > 3 %
+    assert "FAIL" in "\n".join(far.lines())
+    # a small TV profit is judged on the capital figure instead (D-364)
+    tiny = verdict(cfg, matched_share=0.99, engine_net=300.0, tv_net=100.0)
+    assert tiny.profit_ok and tiny.passed  # 0.2 % of capital, although 200 % of |TV|
+    looser = ParityConfig.model_validate(config_dict(min_matched_share=0.9))
+    assert verdict(looser, 0.95, 10_200.0, 10_000.0).trades_ok
+
+
+def test_F_0_3_8_reference_summary_names_the_missing_inputs() -> None:
+    from strategy_factory.selftest.parity_report import reference_summary
+
+    cfg = ParityConfig.model_validate(config_dict())
+    text = "\n".join(reference_summary(cfg, 8467, "1993-01-29", "2026-09-18"))
+    assert "BATS:SPY 1D" in text and "8,467" in text
+    assert "NOT AVAILABLE YET (D-360)" in text  # no trade list
+    assert "NOT MAPPED YET (D-361)" in text  # no strategy
+    assert "atr_length 14" in text and "pine block only (D-362)" in text

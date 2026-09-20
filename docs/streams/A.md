@@ -44,17 +44,29 @@ Next free here: **D-360**, **P-40**.
 ## Status (2026-09-21)
 
 **Batch 2b is closed.** All six PRs are on `main`: #11, #12, #16 (docs) and #13 (T06b),
-#14 (T08), #15 (T10b). `main` at `f3deae4`: ruff ✅, format ✅, mypy ✅ 96 files,
-`pytest -m "not slow"` **1153 passed**, parity + leakage + oracle **283**, `-m db -rs`
-**21, 0 skipped**.
+#14 (T08), #15 (T10b); `HANDOFF.md` v6 followed as #17.
 
 | item | state |
 |---|---|
-| T06b | ✅ merged (#13) — P-28 closed by D-356, 548/548 mapped or unmappable |
-| T08 | ✅ merged (#14) |
-| T10b | ✅ merged (#15) |
-| D-355/D-356 | ✅ merged (#16) |
-| **T11 parity** | **next** — Phase 1 (plan) on `docs/batch3-parity` |
+| batch 2b | ✅ merged (#13, #14, #15, #16, #17) |
+| D-357 stream protocol + CI guards | PR [#18](https://github.com/AmerQuant/strategy-factory/pull/18) — ⚠️ the `.github/workflows/ci.yml` commit is **local only**: this session's credential has no GitHub `workflow` scope. `gh auth refresh -h github.com -s workflow` unblocks it. |
+| **T11 parity** | §1, §2, §3 and the §6 scaffolding are **built** on `a/T11-parity`; **§4 (the comparison and the D-011 gate) is the only part left** and waits for the TradingView trade lists (D-360). |
+
+### T11: what is built and what is waiting
+
+| section | state |
+|---|---|
+| §1 reference store (`data/parity_refs.py`) | done — chart-data and trade-list readers, manifest verified on every load, bars used exactly as exported |
+| §2 parity config (`core/parity_config.py`, `configs/parity/`) | done — every D-348 Pine setting required; templates for both references |
+| §3 parity costs (`costs/parity.py`) | done — built from the `pine` block alone (D-362) |
+| manifest script (`scripts/write_parity_manifest.ps1`) | done — the user runs it once the exports are there (D-360, D-031) |
+| §6 report scaffolding (`selftest/parity_report.py`) | done — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
+| **§4 comparison + gate** | **waiting on the trade lists** (D-360). The gate test is added *with* them, so `main` never carries a permanently failing test; T11 does not merge until it passes. |
+| §3 strategy mapping | waiting on the Pine sources (D-361) |
+
+### Owed to stream B
+
+- `sfac universe generate` after each stream-B merge (D-394); nothing listed yet.
 
 ### Owed to stream B
 
