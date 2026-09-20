@@ -3,8 +3,11 @@
 history_start: 2016-01-01
 feed: sip            # decision: SIP for daily and hourly
 adjustment: split    # decision: split-adjusted only (TradingView-like)
-daily_session: exchange   # 1D session label; decided in T04e phase B (RTH if the daily
-                          # range always stays within the RTH hourly bars)
+daily_session: exchange   # 1D session label. Decided in T04i and accepted as D-395: the daily
+                          # range lies outside the RTH hourly range on 15,559 of 1,617,247
+                          # session days (0.96 %), so "RTH" is wrong. See
+                          # docs/reviews/T04i_review.md; the unsupported extremes themselves are
+                          # handled by T04k (D-396), not by this label.
 
 rate_limit:
   requests_per_minute: 180   # hard budget: never more requests in any 60 s window

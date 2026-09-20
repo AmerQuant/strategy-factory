@@ -1,4 +1,4 @@
-# RUNBOOK — Batch 3-data (T04f → T04i → T04g → T04h)
+# RUNBOOK — Batch 3-data (T04f → T04i → T04g → T04k → T04h)
 
 Execute after the user writes **"Plan approved"**, in the worktree
 `D:\AmerAndish\Projects\Trade\StrategyFactory_B` (stream B, the **only** stream that writes to
@@ -73,6 +73,7 @@ conclusion **must not depend on the missing years**.
 | T04f | `b/T04f-alpaca-reference` | `docs/batch3-data` | no |
 | T04i | `b/T04i-phaseb-hourly` | T04f | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
 | T04g | `b/T04g-alpaca-daily-ingest` | T04i | no |
+| T04k | `b/T04k-clean-daily` | T04g | no — but it **must be merged before T12** (D-396) |
 | T04h | `b/T04h-alpaca-hourly-ingest` | T04g | no — but blocked until the 1H download is complete (D-386) |
 
 `docs/batch3-data` sits on `main` (PR #16 merged, so D-355 and D-356 are in the log). The plan
@@ -127,7 +128,13 @@ evidence, the split-check verdicts and the relisted-ticker candidate list; sets 
 Runs with the decided `daily_session`, in chunks of 250, plus the split check and the quality
 reports.
 
-### Step 4 — T04h (1H ingest) — **blocked until the download is complete**
+### Step 4 — T04k (clean daily snapshot, D-396)
+Adds `daily_extreme_unsupported` and `daily_wick_outlier` to the quality checks and builds the
+**derived, versioned** clean daily snapshot that becomes the research reference. T04g ingests the
+raw as-is; T04k corrects it without editing raw and without overwriting a snapshot.
+**It must be merged before the first real stage-1 run (T12).**
+
+### Step 5 — T04h (1H ingest) — **blocked until the download is complete**
 **P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
 (2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
 years) and the user is refilling the missing years 2020–2023. T04h starts only after the user
@@ -141,7 +148,8 @@ the six rename destinations that have no hourly raw at all (**P-70**).
 | **T04j — Dukascopy h1 full ingest** (29 instruments from 2010, bid+ask → mid+spread) | The download is still running: only 7 of 29 instruments have raw h1 (`EURJPY, EURUSD, GBPUSD, NZDUSD, USA500IDXUSD, USDJPY, XAUUSD`), and the catalog still holds only the three **Q1-2024 pilot** snapshots | the user reports the Dukascopy download finished |
 | **Dukascopy pilot re-hash v1 → v2** (T04e §1) | The three pilot snapshots (`EURUSD`, `XAUUSD`, `USA500IDXUSD` 1H) are still `hash_version = 1` in the catalog; T04e's "re-ingest and move the reference, event note `rehash v1→v2`" never ran | folds naturally into T04j |
 | **Yahoo aux ingest** (7 series, F-0.1.4/F-0.1.11) | Raw downloaded (`DX-Y.NYB, ^DJI, ^GSPC, ^NDX, ^RUT, ^TNX, ^VIX`), never ingested; the batch brief scopes phase B to the hourly data | a short follow-up task |
-| **Registry `data_snapshots` population** | No CLI writes the catalog into PostgreSQL today; the table is filled by run writers | **P-63** |
+| **Registry `data_snapshots` population** | No CLI writes the catalog into PostgreSQL today; the table is filled by run writers | **D-390**: left to the first pipeline run |
+| **AVGO re-download** (D-397) | Its 10:1 split of 2024-07-15 is not applied in either timeframe; `--refresh` now exists and the exact command is in `docs/reviews/T04i_review.md` | the user's PowerShell run |
 
 ## Dependencies
 No new third-party dependency is expected in this batch. If one becomes necessary it is listed in
@@ -167,5 +175,5 @@ the review with its reason, per `CLAUDE.md`.
    from `configs/universe/`, so stream A can regenerate `configs/universe.yaml` — D-394) plus any
    D-388 reports. Stream A folds it into `HANDOFF.md` at the merge.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
-   merge order `docs/batch3-data` → T04f → T04i → T04g → T04h.
+   merge order `docs/batch3-data` → T04f → T04i → T04g → T04k → T04h.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).

@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/T04i_phaseb_hourly_analysis.md` · **Branch:** `b/T04i-phaseb-hourly` from `main` (T04f merged, PR #19)
 **Features:** F-0.1.2 (adapter session filter and metadata), F-0.1.6 (quality evidence), F-0.1.9 groundwork (split-adjustment control)
 **Decisions used:** D-010, D-021, D-022, D-023, D-025, D-033, D-355, D-358, D-382, D-383, D-386, D-388, D-394
-**Supervisor instruction (2026-09-21):** do **not** record D-033 yet; classify every breach day, read the broker's trading hours, and raise a P- question. This review does that.
+**Supervisor answers folded in (2026-09-21):** **D-395** (D-033 accepted, `exchange`), **D-396** (P-71: quality checks + a derived clean snapshot, planned as **T04k**), **D-397** (P-72: an unadjusted split fails that symbol; `--refresh`).
 
 ## 1. What was built
 
@@ -14,6 +14,12 @@
 | `docs/reviews/T04i_breach_days.csv` | one row per breach day: symbol, date, class, both breaches in bps, and the prices behind them |
 | `docs/reviews/T04i_symbol_coverage.csv` | per symbol: hourly years covered, days compared, counts per class |
 | `tests/unit/test_F_0_1_2_daily_session.py` | 11 tests |
+| `src/strategy_factory/data/relisting.py` | re-used-ticker detection: `trading_gap` and `stale_run` |
+| `scripts/analysis/T04i_relisted_tickers.py` | the sweep over all 6,711 daily symbols |
+| `docs/reviews/T04i_relisted_candidates.csv` | 379 candidates over 329 symbols, worst level break first |
+| `tests/unit/test_F_0_1_2_relisting.py` | 7 tests |
+| `sfac data download alpaca --refresh` | re-fetch named symbol-years into a **new version file** (D-397) |
+| `docs/tasks/T04k_clean_daily_snapshot.md` | the task D-396 asks for |
 
 `SFAC_DATA_ROOT` is untouched: the catalog still holds only the three Dukascopy pilot rows.
 
@@ -139,11 +145,72 @@ right fix is, which is why P-71 keeps them apart.
   first close 102.22. Alpaca does serve Meta's pre-rename history under `META`, which is what T04f
   relied on.
 - **Split check:** 10 of 11 known splits `adjusted`; AVGO is §4.
-- **Relisted tickers:** not produced in this run. The breach sweep covers only the 826 symbols that
-  have hourly data; the daily exclusion list must cover all 6,711 and is a different query (trading
-  gap plus level break). It is the remaining piece of T04i and is listed in §8.
+- **Relisted tickers:** see §6a.
 
-## 7. D-033 — the evidence, not yet the decision
+## 6a. Re-used tickers — the candidate list for T04g (D-383)
+
+Swept all **6,711** daily symbols. **379 candidates over 329 symbols** (4.9 %), in
+`docs/reviews/T04i_relisted_candidates.csv`. The planning assumption — "a trading gap followed by a
+level break" — found only part of it:
+
+| fingerprint | rows | symbols |
+|---|---|---|
+| `stale_run` | 296 | 267 |
+| `trading_gap` | 83 | 83 |
+
+**The gap test alone would have missed `PX` and `FI`, the two symbols T04f flagged**, because they
+have **no gap at all**: the feed pads the dead stretch with the last price. `PX` is
+Praxair 2016–2018 at 96–169, then **749 consecutive bars at exactly 164.50**, then RPC Inc. from
+late 2021 at 12–15, identical to `RPC` day for day. `FI` has 315 frozen bars. That is the more
+dangerous shape of the two: a gap is visibly missing data, a frozen price is silently tradeable and
+every indicator over it is meaningless.
+
+Worst cases, all the same story — a delisted shell frozen at pennies, then the ticker re-used:
+
+| symbol | reason | frozen bars | close before | close after |
+|---|---|---|---|---|
+| `LINE` | `stale_run` | **2,056** | 0.155 | 80.78 |
+| `BIOA` | `stale_run` | 1,668 | 0.172 | 18.31 |
+| `SN` | `stale_run` | 1,119 | 0.375 | 42.31 |
+| `RELY` | `stale_run` | 780 | 0.509 | 48.45 |
+| `PX` | `stale_run` | 749 | 165.49 | 12.08 |
+| `AKTS` | `trading_gap` | — | 0.037 | 22.40 |
+| `FB` | `trading_gap` | — | 196.64 | 39.91 |
+
+Per D-383 this is a **candidate list, not an exclusion list**: the supervisor confirms rows into
+`configs/universe/us_equity_daily_excluded.csv`, which T04g reads. Nothing in `configs/universe/`
+was changed by this task.
+
+## 6b. Every known split that is unadjusted (D-397)
+
+Re-ran the known-split check over both timeframes, all 11 splits in
+`configs/data/known_splits.csv` (9 symbols: AAPL, AMZN, AVGO, CMG, GOOGL, NVDA, SMCI, TSLA, WMT):
+
+| timeframe | adjusted | unadjusted | no data on the split date |
+|---|---|---|---|
+| 1D | 10 | **1** (`AVGO` 2024-07-15) | 0 |
+| 1H | 8 | **1** (`AVGO` 2024-07-15) | 2 (`GOOGL` 2022-07-18, `TSLA` 2022-08-25 — 2022 hourly is missing) |
+
+**AVGO is the only genuinely unadjusted split, and it is unadjusted in both timeframes.** The two
+`no_data_on_split_date` rows are the download gap, not a defect; they resolve with T04h.
+
+The unadjusted stretch is **2016 through 2024-07-12** — yearly close ranges run 116 → 1,829 and
+then drop to 136–481 from 2024-07-15 on — so the refresh must cover every year up to and including
+2024, in both timeframes:
+
+```
+uv run sfac data download alpaca --timeframe 1D --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+uv run sfac data download alpaca --timeframe 1H --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+```
+
+`--refresh` (D-397) re-fetches those symbol-years although their chunks are complete and writes a
+**new version file** beside each old one (`2024.v2.parquet`, manifest `refresh: true`); nothing is
+overwritten (D-028) and the adapter picks the newest version. It **requires** an explicit
+`--symbols` list, so a refresh cannot silently redownload the whole universe. If the second
+download shows the same break it is an Alpaca defect and AVGO goes on the exclusion list with this
+evidence.
+
+## 7. D-033 — accepted as D-395
 
 The rule was fixed in the task before the numbers were seen: `RTH` only if the daily range is inside
 the RTH hourly range on **every** compared day. It is not — 15,559 days breach, 0.96 % — so the
@@ -153,22 +220,33 @@ evidence says the label stays **`exchange`**.
 breach days, never remove the ones already observed. For `RTH` to become correct, every one of the
 15,559 would have to be wrong, which is refuted by the worked examples in §3.
 
-**Per the supervisor's instruction, D-033 is not recorded here.** `configs/data/alpaca.yaml` still
-says `daily_session: exchange`, which is the value the evidence supports; it should be confirmed
-together with the answer to **P-71**, because the label alone does not address what the breaches do
-to stops.
+Recorded as **D-395**: `daily_session` stays **`exchange`**, and `configs/data/alpaca.yaml` already
+carries that value, so no config change was needed. The stale "decided in T04e phase B" comment is
+replaced by a reference to D-395.
 
-## 8. Not done yet in T04i
+The label alone does not address what the breaches do to stops — that is **D-396**, implemented in
+**T04k** (§8).
 
-- the relisted-ticker exclusion list for T04g (`configs/universe/us_equity_daily_excluded.csv`),
-  including `PX` and `FI` from T04f §9;
-- re-running the sweep once the hourly download completes, which will move the 2,178
+## 8. What D-396 turns into: T04k
+
+`docs/tasks/T04k_clean_daily_snapshot.md`, placed in the runbook **after T04g and before T12**:
+the two quality checks (`daily_extreme_unsupported` where hourly data exists,
+`daily_wick_outlier` for every symbol, both thresholds in config), and the derived **clean** daily
+snapshot — `derived_from` set, every changed bar logged with its old and new value, never an
+overwrite — which becomes the research reference. T04g ingests the raw as-is.
+
+## 8a. Left for later
+
+- the supervisor's confirmation of the 379 relisting candidates into
+  `configs/universe/us_equity_daily_excluded.csv` (T04g reads it);
+- the AVGO refresh (the command is in §6b; a network run, so the user's);
+- re-running the breach sweep once the hourly download completes, which will move the 2,178
   `incomplete_hourly_day` rows into a real class.
 
 ## 9. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                  1187 passed
+uv run pytest -m "not slow"                  1196 passed
 uv run pytest tests/parity tests/leakage     280 passed
 uv run pytest -m db                          21 passed, 0 skipped
 uv run ruff check . / format --check .       clean
@@ -176,6 +254,7 @@ uv run mypy src                              no issues in 99 source files
 uv run sfac streams check                    ownership, ids, alembic head: ok
 ```
 
+Tests added by T04i: **18** (11 breach detection, 7 re-used tickers) plus 2 for `--refresh`.
 No new dependency. Nothing written to `SFAC_DATA_ROOT`; nothing under `configs/costs/` or
 `configs/universe.yaml` changed.
 

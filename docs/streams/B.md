@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
 
-Next free here: **D-395**, **P-73**.
+Next free here: **D-398**, **P-73**.
 
 ## Rules that bind this stream (D-355)
 
@@ -63,7 +63,8 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 | NYSE calendar (D-025) | not started; the T04e fetch was never run, so `configs/calendars/nyse_sessions.csv`, `configs/universe/symbol_changes.csv` and the raw calendar/corporate-action files are all missing. T04f §1 is the user's PowerShell run |
 | T04e phase-B pilot | not started; scoped to the hourly data in **T04i**, which closes **D-033** |
 | snapshot store | untouched: 3 Dukascopy Q1-2024 pilot snapshots, all still `hash_version = 1` (the T04e v1→v2 re-hash never ran) |
-| T04i | analysis **done**, review written, **stopped for "Approved"**. D-033 deliberately **not** recorded (supervisor, 2026-09-21): the evidence says `exchange`, but the breaches need P-71 first. Two findings: 2,860 daily bars have an extreme the hourly feed does not support (worst: `SPY` low 69.005 vs a 695.41 close), and **AVGO's 10:1 split of 2024-07-15 is not applied** (P-72). Remaining: the relisted-ticker exclusion list for T04g |
+| T04i | **complete**, stopped for "Approved". **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`). Findings: 15,559 unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; **379 re-used-ticker candidates over 329 symbols**, 296 of them frozen-price stretches a gap test cannot see. Review: `docs/reviews/T04i_review.md` |
+| T04k | planned (`docs/tasks/T04k_clean_daily_snapshot.md`), after T04g and **before T12** (D-396) |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
@@ -101,6 +102,18 @@ The daily universe is unchanged at 6,711 rows.
 
 `EQR` and `IR` are Moneta targets kept under D-388; `FISV` (broker `FI`, D-356) stays because the
 chain `FISV→FI→FISV` resolves back to it.
+
+## For the user — one network run, before T04g
+
+**AVGO's 10:1 split of 2024-07-15 is not applied** in either timeframe (unadjusted from 2016 to
+2024-07-12; see `docs/reviews/T04i_review.md` §4 and §6b). Run, from this worktree:
+
+```
+uv run sfac data download alpaca --timeframe 1D --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+uv run sfac data download alpaca --timeframe 1H --symbols AVGO --start 2016-01-01 --end 2024-12-31 --refresh
+```
+
+`--refresh` (D-397) writes a new version file beside each old one; nothing is overwritten.
 
 ## For stream A
 
