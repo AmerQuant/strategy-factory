@@ -10,6 +10,12 @@ Layout under ``SFAC_DATA_ROOT``::
 * Writes are atomic (temporary file + rename) and both files are set read-only afterwards.
   An existing snapshot is never overwritten or modified; writing the same content again
   returns the stored metadata.
+* The hash covers **content only**, so the same bars written with different metadata would
+  silently keep the first metadata. :data:`MATERIAL_FIELDS` -- the fields that say *what series
+  this is* -- are therefore compared on every repeat write and any difference raises
+  (**D-384**, **D-392**); there is no in-place metadata correction, because snapshots are
+  immutable. ``notes``, ``raw_refs``, ``downloaded_at``, ``created_at`` and ``derived_from``
+  describe the run, not the series, and never raise.
 * Symbols are made filesystem-safe for the path only (see :func:`safe_component`); the
   metadata keeps the real symbol.
 """
@@ -31,6 +37,20 @@ from strategy_factory.data.hashing import content_hash, normalize
 from strategy_factory.data.schema import SeriesMetadata, critical_issues, validate_bars
 
 DATA_ROOT_ENV = "SFAC_DATA_ROOT"
+#: Metadata that identifies the series itself; a repeat write may not change any of it (D-384).
+MATERIAL_FIELDS = (
+    "source",
+    "source_symbol",
+    "asset_class",
+    "price_type",
+    "adjustment",
+    "session",
+    "feed",
+    "volume_quality",
+    "original_tz",
+    "bar_label",
+    "hash_version",
+)
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"{p}{i}" for p in ("COM", "LPT") for i in range(1, 10)}
 
@@ -104,7 +124,9 @@ class SnapshotStore:
                     stage="store",
                     symbol=meta.symbol,
                 )
-            return self.read_metadata(meta.source, meta.symbol, meta.timeframe, digest)
+            stored_meta = self.read_metadata(meta.source, meta.symbol, meta.timeframe, digest)
+            _check_material(stored_meta, meta, pq_path)
+            return stored_meta
 
         stored = meta.model_copy(
             update={
@@ -178,6 +200,26 @@ class SnapshotStore:
         return self.scan_snapshot(
             source, symbol, timeframe, snapshot_hash, columns, start, end
         ).collect()
+
+
+def _check_material(stored: SeriesMetadata, incoming: SeriesMetadata, path: Path) -> None:
+    """Raise when a repeat write changes what the series *is* (D-384, D-392)."""
+    changed = [
+        (f, getattr(stored, f), getattr(incoming, f))
+        for f in MATERIAL_FIELDS
+        if getattr(stored, f) != getattr(incoming, f)
+    ]
+    if not changed:
+        return
+    detail = "; ".join(f"{f}: stored {old!r}, incoming {new!r}" for f, old, new in changed)
+    raise DataError(
+        f"snapshot {path.stem[:12]} at {path} already exists with different metadata "
+        f"({detail}). "
+        "Snapshots are immutable and the hash covers content only, so metadata cannot be "
+        "corrected in place; fix the config before the first ingest (D-384).",
+        stage="store",
+        symbol=incoming.symbol,
+    )
 
 
 def write_snapshot(df: pl.DataFrame, meta: SeriesMetadata) -> SeriesMetadata:

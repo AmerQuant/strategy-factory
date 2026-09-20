@@ -94,16 +94,6 @@ class AlpacaConfig(_Frozen):
         return value
 
 
-class EarlyCloses(_Frozen):
-    close_time: str = "13:00"
-    dates: tuple[dt.date, ...] = ()
-
-    @field_validator("close_time")
-    @classmethod
-    def _time(cls, value: str) -> str:
-        return _hhmm(value)
-
-
 class KnownSplit(_Frozen):
     symbol: str
     date: dt.date
@@ -132,15 +122,6 @@ def load_alpaca_config(path: Path | None = None) -> AlpacaConfig:
         return AlpacaConfig.model_validate(_read_yaml(target))
     except ValidationError as exc:
         raise ConfigError(f"invalid Alpaca config: {exc}", config_path=target) from exc
-
-
-def load_early_closes(path: Path) -> EarlyCloses:
-    if not path.is_file():
-        raise ConfigError("early-close calendar not found", config_path=path)
-    try:
-        return EarlyCloses.model_validate(_read_yaml(path))
-    except ValidationError as exc:
-        raise ConfigError(f"invalid early-close calendar: {exc}", config_path=path) from exc
 
 
 def load_known_splits(path: Path) -> list[KnownSplit]:
