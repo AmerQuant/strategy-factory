@@ -275,3 +275,115 @@ Two findings, both for the user's override work:
 | `pytest -m "not slow"` | ✅ **805 passed** |
 | `pytest tests/parity tests/leakage` | ✅ 106 passed |
 | `pytest -m db -rs` | ✅ 15 passed, **0 skipped** |
+
+---
+
+## Addendum 3 (2026-09-21): P-28 closed — the supervisor classification (D-356)
+
+`configs/costs/moneta/symbol_overrides.csv` now carries **109 rows**: the 4 pre-existing D-524
+maps plus the supervisor's classification of all **105** review rows (47 targets, 62
+`UNMAPPABLE`). **The F-0.9.1 coverage criterion is met for real: 548/548, with no row left
+waiting for a decision.**
+
+| | before P-28 | after |
+|---|---|---|
+| mapped (`symbol_map.csv`) | 472 (29 manual, 4 override, 439 ticker+name) | **515** (29 manual, **47 override**, 439 ticker+name) |
+| review CSV | 105 rows, 104 `pending_review` + 1 unmappable | **62 rows, all `unmappable`** |
+| **broker US shares + ETFs (548)** | 443 mapped, 105 open | **486 mapped + 62 unmappable = 548** |
+| profiles | 478 | **521** (1 proxy + 515 broker + 5 T06 placeholders) |
+| broker universe | 472 | **515** (us_equity 486, fx 15, index_cfd 10, metal 2, energy_cfd 2) |
+| `sfac costs validate` | 6742 assigned, 478 profiles | **6742 assigned, 521 profiles (6 placeholder)** |
+| proxy users (`us_share_cfd_proxy`, D-324) | 6270 | **6227** |
+
+`configs/pipeline/mvp_daily.yaml` is back on `universe_filter: broker` (**D-342 satisfied**):
+SPY, QQQ and AAPL are broker symbols with Moneta profiles.
+
+### Verification before writing (v1–v3) and every exception
+
+**v1 — every override target exists in `configs/universe.yaml`.** All 35 group-A targets passed.
+The only targets that failed a universe check are the three in v3 below; nothing was written
+blind.
+
+**v3 group B — successor check.** The rule: map to the same ticker unless the Alpaca v2 file
+shows the same company continuing under a new ticker after the research series ends, and that
+ticker is in the research universe. Renamed tickers are downloaded under the **current** symbol
+(D-024), so a successor is recognisable by an **identical backfilled series**:
+
+| broker | research series | successor | evidence | decision |
+|---|---|---|---|---|
+| `BK` | `BK` 2016-01-04 … **2026-05-20**, first 39.97, last 137.16 | `BNY` "Bank of New York Mellon Corporation", active, in the universe | `BNY` 2016-01-04 … 2026-09-18, **first 39.97 — the same series**, last 153.79 | → **BNY** |
+| `MMC` | `MMC` 2016-01-04 … **2026-01-13**, first 54.32, last 182.70 | `MRSH` "Marsh", active, in the universe | `MRSH` 2016-01-04 … 2026-09-18, **first 54.32 — the same series**, last 175.01 | → **MRSH** |
+| `CTRA` | `CTRA` 2018-11-09 … 2026-05-06, last 32.56 | none — no "Coterra" entry anywhere in the Alpaca file | — | → **CTRA** (same ticker, the rule's default) |
+
+**v3 group C — re-targeted maps.** Target, last close date, price ratio (broker quote sample /
+our close), and whether the stated rule holds:
+
+| broker | target | in universe | our last close | ratio | decision |
+|---|---|---|---|---|---|
+| `BRKB` | `BRK.B` | yes (`BRK.A` too — not used) | 509.77 @ 2026-09-18 | 0.9389 | ✅ map |
+| `ESL` | `EL` | yes | 93.43 @ 2026-09-18 | 0.9256 | ✅ map |
+| `EXXON` | `XOM` | yes | 163.54 @ 2026-09-18 | 0.6952 | ✅ map (stale quote sample) |
+| `GPS` | `GAP` | yes | 20.54 @ 2026-09-18 | 1.1938 | ✅ map — `GPS` ends **2024-08-21** and `GAP` starts at the same first price 25.51, confirming the Aug-2024 ticker change |
+| `FI` | `FISV` | yes | 47.19 @ 2026-09-18 | **3.6190** | ✅ map — see exception 3 |
+| `BYON` | `BYON`, then `OSTK` | **neither** | — | — | ❌ **UNMAPPABLE** (exception 1) |
+| `TOYOTA` | `TM` | **no** | — | — | ❌ **UNMAPPABLE** (exception 2) |
+
+**Exceptions reported:**
+
+1. **`BYON` → UNMAPPABLE.** Neither `BYON` nor the fallback `OSTK` is in the research universe,
+   and the Alpaca file has no "Beyond Inc" entry at all (only two Overstock preferred series,
+   both outside the universe). The rule's "only if the target is in the universe" fails for both.
+2. **`TOYOTA` → UNMAPPABLE.** `TM` ("Toyota Motor Corporation American Depositary Share",
+   active) is **not** in the research universe. `TMH` ("Toyota Motor Corporation ADRhedged")
+   *is* in the universe, but it is the hedged ADR and the instruction forbids it, so nothing is
+   mapped.
+3. **`FI` → `FISV` mapped, but the price check disagrees.** `FISV` is the only Fiserv entry in
+   the Alpaca file (active, "Fiserv, Inc. Common Stock") and it is in the universe, so the
+   stated rule holds and the map was written. But the broker quote sample is 170.78 while the
+   `FISV` series runs 44.75 (2016-01-04) → 47.19 (2026-09-18): **ratio 3.62**, with no
+   ticker-change break in the series. Name evidence and price evidence disagree; flagged for the
+   supervisor. The research `FI` is confirmed to be a different company (16.60 → 3.15, ends
+   2022-12-30), so `FI` → `FI` was correctly refused.
+
+**v2 — every `UNMAPPABLE` ticker is absent from the research universe.** 60 tickers were checked
+in every format (`BRK.B` / `BRK-B` / `BRKB` style variants included). **59 are absent, as
+classified. One exception:**
+
+4. **`AMCX` is present in the research universe as `AMCX`.** It is written as `UNMAPPABLE`
+   anyway, per the explicit instruction (D): the ticker is AMC Networks while the broker
+   description says "AMC Entertainment Hlds - Class A" (name score 0.42), so the row is
+   unmappable because of a *company mismatch*, not a missing ticker. Pending an MT5 check
+   (D-356).
+
+### Consequence: broker instruments without research data
+
+62 of the 548 broker US shares and ETFs are unmappable, so **62 broker-tradable instruments have
+no research data** — mostly ETFs (ARK, bitcoin, gold-miner and sector funds) and ADRs whose
+tickers were never downloaded (D-022 covers US common stock plus the main ETFs). Adding them is
+a **data expansion**, frozen until D-030 is lifted (D-356).
+
+### The coverage test now proves the criterion
+
+`test_F_0_9_1_repo_mapping_every_broker_symbol_is_mapped_or_unmappable` (renamed from
+`..._is_accounted_for`) asserts there are **548** broker symbols, that **no `pending_review` row
+remains**, and that mapped + unmappable covers all 548. The old form only proved "mapped or
+listed for review", which a row still awaiting a decision satisfies — that was never the
+criterion.
+
+`test_F_0_9_1_repo_review_csv_has_the_price_columns` no longer asserts "≥ 50 priced rows": every
+remaining row is unmappable and carries no candidate, so there is nothing left to price. It now
+asserts exactly that, and the price check itself stays proven on synthetic rows by
+`test_F_0_9_1_review_rows_carry_the_price_check`.
+
+### Acceptance
+| Command | Result |
+|---|---|
+| `sfac costs moneta build` | ✅ mapped 515, review 62 (all unmappable), profiles 516 |
+| `sfac universe generate` | ✅ 6749 symbols |
+| `sfac costs validate` / `sfac universe validate` | ✅ 6742 assigned, 521 profiles / ✅ 6749 symbols |
+| `sfac universe list --broker` | ✅ **515** (us_equity 486, fx 15, index_cfd 10, metal 2, energy_cfd 2) |
+| `ruff check .` / `ruff format --check .` | ✅ / ✅ 213 files |
+| `mypy src` | ✅ 89 files |
+| `pytest -m "not slow"` | ✅ **805 passed** |
+| `pytest tests/parity tests/leakage` | ✅ 106 passed |
+| `pytest -m db -rs` | ✅ 15 passed, **0 skipped** |

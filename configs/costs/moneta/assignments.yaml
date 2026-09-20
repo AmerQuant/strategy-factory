@@ -24,13 +24,16 @@ symbols:
   ALB: {profile: moneta_ALB}
   ALGN: {profile: moneta_ALGN}
   ALK: {profile: moneta_ALK}
+  ALL: {profile: moneta_ALLC}
   AMAT: {profile: moneta_AMAT}
   AMD: {profile: moneta_AMD}
   AMGN: {profile: moneta_AMGN}
+  AMP: {profile: moneta_AMPF}
   AMT: {profile: moneta_AMT}
   AMWL: {profile: moneta_AMWL}
   AMZN: {profile: moneta_AMAZON}
   AON: {profile: moneta_AON}
+  APA: {profile: moneta_APA}
   APD: {profile: moneta_APD}
   APH: {profile: moneta_APH}
   APTV: {profile: moneta_APTV}
@@ -39,9 +42,11 @@ symbols:
   AUDUSD: {profile: moneta_AUDUSD+}
   AUPH: {profile: moneta_AUPH}
   AUSIDXAUD: {profile: moneta_SPI200.r}
+  AVB: {profile: moneta_AVB}
   AVGO: {profile: moneta_AVGO}
   AXP: {profile: moneta_AXP}
   AZO: {profile: moneta_AZO}
+  BA: {profile: moneta_BOEING}
   BAC: {profile: moneta_BAC}
   BAP: {profile: moneta_BAP}
   BAX: {profile: moneta_BAX}
@@ -50,6 +55,8 @@ symbols:
   BBY: {profile: moneta_BBY}
   BDX: {profile: moneta_BDX}
   BE: {profile: moneta_BE}
+  BEN: {profile: moneta_BEN}
+  BIDU: {profile: moneta_BAIDU}
   BIIB: {profile: moneta_BIIB}
   BKNG: {profile: moneta_BKNG}
   BKR: {profile: moneta_BKR}
@@ -62,12 +69,16 @@ symbols:
   BND: {profile: moneta_BND}
   BNGO: {profile: moneta_BNGO}
   BNO: {profile: moneta_BNO}
+  BNY: {profile: moneta_BK}
   BOX: {profile: moneta_BOX}
   BRENTCMDUSD: {profile: moneta_UKOUSD}
+  BRK.B: {profile: moneta_BRKB}
   BSX: {profile: moneta_BSX}
+  BTOG: {profile: moneta_BTOG}
   BUD: {profile: moneta_BUD}
   BX: {profile: moneta_BX}
   BYND: {profile: moneta_BYND}
+  C: {profile: moneta_CITI}
   CADJPY: {profile: moneta_CADJPY+}
   CAH: {profile: moneta_CAH}
   CAT: {profile: moneta_CAT}
@@ -86,6 +97,7 @@ symbols:
   CIM: {profile: moneta_CIM}
   CL: {profile: moneta_CL}
   CLX: {profile: moneta_CLX}
+  CMA: {profile: moneta_CMA}
   CMCSA: {profile: moneta_CMCSA}
   CME: {profile: moneta_CME}
   CMI: {profile: moneta_CMI}
@@ -101,8 +113,10 @@ symbols:
   CRM: {profile: moneta_CRM}
   CRON: {profile: moneta_CRON}
   CRWD: {profile: moneta_CRWD}
+  CSCO: {profile: moneta_CISCO}
   CSX: {profile: moneta_CSX}
   CTAS: {profile: moneta_CTAS}
+  CTRA: {profile: moneta_CTRA}
   CTSH: {profile: moneta_CTSH}
   CVS: {profile: moneta_CVS}
   CVX: {profile: moneta_CVX}
@@ -117,8 +131,11 @@ symbols:
   DE: {profile: moneta_DE}
   DELL: {profile: moneta_DELL}
   DEUIDXEUR: {profile: moneta_GER40.r}
+  DFS: {profile: moneta_DFS}
+  DG: {profile: moneta_DGC}
   DHI: {profile: moneta_DHI}
   DHR: {profile: moneta_DHR}
+  DIS: {profile: moneta_DISNEY}
   DKNG: {profile: moneta_DKNG}
   DLR: {profile: moneta_DLR}
   DLTR: {profile: moneta_DLTR}
@@ -129,18 +146,21 @@ symbols:
   DVN: {profile: moneta_DVN}
   DXC: {profile: moneta_DXC}
   DXCM: {profile: moneta_DXCM}
+  EA: {profile: moneta_EA}
   EBAY: {profile: moneta_EBAY}
   EC: {profile: moneta_EC}
   ECL: {profile: moneta_ECL}
   ED: {profile: moneta_ED}
   EEM: {profile: moneta_EEM}
   EFA: {profile: moneta_EFA}
+  EL: {profile: moneta_ESL}
   EMN: {profile: moneta_EMN}
   EMR: {profile: moneta_EMR}
   ENPH: {profile: moneta_ENPH}
   EOG: {profile: moneta_EOG}
   EPD: {profile: moneta_EPD}
   EQIX: {profile: moneta_EQIX}
+  EQR: {profile: moneta_EQR}
   ESS: {profile: moneta_ESS}
   ETD: {profile: moneta_ETD}
   ETN: {profile: moneta_ETN}
@@ -160,7 +180,9 @@ symbols:
   FCX: {profile: moneta_FCX}
   FDX: {profile: moneta_FDX}
   FIS: {profile: moneta_FIS}
+  FISV: {profile: moneta_FI}
   FITB: {profile: moneta_FITB}
+  FL: {profile: moneta_FL}
   FOSL: {profile: moneta_FOSL}
   FOX: {profile: moneta_FOX}
   FOXA: {profile: moneta_FOXA}
@@ -170,11 +192,15 @@ symbols:
   FTNT: {profile: moneta_FTNT}
   FTV: {profile: moneta_FTV}
   FXI: {profile: moneta_FXI}
+  GAP: {profile: moneta_GPS}
   GBPCHF: {profile: moneta_GBPCHF+}
   GBPJPY: {profile: moneta_GBPJPY+}
   GBPUSD: {profile: moneta_GBPUSD+}
   GBRIDXGBP: {profile: moneta_UK100.r}
   GD: {profile: moneta_GD}
+  GDX: {profile: moneta_GDX}
+  GDXJ: {profile: moneta_GDXJ}
+  GE: {profile: moneta_GE}
   GEVO: {profile: moneta_GEVO}
   GFI: {profile: moneta_GFI}
   GFS: {profile: moneta_GFS}
@@ -189,6 +215,7 @@ symbols:
   GPRO: {profile: moneta_GPRO}
   GRAB: {profile: moneta_GRAB}
   GRPN: {profile: moneta_GRPN}
+  GRVY: {profile: moneta_GRVY}
   GS: {profile: moneta_GS}
   GSG: {profile: moneta_GSG}
   GT: {profile: moneta_GT}
@@ -198,6 +225,7 @@ symbols:
   HCA: {profile: moneta_HCA}
   HD: {profile: moneta_HD}
   HDB: {profile: moneta_HDB}
+  HES: {profile: moneta_HES}
   HKGIDXHKD: {profile: moneta_HK50.r}
   HLF: {profile: moneta_HLF}
   HLT: {profile: moneta_HLT}
@@ -207,6 +235,7 @@ symbols:
   HPE: {profile: moneta_HPE}
   HPQ: {profile: moneta_HPQ}
   HRB: {profile: moneta_HRB}
+  HSBC: {profile: moneta_HSBCn}
   HSY: {profile: moneta_HSY}
   HUBS: {profile: moneta_HUBS}
   HUM: {profile: moneta_HUM}
@@ -223,6 +252,7 @@ symbols:
   INCY: {profile: moneta_INCY}
   INO: {profile: moneta_INO}
   INSG: {profile: moneta_INSG}
+  INTC: {profile: moneta_INTEL}
   INTU: {profile: moneta_INTU}
   IOVA: {profile: moneta_IOVA}
   IP: {profile: moneta_IP}
@@ -237,6 +267,7 @@ symbols:
   JNJ: {profile: moneta_JNJ}
   JPM: {profile: moneta_JPM}
   JPNIDXJPY: {profile: moneta_Nikkei225}
+  K: {profile: moneta_K}
   KDP: {profile: moneta_KDP}
   KEY: {profile: moneta_KEY}
   KGC: {profile: moneta_KGC}
@@ -258,6 +289,7 @@ symbols:
   LIGHTCMDUSD: {profile: moneta_USOUSD}
   LLY: {profile: moneta_LLY}
   LMT: {profile: moneta_LMT}
+  LOW: {profile: moneta_LOW}
   LPL: {profile: moneta_LPL}
   LRCX: {profile: moneta_LRCX}
   LULU: {profile: moneta_LULU}
@@ -294,6 +326,7 @@ symbols:
   MPWR: {profile: moneta_MPWR}
   MRK: {profile: moneta_MRK}
   MRNA: {profile: moneta_MRNA}
+  MRSH: {profile: moneta_MMC}
   MRVL: {profile: moneta_MRVL}
   MS: {profile: moneta_MS}
   MSFT: {profile: moneta_MSFT}
@@ -315,6 +348,7 @@ symbols:
   NTRS: {profile: moneta_NTRS}
   NUE: {profile: moneta_NUE}
   NVAX: {profile: moneta_NVAX}
+  NVDA: {profile: moneta_NVIDIA}
   NVS: {profile: moneta_NVS}
   NWS: {profile: moneta_NWS}
   NXPI: {profile: moneta_NXPI}
@@ -332,7 +366,9 @@ symbols:
   PCAR: {profile: moneta_PCAR}
   PCG: {profile: moneta_PCG}
   PEG: {profile: moneta_PEG}
+  PENN: {profile: moneta_PENN}
   PEP: {profile: moneta_PEP}
+  PFE: {profile: moneta_PFIZER}
   PG: {profile: moneta_PG}
   PGR: {profile: moneta_PGR}
   PH: {profile: moneta_PH}
@@ -361,6 +397,7 @@ symbols:
   RF: {profile: moneta_RF}
   RGLD: {profile: moneta_RGLD}
   RIG: {profile: moneta_RIG}
+  RIOT: {profile: moneta_RIOT}
   RIVN: {profile: moneta_RIVN}
   RL: {profile: moneta_RL}
   RNG: {profile: moneta_RNG}
@@ -379,6 +416,7 @@ symbols:
   SHW: {profile: moneta_SHW}
   SIG: {profile: moneta_SIG}
   SIRI: {profile: moneta_SIRI}
+  SLB: {profile: moneta_SLB}
   SMG: {profile: moneta_SMG}
   SNAP: {profile: moneta_SNAP}
   SNOW: {profile: moneta_SNOW}
@@ -414,6 +452,7 @@ symbols:
   TROW: {profile: moneta_TROW}
   TRV: {profile: moneta_TRV}
   TSLA: {profile: moneta_TSLA}
+  TSM: {profile: moneta_TSM}
   TSN: {profile: moneta_TSN}
   TTD: {profile: moneta_TTD}
   TTWO: {profile: moneta_TTWO}
@@ -437,6 +476,8 @@ symbols:
   USDJPY: {profile: moneta_USDJPY+}
   USO: {profile: moneta_USO}
   USSC2000IDXUSD: {profile: moneta_US2000.r}
+  V: {profile: moneta_VISA}
+  VALE: {profile: moneta_VALE}
   VFC: {profile: moneta_VFC}
   VFS: {profile: moneta_VFS}
   VIRT: {profile: moneta_VIRT}
@@ -446,6 +487,7 @@ symbols:
   VTRS: {profile: moneta_VTRS}
   VZ: {profile: moneta_VZ}
   W: {profile: moneta_W}
+  WBA: {profile: moneta_WBA}
   WDAY: {profile: moneta_WDAY}
   WDC: {profile: moneta_WDC}
   WEN: {profile: moneta_WEN}
@@ -463,6 +505,7 @@ symbols:
   XEL: {profile: moneta_XEL}
   XLF: {profile: moneta_XLF}
   XLK: {profile: moneta_XLK}
+  XOM: {profile: moneta_EXXON}
   XOP: {profile: moneta_XOP}
   XRX: {profile: moneta_XRX}
   YUM: {profile: moneta_YUM}

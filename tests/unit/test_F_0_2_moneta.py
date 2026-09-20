@@ -918,15 +918,26 @@ def test_F_0_9_1_build_end_to_end(tmp_path: Path) -> None:
 
 
 # -- repo state: coverage, universe flag, costs mandatory --------------------------------------
-def test_F_0_9_1_repo_mapping_every_broker_symbol_is_accounted_for() -> None:
+def test_F_0_9_1_repo_mapping_every_broker_symbol_is_mapped_or_unmappable() -> None:
+    """F-0.9.1 coverage criterion (P-28 -> D-356): 548/548 mapped **or** unmappable.
+
+    The weaker form of this test (mapped or *listed for review*) was not the criterion: a row
+    still waiting for a decision proves nothing. Since the supervisor classified every review
+    row, no ``pending_review`` row may remain.
+    """
     spec = [r for r in read_spec_csv(MONETA_DIR / SPEC_CSV) if r.region in ("Stock US", "ETF")]
     mapped = list(csv.DictReader((MONETA_DIR / "symbol_map.csv").open(encoding="utf-8")))
     review = list(
         csv.DictReader((REPO / "docs/reviews/T06b_mapping_review.csv").open(encoding="utf-8"))
     )
+    broker_symbols = {r.broker_symbol for r in spec}
+    assert len(broker_symbols) == 548  # D-524: 491 US shares + 57 ETFs
     broker_mapped = {r["broker_symbol"] for r in mapped}
-    listed = broker_mapped | {r["broker_symbol"] for r in review}
-    assert {r.broker_symbol for r in spec} <= listed  # every one of the 548 is accounted for
+    unmappable = {r["broker_symbol"] for r in review if r["status"] == "unmappable"}
+    pending = {r["broker_symbol"] for r in review if r["status"] != "unmappable"}
+    assert pending == set(), f"still waiting for a decision: {sorted(pending)}"
+    assert broker_symbols <= broker_mapped | unmappable  # 548/548 accounted for
+    assert len(broker_symbols & broker_mapped) + len(broker_symbols & unmappable) == 548
     research = [r["research_symbol"] for r in mapped]
     assert len(research) == len(set(research))
     dukascopy = {r["research_symbol"] for r in mapped if r["method"] == "manual"}
@@ -1166,5 +1177,9 @@ def test_F_0_9_1_repo_review_csv_has_the_price_columns() -> None:
     assert {"broker_quote_sample", "research_close", "research_close_date", "price_ratio"} <= set(
         rows[0]
     )
-    priced = [r for r in rows if r["price_ratio"]]
-    assert len(priced) >= 50  # every candidate row with a research symbol and raw prices
+    # Since P-28 closed (D-356) every remaining row is unmappable and carries no candidate, so
+    # there is nothing left to price here; the price check itself is proven on synthetic rows by
+    # test_F_0_9_1_review_rows_carry_the_price_check. The invariant that survives is: a row with
+    # a candidate research symbol must have been priced (or have no raw file for it).
+    assert all(r["status"] == "unmappable" for r in rows)
+    assert [r["broker_symbol"] for r in rows if r["candidate_research_symbol"]] == []
