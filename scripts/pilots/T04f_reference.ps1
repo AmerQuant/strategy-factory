@@ -100,8 +100,9 @@ Write-Log "  log     : $log"
 
 # --- 1. NYSE session calendar (D-025) ------------------------------------------------------
 # Writes the raw API answer immutably to raw\reference\alpaca\calendar\, then
-# configs\calendars\nyse_sessions.csv, then the difference report against
-# configs\calendars\nyse_early_closes.yaml into raw\_reports\calendar_vs_early_closes.csv.
+# configs\calendars\nyse_sessions.csv. The 2026-09-20 run also produced a one-off
+# comparison against the hand-written early-close list; it matched exactly, so that list and the
+# comparison were removed afterwards (T04e section 6, D-393).
 Invoke-Step '1 NYSE session calendar (Alpaca)' `
     'uv run sfac data reference alpaca-calendar --start 2016-01-01'
 
@@ -135,11 +136,6 @@ if (Test-Path -LiteralPath $sessions) {
     }
 } else {
     Write-Log '  nyse_sessions.csv      : MISSING'
-}
-
-$diff = Join-Path $reports 'calendar_vs_early_closes.csv'
-if (Test-Path -LiteralPath $diff) {
-    Write-Log ("  calendar vs YAML       : {0} difference(s) -> {1}" -f @(Import-Csv -LiteralPath $diff).Count, $diff)
 }
 
 $changes = Join-Path $repo 'configs\universe\symbol_changes.csv'

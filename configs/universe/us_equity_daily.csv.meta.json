@@ -1,5 +1,5 @@
 {
-  "built_at": "2026-09-20T13:22:00+00:00",
+  "built_at": "2026-09-20T13:48:30+00:00",
   "source": "D:\\AmerAndish\\Projects\\Trade\\StrategyFactory_data\\raw\\us_equity\\alpaca_sip_all\\1D",
   "method": "file names us_<SYM>.csv; '_' mapped back to '.'",
   "symbols": 6711

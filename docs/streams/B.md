@@ -55,8 +55,8 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 |---|---|
 | worktree | on `docs/batch3-data` at `main`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
-| batch 3-data plan | **approved** 2026-09-21 |
-| T04f | reference run **done** 2026-09-20; calendar + symbol changes committed, `nyse_early_closes.yaml` deleted (0 differences). **Blocked on P-68 … P-70** before the universe is final |
+| batch 3-data plan | **approved** 2026-09-21; order changed by **D-358** to T04f → T04i → T04g → T04h |
+| T04f | **done** — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | **incomplete** as of 2026-09-20: 2021 and 2022 missing for all 827 symbols, 2020 for 137, 2023 for 620; **no symbol has all eleven years**. The user is refilling 2020–2023. (This corrects the earlier "downloads complete" note.) |
 | Alpaca 1D / 1H ingest | not started — T04g is gated on D-033, T04h on the 1H download (D-386, no `--allow-gaps`) |
@@ -72,21 +72,21 @@ here**. Every symbol a stream-B rule adds to or removes from `configs/universe/*
 below so stream A can run `sfac universe generate` after the merge. Until then
 `configs/universe.yaml` is knowingly stale.
 
-The feed arrived on 2026-09-20 (42 `NAME_CHANGE` rows). The per-symbol evidence is in
-`docs/reviews/T04f_symbol_changes_accounting.csv`. **Not final — P-68 … P-70 are open.**
+The feed arrived on 2026-09-20 (42 `NAME_CHANGE` rows). Per-symbol evidence:
+`docs/reviews/T04f_symbol_changes_accounting.csv`; regenerate with
+`uv run python scripts/analysis/T04f_symbol_change_evidence.py`.
 
-`configs/universe/us_equity_hourly.csv` as committed is the builder's raw output: **827 → 800**
-(37 removed, 10 added). Applying D-383 gives **807**: 26 removals confirmed, 11 restored, and the
-4 destinations that exist only because of a rejected chain (`JXG`, `MNKTQ`, `NXH`, `SPRU`) dropped.
-
-| change | symbols | note |
-|---|---|---|
-| removed, confirmed rename | 26: `ABC ADS ANTM BK BLL CDAY CHK CTL FB FBHS FLT GPS HCP HFC JEC MMC NLOK PEAK PKI PX RE SATS UTX WLTW WRK WYND` | each replaced by its current name carrying `pit_symbol` |
-| added, confirmed destination | 6: `BFH DINO FBIN GAP RPC TNL` | **none has 1H raw** — P-70 |
-| kept despite the feed (different company) | 11: `BBBY BBT CBS COG EQR FI IR LLL MNK VIAC XL` | P-68 |
-| dropped (destination of a rejected chain) | 4: `JXG MNKTQ NXH SPRU` | P-68 |
-
+`configs/universe/us_equity_hourly.csv`: **827 → 806** after the D-383 exclusion rule.
 The daily universe is unchanged at 6,711 rows.
+
+| change | count | symbols |
+|---|---|---|
+| **removed** (confirmed rename; the destination carries `pit_symbol`) | 26 | `ABC ADS ANTM BK BLL CDAY CHK CTL FB FBHS FI FLT GPS HCP HFC JEC MMC NLOK PEAK PKI RE SATS UTX WLTW WRK WYND` |
+| **added** (rename destinations) | 5 | `BFH DINO FBIN GAP TNL` — the user began their hourly download 2026-09-20 17:18 (P-70) |
+| kept although the feed renames them (different company) | 11 | `BBBY BBT CBS COG EQR IR LLL MNK PX VIAC XL` |
+
+`EQR` and `IR` are Moneta targets kept under D-388; `FISV` (broker `FI`, D-356) stays because the
+chain `FISV→FI→FISV` resolves back to it.
 
 ## For stream A
 
@@ -96,7 +96,7 @@ The daily universe is unchanged at 6,711 rows.
     `VMRK` has **no daily raw data**, is not in the daily universe and is not in the map, while
     `EQR` runs continuously 2016-01-04 → 2026-08-17.
   - **`IR`** (broker `IR`, `ticker_exact`): the feed has `IR → TT` 2020-03-02, but `IR` and `TT`
-    are **0 % identical over 2,603 days** and both run to 2026-09-18 — two different live
+    are **0 % identical over their 956 shared pre-change days** and both run to 2026-09-18 — two different live
     companies (Ingersoll Rand Inc. kept the ticker when Ingersoll-Rand plc became Trane).
   - Surviving targets that are rename destinations need no action: `COR`, `LUMN`, `META`, `RTX`,
     `MRSH` (broker `MMC`), `BNY` (broker `BK`), `TFC`, `FISV` (broker `FI`).

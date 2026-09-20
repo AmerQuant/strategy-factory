@@ -94,6 +94,29 @@ def test_F_0_1_8_write_is_idempotent(data_root: Path) -> None:
     assert len(list(pq.parent.iterdir())) == 2
 
 
+def test_F_0_1_8_material_metadata_mismatch_raises(data_root: Path) -> None:
+    """D-384/D-392: identical content with a different material field is an error."""
+    write_snapshot(make_bars(), make_meta())
+    with pytest.raises(DataError, match="session"):
+        write_snapshot(make_bars(), make_meta(session="exchange"))
+
+
+def test_F_0_1_8_material_metadata_error_names_both_values(data_root: Path) -> None:
+    stored = write_snapshot(make_bars(), make_meta())
+    with pytest.raises(DataError) as excinfo:
+        write_snapshot(make_bars(), make_meta(adjustment="all"))
+    message = str(excinfo.value)
+    assert "adjustment" in message
+    assert str(stored.adjustment) in message and "all" in message
+
+
+def test_F_0_1_8_non_material_metadata_never_raises(data_root: Path) -> None:
+    """notes/raw_refs/downloaded_at describe the run, not the series."""
+    first = write_snapshot(make_bars(), make_meta())
+    again = write_snapshot(make_bars(), make_meta(notes="re-ingested from newer raw files"))
+    assert again == first  # the stored metadata is returned unchanged
+
+
 def test_F_0_1_8_snapshot_is_read_only_and_cannot_be_modified(data_root: Path) -> None:
     meta = write_snapshot(make_bars(), make_meta())
     pq, meta_path = SnapshotStore().paths("test", "TEST", "1D", meta.snapshot_hash or "")

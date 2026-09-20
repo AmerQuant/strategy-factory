@@ -1,1 +1,12 @@
 old_symbol,new_symbol,effective_date,source
+BBBY,,2026-08-17,rejected: destination NXH has no price data
+BBT,,2019-12-09,rejected: different company: 0.0% identical to TFC over the 990 days before the change
+CBS,,2020-02-13,rejected: different company: 0.0% identical to PARA over the 988 days before the change
+COG,,2021-10-04,rejected: different company: 0.0% identical to CTRA over the 728 days before the change
+EQR,,2026-08-18,"rejected: destination VMRK has no price data; Moneta mapping target, kept under D-388"
+IR,,2020-03-02,"rejected: different company: 0.0% identical to TT over the 956 days before the change; Moneta mapping target, kept under D-388"
+LLL,,2022-10-10,rejected: different company: 0.0% identical to JXG over the 1704 days before the change
+MNK,,2023-08-29,rejected: destination MNKTQ has no price data
+PX,,2026-02-11,"rejected: ticker re-used: PX is 100% identical to RPC over the 1080 days before the 2026-02-11 row and RPC's own series starts 2021-10-21, long before it; PX's index membership is Praxair 2016-2018 (P-69)"
+VIAC,,2022-02-17,rejected: different company: 0.0% identical to PARA over the 555 days before the change
+XL,,2022-11-14,rejected: different company: 0.0% identical to SPRU over the 807 days before the change

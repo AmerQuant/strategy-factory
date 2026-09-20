@@ -218,6 +218,13 @@ def reference_alpaca_symbol_changes(
     pit_csv: Annotated[
         Path | None, typer.Option(help="PIT CSV (default: latest in raw/reference/sp500_pit).")
     ] = None,
+    from_raw: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-raw",
+            help="Rebuild from a stored raw answer instead of fetching (no network).",
+        ),
+    ] = None,
     config: ConfigOpt = None,
 ) -> None:
     """Fetch Alpaca name changes and write configs/universe/symbol_changes.csv for PIT tickers."""
@@ -226,9 +233,14 @@ def reference_alpaca_symbol_changes(
         root = raw_root()
         pit = pit_csv or latest_pit_csv(root)
         tickers = pit_members(pit, cfg.history_start)["symbol"].to_list()
-        raw = fetch_name_changes(
-            load_credentials(), dt.date.fromisoformat(start), dt.date.today(), root
-        )
+        if from_raw is not None:
+            if not from_raw.is_file():
+                raise ConfigError("raw name-change file not found", config_path=from_raw)
+            raw = from_raw
+        else:
+            raw = fetch_name_changes(
+                load_credentials(), dt.date.fromisoformat(start), dt.date.today(), root
+            )
         out = Path("configs") / "universe" / "symbol_changes.csv"
         n = build_symbol_changes(raw, tickers, out.with_name("symbol_changes_manual.csv"), out)
     except TLSVerificationError as exc:

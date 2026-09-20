@@ -11,6 +11,18 @@ the config files from those raw files (pure, unit-tested):
   corporate action provides ``old_symbol, new_symbol, process_date`` (used as the effective
   date) plus CUSIPs. Rows of ``symbol_changes_manual.csv`` (same columns) override API rows
   with the same ``old_symbol``.
+
+**Rejections (D-383).** A manual row with an **empty** ``new_symbol`` rejects the API's rename
+for that ``old_symbol``: the feed reports a name change, but the two tickers are not the same
+series -- the old ticker was re-used by another company, or the destination has no data. A
+rejected hop is dropped from the chain graph and is **not** written to ``symbol_changes.csv``,
+so the old symbol keeps its own universe row. The reason belongs in the manual row's ``source``
+(``rejected: <why>``). The evidence is in ``docs/reviews/T04f_symbol_changes_accounting.csv``.
+
+A rejection with an ``effective_date`` rejects **only the hop with that date**, so a ticker the
+feed renames twice keeps the hops that were not rejected; an empty ``effective_date`` rejects
+every hop out of that symbol. A non-empty ``new_symbol`` is a re-target and still replaces all
+of the feed's rows for that ``old_symbol``.
 """
 
 from __future__ import annotations
@@ -169,9 +181,26 @@ def build_symbol_changes(
         if r.get("old_symbol") and r.get("new_symbol") and r["old_symbol"] != r["new_symbol"]
     ]
     manual_rows = [dict(r, source=r.get("source") or "manual") for r in read_changes_csv(manual)]
-    overridden = {r["old_symbol"] for r in manual_rows}
+    # D-383: a manual row with an empty new_symbol rejects a hop; it never reaches the graph
+    retargets = [r for r in manual_rows if r["new_symbol"]]
+    rejected_all = {
+        r["old_symbol"] for r in manual_rows if not r["new_symbol"] and not r["effective_date"]
+    }
+    rejected_hops = {
+        (r["old_symbol"], r["effective_date"])
+        for r in manual_rows
+        if not r["new_symbol"] and r["effective_date"]
+    }
+    retargeted = {r["old_symbol"] for r in retargets}
+    kept_api = [
+        r
+        for r in api
+        if r["old_symbol"] not in retargeted
+        and r["old_symbol"] not in rejected_all
+        and (r["old_symbol"], r["effective_date"]) not in rejected_hops
+    ]
     by_old: dict[str, list[dict[str, str]]] = {}
-    for r in [r for r in api if r["old_symbol"] not in overridden] + manual_rows:
+    for r in kept_api + retargets:
         by_old.setdefault(r["old_symbol"], []).append(r)
     selected: dict[tuple[str, str, str], dict[str, str]] = {}
     frontier = list(dict.fromkeys(pit_symbols))
@@ -204,7 +233,11 @@ def current_symbol(
         by_old.setdefault(r["old_symbol"], []).append(r)
     sym, when, hops = pit_symbol, since or dt.date.min, 0
     while True:
-        nxt = [r for r in by_old.get(sym, []) if dt.date.fromisoformat(r["effective_date"]) >= when]
+        nxt = [
+            r
+            for r in by_old.get(sym, [])
+            if r["new_symbol"] and dt.date.fromisoformat(r["effective_date"]) >= when
+        ]
         if not nxt:
             return sym
         step = min(nxt, key=lambda r: r["effective_date"])
