@@ -42,6 +42,7 @@ def migration(revision: str, down: str | None) -> str:
 # -- the repo's own ownership file -----------------------------------------------------------
 def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert set(rules.streams) == {"A", "B"}
+    assert rules.supervisor is not None and rules.supervisor.decisions == (355, 359)
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
     assert rules.streams["A"].decisions == (360, 379) and rules.streams["A"].pending == (40, 59)
     assert rules.streams["B"].decisions == (380, 399) and rules.streams["B"].pending == (60, 79)
@@ -148,6 +149,21 @@ def test_F_X_9_guard_ids_range_and_duplicates(rules: Ownership) -> None:
     # a grandfathered branch is checked for duplicates only
     assert check_ids(None, ["| D-380 | any range |"], existing, rules) == []
     assert check_ids(None, ["| D-356 | duplicate |"], existing, rules) != []
+
+
+def test_F_X_9_supervisor_decisions_are_allowed_from_any_stream(rules: Ownership) -> None:
+    """D-355 keeps D-355 … D-359 for the supervisor; whichever stream carries one may add it."""
+    existing = ["| D-354 | x |"]
+    for stream in ("A", "B"):
+        for number in (355, 357, 359):
+            assert check_ids(stream, [f"| D-{number} | supervisor |"], existing, rules) == []
+    # the range is decisions only: P-357 is still judged against the stream's pending range
+    assert check_ids("A", ["| P-357 | not a decision |"], existing, rules) != []
+    # just outside it, the stream range applies again
+    out = check_ids("A", ["| D-354 | too low |"], [], rules)
+    assert len(out) == 1 and "the supervisor's range is D-355 … D-359" in out[0]
+    # and a supervisor id is still checked for duplicates
+    assert check_ids("A", ["| D-357 | dup |"], ["| D-357 | already |"], rules) != []
 
 
 # -- guard 3: one Alembic head ---------------------------------------------------------------

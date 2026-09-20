@@ -7,8 +7,9 @@ Two Claude Code sessions work on this repository at the same time. The rules are
 1. **Path ownership** -- a branch named ``a/...`` or ``b/...`` may not change a path owned by
    the other stream.
 2. **ID discipline** -- every ``D-nnn`` / ``P-nn`` row a branch *adds* must be unique and
-   inside the adding stream's range. An unprefixed (grandfathered) branch is checked for
-   duplicates only.
+   inside the adding stream's range, or inside the **supervisor's** range (D-355 … D-359),
+   which any stream may carry because the supervisor dictates those. An unprefixed
+   (grandfathered) branch is checked for duplicates only.
 3. **One Alembic head** -- the migration graph has exactly one head, so two streams cannot
    both add a migration.
 
@@ -60,11 +61,23 @@ class StreamSpec(BaseModel):
         return lo <= number <= hi
 
 
+class SupervisorRange(BaseModel):
+    """The supervisor's own decision range (D-355): allowed from any branch."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    decisions: tuple[int, int]
+
+    def covers(self, kind: str, number: int) -> bool:
+        return kind == "D" and self.decisions[0] <= number <= self.decisions[1]
+
+
 class Ownership(BaseModel):
     """``docs/streams/ownership.yaml``."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    supervisor: SupervisorRange | None = None
     streams: dict[str, StreamSpec]
     owners: dict[str, str]
     append_only: tuple[str, ...] = ()
@@ -157,11 +170,17 @@ def check_ids(
         seen.add((kind, number))
         if stream is None:  # grandfathered branch: duplicates only
             continue
+        if ownership.supervisor is not None and ownership.supervisor.covers(kind, number):
+            continue  # a decision the supervisor dictated (D-355): any stream may carry it
         spec = ownership.streams[stream]
         if not spec.covers(kind, number):
             lo, hi = spec.decisions if kind == "D" else spec.pending
+            extra = ""
+            if ownership.supervisor is not None and kind == "D":
+                slo, shi = ownership.supervisor.decisions
+                extra = f"; the supervisor's range is D-{slo} … D-{shi}"
             problems.append(
-                f"{label}: outside stream {stream}'s range {kind}-{lo} … {kind}-{hi} (D-355)"
+                f"{label}: outside stream {stream}'s range {kind}-{lo} … {kind}-{hi} (D-355){extra}"
             )
     return problems
 

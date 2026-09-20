@@ -65,8 +65,9 @@ Everything not listed is **shared**: `docs/tasks/`, `docs/reviews/`, `docs/adr/`
 
 1. **Path ownership** — an `a/` or `b/` branch changes a path owned by the other stream.
 2. **ID discipline** — a `D-` or `P-` row added by this branch is a duplicate, or falls outside
-   the adding stream's range. (Rows added by an unprefixed, grandfathered branch are only
-   checked for duplicates.)
+   the adding stream's range. The **supervisor's range D-355 … D-359** is accepted from either
+   stream, because the supervisor dictates those and one of the streams has to write them down.
+   (Rows added by an unprefixed, grandfathered branch are only checked for duplicates.)
 3. **A single Alembic head** — the migration graph must have exactly one head, so two streams
    cannot both add a migration.
 
