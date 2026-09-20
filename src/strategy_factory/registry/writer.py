@@ -129,23 +129,42 @@ def git_sha(cwd: Path | None = None) -> str:
     return sha if len(sha) == 40 else "unknown"
 
 
-def git_dirty(cwd: Path | None = None) -> bool:
-    """True when the checkout has uncommitted tracked changes (``git status --porcelain``).
+#: Untracked files under these paths make a checkout dirty (D-352): component discovery and
+#: config loading pick them up, so they can change a result without being committed.
+DIRTY_UNTRACKED_PATHS = ("src/", "configs/")
 
-    Untracked files do not count: they cannot change what the code does. An unavailable git
-    returns ``False``; :func:`code_version` already reports ``unknown`` in that case.
+
+def git_dirty(cwd: Path | None = None) -> bool:
+    """True when the checkout can no longer be rebuilt from its commit (D-352).
+
+    That is: any uncommitted **tracked** change, or an **untracked** file under ``src/`` or
+    ``configs/`` -- component discovery and config loading read those, so an untracked file
+    there can change a result. Untracked files elsewhere (scratch files, reports, outputs) do
+    not count. An unavailable git returns ``False``; :func:`code_version` already reports
+    ``unknown`` in that case.
     """
     where = cwd or Path(__file__).resolve().parent
-    out = _git(["status", "--porcelain", "--untracked-files=no"], where)
-    return bool(out is not None and out.strip())
+    out = _git(["status", "--porcelain", "--untracked-files=all"], where)
+    if out is None:
+        return False
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        status, _, path = line[:2], line[2:3], line[3:].strip().strip('"')
+        if status != "??":
+            return True  # any tracked change
+        if path.startswith(DIRTY_UNTRACKED_PATHS):
+            return True
+    return False
 
 
 def code_version(cwd: Path | None = None) -> str:
     """What ran: ``<40-hex sha>``, ``<sha>-dirty`` or ``unknown`` (T10b).
 
-    One shape, **stored and never hashed** (`pipeline_runs.code_version`): a dirty working
-    tree must not change ``config_hash``, because the config did not change -- but a run made
-    from a dirty checkout is not reproducible from the commit alone, and the marker says so.
+    One shape, **stored and never hashed** (`pipeline_runs.code_version`, D-352): a dirty
+    working tree must not change ``config_hash``, because the config did not change -- but a
+    run made from a dirty checkout is not reproducible from the commit alone, and the marker
+    says so. See :func:`git_dirty` for what counts as dirty.
     """
     sha = git_sha(cwd)
     if sha == "unknown":

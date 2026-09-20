@@ -109,7 +109,7 @@ class ThreadBudget:
 
 
 def resolve_budget(cfg: ExecutorConfig, cpu_count: int | None = None) -> ThreadBudget:
-    """Split ``cpu_count`` cores between processes and Numba threads (D-334).
+    """Split ``cpu_count`` cores between processes and Numba threads (D-334; rule: D-351).
 
     ``auto`` resolves as follows, so the product never exceeds the core count:
 

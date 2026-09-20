@@ -148,6 +148,23 @@ def test_F_0_8_2_engine_section_defaults_match_the_repo_config(
     assert pipeline(tmp_path).engine == EngineConfig()  # and a config without the section
 
 
+def test_F_0_8_2_engine_yaml_and_model_defaults_cannot_drift() -> None:
+    """Deviation 3: the defaults live in the model and are restated in the YAML.
+
+    Two sources of the same numbers must not drift, so every key the YAML sets has to equal
+    the model default, and the YAML has to set every field that has one (``parity_qty_step``
+    has none and is commented out, D-347).
+    """
+    path = REPO / "configs" / "engine" / "default.yaml"
+    from_yaml = yaml.safe_load(path.read_text(encoding="utf-8"))
+    defaults = EngineConfig()
+    assert set(from_yaml) == set(EngineConfig.model_fields) - {"parity_qty_step"}
+    for key, value in from_yaml.items():
+        assert value == getattr(defaults, key), f"{key}: YAML {value} != model default"
+    assert defaults.parity_qty_step is None  # no default: a parity run must state it (D-347)
+    assert "# parity_qty_step" in path.read_text(encoding="utf-8")  # documented, not set
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -336,6 +353,68 @@ def test_F_0_8_2_conversion_snapshot_hash_is_part_of_the_config(
         }
     )
     assert config_hash(changed) != config_hash(out)
+
+
+def test_F_0_8_2_conversion_snapshot_is_required_for_every_timeframe(
+    tmp_path: Path, store_root: Path
+) -> None:
+    """D-316 reads the pair at the traded timeframe, so every timeframe needs its snapshot."""
+    cdir = costs_dir(tmp_path)
+    profile = json.loads(json.dumps(PROFILE))
+    profile["quote_ccy"] = "EUR"
+    (cdir / "test_share.yaml").write_text(yaml.safe_dump(profile), encoding="utf-8")
+    universe = Universe(
+        symbols=(
+            UniverseEntry(
+                symbol="SPY",
+                asset_class="us_equity",
+                reference_source="alpaca",
+                timeframes=("1D", "1H"),
+                cost_profile="test_share",
+                calendar="nyse",
+                group="us_equity",
+                broker_symbol="SPY",
+            ),
+        )
+    )
+    upath = tmp_path / "universe_2tf.yaml"
+    write_universe(universe, upath)
+    store, cat = SnapshotStore(store_root), Catalog(store_root)
+
+    def snapshot(symbol: str, timeframe: str, source: str, asset_class: str, seed: int) -> str:
+        step = dt.timedelta(days=1) if timeframe == "1D" else dt.timedelta(hours=1)
+        ts = [T0 + step * i for i in range(60)]
+        meta = cat.register(
+            store.write_snapshot(
+                bars_from_close(ts, random_close(60, seed=seed)),
+                make_meta(
+                    symbol=symbol, timeframe=timeframe, source=source, asset_class=asset_class
+                ),
+            )
+        )
+        cat.set_reference(symbol, timeframe, meta.snapshot_hash or "")
+        return meta.snapshot_hash or ""
+
+    snapshot("SPY", "1H", "alpaca", "us_equity", 3)  # SPY 1D comes from the store_root fixture
+    eur_1d = snapshot("EURUSD", "1D", "dukascopy", "fx", 4)
+    cfg = PipelineConfig.model_validate(
+        {
+            "universe": upath,
+            "symbols": ["SPY"],
+            "timeframes": ["1D", "1H"],
+            "stages": ["s01_edge"],
+            "gates": GATES,
+        }
+    )
+    fx = fx_config(tmp_path)
+    # EURUSD 1H is missing: the run is refused, and the message names exactly that pair/timeframe
+    with pytest.raises(ConfigError, match=r"conversion pair\(s\) the run needs .*EURUSD 1H"):
+        resolve_config(cfg, store_root, costs_dir=cdir, fx_config_path=fx)
+    eur_1h = snapshot("EURUSD", "1H", "dukascopy", "fx", 5)
+    out = resolve_config(cfg, store_root, costs_dir=cdir, fx_config_path=fx)
+    assert out.cost_inputs is not None
+    conv = out.cost_inputs.conversion_snapshots["EURUSD"]
+    assert {tf: ref.snapshot_hash for tf, ref in conv.items()} == {"1D": eur_1d, "1H": eur_1h}
 
 
 def test_F_0_8_2_unknown_quote_currency_is_refused(tmp_path: Path, store_root: Path) -> None:

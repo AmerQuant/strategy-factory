@@ -2,7 +2,7 @@
 
 **Features:** F-0.3.7, F-0.8.1, F-0.8.2, F-0.6.1, F-0.7.1, F-0.7.4 · **Branch:** `feat/T10b-executor-metric-names` (stacked on `feat/T08-engine`) · **Status:** done. **Two parts are CRITICAL (D-339) — waiting for "Approved".**
 
-**Decisions used:** D-002, D-004, D-008, D-012, D-130, D-301, D-306, D-307, D-308, D-309, D-313, D-314, D-316, D-329, D-331, D-333, D-334, D-339, D-340, D-343, D-344, D-345, D-347.
+**Decisions used:** D-002, D-004, D-008, D-012, D-130, D-301, D-306, D-307, D-308, D-309, D-313, D-314, D-316, D-329, D-331, D-333, D-334, D-339, D-340, D-343, D-344, D-345, D-347, and D-351 ... D-354 (the answers to this task's open questions; see the addendum).
 
 ## Dependencies
 None added.
@@ -148,7 +148,7 @@ Tests: `test_F_0_8_1_core_producer_equals_as_gate_dict` (set equality both ways,
 
 `registry.writer.code_version()` returns **one shape**: `<40-hex sha>`, `<sha>-dirty` or `unknown`. It is **stored on `pipeline_runs.code_version`, never hashed** — a dirty working tree does not change `config_hash`, because the config did not change. `sfac reproduce` prints `(DIRTY checkout: uncommitted changes; not reproducible from the commit)` instead of `(git checkout this commit)`.
 
-Dirty = uncommitted **tracked** changes (`git status --porcelain --untracked-files=no`); untracked files do not count (assumption **P-37**). Tests: clean, dirty, untracked-only, no git at all, the hash is unchanged, and the DB test asserting two runs with different `code_version` share one `config_hash`.
+Dirty = any uncommitted **tracked** change, **or** an untracked file under `src/` or `configs/` (**D-352**): component discovery and config loading read those, so an untracked file there can change a result. Untracked files elsewhere (scratch files, reports, outputs) do not count. Tests: clean, tracked change, untracked under `src/` and under `configs/` (4 paths), untracked outside them (3 paths), no git at all, the hash is unchanged, and the DB test asserting two runs with different `code_version` share one `config_hash`.
 
 ## How each criterion is tested
 
@@ -199,16 +199,48 @@ Dirty = uncommitted **tracked** changes (`git status --porcelain --untracked-fil
 
 1. **`MetricName.producers` is a tuple, not one `producer`.** The task writes `MetricName(name, unit, description, producer)`, but the eight batch metrics are produced by *both* `metrics.core` and `metrics.batch` and are bit-identical there (T09). A single field would have forced one of the two producer sets to be wrong. `MetricName.producer` still returns the first (the only one of every stage-level metric), and `by_producer()` gives exactly the `metrics.core` / `metrics.batch` sets the task asks the test to compare.
 2. **`EngineConfig` moved to `core/config.py`** (from `pipeline/backtest.py`). A pipeline config must carry the engine section, and `core.config` may not import `pipeline.backtest`, which pulls in Numba. `pipeline/backtest.py` re-exports the three names, so T08's imports still work.
-3. **All `EngineConfig` fields now have model defaults** (they were required in T08). CLAUDE.md rule 1 puts defaults in the config model, and `configs/engine/default.yaml` restates them with their decision ids. Consequence: an engine YAML that loses a key falls back to the documented default instead of failing. `parity_qty_step` still has no default, and a parity run must state both it and `atr_length`.
+3. **All `EngineConfig` fields now have model defaults** (they were required in T08). CLAUDE.md rule 1 puts defaults in the config model, and `configs/engine/default.yaml` restates them with their decision ids. Consequence: an engine YAML that loses a key falls back to the documented default instead of failing. `parity_qty_step` still has no default, and a parity run must state both it and `atr_length`. The two sources cannot drift: `test_F_0_8_2_engine_yaml_and_model_defaults_cannot_drift` asserts that the YAML sets exactly the fields that have a default and that every value equals the model's.
 4. **`run_grid` takes a `GridJob`**, not the task's `run_grid(bars, cost_arrays, signal_matrix, params, chunk_cols)`: the T08 grid kernel needs the market arrays, both signal matrices, four per-column exit arrays, cost and sizing inputs, the mode and the conversion arrays. Bundling them in one frozen dataclass keeps the call readable and makes the column slice a method.
 5. **`grid_trial_rows` fills only the five trial columns the batch path computes** (`n_trades`, `avg_annual_profit`, `avg_annual_dd_ystart`, `profit_dd_ratio`, `exposure`) plus `n_skipped_min_volume` in `extra`. The other trial columns stay `None`: the grid path does not compute them (D-331 keeps only metrics), and inventing them would be worse than a null.
 6. **`executor.yaml` is not part of `config_hash`.** It decides how fast a run is, never what it computes; the identity tests prove that.
 
 ## Open questions
 
-- **P-36** — the `auto` split of cores between processes and Numba threads (D-334 fixes only the product).
-- **P-37** — "dirty" counts tracked changes only.
-- **P-38** — a futures parity run has no quantity step: `run_backtest` exempts futures, `validate_config` cannot (a pipeline config has no futures flag until T04d).
-- `resolve_config` now requires a conversion-pair snapshot for **every timeframe of the run**. That is right per D-316, but it is only tested for a single timeframe.
+- **P-36, P-37 and P-38 are answered** (D-351, D-352, D-353) - see the addendum.
 - F-0.7.4 remains partial: `sfac reproduce` prints and verifies the plan; a bit-identical **re-run** needs the stage wiring (`RunContext`), which is not in this task.
-- `PipelineConfig.engine` is now hashed, but nothing yet passes it to `run_backtest`: the wiring arrives with the stage code (D-344, `StrategySpec`). Until then the hash describes settings a stage does not read yet.
+- `PipelineConfig.engine` is now hashed, but nothing yet passes it to `run_backtest`: the wiring arrives with the stage code (D-344, `StrategySpec`). Until then the hash describes settings a stage does not read yet. **D-354 (1)** makes this a T12 acceptance item: stage code takes the engine settings only from the run config, proven by a grep test.
+
+---
+
+## Addendum (2026-09-21): supervisor approval, D-351 … D-354
+
+**Approved**, including both CRITICAL parts (C1 the gate YAML, C2 the holdout guard, verified
+in `data/split.py`). The three open questions were answered and three items were required
+before the merge; all of them are in this branch.
+
+### Decisions
+| ID | Answer | Effect here |
+|---|---|---|
+| **D-351** (P-36) | The `auto` budget rule is accepted as implemented; revisit if the stage-2/3 grid shapes differ. | No code change; `resolve_budget` and `configs/pipeline/executor.yaml` now cite D-351. |
+| **D-352** (P-37, **changed**) | Dirty = uncommitted tracked changes **or untracked files under `src/` or `configs/`**. Stored, never hashed. | `git_dirty` rewritten (below). |
+| **D-353** (P-38) | Leave it: until T04d a pipeline config has no futures flag, so `validate_config` requires `parity_qty_step` for every `tradingview` run while `run_backtest` keeps the futures exemption. T04d adds the flag and the same exemption. | No code change; the asymmetry is now a recorded decision, not an open question. |
+| **D-354** | T12 notes: stage code reads the engine settings only from `PipelineConfig.engine` (`DEFAULT_ENGINE_CONFIG` forbidden in stage code, grep test); a stage passes its stage id from its own constant (grep test: the literal `"s06_robust"` only in `data/split.py` and the stage-6 module); F-0.7.4 stays partial until the bit-identical rerun through `RunContext` is proven. | Nothing to implement in T10b; carried into T12 and into `HANDOFF.md`. |
+
+### The three pre-merge items
+| item | change | test |
+|---|---|---|
+| **D-352**: untracked files under `src/` / `configs/` count as dirty | `git_dirty` reads `git status --porcelain --untracked-files=all` and treats an `??` entry as dirty only when its path starts with one of `DIRTY_UNTRACKED_PATHS = ("src/", "configs/")`; any tracked change is dirty as before. | `test_F_0_7_4_d352_untracked_files_under_src_or_configs_are_dirty` (4 paths, including a new component file and a new cost profile), `..._d352_untracked_files_outside_src_and_configs_are_clean` (3 paths), `..._d352_the_watched_paths_are_src_and_configs` |
+| the engine YAML and the model defaults must not drift (deviation 3) | none needed | `test_F_0_8_2_engine_yaml_and_model_defaults_cannot_drift`: the YAML's key set equals the model fields minus `parity_qty_step`, every value equals the model default, and `parity_qty_step` has no default and stays commented out (D-347) |
+| conversion-pair snapshots per timeframe | none needed (the behaviour was already right; it was untested) | `test_F_0_8_2_conversion_snapshot_is_required_for_every_timeframe`: a EUR-quoted symbol traded on 1D **and** 1H with EURUSD 1D present but 1H missing is refused and the message names `EURUSD 1H`; after adding it, both snapshot hashes land in `cost_inputs.conversion_snapshots` |
+
+### State after the change
+| Command | Result |
+|---|---|
+| `ruff check .` / `ruff format --check .` | ✅ / ✅ 239 files |
+| `mypy src` | ✅ 95 files |
+| `pytest -m "not slow"` | ✅ **1150 passed** |
+| `pytest tests/parity tests/leakage tests/oracle` | ✅ **283 passed**, 0 skipped |
+| `pytest -m db -rs` | ✅ **21 passed, 0 skipped** |
+
+`pending.md` has no open questions left in batch 2b (P-28's coverage criterion still needs the
+user's overrides, D-341).

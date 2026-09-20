@@ -2,9 +2,7 @@
 
 Assumptions and open questions raised by Claude Code while planning or executing a batch. The supervisor answers them; accepted answers move to `decisions_log.md` as new `D-` entries.
 
-History: the batch-2b questions P-05 … P-27 were resolved on 2026-09-19 as D-315 … D-340 (P-18
-rejected; see D-329). P-28 … P-35 were answered on 2026-09-20 by D-341 … D-350. P-28's coverage
-criterion still needs the user's overrides (D-341). **P-36 … P-38 (T10b) are open.**
+History: the batch-2b questions P-05 … P-27 were resolved on 2026-09-19 as D-315 … D-340 (P-18 rejected; see D-329).
 
 | ID | Question | Context | Proposed answer | Status |
 |---|---|---|---|---|

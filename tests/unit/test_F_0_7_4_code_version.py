@@ -21,6 +21,7 @@ from strategy_factory.core.config import PipelineConfig, config_hash
 from strategy_factory.registry import tables as T
 from strategy_factory.registry.writer import (
     DIRTY_SUFFIX,
+    DIRTY_UNTRACKED_PATHS,
     RegistryWriter,
     code_version,
     git_dirty,
@@ -64,10 +65,37 @@ def test_F_0_7_4_dirty_checkout_is_marked(repo: Path) -> None:
     assert code_version(repo) != git_sha(repo)
 
 
-def test_F_0_7_4_untracked_files_do_not_make_a_checkout_dirty(repo: Path) -> None:
-    (repo / "scratch.txt").write_text("notes\n", encoding="utf-8")
+@pytest.mark.parametrize("path", ["scratch.txt", "docs/note.md", "reports/out.html"])
+def test_F_0_7_4_d352_untracked_files_outside_src_and_configs_are_clean(
+    repo: Path, path: str
+) -> None:
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("notes\n", encoding="utf-8")
     assert not git_dirty(repo)
     assert code_version(repo) == git_sha(repo)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/strategy_factory/components/entries/new_probe.py",
+        "configs/costs/new_profile.yaml",
+        "src/extra.py",
+        "configs/nested/deep/thing.yaml",
+    ],
+)
+def test_F_0_7_4_d352_untracked_files_under_src_or_configs_are_dirty(repo: Path, path: str) -> None:
+    """D-352: component discovery and config loading read those, so they change results."""
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("x = 1\n", encoding="utf-8")
+    assert git_dirty(repo)
+    assert code_version(repo) == f"{git_sha(repo)}{DIRTY_SUFFIX}"
+
+
+def test_F_0_7_4_d352_the_watched_paths_are_src_and_configs() -> None:
+    assert DIRTY_UNTRACKED_PATHS == ("src/", "configs/")
 
 
 def test_F_0_7_4_no_git_gives_unknown(tmp_path: Path) -> None:
