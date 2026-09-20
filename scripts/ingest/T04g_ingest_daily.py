@@ -82,7 +82,8 @@ def main() -> int:
             proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
             took = (dt.datetime.now(dt.UTC) - t0).total_seconds()
             tail = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
-            summary = tail[-1] if tail else "(no output)"
+            counts = [ln for ln in tail if " symbols: " in ln]
+            summary = counts[-1] if counts else (tail[-1] if tail else "(no output)")
             line = (
                 f"{t0.isoformat(timespec='seconds')}  chunk {i}/{len(groups)}  "
                 f"{group[0]}..{group[-1]}  {len(group)} symbols  rc={proc.returncode}  "

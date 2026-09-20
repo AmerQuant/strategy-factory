@@ -3,9 +3,9 @@
 **Features:** F-0.1.6 (data-quality checks and report), F-0.1.8 (immutable snapshots, derived snapshots), F-0.1.2 (frozen stretches and the re-use boundary, D-398), F-0.1.9 groundwork · **Priority:** MVP · **Depends on:** **T04g** (the raw 1D snapshots) and ideally **T04h** (hourly coverage) · **Must be done before:** the first real stage-1 run (**T12**)
 **Branch:** `b/T04k-clean-daily` from `b/T04g-alpaca-daily-ingest` (or from `main` once T04g is merged).
 
-Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396** and **D-398** (the decisions this
-task implements), D-033, D-023, D-008, D-383, D-522, and `docs/reviews/T04i_review.md` — T04i
-measured both problems, this task fixes them.
+Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396**, **D-398** and **D-399** (the
+decisions this task implements), D-033, D-023, D-008, D-383, D-397, D-522, and
+`docs/reviews/T04i_review.md` — T04i measured both problems, this task fixes them.
 
 ## Why
 
@@ -77,13 +77,29 @@ input — it is evidence, not a config.
 `SplitManager` with `HistoryTooShortError` when a stage tries to split them. Do **not** add them to
 the exclusion file and do not shorten the split rules for them.
 
-**Blocked on P-74 for the trims only.** An unadjusted reverse split is indistinguishable from a
-re-used ticker on the evidence D-398 uses, and **29 of the 280 trims** carry the
-`reverse_split_suspect` flag (T04i §6a). A long halt is equally indistinguishable (`MARA`). Before the trims are applied, cross-check each `trim_to_boundary` level break
-against the all-adjusted MS-US-1D series (`us_equity/alpaca_sip_all/1D/us_<symbol>.csv`), which is
-continuous across a split and breaks across a re-use — the test that settled AVGO. A continuous
-cross-check means the symbol needs a **D-397 `--refresh`**, not a trim, and goes into the report for
-the user's network run. The frozen-stretch cut (D-398 (1)) is unaffected and needs no cross-check.
+### 1c. No trim on an ambiguous signature — D-399 (the P-74 answer)
+
+**A trim is never applied on an ambiguous signature.** A frozen stretch or a gap with a level break
+is equally what an **unadjusted (reverse) split** and a **long trading halt** look like, and
+`configs/data/known_splits.csv` holds only 11 hand-picked splits. T04i flags **29 of the 280 trims**
+as `reverse_split_suspect` in `docs/reviews/T04i_relisting_verdicts.csv`; `MARA` is the halt case,
+and it currently loses 252 bars of real history.
+
+**Settle every one of the 29 with the MS-US-1D cross-check** — the test that settled AVGO. The
+all-adjusted series lives at `SFAC_RAW_ROOT/us_equity/alpaca_sip_all/1D/us_<symbol>.csv` and is
+**continuous** across a genuine corporate action and **discontinuous** where the company actually
+changed. `data/split_check.py` already computes `ratio_crosscheck`; reuse it rather than writing a
+second comparison.
+
+| cross-check says | verdict | what T04k does |
+|---|---|---|
+| continuous across the break → **unadjusted split or reverse split** | **not a boundary** | the symbol takes the **D-397** path: it **fails ingest** and is listed with its `--refresh` command; **history untouched**, nothing trimmed |
+| the series resumes at the same level → **trading halt** | **not a boundary** | the frozen stretch is still removed (**D-398 (1)**), the history on **both** sides is kept, and the snapshot carries a **gap the quality report states** |
+| discontinuous → **genuine re-use** | **boundary** | trim as **D-398 (2)** |
+| the cross-check **cannot settle it** (no cross-check file, no overlap, contradictory) | **not a boundary** | keep the **full history**, mark the symbol in the artefact and **list it for the supervisor** |
+
+The verdict per symbol goes into the artefact and the review; the frozen-stretch cut (D-398 (1))
+is unaffected by all of this and needs no cross-check.
 
 ### 2. The derived clean daily snapshot (D-396 part 2)
 
@@ -127,6 +143,10 @@ plainly, because that is the argument for making it the default reference.
   boundary each produce the right clean series; the frozen bars are gone, the boundary is in the
   metadata, and a symbol whose trimmed history is too short **fails the split** rather than being
   excluded (test against `SplitManager`).
+- **D-399:** four fixtures — a continuous cross-check (unadjusted split), a halt, a genuine
+  re-use and an unsettleable case — give the four verdicts of §1c. A test asserts that a symbol
+  whose cross-check is continuous or missing keeps **every** bar of its history, so an ambiguous
+  signature can never trim.
 - `daily_wick_outlier` runs for a symbol with **no** hourly data.
 - The clean snapshot exists for every raw 1D snapshot, has `derived_from` set, is the reference, and
   the raw snapshot is untouched and still in the catalog (test: the raw parquet's hash and mtime are
@@ -140,6 +160,6 @@ plainly, because that is the argument for making it the default reference.
 ## Review summary
 `docs/reviews/T04k_review.md`: the flagged counts per check, per symbol and per date; how many bars
 were capped versus clipped; **how many were removed as padding and how many symbols were trimmed to
-a boundary (D-398), with the MS-US-1D cross-check verdict for each trim (P-74) and the resulting
-`--refresh` list**; how many trimmed symbols now fail the split (D-008); the before/after range
+a boundary (D-398), the MS-US-1D verdict for each of the 29 suspects (D-399) with the resulting
+`--refresh` list and the symbols kept untrimmed for the supervisor**; how many trimmed symbols now fail the split (D-008); the before/after range
 distribution; the changed-bar log's location and its replay test; deviations and open questions.
