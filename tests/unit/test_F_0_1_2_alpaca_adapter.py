@@ -254,3 +254,22 @@ def test_F_0_1_2_T04g_the_ingest_reads_the_universe_and_the_exclusion_file(
     assert out.exit_code == 0, out.output
     assert "AAPL" in out.output and "1 excluded" in out.output
     assert Catalog(tmp_path / "s").list_snapshots(symbol="TSLA").height == 0
+
+
+def test_F_0_1_2_D_397_the_cli_still_exits_zero_when_a_symbol_is_unadjusted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-397: the symbol fails, the run does not."""
+    raw = tmp_path / "raw"
+    _unadjusted_aapl(raw)
+    write_chunk(raw, "1D", "TSLA", 2020, load_fixture("daily_2020.json")["TSLA"], REQ, True, "f")
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(raw))
+    monkeypatch.setenv("SFAC_DATA_ROOT", str(tmp_path / "s"))
+    out = CliRunner().invoke(
+        app,
+        ["data", "ingest", "alpaca", "--timeframe", "1D", "--symbols", "AAPL,TSLA"],
+    )
+    assert out.exit_code == 0, out.output
+    assert "1 unadjusted_split" in out.output
+    assert "unadjusted known split (not ingested): AVGO" not in out.output
+    assert "unadjusted known split (not ingested): AAPL" in out.output

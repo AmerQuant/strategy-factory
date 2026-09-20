@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 from strategy_factory.cli import app
 from strategy_factory.core.errors import DataError
 from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.cli_prep import summary_frame
 from strategy_factory.data.config import QualityConfig, StalePriceConfig
 from strategy_factory.data.quality import (
     QUALITY_DIR,
@@ -364,3 +365,23 @@ def test_F_0_1_6_D_391_a_large_run_does_not_print_every_row(data_root: Path) -> 
     assert res.exit_code == 0, res.output
     assert "SYM0" in res.output and "SYM5" not in res.output
     assert "6 snapshot(s)" in res.output
+
+
+def test_F_0_1_6_T04g_the_summary_survives_a_late_first_break_hour() -> None:
+    """A schedule field that is null past row 100 and an hour afterwards must not raise.
+
+    Measured in T04g: over 6,707 daily snapshots `pl.DataFrame(out)` inferred `break_local` as
+    null from the first 100 rows and then failed with
+    `ComputeError: could not append value: 17 of type: i64` on the first intraday snapshot.
+    120 rows, so the default `infer_schema_length=100` would not see the hour.
+    """
+    rows: list[dict[str, object]] = [
+        {"symbol": f"EQ{i}", "status": "ok", "break_local": None, "break_utc": None}
+        for i in range(119)
+    ]
+    rows.append({"symbol": "EURUSD", "status": "ok", "break_local": 17, "break_utc": 22})
+    with pytest.raises(Exception, match="could not append value"):
+        pl.DataFrame(rows)  # the default infer_schema_length=100 is what failed
+    frame = summary_frame(rows)
+    assert frame.height == 120
+    assert frame["break_local"].to_list()[-1] == 17

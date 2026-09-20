@@ -73,7 +73,7 @@ def quality_cmd(
             )
     except SfacError as exc:
         raise _fail(str(exc)) from exc
-    table = pl.DataFrame(out)
+    table = summary_frame(out)
     print_table(table.head(max_rows) if table.height > max_rows else table)
     if table.height > max_rows:
         typer.echo(f"... {table.height - max_rows} more row(s); the summaries below hold all.")
@@ -84,6 +84,17 @@ def quality_cmd(
     for path in written:
         typer.echo(f"  {path.name}")
     typer.echo(f"reports: {(store.root / QUALITY_DIR).as_posix()}")
+
+
+def summary_frame(rows: list[dict[str, object]]) -> pl.DataFrame:
+    """The per-snapshot summary frame.
+
+    ``break_local`` / ``break_utc`` are null for every daily snapshot and an hour for a few
+    intraday ones, so the schema must be inferred from **every** row: with polars' default of 100
+    a 6,707-snapshot run inferred null and then raised ``ComputeError: could not append value: 17
+    of type: i64`` on the first real break hour (T04g).
+    """
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 def _markdown_table(columns: list[str], rows: list[tuple[object, ...]]) -> list[str]:
