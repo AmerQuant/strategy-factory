@@ -367,3 +367,44 @@ def test_F_X_9_d357_protocol_states_the_worktree_rule() -> None:
     log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
     d357 = next(line for line in log.splitlines() if line.startswith("| D-357 |"))
     assert "own git worktree" in d357 and "spawned" in d357
+
+
+# -- D-369: an amendment in place is not a duplicate -----------------------------------------
+def test_F_X_9_d369_an_amended_row_is_not_a_duplicate(rules: Ownership) -> None:
+    existing = ["| D-357 | old text |", "| D-356 | x |"]
+    amended = ["| D-357 | new text |"]
+    removed = ["| D-357 | old text |"]
+    assert check_ids("A", amended, existing, rules, removed) == []
+    # without the removal it is still a second row with the same id
+    assert any("duplicate id" in p for p in check_ids("A", amended, existing, rules))
+    # an amendment still has to pass the range check: stream A may not rewrite a D-380 row
+    foreign = check_ids(
+        "A", ["| D-380 | rewritten |"], ["| D-380 | old |"], rules, ["| D-380 | old |"]
+    )
+    assert len(foreign) == 1 and "outside stream A's range" in foreign[0]
+
+
+def test_F_X_9_d369_a_deleted_row_always_fails(rules: Ownership) -> None:
+    problems = check_ids("A", [], ["| D-356 | x |"], rules, ["| D-356 | x |"])
+    assert len(problems) == 1
+    assert "removed from the log" in problems[0] and "never deleted" in problems[0]
+    # a grandfathered branch may not delete rows either
+    assert check_ids(None, [], ["| D-356 | x |"], rules, ["| D-356 | x |"]) != []
+
+
+def test_F_X_9_d369_this_branch_amends_d357_and_passes_the_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must accept exactly what this branch does to D-357 (1)."""
+    monkeypatch.chdir(REPO)
+    old = "| D-357 | **Stream protocol** old text | accepted |"
+    new = "| D-357 | **Stream protocol** amended text | accepted |"
+    monkeypatch.setattr("strategy_factory.core.cli_streams.added_rows", lambda base, f: [new])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.removed_rows", lambda base, f: [old])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.base_rows", lambda base, f: [old])
+    monkeypatch.setattr("strategy_factory.core.cli_streams.changed_paths", lambda base: [])
+    result = CliRunner().invoke(
+        app, ["streams", "check", "--base", "HEAD", "--branch", "a/protocol-worktrees"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "ok   decision / pending ids" in result.output

@@ -56,6 +56,21 @@ def added_rows(base: str, files: tuple[str, ...]) -> list[str]:
     ]
 
 
+def removed_rows(base: str, files: tuple[str, ...]) -> list[str]:
+    """Lines this branch **removes** from ``files`` (without the leading ``-``).
+
+    Together with :func:`added_rows` this tells an amendment in place from a deletion or a
+    duplicate id (D-369).
+    """
+    merge_base = _git("merge-base", base, "HEAD").strip()
+    diff = _git("diff", "-U0", f"{merge_base}..HEAD", "--", *files)
+    return [
+        line[1:]
+        for line in diff.splitlines()
+        if line.startswith("-") and not line.startswith("---")
+    ]
+
+
 def base_rows(base: str, files: tuple[str, ...]) -> list[str]:
     """The rows those files already had at the merge base."""
     merge_base = _git("merge-base", base, "HEAD").strip()
@@ -92,6 +107,7 @@ def streams_check(
             base_rows(base, files),
             read_migrations(versions),
             rules,
+            removed_rows(base, files),
         )
     except SfacError as exc:
         typer.echo(f"error: {exc}", err=True)

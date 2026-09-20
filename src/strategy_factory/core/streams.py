@@ -194,15 +194,30 @@ def check_ids(
     added_rows: Iterable[str],
     existing_rows: Iterable[str],
     ownership: Ownership,
+    removed_rows: Iterable[str] = (),
 ) -> list[str]:
-    """Problems with the IDs a branch adds: duplicates, or outside the stream's range."""
+    """Problems with the IDs a branch adds: duplicates, deletions, or outside its range.
+
+    An id that is added **and** removed by the same branch is an **amendment in place**
+    (D-369): the row replaces its own earlier version, so the log keeps exactly one row per
+    id. It still has to pass the range check, so amending another stream's decision needs the
+    supervisor. A row that is removed and not added back is a deletion and always fails --
+    the log is append-only apart from amendments (D-355 (5)).
+    """
     added = parse_ids(added_rows)
     existing = set(parse_ids(existing_rows))
+    removed = set(parse_ids(removed_rows))
     problems: list[str] = []
     seen: set[tuple[str, int]] = set()
+    for kind, number in sorted(removed - set(added)):
+        problems.append(
+            f"{kind}-{number}: removed from the log; rows may be amended in place, "
+            "never deleted (D-355 (5), D-369)"
+        )
     for kind, number in added:
         label = f"{kind}-{number}"
-        if (kind, number) in existing or (kind, number) in seen:
+        amended = (kind, number) in removed
+        if ((kind, number) in existing and not amended) or (kind, number) in seen:
             problems.append(f"{label}: duplicate id (it already exists)")
         seen.add((kind, number))
         if stream is None:  # grandfathered branch: duplicates only
@@ -264,12 +279,13 @@ def check_all(
     existing_rows: Sequence[str],
     migrations: Mapping[str, str],
     ownership: Ownership,
+    removed_rows: Sequence[str] = (),
 ) -> dict[str, list[str]]:
     """``{guard: problems}`` for the three guards; every list empty means the branch is clean."""
     stream = ownership.stream_of_branch(branch)
     return {
         "paths": check_paths(stream, changed, ownership),
-        "ids": check_ids(stream, added_rows, existing_rows, ownership),
+        "ids": check_ids(stream, added_rows, existing_rows, ownership, removed_rows),
         "alembic": check_single_head(migrations),
     }
 
