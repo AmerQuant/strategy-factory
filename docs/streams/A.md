@@ -64,9 +64,9 @@ this stream from scratch.
 | §3 costs (`costs/parity.py`) | **done** — from the `pine` block alone (D-362) |
 | §3 strategy mapping | **done for MR** (`mr_rsi2_below_10`); TF maps to `tf_donchian20_breakout` |
 | §4 comparison (`selftest/parity_compare.py`) | **MR done and passing**; TF blocked, see below |
-| §5 `to_verify` | D-349 (a) **cannot** be verified by these references (neither script trails) — it stays `to_verify` and the review must say so |
+| §5 `to_verify` | **ledger written**, evidence per item: D-336 confirmed (2 of 462 entries at an exit bar, all matched); ATR warm-up confirmed (first entry bar 14 on both sides); D-335 pending TF (MR has no target, so no tie can arise); **D-327, D-349 (a) and D-349 (h) cannot be settled by any TradingView reference** → **P-45** |
 | §6 report (`selftest/parity_report.py`) | **done** — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
-| review `docs/reviews/T11_review.md` | **not written yet** — written after TF, then stop for "Approved" |
+| review `docs/reviews/T11_review.md` | **drafted**, marked *not finished*: the MR results, the option table, the §5 ledger and the deviations are in; the TF rows are *pending*. Finished when the TF exports land, then stop for "Approved" |
 
 **MR / BATS:SPY 1D — D-011 PASS.** 462/462 matched (100.00 %); net profit 185,784.36 vs
 185,810.06 = **−25.70 USD**, 0.0138 % of |TV| and 0.0257 % of capital.
@@ -117,9 +117,11 @@ first. The file now has 34 tests.
 
 ### Next actions, in order
 
-0. **PR #22** (`a/protocol-worktrees`) — CI green, then **stop for "Approved. Merge"**. After
-   it merges, rebase `a/T11-parity` onto `main`.
-1. TF exports arrive → fixtures, manifest note, both one-sided comparisons.
+0. **PR #23** (`a/fix-removed-rows-test`) — CI green, waiting on "Approved. Merge". It is the
+   only failing test on this branch; rebase `a/T11-parity` onto `main` once it lands.
+1. TF exports arrive → fixtures, manifest note (D-600 supersedes the two-sided export), map
+   the TF strategy in `configs/parity/xauusd_tf_1h.yaml`, then both one-sided comparisons.
+   The gate picks TF up automatically once the config has a strategy block.
 2. `docs/reviews/T11_review.md`, then **stop for "Approved"** (D-402).
 2b. Plan the D-368 task (metrics fixture + the Hypothesis CI policy) **after** T11.
 3. After the merge: `HANDOFF.md` from this file and `docs/streams/B.md`.
@@ -128,5 +130,5 @@ first. The file now has 34 tests.
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-369** used (next free **D-370**); pending **P-40 … P-44** used
-(next free **P-45**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
+Stream A decisions **D-360 … D-370** used (next free **D-371**); pending **P-40 … P-45** used
+(next free **P-46**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
