@@ -135,6 +135,12 @@ def test_F_0_5_1_as_gate_dict_names() -> None:
         "inf_ratio",
         "open_position_marked",
         "cost_placeholder",
+        # T08 additions (run-meta counters and flags)
+        "n_skipped_min_volume",
+        "min_volume_skip_flag",
+        "volume_step_assumed",
+        "contracts_fixed",
+        "fx_peg",
     }
     assert set(gate) == expected
     assert all(isinstance(v, float) for v in gate.values())

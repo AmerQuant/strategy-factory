@@ -110,12 +110,13 @@ no_implicit_reexport = true
 strict_equality = true
 extra_checks = true
 
-# The metrics contract is strict (T09): the more specific module patterns below override
-# the relaxed `strategy_factory.metrics.*` block above.
+# The metrics contract (T09) and the backtest glue (T08) are strict: the more specific
+# module patterns below override the relaxed `.metrics.*` and `.pipeline.*` blocks above.
 [[tool.mypy.overrides]]
 module = [
     "strategy_factory.metrics.containers",
     "strategy_factory.metrics.standard",
+    "strategy_factory.pipeline.backtest",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

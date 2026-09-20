@@ -67,6 +67,20 @@ Rules: on flat bars `equity = initial_capital + realized_pnl`; **final equity = 
 - **final equity = capital + Σ pnl_net + open P&L**;
 - `in_position` is True **exactly** on the bars the trades occupy, plus the final run of an open position, which must start at or after the last exit.
 
+**Contract amendment (T08, D-345; `_validate_positions`).** A position re-entered at the open
+where the previous trade exited (exit and re-entry at one open, D-336) and still open at the
+last bar is **valid**: `in_position` then has no flat bar between the two, so the open run
+starts at the last exit rather than after it. The validator accepted this only when a flat bar
+separated them and raised "open position at the end overlaps a closed trade" otherwise; that
+check is gone and the exact-match rule above carries it. Tests:
+`test_F_0_5_1_open_position_reentered_at_the_last_exit_open` (accepted case and a bad
+`in_position` pattern that still raises) and `test_F_0_3_2_exit_and_reentry_at_the_same_open_open_at_the_end`.
+
+**Additive fields (T08, D-345).** `RunMeta` gains `n_skipped_min_volume` (D-313),
+`volume_step_assumed` (D-314), `contracts_fixed` (D-329) and `fx_peg` (D-307);
+`MetricsReport.as_gate_dict()` gains those four plus `min_volume_skip_flag`. Defaults keep
+older results valid; T10b registers the names (D-309, D-333).
+
 ### Batch path and trade counts (gates use `n_trades` = closed trades)
 `core_metrics_batch(equity_matrix, in_position_matrix, n_closed_trades, ts, initial_capital)`:
 - `n_closed_trades` is an int array of length `n_configs`. **The T08 grid kernel must return it**, one closed-trade count per configuration.

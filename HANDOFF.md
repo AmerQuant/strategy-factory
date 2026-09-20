@@ -1,6 +1,6 @@
-# HANDOFF — Strategy Factory (v3)
+# HANDOFF — Strategy Factory (v4, 2026-09-20)
 
-Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0), the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`) and the feature list (`docs/features.md`).
+Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0), `docs/decisions/pending.md`, the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`) and the feature list (`docs/features.md`).
 
 ## 1. Project in one paragraph
 
@@ -14,6 +14,7 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
   1. **Phase 1 — plan:** task files + runbook on branch `docs/<batch>`; assumptions go to `pending.md`; stop.
   2. **Phase 2 — execute**, after "Plan approved": tests first, implementation, acceptance commands, the `acceptance-reviewer` subagent (`.claude/agents/`), review file, commit. Critical tasks (D-402) stop after their review until "Approved".
   3. **End:** PR(s) with `gh` (body = reviews), update this file, batch report. Merge only on "Approved. Merge …" with green CI (D-401).
+- Each task branch is pushed to `origin` as soon as its review file is committed (no PR, no merge before approval).
 - Code, identifiers, commits and repo docs are in English; user-facing reports are Persian (RTL, Vazirmatn).
 
 ## 3. Task status
@@ -32,14 +33,37 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | T04e | Data-layer follow-up (hash v2, calendar, renames, pilots) | ✅ merged (#4) — **phase-B pilot analysis pending the Alpaca hourly download** |
 | T05 | Data quality, resampling, split manager | ✅ merged (batch 2a, #7) |
 | T06 | Cost model (placeholder profiles) | ✅ merged (batch 2a, #7) |
+| T06b | Moneta cost profiles, broker mapping, broker universe | 🟡 **done, blocked on P-28** — branch `feat/T06b-moneta-costs` (3096c72), review + addendum written, D-350 applied, D-341 rebuild done (471 mapped, 106 review rows). Waiting for the user's `-IncludeInactive` asset list and `symbol_overrides.csv`. |
 | T07 | Components and indicators | ✅ merged (#6) |
-| T08 | Engine | ⏭ next batch (2b), **critical** |
+| T08 | Engine — **critical (D-402)** | 🟢 **approved by the supervisor**, awaiting merge — branch `feat/T08-engine` (c39da49 + docs), stacked on T06b. Merge **after** T06b, rebased onto `main`, CI green. |
 | T09 | Metrics and result containers | ✅ merged (#8) |
 | T10a | Gate engine, pipeline config, universe | ✅ merged (batch 2a, #7) |
-| T06b, T10b | Moneta costs; executor + metric-name registry | ⏭ next batch (2b) |
+| T10b | Executor (F-0.3.7) + metric-name registry, run-level config hash, holdout stage guard | 📝 **planned** — task file `docs/tasks/T10b_executor_metric_names.md` (d3aaa69); plan approved with three additions (§5 below). Sections 2 and 4 are **critical (D-339)**. |
 | T11 … T15 | Parity, stages 1–3, orchestrator/CLI/reports/self-tests | later |
 
-## 4. Data status
+## 4. Batch 2b status
+
+`main` = `docs/batch2b` merged (PR #11, 6a30bc3). D-312 … D-350 are in the decisions log; **no open batch-2b `P-` questions** (`pending.md`: P-05 … P-35 all answered; P-28's *coverage criterion* still needs the user's overrides).
+
+Branch stack: `main` → `feat/T06b-moneta-costs` → `feat/T08-engine` (→ `feat/T10b-…` next).
+
+| Task | Branch | Review | Next step |
+|---|---|---|---|
+| T06b | `feat/T06b-moneta-costs` | `docs/reviews/T06b_review.md` (+ 2026-09-20 addendum) | user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` → rebuild → user fills `configs/costs/moneta/symbol_overrides.csv` → coverage criterion closes |
+| T08 | `feat/T08-engine` | `docs/reviews/T08_review.md` (+ addendum) | approved; merge after T06b |
+| T10b | `feat/T10b-…` (to create) | — | execute the approved plan |
+
+Merge order: T06b → T08 → T10b, each rebased onto `main`, CI green (ruff, format, mypy, fast suite, parity + leakage + oracle, `-m db` with 0 skipped). Merge only on "Approved. Merge …" (D-401).
+
+## 5. T10b plan additions (approved 2026-09-20)
+
+The task file `docs/tasks/T10b_executor_metric_names.md` was approved with these changes; everything else in it stands.
+
+- **(a) `config_hash` must also cover the cost inputs:** the resolved cost-profile content hash per symbol, the Moneta spec SHA-256, `configs/data/fx_conversion.yaml` (pairs and peg) and the conversion pairs' snapshot hashes. Tests: regenerating a profile with a different spread changes the hash; `sfac reproduce` fails loudly when the stored cost hash no longer matches.
+- **(b) The allowed holdout stage (`s06_robust`) is a constant in code, not a config value** (D-306: enforced in code). A test proves that no config can change it.
+- **(c) The run row stores the code version** (git commit + dirty flag) if it does not already — **stored, not hashed**.
+
+## 6. Data status
 
 | Source | Status |
 |---|---|
@@ -49,22 +73,26 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | Yahoo aux (7 series) | downloaded |
 | NYSE calendar (`configs/calendars/nyse_sessions.csv`) | to be generated from the Alpaca calendar fetch (D-025) |
 | Moneta broker spec | `SFAC_RAW_ROOT/reference/broker/moneta/MT5Moneta-ECN_specification-1.xlsx` (read-only, manifest next to it, not in git) |
+| Alpaca asset names (mapping) | `SFAC_RAW_ROOT/reference/alpaca/alpaca_assets_2026-09-20.csv`, 14,354 rows, active only. **A `-IncludeInactive` run is pending** (P-28). |
+| TradingView parity references (D-348) | `raw/reference/tradingview/parity/`: BATS:SPY 1D (MR) and OANDA:XAUUSD 1H (TF), trade list + OHLC each, immutable, SHA-256 in a manifest |
 
 Data expansion is frozen until the project is built (D-030).
 
-## 5. Open items
+## 7. Open items
 
-- **P-04 — parity reference exports:** TradingView trade lists and OHLC for the SPX500 daily MR strategy and one 1H TF strategy. **Remind the user before T11.**
-- P-01 (edge-type addendum), P-02 (futures) and P-03 (broker costs; addressed by T06b) are in the decisions log, section G.
-- Open questions from the batch-2a reviews (`docs/reviews/T05|T06|T10a_review.md`) not yet answered in the log.
+- **P-28 — broker mapping coverage (blocks T06b).** The user runs `scripts/download_alpaca_assets.ps1 -IncludeInactive` and gives Claude Code the file name; then `sfac costs moneta build` + `sfac universe generate` are repeated and the user fills `configs/costs/moneta/symbol_overrides.csv` for what is left (106 review rows today: 17 same ticker/no name, 13 same ticker/other wording — `AMCX` is suspicious —, 48 name-only, 27 no match, 1 unmappable `ALIBABA`). The 548/548 criterion stays open until then (D-341).
+- **`universe_filter` must go back to `broker` (D-342, D-524)** in `configs/pipeline/mvp_daily.yaml` before the first real stage-1 run. It runs with `all` only while P-28 is open.
+- **P-04 is closed by D-348.** The TradingView exports exist; T11 runs parity mode on the exported OHLC as-is (no D-010 Sunday merge, no resampling, no Alpaca/Dukascopy bars), with the Pine settings recorded in the parity config.
+- P-01 (edge-type addendum) and P-02 (futures, blocks T04d) are in the decisions log, section G. P-03 (broker costs) is addressed by T06b.
+- `pending.md` has no open batch-2b questions.
 
-## 6. Next batch: 2b
+## 8. T11 notes (parity only — check before or during T11)
 
-- **T06b — Moneta cost profiles** from the broker spec (D-520 … D-526; D-521: commission 3 USD per side). Broker ↔ research symbol mapping with manual overrides. Universe flag `broker_symbol`; the default candidate universe = broker-tradable symbols (D-524).
-- **T08 — Engine — CRITICAL (D-402).** The T09 containers (`TradeLog`, `EquityCurve`, `RunResult`) are its output contract. Conventions D-001 … D-004; D-300 intrabar exits (`exit_idx == entry_idx` only for intrabar exits); D-301 `n_closed_trades` returned by the grid kernel; D-307 non-USD quote conversion; D-061 futures sized in contracts × point value. Costs come from the T06 cost arrays, with the Numba commission signature designed in T06.
-- **T10b — Executor (F-0.3.7) and metric-name registry** reconciling T09 `as_gate_dict()` with the T10a gate YAML (D-309). `SplitManager.open_holdout` gets a stage argument (D-306).
+1. **ATR warm-up entries.** The engine only schedules an entry when `atr[j] > 0`; TradingView may enter during the ATR warm-up. Check the first trades of the exported trade lists against the engine's.
+2. **Trailing ATR basis.** The engine's trailing distance uses the ATR **at entry** (`atr_e`, fixed for the trade); Pine scripts often recompute the distance from the *current* ATR on every bar. Check the TF script before deciding — this interacts with D-349 (a), which is still `to_verify` in parity mode.
+3. Remaining parity `to_verify` items (T08 review): the O→H→L→C path and its tie (D-335), exit + re-entry at one open (D-336), no swap on intrabar exits in rollover bars (D-327), trailing updates only at the close (D-349 a), and the parity conversion rate = the signal bar's `fx_close` (D-349 h).
 
-## 7. Review rules
+## 9. Review rules
 
 - A task is judged only against the acceptance criteria of the feature list (and the decisions log); "done" without a proving test is not accepted.
 - Parity and leakage tests are never weakened or deleted.

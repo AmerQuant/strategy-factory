@@ -1,0 +1,15 @@
+# Quote-currency -> USD conversion (D-307, D-316, D-328). Hand-maintained.
+# rate(quote -> USD) = close of `pair` (invert: false) or 1 / close (invert: true), taken from
+# the pair's reference snapshot over the traded symbol's window (D-316). Sizing uses the
+# pair's OPEN of the fill bar (D-328); P&L, MTM and costs use the CLOSE of the same bar (D-307).
+pairs:
+  EUR: {pair: EURUSD, invert: false}
+  GBP: {pair: GBPUSD, invert: false}
+  AUD: {pair: AUDUSD, invert: false}
+  NZD: {pair: NZDUSD, invert: false}
+  JPY: {pair: USDJPY, invert: true}
+  CHF: {pair: USDCHF, invert: true}
+  CAD: {pair: USDCAD, invert: true}
+# Fixed pegs (quote currency units per USD); results carry the fx_peg flag (D-307).
+pegs:
+  HKD: 7.80

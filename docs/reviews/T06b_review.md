@@ -140,6 +140,16 @@ The result is in `CostArrays.commission_ccy`. The engine converts it only when `
 6. **The import CLI refuses files outside `SFAC_RAW_ROOT`.** The sidecar records the path relative to it.
 7. **Build rules the task did not name are config fields in `moneta.yaml`:** `etf_region`, `pip_classes`, `proxy_asset_class`, `etf_assumed.triple_weekday`.
 
+## Supervisor decisions after this review (2026-09-20)
+- **D-341 (P-28):** `scripts/download_alpaca_assets.ps1` fetches the Alpaca asset names, ETFs
+  included, into `SFAC_RAW_ROOT` (the user runs it, D-031). After that, `sfac costs moneta
+  build` is repeated and the review list shrinks. A broker symbol whose ticker matches but
+  whose name is another company (e.g. `ESL`) is **never** ticker-mapped: manual override only.
+  The coverage criterion stays open until then.
+- **D-342 (P-29):** `mvp_daily.yaml` may keep `universe_filter: all` temporarily; it must
+  return to `broker` (D-524) before the first real stage-1 run (tracked in `HANDOFF.md`).
+- **P-30 is still open.**
+
 ## Open questions
 - **P-28:** closing the 127 mappings. Either the user reviews the CSV into `symbol_overrides.csv`, or the user runs a script that saves Alpaca asset names (including ETFs) as a raw reference file. This decides the coverage criterion.
 - **P-29:** `mvp_daily.yaml` filter.
