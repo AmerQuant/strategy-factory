@@ -13,7 +13,6 @@ from strategy_factory.core.errors import ConfigError
 from strategy_factory.data.download.alpaca_reference import (
     build_sessions_csv,
     build_symbol_changes,
-    compare_with_early_closes,
     current_symbol,
     load_sessions,
     read_changes_csv,
@@ -86,21 +85,6 @@ def test_F_0_1_2_sessions_csv_from_raw_calendar(tmp_path: Path) -> None:
     assert dt.date(2024, 11, 28) not in sessions  # Thanksgiving: no session
     with pytest.raises(ConfigError, match="alpaca-calendar"):
         load_sessions(tmp_path / "missing.csv")
-
-
-def test_F_0_1_2_calendar_vs_early_close_list(tmp_path: Path) -> None:
-    raw = tmp_path / "cal.json"
-    raw.write_text(json.dumps(CALENDAR), encoding="utf-8")
-    build_sessions_csv(raw, tmp_path / "s.csv")
-    sessions = load_sessions(tmp_path / "s.csv")
-    diffs = compare_with_early_closes(
-        sessions, [dt.date(2024, 11, 29), dt.date(2024, 11, 28)], "13:00", "16:00"
-    )
-    kinds = {(d["date"], d["difference"]) for d in diffs}
-    assert kinds == {
-        ("2024-11-28", "yaml early close, market closed"),
-        ("2024-12-24", "early close missing in yaml"),
-    }
 
 
 def test_F_0_1_2_symbol_changes_for_pit_tickers_with_manual_override(tmp_path: Path) -> None:

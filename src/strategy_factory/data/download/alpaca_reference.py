@@ -105,57 +105,6 @@ def load_sessions(path: Path) -> dict[dt.date, tuple[str, str]]:
         }
 
 
-def compare_with_early_closes(
-    sessions: dict[dt.date, tuple[str, str]],
-    early_dates: Iterable[dt.date],
-    early_close: str,
-    regular_close: str,
-) -> list[dict[str, str]]:
-    """Differences between the Alpaca calendar and a hand-written early-close list."""
-    early = set(early_dates)
-    lo, hi = min(sessions), max(sessions)
-    out: list[dict[str, str]] = []
-    for d in sorted(early):
-        if not lo <= d <= hi:
-            out.append(
-                {
-                    "date": d.isoformat(),
-                    "yaml": early_close,
-                    "alpaca": "",
-                    "difference": "outside calendar range",
-                }
-            )
-        elif d not in sessions:
-            out.append(
-                {
-                    "date": d.isoformat(),
-                    "yaml": early_close,
-                    "alpaca": "closed",
-                    "difference": "yaml early close, market closed",
-                }
-            )
-        elif sessions[d][1] != early_close:
-            out.append(
-                {
-                    "date": d.isoformat(),
-                    "yaml": early_close,
-                    "alpaca": sessions[d][1],
-                    "difference": "different close",
-                }
-            )
-    for d, (_, close) in sorted(sessions.items()):
-        if close != regular_close and d not in early:
-            out.append(
-                {
-                    "date": d.isoformat(),
-                    "yaml": regular_close,
-                    "alpaca": close,
-                    "difference": "early close missing in yaml",
-                }
-            )
-    return out
-
-
 # --------------------------------------------------------------------------------------
 # Symbol (name) changes
 # --------------------------------------------------------------------------------------

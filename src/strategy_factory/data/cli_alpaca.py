@@ -11,15 +11,13 @@ import typer
 
 from strategy_factory.core.errors import ConfigError, SfacError
 from strategy_factory.data.catalog import Catalog
-from strategy_factory.data.config import load_alpaca_config, load_early_closes
+from strategy_factory.data.config import load_alpaca_config
 from strategy_factory.data.download.alpaca import load_credentials, make_client, run_download
 from strategy_factory.data.download.alpaca_reference import (
     build_sessions_csv,
     build_symbol_changes,
-    compare_with_early_closes,
     fetch_calendar,
     fetch_name_changes,
-    load_sessions,
 )
 from strategy_factory.data.download.ratelimit import PermanentError, TLSVerificationError
 from strategy_factory.data.download.rawfiles import raw_root
@@ -192,7 +190,6 @@ def universe_us_equity(
 
 
 CALENDAR_OUT = Path("configs") / "calendars" / "nyse_sessions.csv"
-EARLY_CLOSES_YAML = Path("configs") / "calendars" / "nyse_early_closes.yaml"
 
 
 @reference_app.command("alpaca-calendar")
@@ -208,20 +205,6 @@ def reference_alpaca_calendar(
         raw = fetch_calendar(load_credentials(), d0, d1, root)
         n = build_sessions_csv(raw, CALENDAR_OUT)
         msg = f"calendar: {n} sessions {d0}..{d1} -> {CALENDAR_OUT} (raw {raw})"
-        if EARLY_CLOSES_YAML.is_file():
-            early = load_early_closes(EARLY_CLOSES_YAML)
-            diffs = compare_with_early_closes(
-                load_sessions(CALENDAR_OUT), early.dates, early.close_time, "16:00"
-            )
-            rep = root / "_reports" / "calendar_vs_early_closes.csv"
-            rep.parent.mkdir(parents=True, exist_ok=True)
-            with rep.open("w", encoding="utf-8", newline="") as fh:
-                w = csv.DictWriter(
-                    fh, ["date", "yaml", "alpaca", "difference"], lineterminator="\n"
-                )
-                w.writeheader()
-                w.writerows(diffs)
-            msg += f"; {len(diffs)} difference(s) vs nyse_early_closes.yaml -> {rep}"
     except TLSVerificationError as exc:
         raise _fail(f"STOP: {exc}. Certificate verification is never disabled.") from exc
     except (SfacError, PermanentError) as exc:
