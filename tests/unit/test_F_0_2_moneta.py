@@ -1109,3 +1109,62 @@ def test_F_0_9_1_dukascopy_map_broker_symbol_listed_twice() -> None:
     ]
     with pytest.raises(ConfigError, match="listed twice"):
         map_symbols(spec_all(), RESEARCH, NAMES, twice, [], MCFG)
+
+
+# -- D-341 price check in the review CSV --------------------------------------------------------
+def write_daily(
+    root: Path, symbol: str, year: int, rows: list[tuple[str, float]], version: int = 1
+) -> None:
+    import polars as pl
+
+    d = root / symbol
+    d.mkdir(parents=True, exist_ok=True)
+    name = f"{year}.parquet" if version == 1 else f"{year}.v{version}.parquet"
+    pl.DataFrame({"t": [t for t, _ in rows], "c": [c for _, c in rows]}).write_parquet(d / name)
+
+
+def test_F_0_9_1_raw_price_lookup(tmp_path: Path) -> None:
+    from strategy_factory.data.raw_prices import last_close_on_or_before
+
+    write_daily(
+        tmp_path, "AAA", 2026, [("2026-09-17T04:00:00Z", 10.0), ("2026-09-18T04:00:00Z", 11.0)]
+    )
+    write_daily(tmp_path, "AAA", 2026, [("2026-09-18T04:00:00Z", 12.0)], version=2)  # newest wins
+    write_daily(tmp_path, "OLD", 2019, [("2019-03-13T04:00:00Z", 122.49)])
+    assert last_close_on_or_before("AAA", dt.date(2026, 9, 19), tmp_path) == (
+        12.0,
+        dt.date(2026, 9, 18),
+    )
+    assert last_close_on_or_before("OLD", dt.date(2026, 9, 19), tmp_path) == (
+        122.49,
+        dt.date(2019, 3, 13),
+    )
+    assert last_close_on_or_before("AAA", dt.date(2026, 9, 17), tmp_path) is None  # v2 starts later
+    assert last_close_on_or_before("NOPE", dt.date(2026, 9, 19), tmp_path) is None
+
+
+def test_F_0_9_1_review_rows_carry_the_price_check(tmp_path: Path) -> None:
+    """D-341: the review CSV compares the broker quote sample with our own last close."""
+    from strategy_factory.costs.moneta import ReviewRow, with_price_check
+
+    write_daily(tmp_path, "AAPL", 2026, [("2026-09-18T04:00:00Z", 200.0)])
+    rows = [
+        ReviewRow("AAPL", "Stock US", "Apple Inc.", "pending_review", "AAPL", "Apple", 0.5, "x"),
+        ReviewRow("ZZZ", "Stock US", "Zeta", "pending_review", "", "", None, "no match"),
+    ]
+    priced = with_price_check(rows, spec_all(), dt.date(2026, 9, 19), tmp_path)
+    assert priced[0].broker_quote_sample == 211.06 and priced[0].research_close == 200.0
+    assert priced[0].price_ratio == pytest.approx(211.06 / 200.0)
+    assert priced[0].research_close_date == "2026-09-18"
+    assert priced[1].price_ratio is None and priced[1].research_close_date == ""
+
+
+def test_F_0_9_1_repo_review_csv_has_the_price_columns() -> None:
+    rows = list(
+        csv.DictReader((REPO / "docs/reviews/T06b_mapping_review.csv").open(encoding="utf-8"))
+    )
+    assert {"broker_quote_sample", "research_close", "research_close_date", "price_ratio"} <= set(
+        rows[0]
+    )
+    priced = [r for r in rows if r["price_ratio"]]
+    assert len(priced) >= 50  # every candidate row with a research symbol and raw prices

@@ -8,6 +8,11 @@
     cannot be auto-mapped (D-325). Alpaca's /v2/assets endpoint returns name, exchange, class
     and status for every tradable US asset, ETFs included.
 
+    -IncludeInactive also fetches status=inactive, which covers the delisted and renamed
+    tickers our research universe still holds (17 of them, ESL among them). With their names
+    present, the ticker+name rule of D-341 can decide them instead of leaving them in the
+    review list.
+
     /v2/assets is a TRADING endpoint, so it must be called on the host that matches the key:
     a paper key (PK...) works only on https://paper-api.alpaca.markets, a live key (AK...)
     only on https://api.alpaca.markets. The default follows the key prefix; -TradingBaseUrl
@@ -27,7 +32,8 @@
 param(
     [string]$EnvFile,
     [string]$OutDir = 'reference/alpaca',
-    [string]$TradingBaseUrl
+    [string]$TradingBaseUrl,
+    [switch]$IncludeInactive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -94,11 +100,17 @@ while (Test-Path $path) {   # immutable: never overwrite (D-028)
     $path = Join-Path $targetDir "alpaca_assets_$stamp.v$n.csv"
 }
 
-$uri = "$TradingBaseUrl/v2/assets?status=active&asset_class=us_equity"
+$statuses = if ($IncludeInactive) { @('active', 'inactive') } else { @('active') }
 Write-Host "key type  : $(if ($keyId.StartsWith('PK')) { 'paper (PK...)' } else { 'live (AK...)' })"
-Write-Host "GET       : $uri"
 $headers = @{ 'APCA-API-KEY-ID' = $keyId; 'APCA-API-SECRET-KEY' = $secret }
-$assets = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -TimeoutSec 300
+$assets = @()
+foreach ($status in $statuses) {
+    $uri = "$TradingBaseUrl/v2/assets?status=$status&asset_class=us_equity"
+    Write-Host "GET       : $uri"
+    $batch = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -TimeoutSec 300
+    Write-Host ("  {0,-8} {1} assets" -f $status, @($batch).Count)
+    $assets += $batch
+}
 
 $rows = $assets | ForEach-Object {
     [pscustomobject]@{
@@ -110,7 +122,11 @@ $rows = $assets | ForEach-Object {
         fractional = $_.fractionable
         as_of      = $stamp
     }
-} | Sort-Object symbol
+} | Sort-Object symbol, status | Group-Object symbol | ForEach-Object {
+    # one row per symbol; an active listing wins over an inactive one of the same ticker
+    $active = $_.Group | Where-Object { $_.status -eq 'active' } | Select-Object -First 1
+    if ($active) { $active } else { $_.Group | Select-Object -First 1 }
+}
 
 # UTF-8 without BOM, LF endings: the Python side reads these files (5.1 would add a BOM)
 $utf8 = New-Object System.Text.UTF8Encoding($false)
@@ -123,7 +139,7 @@ $manifest = [pscustomobject]@{
     sha256      = $sha
     size_bytes  = (Get-Item -LiteralPath $path).Length
     rows        = @($rows).Count
-    source      = "$TradingBaseUrl/v2/assets?status=active&asset_class=us_equity"
+    source      = "$TradingBaseUrl/v2/assets?status=$($statuses -join '+')&asset_class=us_equity"
     description = 'Alpaca asset names incl. ETFs; input for the Moneta broker-symbol mapping (D-341).'
     recorded_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 }
@@ -131,9 +147,10 @@ $manifest = [pscustomobject]@{
 Set-ItemProperty -LiteralPath $path -Name IsReadOnly -Value $true
 
 $etfs = @($rows | Where-Object { $_.name -match 'ETF|Trust|Fund' }).Count
+$inactive = @($rows | Where-Object { $_.status -ne 'active' }).Count
 Write-Host ''
 Write-Host "wrote     : $path"
-Write-Host "rows      : $(@($rows).Count)   (~$etfs look like ETFs/funds)"
+Write-Host "rows      : $(@($rows).Count)   (~$etfs ETFs/funds, $inactive inactive)"
 Write-Host "sha256    : $sha"
 Write-Host ''
 Write-Host 'Next, tell Claude Code the file name; it will then:'

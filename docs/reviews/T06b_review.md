@@ -179,3 +179,24 @@ overrides; a `-IncludeInactive` option on the script would resolve most of the f
 | (3) cost shares | **changed**: shares are computed on **charges only** and a swap credit is reported as `swap_credit_usd`, never dropped. Test: `test_F_0_2_4_cost_breakdown_shares`. |
 | (4) 1e-9 relative float guard on the quantity floor | accepted (research and parity sizing). |
 | (5) proxy spread | accepted: the median of the broker US shares' reference spreads, computed at build time and written to `source_note` (21.2224 bps with this file), never a literal in code. |
+
+### Price check in the review CSV (supervisor request, D-341)
+Four columns were added to `docs/reviews/T06b_mapping_review.csv` for every candidate row:
+`broker_quote_sample`, `research_close`, `research_close_date` and `price_ratio`
+(= sample / close). The close is our **own** last daily close at or before the broker file's
+date (2026-09-19), read from the raw Alpaca files through the new read-only
+`data/raw_prices.py`; `mapping.yaml: prices_dir` points at them.
+
+**Read the ratio with care.** The broker's quote samples are clearly older than our closes: on
+the **438 correctly mapped** `ticker_exact` symbols the ratio has median 0.930 but p10 0.545
+and p90 1.596, and only 45 % sit inside 0.8–1.25. A ratio near 1 is therefore *not* expected,
+and a ratio of 0.5 is not by itself suspicious. What the column does show well is
+`research_close_date` (a 2019 date means the ticker is delisted here, e.g. `ESL` at 122.49 from
+2019-03-13) and the extremes (the mapped baseline runs from 0.049 to 33.65).
+
+### `-IncludeInactive` (P-28)
+`scripts/download_alpaca_assets.ps1` takes `-IncludeInactive`: it fetches `status=inactive` as
+well, keeps one row per ticker (an active listing wins) and reports how many inactive rows it
+kept. That gives names for the 17 delisted tickers in the review list, so the D-341 ticker+name
+rule can decide them instead of leaving them open. The user runs it; the mapping is then
+rebuilt and the review list shrinks again.

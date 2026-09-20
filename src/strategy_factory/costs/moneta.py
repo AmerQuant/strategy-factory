@@ -29,7 +29,7 @@ import re
 import statistics
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -114,6 +114,7 @@ class MappingConfig(_Frozen):
     broker_regions: tuple[str, ...]
     min_name_score: float = Field(ge=0, le=1)
     candidate_min_score: float = Field(ge=0, le=1)
+    prices_dir: str | None = None  # raw daily files for the review price check (D-341)
 
 
 def _yaml(path: Path) -> dict[str, Any]:
@@ -547,6 +548,12 @@ class ReviewRow:
     candidate_name: str
     name_score: float | None
     reason: str
+    # price check (D-341): the broker's quote sample against our own last close at the file
+    # date. A ratio far from 1, or a stale close date, means the ticker is another instrument.
+    broker_quote_sample: float | None = None
+    research_close: float | None = None
+    research_close_date: str = ""
+    price_ratio: float | None = None
 
 
 @dataclass(frozen=True)
@@ -684,6 +691,35 @@ def map_symbols(
 
 
 # -- profiles ----------------------------------------------------------------------------------
+def with_price_check(
+    review: Sequence[ReviewRow], spec: Sequence[SpecRow], day: dt.date, prices_root: Path
+) -> list[ReviewRow]:
+    """Add the quote-sample / our-close ratio to every candidate row (D-341)."""
+    from strategy_factory.data.raw_prices import last_close_on_or_before
+
+    samples = {r.broker_symbol: r.quote_sample for r in spec}
+    out: list[ReviewRow] = []
+    for row in review:
+        sample = samples.get(row.broker_symbol)
+        found = (
+            last_close_on_or_before(row.candidate_research_symbol, day, prices_root)
+            if row.candidate_research_symbol
+            else None
+        )
+        close, close_day = found if found is not None else (None, None)
+        ratio = sample / close if (sample and close) else None
+        out.append(
+            replace(
+                row,
+                broker_quote_sample=sample,
+                research_close=close,
+                research_close_date=close_day.isoformat() if close_day else "",
+                price_ratio=ratio,
+            )
+        )
+    return out
+
+
 def profile_name(broker_symbol: str) -> str:
     return f"moneta_{broker_symbol}"
 
@@ -936,6 +972,10 @@ def build(
         _read_csv(mdir / OVERRIDES_CSV),
         mcfg,
     )
+    if mcfg.prices_dir:  # D-341: the price check needs the raw daily files
+        day = dt.date.fromisoformat(cfg.source.file_date)
+        priced = with_price_check(mapping.review, spec, day, raw_root / mcfg.prices_dir)
+        mapping = SymbolMapping(mapping.mapped, priced)
     result = build_profiles(spec, mapping, research, sha, cfg)
     write_build(result, costs_dir, review_csv)
     return result

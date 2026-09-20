@@ -1,107 +1,107 @@
-broker_symbol,region,broker_description,status,candidate_research_symbol,candidate_name,name_score,reason
-ALLC,Stock US,Allstate Corporation,pending_review,ALL,The Allstate Corporation,1.0000,name match only (never auto-mapped)
-AMCX,Stock US,AMC Entertainment Hlds - Class A,pending_review,AMCX,AMC Global Media Inc. Class A Common Stock,0.4211,"ticker match, name differs"
-AMPF,Stock US,Ameriprise Financial Inc,pending_review,AMP,"Ameriprise Financial, Inc.",1.0000,name match only (never auto-mapped)
-APA,Stock US,Apache Corp,pending_review,APA,APA Corporation Common Stock,0.6667,"ticker match, name differs"
-ARKB,ETF,ARK 21Shares Bitcoin ETF,pending_review,ARKK,ARK Innovation ETF,0.6667,name match only (never auto-mapped)
-ARKG,ETF,ARK Genomic Revolution,pending_review,ARKK,ARK Innovation ETF,0.5500,no ticker or name match
-ARKQ,ETF,ARK Autonomous Tch & Rob,pending_review,PK,Park Hotels & Resorts Inc. Common Stock,0.5306,no ticker or name match
-ARKW,ETF,ARK Next Gen Int ETF,pending_review,ARKK,ARK Innovation ETF,0.6667,name match only (never auto-mapped)
-AVB,Stock US,AvalonBay Communities Inc,pending_review,AVB,,,"ticker match, no research name available"
-BAIDU,Stock US,BAIDU INC - SPON ADR,pending_review,BIDU,"Baidu, Inc. ADS",1.0000,name match only (never auto-mapped)
-BBD,Stock US,Banco Bradesco,pending_review,SAN,Banco Santander S.A.,0.6452,name match only (never auto-mapped)
-BEN,Stock US,Franklin Resources Inc,pending_review,BEN,"Franklin Templeton, Inc.",0.6111,"ticker match, name differs"
-BITB,ETF,Bitwise Bitcoin ETP Trust,pending_review,ABTC,American Bitcoin Corp. Class A Common Stock,0.5143,no ticker or name match
-BITO,ETF,ProShares Bitcoin Strategy ETF,pending_review,MSTR,Strategy Inc Common Stock Class A,1.0000,name match only (never auto-mapped)
-BITQ,ETF,Bitwise Crypto Industry Innovators ETF,pending_review,CARD,MAX Auto Industry -3x Inverse Leveraged ETN,0.5250,no ticker or name match
-BK,Stock US,Bank of New York Mellon Corp,pending_review,BK,,,"ticker match, no research name available"
-BKCH,ETF,Global X Blockchain ETF,pending_review,ARGT,Global X MSCI Argentina ETF,0.7500,name match only (never auto-mapped)
-BLCN,ETF,Siren ETF Trust Siren Nasdaq NexGen Economy ETF,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped)
-BLOK,ETF,Amplify Transformational Data Sharing ETF,pending_review,HACK,Amplify Cybersecurity ETF,0.6667,name match only (never auto-mapped)
-BNDX,ETF,Vanguard Total International Bond ETF,pending_review,BND,Vanguard Total Bond Market ETF,0.8000,name match only (never auto-mapped)
-BNTX,Stock US,BIONTECH SE-ADR,pending_review,,,,no ticker or name match
-BOEING,Stock US,BOEING CO/THE,pending_review,BA,Boeing Company,1.0000,name match only (never auto-mapped)
-BRKB,Stock US,Berkshire Hathaway Inc - Class B,pending_review,BRK.A,Berkshire Hathaway Inc.,1.0000,name match only (never auto-mapped)
-BTCO,ETF,Invesco Galaxy Bitcoin ETF,pending_review,IVZ,Invesco LTD,1.0000,name match only (never auto-mapped)
-BTOG,Stock US,Bit Origin Ltd,pending_review,BTOG,,,"ticker match, no research name available"
-BYON,Stock US,Beyond Inc,pending_review,BYND,"Beyond Meat, Inc. Common Stock",1.0000,name match only (never auto-mapped)
-CIB,Stock US,Grupo Cibest S.A.,pending_review,AVAL,GRUPO AVAL ACCIONES Y VALORES S.A.,0.6667,name match only (never auto-mapped)
-CISCO,Stock US,CISCO SYSTEMS INC,pending_review,CSCO,"Cisco Systems, Inc. Common Stock (DE)",1.0000,name match only (never auto-mapped)
-CITI,Stock US,CITIGROUP INC,pending_review,C,Citigroup Inc.,1.0000,name match only (never auto-mapped)
-CMA,Stock US,Comerica Inc,pending_review,CMA,,,"ticker match, no research name available"
-CTRA,Stock US,Coterra Energy Inc,pending_review,CTRA,,,"ticker match, no research name available"
-CVAC,Stock US,CureVac NV,pending_review,,,,no ticker or name match
-DFS,Stock US,Discover Financial Services,pending_review,DFS,,,"ticker match, no research name available"
-DGC,Stock US,Dollar General Corp,pending_review,DG,Dollar General Corp.,1.0000,name match only (never auto-mapped)
-DISNEY,Stock US,WALT DISNEY CO/THE,pending_review,DIS,The Walt Disney Company,1.0000,name match only (never auto-mapped)
-EA,Stock US,Electronic Arts Inc,pending_review,EA,,,"ticker match, no research name available"
-EDU,Stock US,New Oriental Education (ADRs),pending_review,TAL,TAL Education Group,0.7222,name match only (never auto-mapped)
-EQR,Stock US,Equity Residential,pending_review,EQR,,,"ticker match, no research name available"
-ESGV,ETF,Vanguard ESG US Stock (BATS:ESGV),pending_review,VWO,Vanguard FTSE Emerging Markets ETF,0.5763,no ticker or name match
-ESL,Stock US,Est??e Lauder Companies - Class A,pending_review,ESL,,,"ticker match, no research name available"
-EXXON,Stock US,EXXON MOBIL CORP,pending_review,,,,no ticker or name match
-FAS,ETF,Direxoin Daily Financial Bull 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match
-FAZ,ETF,Direxoin Daily Financial Bear 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match
-FDN,ETF,First Trust Dow Jones Internet Index Fund,pending_review,DOW,Dow Inc.,1.0000,name match only (never auto-mapped)
-FI,Stock US,Fiserv Inc,pending_review,FI,,,"ticker match, no research name available"
-FL,Stock US,Foot Locker Inc,pending_review,FL,,,"ticker match, no research name available"
-GBTC,ETF,Grayscale Bitcoin Trust,pending_review,ABTC,American Bitcoin Corp. Class A Common Stock,0.6667,name match only (never auto-mapped)
-GDX,ETF,VanEck:Gold Miners (ARCX:GDX),pending_review,GDX,VanEck Gold Miners ETF,0.7755,"ticker match, name differs"
-GDXJ,ETF,VanEck:Jr Gold Miners (ARCX:GDXJ),pending_review,GDXJ,VanEck Junior Gold Miners ETF,0.7333,"ticker match, name differs"
-GE,Stock US,General Electric Co,pending_review,GE,GE Aerospace,0.4286,"ticker match, name differs"
-GOAU,ETF,US Global GG&P Mtl Mine (ARCX:GOAU),pending_review,SPGI,S&P Global Inc.,0.7500,name match only (never auto-mapped)
-GOEX,ETF,Glbl X Gold Explrs ETF (ARCX:GOEX),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped)
-GPS,Stock US,Gap Inc,pending_review,GPS,,,"ticker match, no research name available"
-GRID,ETF,First Trust Nasdaq Clean Edge Smart GRID Infrastructure Index,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped)
-GRVY,Stock US,Gravity Co Ltd (ADRs),pending_review,GRVY,"GRAVITY Co., Ltd. American Depository Shares",0.5641,"ticker match, name differs"
-HES,Stock US,Hess Corp,pending_review,HES,,,"ticker match, no research name available"
-HSBCn,Stock US,HSBC HOLDINGS PLC-SPONS ADR,pending_review,HSBC,HSBC Holdings PLC,1.0000,name match only (never auto-mapped)
-HTHT,Stock US,Huazhu Group Ltd,pending_review,,,,no ticker or name match
-IAC,Stock US,IAC / InterActive Corp,pending_review,IAC,,,"ticker match, no research name available"
-IBIT,ETF,iShares Bitcoin Trust,pending_review,IAU,iShares Gold Trust,0.6667,name match only (never auto-mapped)
-INFY,Stock US,Infosys Ltd (ADRs),pending_review,,,,no ticker or name match
-INTEL,Stock US,INTEL CORP,pending_review,INTC,Intel Corporation Common Stock,1.0000,name match only (never auto-mapped)
-IYW,ETF,iShares U.S. Technology ETF,pending_review,IBB,iShares Biotechnology ETF,0.8627,name match only (never auto-mapped)
-JD,Stock US,JD.COM INC-ADR,pending_review,,,,no ticker or name match
-JNUG,ETF,Direxion:Jr Mnr Bull 2X (ARCX:JNUG),pending_review,UN,Corgi UNH 2x Daily ETF,0.2909,no ticker or name match
-K,Stock US,Kellanova Co,pending_review,K,,,"ticker match, no research name available"
-LAZR,Stock US,Luminar Technologies Inc,pending_review,JMIA,Jumia Technologies AG,0.8947,name match only (never auto-mapped)
-LC,Stock US,LendingClub Corp,pending_review,,,,no ticker or name match
-LI,Stock US,LI AUTO INC - ADR,pending_review,VFS,VinFast Auto Ltd. Ordinary Shares,0.6316,name match only (never auto-mapped)
-LOGC,Stock US,ContextLogic Inc,pending_review,,,,no ticker or name match
-LOW,Stock US,Lowe's Cos Inc,pending_review,LOW,Lowe's Companies Inc.,0.7692,"ticker match, name differs"
-MANU,Stock US,Manchester United PLC,pending_review,BNO,"United States Brent Oil Fund, LP",0.5000,no ticker or name match
-MMC,Stock US,Marsh & McLennan Cos,pending_review,MMC,,,"ticker match, no research name available"
-MOMO,Stock US,Momo Inc,pending_review,,,,no ticker or name match
-NIO,Stock US,NIO INC - ADR,pending_review,,,,no ticker or name match
-NTES,Stock US,NETEASE INC-ADR,pending_review,,,,no ticker or name match
-NUGT,ETF,Direxion:Gold M Id Bl 2X (ARCX:NUGT),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped)
-NVIDIA,Stock US,NVIDIA CORP,pending_review,NVDA,NVIDIA Corporation Common Stock,1.0000,name match only (never auto-mapped)
-OIH,ETF,VanEck Oil Services ETF,pending_review,GDX,VanEck Gold Miners ETF,0.7111,name match only (never auto-mapped)
-PDD,Stock US,Pinduoduo Inc (ADRs),pending_review,,,,no ticker or name match
-PENN,Stock US,Penn National Gaming Inc,pending_review,PENN,"PENN Entertainment, Inc. Common Stock",0.5000,"ticker match, name differs"
-PFIZER,Stock US,PFIZER INC,pending_review,PFE,Pfizer Inc.,1.0000,name match only (never auto-mapped)
-QCLN,ETF,First Trust NASDAQ Clean Edge Green Energy Index Fund,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped)
-RING,ETF,iShares:MSCI Gl GMiners (XNAS:RING),pending_review,MSCI,"MSCI, Inc.",1.0000,name match only (never auto-mapped)
-RIOT,Stock US,riot blockchain,pending_review,RIOT,"Riot Platforms, Inc. Common Stock",0.5000,"ticker match, name differs"
-SGDJ,ETF,Sprott Junior Gold Mnrs (ARCX:SGDJ),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped)
-SGDM,ETF,Sprott Gold Miners (ARCX:SGDM),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped)
-SLB,Stock US,Schlumberger Ltd,pending_review,SLB,SLB Limited,0.4000,"ticker match, name differs"
-SLVP,ETF,iShares:MSCI Gl SMetal (BATS:SLVP),pending_review,MSCI,"MSCI, Inc.",1.0000,name match only (never auto-mapped)
-SPYX,ETF,SPDR S&P 500 Foss Fl Res (ARCX:SPYX),pending_review,SPGI,S&P Global Inc.,0.7500,name match only (never auto-mapped)
-TCOM,Stock US,Trip.com Group Ltd,pending_review,,,,no ticker or name match
-TEVA,Stock US,Teva Pharmaceutical-Sp (ADRs),pending_review,WST,"West Pharmaceutical Services, Inc.",0.7273,name match only (never auto-mapped)
-TOYOTA,Stock US,TOYOTA MOTOR CORP -SPON ADR,pending_review,TMH,Toyota Motor Corporation ADRhedged,0.6667,name match only (never auto-mapped)
-TSM,Stock US,TAIWAN SEMICONDUCTOR-SP ADR,pending_review,TSM,Taiwan Semiconductor Manufacturing Company Ltd.,0.7368,"ticker match, name differs"
-U,Stock US,UNITY SOFTWARE INC,pending_review,UPLD,"Upland Software, Inc. Common Stock",0.7586,name match only (never auto-mapped)
-UMC,Stock US,United Microelectronics Corp (ADRs),pending_review,URI,"United Rentals, Inc.",0.5238,no ticker or name match
-USL,ETF,United States 12 Month Oil Fund LP,pending_review,USO,"United States Oil Fund, LP",1.0000,name match only (never auto-mapped)
-VALE,Stock US,Vale do Rio Doce,pending_review,VALE,VALE S.A.,0.5000,"ticker match, name differs"
-VGT,ETF,Vanguard Information Technology ETF,pending_review,IBB,iShares Biotechnology ETF,0.6333,name match only (never auto-mapped)
-VISA,Stock US,VISA INC-CLASS A SHARES,pending_review,V,VISA Inc.,1.0000,name match only (never auto-mapped)
-VSGX,ETF,Vanguard ESG Intl Stock (BATS:VSGX),pending_review,VNQ,Vanguard Real Estate ETF,0.5882,no ticker or name match
-WBA,Stock US,Walgreens Boots Alliance Inc,pending_review,WBA,,,"ticker match, no research name available"
-XPEV,Stock US,XPENG INC - ADR,pending_review,,,,no ticker or name match
-YALA,Stock US,Yalla Group Ltd (ADRs),pending_review,,,,no ticker or name match
-ZOM,Stock US,Zomedica Corp,pending_review,,,,no ticker or name match
-ALIBABA,Stock US,ALIBABA GROUP HOLDING-SP ADR,unmappable,BABA,"Alibaba Group Holding Limited American Depositary Shares, each represents eight Ordinary Shares",,override target not in the research universe (D-524)
+broker_symbol,region,broker_description,status,candidate_research_symbol,candidate_name,name_score,reason,broker_quote_sample,research_close,research_close_date,price_ratio
+ALLC,Stock US,Allstate Corporation,pending_review,ALL,The Allstate Corporation,1.0000,name match only (never auto-mapped),193.9800,249.8300,2026-09-18,0.7764
+AMCX,Stock US,AMC Entertainment Hlds - Class A,pending_review,AMCX,AMC Global Media Inc. Class A Common Stock,0.4211,"ticker match, name differs",5.9400,11.5200,2026-09-18,0.5156
+AMPF,Stock US,Ameriprise Financial Inc,pending_review,AMP,"Ameriprise Financial, Inc.",1.0000,name match only (never auto-mapped),539.0100,544.3300,2026-09-18,0.9902
+APA,Stock US,Apache Corp,pending_review,APA,APA Corporation Common Stock,0.6667,"ticker match, name differs",20.3900,44.8700,2026-09-18,0.4544
+ARKB,ETF,ARK 21Shares Bitcoin ETF,pending_review,ARKK,ARK Innovation ETF,0.6667,name match only (never auto-mapped),37.1700,88.2300,2026-09-18,0.4213
+ARKG,ETF,ARK Genomic Revolution,pending_review,ARKK,ARK Innovation ETF,0.5500,no ticker or name match,26.0700,88.2300,2026-09-18,0.2955
+ARKQ,ETF,ARK Autonomous Tch & Rob,pending_review,PK,Park Hotels & Resorts Inc. Common Stock,0.5306,no ticker or name match,89.1800,14.9900,2026-09-18,5.9493
+ARKW,ETF,ARK Next Gen Int ETF,pending_review,ARKK,ARK Innovation ETF,0.6667,name match only (never auto-mapped),149.9900,88.2300,2026-09-18,1.7000
+AVB,Stock US,AvalonBay Communities Inc,pending_review,AVB,,,"ticker match, no research name available",200.5700,184.0600,2026-08-14,1.0897
+BAIDU,Stock US,BAIDU INC - SPON ADR,pending_review,BIDU,"Baidu, Inc. ADS",1.0000,name match only (never auto-mapped),88.6100,89.9300,2026-09-18,0.9853
+BBD,Stock US,Banco Bradesco,pending_review,SAN,Banco Santander S.A.,0.6452,name match only (never auto-mapped),2.9800,14.3100,2026-09-18,0.2082
+BEN,Stock US,Franklin Resources Inc,pending_review,BEN,"Franklin Templeton, Inc.",0.6111,"ticker match, name differs",24.8400,33.0100,2026-09-18,0.7525
+BITB,ETF,Bitwise Bitcoin ETP Trust,pending_review,ABTC,American Bitcoin Corp. Class A Common Stock,0.5143,no ticker or name match,60.8500,10.1000,2026-09-18,6.0248
+BITO,ETF,ProShares Bitcoin Strategy ETF,pending_review,MSTR,Strategy Inc Common Stock Class A,1.0000,name match only (never auto-mapped),21.5100,153.9200,2026-09-18,0.1397
+BITQ,ETF,Bitwise Crypto Industry Innovators ETF,pending_review,CARD,MAX Auto Industry -3x Inverse Leveraged ETN,0.5250,no ticker or name match,20.5700,2.7276,2026-09-18,7.5414
+BK,Stock US,Bank of New York Mellon Corp,pending_review,BK,,,"ticker match, no research name available",92.9600,137.1600,2026-05-20,0.6777
+BKCH,ETF,Global X Blockchain ETF,pending_review,ARGT,Global X MSCI Argentina ETF,0.7500,name match only (never auto-mapped),57.7800,92.4300,2026-09-18,0.6251
+BLCN,ETF,Siren ETF Trust Siren Nasdaq NexGen Economy ETF,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped),23.6000,93.5400,2026-09-18,0.2523
+BLOK,ETF,Amplify Transformational Data Sharing ETF,pending_review,HACK,Amplify Cybersecurity ETF,0.6667,name match only (never auto-mapped),58.5000,118.6700,2026-09-18,0.4930
+BNDX,ETF,Vanguard Total International Bond ETF,pending_review,BND,Vanguard Total Bond Market ETF,0.8000,name match only (never auto-mapped),49.2800,71.2000,2026-09-18,0.6921
+BNTX,Stock US,BIONTECH SE-ADR,pending_review,,,,no ticker or name match,111.4300,,,
+BOEING,Stock US,BOEING CO/THE,pending_review,BA,Boeing Company,1.0000,name match only (never auto-mapped),226.2500,198.2000,2026-09-18,1.1415
+BRKB,Stock US,Berkshire Hathaway Inc - Class B,pending_review,BRK.A,Berkshire Hathaway Inc.,1.0000,name match only (never auto-mapped),478.6300,763600.0100,2026-09-18,0.0006
+BTCO,ETF,Invesco Galaxy Bitcoin ETF,pending_review,IVZ,Invesco LTD,1.0000,name match only (never auto-mapped),111.5100,30.5300,2026-09-18,3.6525
+BTOG,Stock US,Bit Origin Ltd,pending_review,BTOG,,,"ticker match, no research name available",0.1900,2.2100,2026-09-03,0.0860
+BYON,Stock US,Beyond Inc,pending_review,BYND,"Beyond Meat, Inc. Common Stock",1.0000,name match only (never auto-mapped),7.8900,11.5100,2026-09-18,0.6855
+CIB,Stock US,Grupo Cibest S.A.,pending_review,AVAL,GRUPO AVAL ACCIONES Y VALORES S.A.,0.6667,name match only (never auto-mapped),44.8500,5.0700,2026-09-18,8.8462
+CISCO,Stock US,CISCO SYSTEMS INC,pending_review,CSCO,"Cisco Systems, Inc. Common Stock (DE)",1.0000,name match only (never auto-mapped),69.2500,109.5100,2026-09-18,0.6324
+CITI,Stock US,CITIGROUP INC,pending_review,C,Citigroup Inc.,1.0000,name match only (never auto-mapped),85.7000,131.7700,2026-09-18,0.6504
+CMA,Stock US,Comerica Inc,pending_review,CMA,,,"ticker match, no research name available",62.6800,88.6700,2026-01-30,0.7069
+CTRA,Stock US,Coterra Energy Inc,pending_review,CTRA,,,"ticker match, no research name available",25.1000,32.5600,2026-05-06,0.7709
+CVAC,Stock US,CureVac NV,pending_review,,,,no ticker or name match,5.4600,,,
+DFS,Stock US,Discover Financial Services,pending_review,DFS,,,"ticker match, no research name available",199.3000,200.0500,2025-05-16,0.9963
+DGC,Stock US,Dollar General Corp,pending_review,DG,Dollar General Corp.,1.0000,name match only (never auto-mapped),112.1400,122.4100,2026-09-18,0.9161
+DISNEY,Stock US,WALT DISNEY CO/THE,pending_review,DIS,The Walt Disney Company,1.0000,name match only (never auto-mapped),120.5900,102.6700,2026-09-18,1.1745
+EA,Stock US,Electronic Arts Inc,pending_review,EA,,,"ticker match, no research name available",152.5000,209.7000,2026-08-04,0.7272
+EDU,Stock US,New Oriental Education (ADRs),pending_review,TAL,TAL Education Group,0.7222,name match only (never auto-mapped),52.3000,11.8100,2026-09-18,4.4285
+EQR,Stock US,Equity Residential,pending_review,EQR,,,"ticker match, no research name available",66.4700,63.6600,2026-08-17,1.0441
+ESGV,ETF,Vanguard ESG US Stock (BATS:ESGV),pending_review,VWO,Vanguard FTSE Emerging Markets ETF,0.5763,no ticker or name match,110.7000,60.0100,2026-09-18,1.8447
+ESL,Stock US,Est??e Lauder Companies - Class A,pending_review,ESL,,,"ticker match, no research name available",86.4800,122.4900,2019-03-13,0.7060
+EXXON,Stock US,EXXON MOBIL CORP,pending_review,,,,no ticker or name match,113.6900,,,
+FAS,ETF,Direxoin Daily Financial Bull 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match,168.1700,117.6700,2026-09-18,1.4292
+FAZ,ETF,Direxoin Daily Financial Bear 3x Shares,pending_review,PFG,Principal Financial Group Inc Common Stock,0.5882,no ticker or name match,4.4000,117.6700,2026-09-18,0.0374
+FDN,ETF,First Trust Dow Jones Internet Index Fund,pending_review,DOW,Dow Inc.,1.0000,name match only (never auto-mapped),269.4000,28.7300,2026-09-18,9.3770
+FI,Stock US,Fiserv Inc,pending_review,FI,,,"ticker match, no research name available",170.7800,3.1500,2022-12-30,54.2159
+FL,Stock US,Foot Locker Inc,pending_review,FL,,,"ticker match, no research name available",24.8800,24.0100,2025-09-05,1.0362
+GBTC,ETF,Grayscale Bitcoin Trust,pending_review,ABTC,American Bitcoin Corp. Class A Common Stock,0.6667,name match only (never auto-mapped),88.0200,10.1000,2026-09-18,8.7149
+GDX,ETF,VanEck:Gold Miners (ARCX:GDX),pending_review,GDX,VanEck Gold Miners ETF,0.7755,"ticker match, name differs",51.4800,95.4800,2026-09-18,0.5392
+GDXJ,ETF,VanEck:Jr Gold Miners (ARCX:GDXJ),pending_review,GDXJ,VanEck Junior Gold Miners ETF,0.7333,"ticker match, name differs",67.2000,124.4400,2026-09-18,0.5400
+GE,Stock US,General Electric Co,pending_review,GE,GE Aerospace,0.4286,"ticker match, name differs",249.9800,314.2700,2026-09-18,0.7954
+GOAU,ETF,US Global GG&P Mtl Mine (ARCX:GOAU),pending_review,SPGI,S&P Global Inc.,0.7500,name match only (never auto-mapped),29.0500,405.3200,2026-09-18,0.0717
+GOEX,ETF,Glbl X Gold Explrs ETF (ARCX:GOEX),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped),44.2200,45.4600,2026-09-18,0.9727
+GPS,Stock US,Gap Inc,pending_review,GPS,,,"ticker match, no research name available",24.5200,24.5500,2024-08-21,0.9988
+GRID,ETF,First Trust Nasdaq Clean Edge Smart GRID Infrastructure Index,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped),139.1800,93.5400,2026-09-18,1.4879
+GRVY,Stock US,Gravity Co Ltd (ADRs),pending_review,GRVY,"GRAVITY Co., Ltd. American Depository Shares",0.5641,"ticker match, name differs",62.6900,69.3500,2026-09-18,0.9040
+HES,Stock US,Hess Corp,pending_review,HES,,,"ticker match, no research name available",150.6700,148.9700,2025-07-17,1.0114
+HSBCn,Stock US,HSBC HOLDINGS PLC-SPONS ADR,pending_review,HSBC,HSBC Holdings PLC,1.0000,name match only (never auto-mapped),62.0200,101.8300,2026-09-18,0.6091
+HTHT,Stock US,Huazhu Group Ltd,pending_review,,,,no ticker or name match,33.5000,,,
+IAC,Stock US,IAC / InterActive Corp,pending_review,IAC,,,"ticker match, no research name available",39.8400,42.2400,2026-06-03,0.9432
+IBIT,ETF,iShares Bitcoin Trust,pending_review,IAU,iShares Gold Trust,0.6667,name match only (never auto-mapped),63.5800,82.2300,2026-09-18,0.7732
+INFY,Stock US,Infosys Ltd (ADRs),pending_review,,,,no ticker or name match,18.8100,,,
+INTEL,Stock US,INTEL CORP,pending_review,INTC,Intel Corporation Common Stock,1.0000,name match only (never auto-mapped),23.4200,108.6000,2026-09-18,0.2157
+IYW,ETF,iShares U.S. Technology ETF,pending_review,IBB,iShares Biotechnology ETF,0.8627,name match only (never auto-mapped),176.3400,204.5600,2026-09-18,0.8620
+JD,Stock US,JD.COM INC-ADR,pending_review,,,,no ticker or name match,31.5400,,,
+JNUG,ETF,Direxion:Jr Mnr Bull 2X (ARCX:JNUG),pending_review,UN,Corgi UNH 2x Daily ETF,0.2909,no ticker or name match,78.0400,19.9197,2026-09-18,3.9177
+K,Stock US,Kellanova Co,pending_review,K,,,"ticker match, no research name available",79.1400,83.4400,2025-12-10,0.9485
+LAZR,Stock US,Luminar Technologies Inc,pending_review,JMIA,Jumia Technologies AG,0.8947,name match only (never auto-mapped),2.9100,6.9500,2026-09-18,0.4187
+LC,Stock US,LendingClub Corp,pending_review,,,,no ticker or name match,12.4700,,,
+LI,Stock US,LI AUTO INC - ADR,pending_review,VFS,VinFast Auto Ltd. Ordinary Shares,0.6316,name match only (never auto-mapped),27.1500,3.2300,2026-09-18,8.4056
+LOGC,Stock US,ContextLogic Inc,pending_review,,,,no ticker or name match,6.9900,,,
+LOW,Stock US,Lowe's Cos Inc,pending_review,LOW,Lowe's Companies Inc.,0.7692,"ticker match, name differs",225.4400,192.4900,2026-09-18,1.1712
+MANU,Stock US,Manchester United PLC,pending_review,BNO,"United States Brent Oil Fund, LP",0.5000,no ticker or name match,17.6300,60.5700,2026-09-18,0.2911
+MMC,Stock US,Marsh & McLennan Cos,pending_review,MMC,,,"ticker match, no research name available",213.9200,182.7000,2026-01-13,1.1709
+MOMO,Stock US,Momo Inc,pending_review,,,,no ticker or name match,8.4900,,,
+NIO,Stock US,NIO INC - ADR,pending_review,,,,no ticker or name match,3.4600,,,
+NTES,Stock US,NETEASE INC-ADR,pending_review,,,,no ticker or name match,129.9700,,,
+NUGT,ETF,Direxion:Gold M Id Bl 2X (ARCX:NUGT),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped),72.4800,45.4600,2026-09-18,1.5944
+NVIDIA,Stock US,NVIDIA CORP,pending_review,NVDA,NVIDIA Corporation Common Stock,1.0000,name match only (never auto-mapped),162.7800,222.2700,2026-09-18,0.7324
+OIH,ETF,VanEck Oil Services ETF,pending_review,GDX,VanEck Gold Miners ETF,0.7111,name match only (never auto-mapped),247.5900,95.4800,2026-09-18,2.5931
+PDD,Stock US,Pinduoduo Inc (ADRs),pending_review,,,,no ticker or name match,105.0000,,,
+PENN,Stock US,Penn National Gaming Inc,pending_review,PENN,"PENN Entertainment, Inc. Common Stock",0.5000,"ticker match, name differs",18.4200,16.4500,2026-09-18,1.1198
+PFIZER,Stock US,PFIZER INC,pending_review,PFE,Pfizer Inc.,1.0000,name match only (never auto-mapped),25.5100,27.6600,2026-09-18,0.9223
+QCLN,ETF,First Trust NASDAQ Clean Edge Green Energy Index Fund,pending_review,NDAQ,"Nasdaq, Inc. Common Stock",1.0000,name match only (never auto-mapped),34.5200,93.5400,2026-09-18,0.3690
+RING,ETF,iShares:MSCI Gl GMiners (XNAS:RING),pending_review,MSCI,"MSCI, Inc.",1.0000,name match only (never auto-mapped),43.5200,552.8700,2026-09-18,0.0787
+RIOT,Stock US,riot blockchain,pending_review,RIOT,"Riot Platforms, Inc. Common Stock",0.5000,"ticker match, name differs",12.2200,23.7500,2026-09-18,0.5145
+SGDJ,ETF,Sprott Junior Gold Mnrs (ARCX:SGDJ),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped),49.5000,45.4600,2026-09-18,1.0889
+SGDM,ETF,Sprott Gold Miners (ARCX:SGDM),pending_review,GOLD,"Gold.com, Inc.",1.0000,name match only (never auto-mapped),44.6900,45.4600,2026-09-18,0.9831
+SLB,Stock US,Schlumberger Ltd,pending_review,SLB,SLB Limited,0.4000,"ticker match, name differs",36.1900,51.1200,2026-09-18,0.7079
+SLVP,ETF,iShares:MSCI Gl SMetal (BATS:SLVP),pending_review,MSCI,"MSCI, Inc.",1.0000,name match only (never auto-mapped),17.6700,552.8700,2026-09-18,0.0320
+SPYX,ETF,SPDR S&P 500 Foss Fl Res (ARCX:SPYX),pending_review,SPGI,S&P Global Inc.,0.7500,name match only (never auto-mapped),51.2700,405.3200,2026-09-18,0.1265
+TCOM,Stock US,Trip.com Group Ltd,pending_review,,,,no ticker or name match,61.2300,,,
+TEVA,Stock US,Teva Pharmaceutical-Sp (ADRs),pending_review,WST,"West Pharmaceutical Services, Inc.",0.7273,name match only (never auto-mapped),16.7100,362.3100,2026-09-18,0.0461
+TOYOTA,Stock US,TOYOTA MOTOR CORP -SPON ADR,pending_review,TMH,Toyota Motor Corporation ADRhedged,0.6667,name match only (never auto-mapped),170.2800,50.0436,2026-09-18,3.4026
+TSM,Stock US,TAIWAN SEMICONDUCTOR-SP ADR,pending_review,TSM,Taiwan Semiconductor Manufacturing Company Ltd.,0.7368,"ticker match, name differs",231.8500,434.6700,2026-09-18,0.5334
+U,Stock US,UNITY SOFTWARE INC,pending_review,UPLD,"Upland Software, Inc. Common Stock",0.7586,name match only (never auto-mapped),29.3000,3.6700,2026-09-18,7.9837
+UMC,Stock US,United Microelectronics Corp (ADRs),pending_review,URI,"United Rentals, Inc.",0.5238,no ticker or name match,7.6900,1013.9100,2026-09-18,0.0076
+USL,ETF,United States 12 Month Oil Fund LP,pending_review,USO,"United States Oil Fund, LP",1.0000,name match only (never auto-mapped),36.3700,153.8200,2026-09-18,0.2364
+VALE,Stock US,Vale do Rio Doce,pending_review,VALE,VALE S.A.,0.5000,"ticker match, name differs",9.8200,14.2100,2026-09-18,0.6911
+VGT,ETF,Vanguard Information Technology ETF,pending_review,IBB,iShares Biotechnology ETF,0.6333,name match only (never auto-mapped),676.5000,204.5600,2026-09-18,3.3071
+VISA,Stock US,VISA INC-CLASS A SHARES,pending_review,V,VISA Inc.,1.0000,name match only (never auto-mapped),356.8800,368.2900,2026-09-18,0.9690
+VSGX,ETF,Vanguard ESG Intl Stock (BATS:VSGX),pending_review,VNQ,Vanguard Real Estate ETF,0.5882,no ticker or name match,65.6200,92.9100,2026-09-18,0.7063
+WBA,Stock US,Walgreens Boots Alliance Inc,pending_review,WBA,,,"ticker match, no research name available",11.5200,11.9800,2025-08-27,0.9616
+XPEV,Stock US,XPENG INC - ADR,pending_review,,,,no ticker or name match,17.6000,,,
+YALA,Stock US,Yalla Group Ltd (ADRs),pending_review,,,,no ticker or name match,5.1900,,,
+ZOM,Stock US,Zomedica Corp,pending_review,,,,no ticker or name match,0.0700,,,
+ALIBABA,Stock US,ALIBABA GROUP HOLDING-SP ADR,unmappable,BABA,"Alibaba Group Holding Limited American Depositary Shares, each represents eight Ordinary Shares",,override target not in the research universe (D-524),103.7900,,,
