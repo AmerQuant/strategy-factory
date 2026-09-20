@@ -6,6 +6,8 @@
   enforced by the ``UNIQUE(candidate_id)`` constraint of ``holdout_access`` in the database,
   so it holds across processes and connections.
 * An empty decision reason is rejected (Python check + ``CHECK`` constraint).
+* **Only the parent process writes** (D-012, D-334): creating a writer inside an executor
+  worker raises. Workers return their results; the parent turns them into rows.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from sqlalchemy import Engine, insert, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
+from strategy_factory.core.env import in_executor_worker
 from strategy_factory.core.errors import HoldoutAccessError, RegistryError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.registry.tables import (
@@ -105,17 +108,71 @@ def require_snapshots(config: Mapping[str, Any]) -> None:
         )
 
 
+DIRTY_SUFFIX = "-dirty"
+
+
+def _git(args: list[str], cwd: Path) -> str | None:
+    try:
+        out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
 def git_sha(cwd: Path | None = None) -> str:
     """HEAD commit of the checkout at ``cwd`` (default: this package's folder), else "unknown"."""
     where = cwd or Path(__file__).resolve().parent
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=where, capture_output=True, text=True, timeout=10
-        )
-    except (OSError, subprocess.SubprocessError):
+    out = _git(["rev-parse", "HEAD"], where)
+    if out is None:
         return "unknown"
-    sha = out.stdout.strip()
-    return sha if out.returncode == 0 and len(sha) == 40 else "unknown"
+    sha = out.strip()
+    return sha if len(sha) == 40 else "unknown"
+
+
+#: Untracked files under these paths make a checkout dirty (D-352): component discovery and
+#: config loading pick them up, so they can change a result without being committed.
+DIRTY_UNTRACKED_PATHS = ("src/", "configs/")
+
+
+def git_dirty(cwd: Path | None = None) -> bool:
+    """True when the checkout can no longer be rebuilt from its commit (D-352).
+
+    That is: any uncommitted **tracked** change, or an **untracked** file under ``src/`` or
+    ``configs/`` -- component discovery and config loading read those, so an untracked file
+    there can change a result. Untracked files elsewhere (scratch files, reports, outputs) do
+    not count. An unavailable git returns ``False``; :func:`code_version` already reports
+    ``unknown`` in that case.
+    """
+    where = cwd or Path(__file__).resolve().parent
+    out = _git(["status", "--porcelain", "--untracked-files=all"], where)
+    if out is None:
+        return False
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        status, _, path = line[:2], line[2:3], line[3:].strip().strip('"')
+        if status != "??":
+            return True  # any tracked change
+        if path.startswith(DIRTY_UNTRACKED_PATHS):
+            return True
+    return False
+
+
+def code_version(cwd: Path | None = None) -> str:
+    """What ran: ``<40-hex sha>``, ``<sha>-dirty`` or ``unknown`` (T10b).
+
+    One shape, **stored and never hashed** (`pipeline_runs.code_version`, D-352): a dirty
+    working tree must not change ``config_hash``, because the config did not change -- but a
+    run made from a dirty checkout is not reproducible from the commit alone, and the marker
+    says so. See :func:`git_dirty` for what counts as dirty.
+    """
+    sha = git_sha(cwd)
+    if sha == "unknown":
+        return sha
+    return f"{sha}{DIRTY_SUFFIX}" if git_dirty(cwd) else sha
+
+
+_code_version = code_version  # module alias: `start_run` has a `code_version` parameter
 
 
 # --------------------------------------------------------------------------------------
@@ -195,6 +252,12 @@ class RegistryWriter:
     """Batched registry writer; use as a context manager so the trial buffer is flushed."""
 
     def __init__(self, engine: Engine, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
+        if in_executor_worker():
+            raise RegistryError(
+                "only the parent process writes to the registry (D-012, D-334): an executor "
+                "worker must return its results and let the parent write them",
+                stage="registry",
+            )
         if batch_size <= 0:
             raise RegistryError("batch_size must be positive", stage="registry")
         self.engine = engine
@@ -230,7 +293,7 @@ class RegistryWriter:
                     id=run_id,
                     config=dict(config),
                     config_hash=config_hash(config),
-                    code_version=code_version or git_sha(),
+                    code_version=code_version or _code_version(),
                     seed=seed,
                     status="running",
                     notes=notes,

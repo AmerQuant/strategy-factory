@@ -1,0 +1,14 @@
+# Executor settings (F-0.3.7, T10b). Defaults live in strategy_factory.pipeline.executor
+# .ExecutorConfig (CLAUDE.md rule 1) and are restated here with their decision ids.
+#
+# D-334 / D-351: workers x numba_threads must not exceed os.cpu_count(). With "auto" the
+# executor splits the cores itself (the rule is D-351): both auto -> workers = floor(sqrt(cpu)), numba_threads = cpu //
+# workers; one given -> the other is max(1, cpu // given). Two explicit values whose product
+# exceeds the core count are refused.
+workers: auto
+numba_threads: auto
+
+# D-331: a parameter grid runs in column chunks small enough that
+# n_bars x chunk_cols x 8 bytes x 2 (equity and in-position matrices) stays under this budget.
+# Only the metrics of a chunk are kept, never the matrices.
+max_grid_bytes: 536870912      # 512 MiB

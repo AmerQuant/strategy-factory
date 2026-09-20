@@ -14,8 +14,15 @@ registry (``splits``); recomputing it with different boundaries is refused, beca
 boundary would leak holdout bars into development.
 
 :class:`DataAccess` returns development bars only. :meth:`SplitManager.open_holdout` is the
-**only** path to holdout bars: it first records the access in ``holdout_access`` (one-shot
-per candidate; a second call raises :class:`HoldoutAccessError`), then reads the bars.
+**only** path to holdout bars: it first checks the calling stage, then records the access in
+``holdout_access`` (one-shot per candidate; a second call raises
+:class:`HoldoutAccessError`), then reads the bars.
+
+**Stage guard (D-306, T10b):** only stage 6 may open a holdout. The allowed stage is the
+module constant :data:`HOLDOUT_STAGE`, deliberately **not** a config value: D-306 requires it
+to be enforced in code, so no YAML, environment variable or pipeline config can widen it. Any
+other ``stage`` raises :class:`HoldoutAccessError` **before** the ledger is touched, so a
+wrong caller never spends a candidate's one-shot access.
 
 Conversion pairs (D-316) are auxiliary inputs read over the **traded** symbol's window, never
 beyond its end: :meth:`DataAccess.conversion_bars` for the development segment, and
@@ -35,7 +42,7 @@ import polars as pl
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
 
-from strategy_factory.core.errors import DataError
+from strategy_factory.core.errors import DataError, HoldoutAccessError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.config import SplitConfig
@@ -46,6 +53,11 @@ from strategy_factory.data.store import SnapshotStore
 
 log = get_logger(__name__)
 _BOUNDARIES = ("dev_start", "dev_end", "embargo_bars", "holdout_start", "holdout_end")
+
+#: The only stage allowed to open a holdout (D-306). A constant in code on purpose: it is
+#: **not** read from any config, so no YAML can widen holdout access. Changing it means
+#: changing this line, which shows up in a code review.
+HOLDOUT_STAGE = "s06_robust"
 
 
 class HistoryTooShortError(DataError):
@@ -258,8 +270,24 @@ class SplitManager:
         df = self.store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
         return df.filter(pl.col("ts") <= split.dev_end).sort("ts")
 
-    def open_holdout(self, candidate_id: str, symbol: str, timeframe: str) -> pl.DataFrame:
-        """Holdout bars of the reference snapshot -- once per candidate, logged first."""
+    @staticmethod
+    def _check_stage(stage: str) -> None:
+        """Refuse every caller but stage 6, before anything is read or recorded (D-306)."""
+        if stage != HOLDOUT_STAGE:
+            raise HoldoutAccessError(
+                f"stage {stage!r} may not open a holdout: only {HOLDOUT_STAGE!r} may (D-306). "
+                "The allowed stage is a constant in code and cannot be changed by a config",
+                stage=stage,
+            )
+
+    def open_holdout(
+        self, candidate_id: str, symbol: str, timeframe: str, *, stage: str
+    ) -> pl.DataFrame:
+        """Holdout bars of the reference snapshot -- once per candidate, logged first.
+
+        ``stage`` is the calling stage id; anything but :data:`HOLDOUT_STAGE` raises (D-306).
+        """
+        self._check_stage(stage)
         meta = self.reference(symbol, timeframe)
         split = self.registered(meta)
         self.ledger.record_holdout_access(
@@ -313,16 +341,21 @@ class SplitManager:
         }
 
     def open_holdout_with_conversion(
-        self, candidate_id: str, symbol: str, timeframe: str, pairs: tuple[str, ...]
+        self, candidate_id: str, symbol: str, timeframe: str, pairs: tuple[str, ...], *, stage: str
     ) -> tuple[pl.DataFrame, dict[str, dict[str, np.ndarray[Any, Any]]]]:
         """Holdout bars of ``symbol`` (one-shot, logged) plus its conversion pairs over the
-        same window (with ``window_us``); the pairs' own holdouts are not consumed (D-316)."""
+        same window (with ``window_us``); the pairs' own holdouts are not consumed (D-316).
+
+        ``stage`` is checked exactly as in :meth:`open_holdout` (D-306), before anything is
+        read: a refused caller neither reads a conversion pair nor spends the one-shot access.
+        """
+        self._check_stage(stage)
         split = self.registered(self.reference(symbol, timeframe))
         for pair in pairs:  # validate before the one-shot access is spent
             self._conversion_arrays(
                 pair, symbol, timeframe, split.holdout_start, split.holdout_start
             )
-        bars = self.open_holdout(candidate_id, symbol, timeframe)
+        bars = self.open_holdout(candidate_id, symbol, timeframe, stage=stage)
         conv = {
             pair: self._conversion_arrays(
                 pair, symbol, timeframe, split.holdout_start, split.holdout_end

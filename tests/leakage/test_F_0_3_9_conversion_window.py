@@ -22,7 +22,7 @@ from strategy_factory.core.errors import DataError, HoldoutAccessError
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.config import SplitConfig
 from strategy_factory.data.conversion import conversion_for, load_fx_config
-from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager
+from strategy_factory.data.split import HOLDOUT_STAGE, DataAccess, RegistryLedger, SplitManager
 from strategy_factory.data.store import SnapshotStore
 
 pytestmark = pytest.mark.leakage
@@ -118,8 +118,12 @@ def test_F_0_3_9_holdout_conversion_does_not_consume_the_pair_holdout(
         )
     for bad in (("EURGBP",), ("AAPL",)):  # the traded symbol itself, a non-conversion symbol
         with pytest.raises(DataError, match="not a conversion pair"):
-            mgr.open_holdout_with_conversion("cand-eurgbp", "EURGBP", "1D", bad)
-    bars, conv = mgr.open_holdout_with_conversion("cand-eurgbp", "EURGBP", "1D", ("GBPUSD",))
+            mgr.open_holdout_with_conversion(
+                "cand-eurgbp", "EURGBP", "1D", bad, stage=HOLDOUT_STAGE
+            )
+    bars, conv = mgr.open_holdout_with_conversion(
+        "cand-eurgbp", "EURGBP", "1D", ("GBPUSD",), stage=HOLDOUT_STAGE
+    )
     split = mgr.registered(mgr.reference("EURGBP", "1D"))
     pair = conv["GBPUSD"]
     assert pair["ts"].size > 0
@@ -132,12 +136,14 @@ def test_F_0_3_9_holdout_conversion_does_not_consume_the_pair_holdout(
     with pytest.raises(DataError, match="beyond the conversion window"):
         conversion_for("GBP", np.append(hold_ts, hold_ts[-1] + 86_400_000_000), cfg, pair)
     with pytest.raises(HoldoutAccessError):  # the traded candidate's access is one-shot
-        mgr.open_holdout_with_conversion("cand-eurgbp", "EURGBP", "1D", ("GBPUSD",))
+        mgr.open_holdout_with_conversion(
+            "cand-eurgbp", "EURGBP", "1D", ("GBPUSD",), stage=HOLDOUT_STAGE
+        )
     # the pair's own holdout was not consumed: its candidate can open it once, not twice
-    own = mgr.open_holdout("cand-gbpusd", "GBPUSD", "1D")
+    own = mgr.open_holdout("cand-gbpusd", "GBPUSD", "1D", stage=HOLDOUT_STAGE)
     assert isinstance(own, pl.DataFrame) and own.height > 0
     with pytest.raises(HoldoutAccessError):
-        mgr.open_holdout("cand-gbpusd", "GBPUSD", "1D")
+        mgr.open_holdout("cand-gbpusd", "GBPUSD", "1D", stage=HOLDOUT_STAGE)
 
 
 def test_F_0_3_9_hkd_uses_the_configured_peg() -> None:
