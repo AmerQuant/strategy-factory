@@ -192,6 +192,34 @@ class ChartData:
             "close": self.close,
         }
 
+    @property
+    def atr_warm_up_bars(self) -> int:
+        """Bars before the engine can enter: it needs ``atr[j] > 0`` (HANDOFF §8.1).
+
+        TradingView may enter during the warm-up, so a TradingView trade entered before this
+        bar is classified ``atr_warm_up`` rather than counted as a missing engine trade. The
+        value is filled by the caller from the run's ATR; 0 until then.
+        """
+        return int(getattr(self, "_atr_warm_up", 0))
+
+    def with_atr_warm_up(self, atr: Any) -> ChartData:
+        """A copy that knows where its ATR becomes usable."""
+        import numpy as _np
+
+        usable = _np.flatnonzero(_np.asarray(atr, dtype=_np.float64) > 0)
+        first = int(usable[0]) if usable.size else len(self)
+        copy = ChartData(
+            name=self.name,
+            sha256=self.sha256,
+            ts=self.ts,
+            open=self.open,
+            high=self.high,
+            low=self.low,
+            close=self.close,
+        )
+        object.__setattr__(copy, "_atr_warm_up", first)
+        return copy
+
     def index_on_date(self, when: dt.datetime) -> int:
         """Index of the bar whose **UTC date** is ``when``'s date.
 
