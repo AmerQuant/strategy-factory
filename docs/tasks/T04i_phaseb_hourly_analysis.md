@@ -1,7 +1,7 @@
 # T04i — T04e phase-B analysis on the hourly data, and the daily-session decision (D-033)
 
-**Features:** F-0.1.2 (Alpaca adapter: session filter and metadata), F-0.1.6 (quality evidence), F-0.1.9 groundwork (split-adjustment control) · **Priority:** MVP · **Depends on:** **T04f**, **T04h** · **Blocks:** T04g
-**Branch:** `b/T04i-phaseb-hourly` from `b/T04h-alpaca-hourly-ingest`.
+**Features:** F-0.1.2 (Alpaca adapter: session filter and metadata), F-0.1.6 (quality evidence), F-0.1.9 groundwork (split-adjustment control) · **Priority:** MVP · **Depends on:** **T04f** only (D-358) · **Blocks:** T04g
+**Branch:** `b/T04i-phaseb-hourly` from `b/T04f-alpaca-reference`.
 
 Read first: `CLAUDE.md`, `docs/tasks/T04e_data_followup.md` **§8 phase B**, decisions **D-010**,
 **D-021**, **D-022**, **D-023**, **D-025**, **D-033** (the decision this task closes), and
@@ -22,10 +22,20 @@ changed content, which is not acceptable. **D-033 therefore has to be decided be
 
 ## Scope
 
-### 1. No snapshots are written (D-382)
-The daily side of the comparison is produced **in memory**: `AlpacaAdapter.to_canonical(...,
-timeframe="1D")` on the raw year files of the sample symbols. Nothing goes into `SFAC_DATA_ROOT`,
-nothing is registered in the catalog. The task's only outputs are a report and a config value.
+### 1. No snapshots are written (D-382, extended by D-358)
+**Both** sides of the comparison are produced **in memory**: `AlpacaAdapter.to_canonical(...,
+timeframe="1D")` and `(..., timeframe="1H")` on the raw year files. Nothing goes into
+`SFAC_DATA_ROOT`, nothing is registered in the catalog. The task's only outputs are a report and a
+config value. This is why **D-358** lets T04i run before the 1H ingest: it never needs a snapshot,
+only the raw files that are already on disk.
+
+**Coverage (D-358).** The hourly raw store is incomplete. The task must:
+- compute, and print in the review, exactly which years are complete for which symbols (reuse the
+  coverage report T04h defines, or the same function);
+- restrict every hourly statistic to those years and say so in every table;
+- **show that the D-033 conclusion does not depend on the missing years** — report the breach
+  statistics per year, and state what the missing years would have to contain to overturn the
+  decision. If the covered years cannot settle it, stop and report rather than deciding.
 
 Deliver the analysis as a committed, tested module + CLI (`sfac data analysis daily-session`, or a
 script under `scripts/analysis/`) so the numbers are reproducible, not as a throwaway notebook.

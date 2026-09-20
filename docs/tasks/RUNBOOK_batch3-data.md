@@ -1,4 +1,4 @@
-# RUNBOOK — Batch 3-data (T04f → T04h → T04i → T04g)
+# RUNBOOK — Batch 3-data (T04f → T04i → T04g → T04h)
 
 Execute after the user writes **"Plan approved"**, in the worktree
 `D:\AmerAndish\Projects\Trade\StrategyFactory_B` (stream B, the **only** stream that writes to
@@ -47,7 +47,13 @@ else is local.
    Ingesting 6,711 daily symbols before that decision locks in a label that cannot be changed
    without fabricating new content.
 
-So: **reference data → 1H ingest → phase-B analysis (decides D-033) → 1D ingest.**
+So: **reference data → phase-B analysis (decides D-033) → 1D ingest → 1H ingest.**
+
+**D-358 (2026-09-21)** moved the 1H ingest to the end so the daily path does not wait for the
+incomplete hourly download. T04i writes no snapshots and reads **both** timeframes through the
+adapter in memory (D-382, extended), so it needs only T04f. It runs on the hourly years that are
+complete in the raw store, states the years used and their coverage in its review, and its D-033
+conclusion **must not depend on the missing years**.
 
 ## Preconditions (stop if one fails)
 1. The worktree is on `docs/batch3-data`, working tree clean, `.env` present with
@@ -65,9 +71,9 @@ So: **reference data → 1H ingest → phase-B analysis (decides D-033) → 1D i
 |---|---|---|---|
 | — | `docs/batch3-data` (this plan) | `main` (rebased 2026-09-21 onto `origin/docs/batch3-data`, which carries `docs/streams/B.md` and D-355/D-356) | |
 | T04f | `b/T04f-alpaca-reference` | `docs/batch3-data` | no |
-| T04h | `b/T04h-alpaca-hourly-ingest` | T04f | no |
-| T04i | `b/T04i-phaseb-hourly` | T04h | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
+| T04i | `b/T04i-phaseb-hourly` | T04f | **yes in effect** — it closes **D-033**; stop after its review and wait for **"Approved"** before T04g |
 | T04g | `b/T04g-alpaca-daily-ingest` | T04i | no |
+| T04h | `b/T04h-alpaca-hourly-ingest` | T04g | no — but blocked until the 1H download is complete (D-386) |
 
 `docs/batch3-data` sits on `main` (PR #16 merged, so D-355 and D-356 are in the log). The plan
 commit was originally drafted on `docs/batch2b` and was rebased onto `origin/docs/batch3-data` on
@@ -112,21 +118,22 @@ Validates the calendar, reproduces the calendar-vs-`nyse_early_closes.yaml` diff
 deletes the YAML, applies the exclusion rule (D-383) to the hourly universe, and adds the
 material-metadata guard to the store (D-384). T04f does **not** wait for the 1H download.
 
-### Step 2 — T04h (1H ingest) — **blocked until the download is complete**
-**P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
-(2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
-years) and the user is refilling the missing years 2020–2023. T04h starts only after the user
-confirms the download is complete; its first action is the coverage report, and it **stops** if any
-year inside `[history_start, today)` is still missing for any symbol of the universe.
-
-### Step 3 — T04i (phase-B analysis, closes D-033) — **stop for "Approved"**
+### Step 2 — T04i (phase-B analysis, closes D-033) — **stop for "Approved"**
 Writes no snapshots. Produces the RTH-vs-exchange breach evidence, the bars-per-day table, the META
 evidence, the split-check verdicts and the relisted-ticker candidate list; sets `daily_session` in
 `configs/data/alpaca.yaml`.
 
-### Step 4 — T04g (1D ingest, 6,711 symbols)
+### Step 3 — T04g (1D ingest, 6,711 symbols)
 Runs with the decided `daily_session`, in chunks of 250, plus the split check and the quality
 reports.
+
+### Step 4 — T04h (1H ingest) — **blocked until the download is complete**
+**P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
+(2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
+years) and the user is refilling the missing years 2020–2023. T04h starts only after the user
+confirms the download is complete; its first action is the coverage report, and it **stops** if any
+year inside `[history_start, today)` is still missing for any symbol of the universe. It also needs
+the six rename destinations that have no hourly raw at all (**P-70**).
 
 ## Deferred — planned here, executed in a later batch
 | Item | Why deferred | Prerequisite |
@@ -160,5 +167,5 @@ the review with its reason, per `CLAUDE.md`.
    from `configs/universe/`, so stream A can regenerate `configs/universe.yaml` — D-394) plus any
    D-388 reports. Stream A folds it into `HANDOFF.md` at the merge.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
-   merge order `docs/batch3-data` → T04f → T04h → T04i → T04g.
+   merge order `docs/batch3-data` → T04f → T04i → T04g → T04h.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).

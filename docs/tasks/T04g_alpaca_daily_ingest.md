@@ -1,7 +1,7 @@
 # T04g — Alpaca 1D ingest: 6,711 symbols → snapshots, catalog and quality reports
 
 **Features:** F-0.1.2 (Alpaca adapter), F-0.1.6 (quality report per symbol), F-0.1.8 (immutable snapshots, catalog), F-0.1.9 groundwork (split check) · **Priority:** MVP · **Depends on:** **T04f**, **T04i** (D-033 decided)
-**Branch:** `b/T04g-alpaca-daily-ingest` from `b/T04i-phaseb-hourly`.
+**Branch:** `b/T04g-alpaca-daily-ingest` from `b/T04i-phaseb-hourly` (D-358: T04g comes before T04h).
 
 Read first: `CLAUDE.md`, decisions **D-010**, **D-021**, **D-022**, **D-028**, **D-029**, **D-033**
 (decided in T04i — this task ingests with the decided value), and `docs/reviews/T04a_review.md`,
@@ -70,7 +70,7 @@ uv run sfac data quality --all
 per chunk, with the T04f calendar in place.
 - `missing_bars` and `session_violations` must be **executed**, never `skipped` (without the
   calendar they are silently skipped and the snapshot still reports `ok` — see T04f).
-- Summaries are per `(source, timeframe)` with an index (**D-391**, implemented in T04h): the
+- Summaries are per `(source, timeframe)` with an index (**D-391**, implemented **here** — T04g is now the first ingest, D-358): the
   `alpaca / 1D` summary has ~6.7 k rows of its own and is not mixed with the 1H group.
 - Aggregate in the review: count per `quality_status`, the twenty worst `missing_pct`, every
   `critical`, and the count of snapshots whose `zero_volume` or `stale_prices` check failed
