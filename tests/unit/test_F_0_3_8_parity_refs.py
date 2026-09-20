@@ -235,7 +235,11 @@ def test_F_0_3_8_real_exports_load(name: str, rows: int, first: str, last: str) 
     """The two D-348 references, if the raw store is present on this machine."""
     from strategy_factory.data.download.rawfiles import raw_root
 
-    folder = raw_root() / "reference" / "tradingview" / "parity"
+    try:
+        root = raw_root()
+    except ConfigError:
+        pytest.skip("SFAC_RAW_ROOT is not set (CI has no raw store)")
+    folder = root / "reference" / "tradingview" / "parity"
     path = folder / name
     if not path.is_file():
         pytest.skip(f"{name} is not in this machine's raw store")
