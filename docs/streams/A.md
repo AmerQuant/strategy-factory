@@ -85,10 +85,10 @@ implements both from the decision text; oracle and property suites pass.
   Next steps once they arrive: add them to `tests/fixtures/parity/` with their manifest
   (D-359), mark the two-sided export superseded in the manifest notes, run both one-sided
   comparisons, then write the review.
-- **P-44 — waiting on the supervisor.** A cached Hypothesis example fails a metrics property
-  test and the `ci` profile hides it. Diagnosed: the **fixture** is wrong, not the invariant.
-  Not fixed inside T11; a separate session is doing the fixture half on
-  `a/fix-metrics-fixture-prices`.
+- **P-44 — answered by D-368**, and queued as its own task **after T11**: the fixture scales
+  `qty` (the `TradeLog` invariant stands); a found falsifying example is pinned as an
+  `@example` so every CI run sees it; the per-PR job stays derandomized and a **weekly**
+  randomized job reports without gating; `.hypothesis/` stays git-ignored.
 
 ### ⚠️ Protocol incident (D-357 (1))
 
@@ -103,11 +103,12 @@ worktree for `a/T11-parity`; nothing was lost (all T11 work was already committe
 
 1. TF exports arrive → fixtures, manifest note, both one-sided comparisons.
 2. `docs/reviews/T11_review.md`, then **stop for "Approved"** (D-402).
+2b. Plan the D-368 task (metrics fixture + the Hypothesis CI policy) **after** T11.
 3. After the merge: `HANDOFF.md` from this file and `docs/streams/B.md`.
 4. Owed to stream B: `sfac universe generate` after each stream-B merge (D-394). Done for
    #19; nothing outstanding. Nothing under `configs/costs/` needs changing for D-388.
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-367** used (next free **D-368**); pending **P-40 … P-44** used
+Stream A decisions **D-360 … D-368** used (next free **D-369**); pending **P-40 … P-44** used
 (next free **P-45**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
