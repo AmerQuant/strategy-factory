@@ -268,6 +268,8 @@ def test_F_0_1_6_report_files_and_catalog_status(data_root: Path) -> None:
         # T04k adds two daily checks; both are skipped on this 1H fx snapshot
         "daily_wick_outlier",
         "daily_extreme_unsupported",
+        # T04l (D-709): read from the catalog marker; passes on an unmarked snapshot
+        "known_splice",
     }
     assert "status: **ok**" in js.with_suffix(".md").read_text(encoding="utf-8")
     assert cat.events()["event"].to_list()[-1] == "quality"

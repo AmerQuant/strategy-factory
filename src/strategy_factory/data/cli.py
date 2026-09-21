@@ -91,6 +91,7 @@ def _register_subcommands() -> None:
         cli_clean,
         cli_dukascopy,
         cli_prep,
+        cli_reuse,
         cli_yahoo,
     )
     from strategy_factory.data.cli_alpaca import (

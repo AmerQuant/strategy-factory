@@ -44,7 +44,7 @@ from sqlalchemy import Engine
 
 from strategy_factory.core.errors import DataError, HoldoutAccessError
 from strategy_factory.core.logging import get_logger
-from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.catalog import Catalog, Splice
 from strategy_factory.data.config import SplitConfig
 from strategy_factory.data.conversion import FxConversionConfig
 from strategy_factory.data.quality import ensure_usable
@@ -384,6 +384,12 @@ class DataAccess:
     def split(self, symbol: str, timeframe: str) -> Split:
         """Split boundaries (no bars) of the reference snapshot."""
         return self._splits.registered(self._splits.reference(symbol, timeframe))
+
+    def splices(self, symbol: str, timeframe: str) -> tuple[Splice, ...]:
+        """The re-use markers of the reference snapshot (D-709, D-713): a ``research_window``
+        entry says the series was derived to start at an unsettled boundary. Read-only: no bar,
+        split or holdout is touched; the stage decides what to do with it."""
+        return self._splits.catalog.splices(self._splits.reference(symbol, timeframe).key())
 
     def conversion_bars(
         self, pair: str, traded_symbol: str, timeframe: str

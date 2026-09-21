@@ -26,76 +26,19 @@ first six characters, or different issuer), ``before_only``, ``after_only``, ``n
 from __future__ import annotations
 
 import datetime as dt
-import json
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import polars as pl
 
 from strategy_factory.data.config import load_alpaca_config
-from strategy_factory.data.download.alpaca_reference import action_date, latest_action_files
+from strategy_factory.data.cusip_evidence import FIELDS, Event, classify, load_events
 from strategy_factory.data.download.rawfiles import raw_root
 
 OUT = Path("docs") / "reviews"
 BOUNDARIES = OUT / "T04k_boundaries.csv"
 LONG_GAPS = OUT / "T04h_long_gaps.csv"
-ISSUER = 6  # CUSIP issuer prefix length -- a property of the CUSIP format, not a threshold
-
-#: (symbol field, cusip field, role) per answer key; role: "id" (who held the ticker on the date),
-#: "into"/"away" (a rename into / away from the ticker), "ceased" (the security ended).
-FIELDS: dict[str, list[tuple[str, str, str]]] = {
-    "name_changes": [("old_symbol", "old_cusip", "away"), ("new_symbol", "new_cusip", "into")],
-    "cash_dividends": [("symbol", "cusip", "id")],
-    "stock_dividends": [("symbol", "cusip", "id")],
-    "forward_splits": [("symbol", "cusip", "id")],
-    "reverse_splits": [("symbol", "old_cusip", "id_before"), ("symbol", "new_cusip", "id")],
-    "unit_splits": [
-        ("old_symbol", "old_cusip", "away"),
-        ("new_symbol", "new_cusip", "into"),
-        ("alternate_symbol", "alternate_cusip", "into"),
-    ],
-    "spin_offs": [("source_symbol", "source_cusip", "id"), ("new_symbol", "new_cusip", "into")],
-    "rights_distributions": [("source_symbol", "source_cusip", "id")],
-    "cash_mergers": [
-        ("acquiree_symbol", "acquiree_cusip", "ceased"),
-        ("acquirer_symbol", "acquirer_cusip", "id"),
-    ],
-    "stock_mergers": [
-        ("acquiree_symbol", "acquiree_cusip", "ceased"),
-        ("acquirer_symbol", "acquirer_cusip", "id"),
-    ],
-    "stock_and_cash_mergers": [
-        ("acquiree_symbol", "acquiree_cusip", "ceased"),
-        ("acquirer_symbol", "acquirer_cusip", "id"),
-    ],
-    "worthless_removals": [("symbol", "cusip", "ceased")],
-    "redemptions": [("symbol", "cusip", "ceased")],
-}
-
-
-def _events() -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
-    """symbol -> [{type, role, cusip, date}] with a CUSIP; and rows without one, per type."""
-    folder = raw_root() / "reference" / "alpaca" / "corporate_actions"
-    by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    no_cusip: dict[str, int] = defaultdict(int)
-    for key, path in latest_action_files(folder).items():
-        spec = FIELDS.get(key)
-        if spec is None:
-            continue
-        for row in json.loads(path.read_text(encoding="utf-8")):
-            date = action_date(row)
-            for sym_f, cus_f, role in spec:
-                sym, cus = row.get(sym_f), row.get(cus_f)
-                if not sym:
-                    continue
-                if not cus:
-                    no_cusip[key] += 1
-                    continue
-                by_symbol[str(sym)].append(
-                    {"type": key, "role": role, "cusip": str(cus), "date": date}
-                )
-    return by_symbol, no_cusip
+CA_DIR = ("reference", "alpaca", "corporate_actions")
 
 
 def _candidates() -> pl.DataFrame:
@@ -124,59 +67,24 @@ def _candidates() -> pl.DataFrame:
     return pl.concat([kept, gaps])
 
 
-def _classify(events: list[dict[str, Any]], resumes: dt.date, window: int) -> dict[str, Any]:
-    r = resumes.isoformat()
-    into_from = (resumes - dt.timedelta(days=window)).isoformat()
-    before: dict[str, set[str]] = defaultdict(set)  # cusip -> types
-    after: dict[str, set[str]] = defaultdict(set)
-    ceased: set[str] = set()
-    # Rows re-keyed to a later ticker: Alpaca files some rows under the ticker a security took
-    # LATER (measured: ~5 % of dividends before a same-CUSIP rename, CTRA/COG, CIVI/BCEI). A row of a
-    # CUSIP under this ticker dated before that CUSIP renamed INTO it is not evidence of who held
-    # the ticker then, and is dropped.
-    arrived: dict[str, str] = {}
-    for e in events:
-        if e["role"] == "into":
-            arrived[e["cusip"]] = min(arrived.get(e["cusip"], e["date"]), e["date"])
-    for e in events:
-        d, role = e["date"], e["role"]
-        if role not in ("into", "away") and e["cusip"] in arrived and d < arrived[e["cusip"]]:
-            continue
-        if role in ("into", "id"):
-            # the new holder may act under the ticker just before it trades (a rename into it, or
-            # an acquirer row filed under the new ticker, as Coterra/Cimarex on CTRA)
-            side = after if d >= into_from else before
-        elif role == "id_before":  # a reverse split's old CUSIP held the ticker until that date
-            side = before if d <= r else after
-        else:  # "away", "ceased": the old holder leaving
-            side = before if d < r else after
-        side[e["cusip"]].add(e["type"])
-        if role == "ceased" and d < r:
-            ceased.add(e["type"])
-    b, a = set(before), set(after)
-    cls = "both" if b and a else "before_only" if b else "after_only" if a else "none"
-    relation = None
-    if cls == "both":
-        if b & a:
-            relation = "same_cusip"
-        elif {x[:ISSUER] for x in b} & {x[:ISSUER] for x in a}:
-            relation = "same_issuer"
-        else:
-            relation = "different_issuer"
+def _classify(events: list[Event], resumes: dt.date, window: int) -> dict[str, Any]:
+    """The library's classification (``data/cusip_evidence.py``, D-712 rules) as a table row."""
+    ev = classify(events, resumes, window)
     return {
-        "coverage": cls,
-        "relation": relation,
-        "cusips_before": "|".join(sorted(b)),
-        "cusips_after": "|".join(sorted(a)),
-        "types_before": "|".join(sorted({t for ts in before.values() for t in ts})),
-        "types_after": "|".join(sorted({t for ts in after.values() for t in ts})),
-        "ceased_before": "|".join(sorted(ceased)),
+        "coverage": ev.coverage,
+        "relation": ev.relation,
+        "cusips_before": "|".join(ev.before),
+        "cusips_after": "|".join(ev.after),
+        "types_before": "|".join(ev.types_before),
+        "types_after": "|".join(ev.types_after),
+        "ceased_before": "|".join(ev.ceased_before),
+        "dropped_rekeyed": ev.dropped_rekeyed,
     }
 
 
 def main() -> None:
     window = load_alpaca_config().relisting.rename_window_days
-    events, no_cusip = _events()
+    events, no_cusip = load_events(raw_root().joinpath(*CA_DIR))
     cands = _candidates()
     rows = [
         {**c, **_classify(events.get(c["symbol"], []), c["resumes"], window)}
@@ -195,7 +103,7 @@ def main() -> None:
         both = out.filter((pl.col("coverage") == "both") & (has_b | has_a))
         only = 0
         for r in both.iter_rows(named=True):
-            rest = [e for e in events.get(r["symbol"], []) if e["type"] != t]
+            rest = [e for e in events.get(r["symbol"], []) if e.type != t]
             if _classify(rest, r["resumes"], window)["coverage"] != "both":
                 only += 1
         per_type.append(
