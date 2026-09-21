@@ -19,8 +19,16 @@ Four arms, in the order they are applied, each named in the changed-bar log:
     (``incomplete_hourly_day``) and neither is a missing one (``no_raw_hours``) -- on such a day the
     bar is left exactly as it is and nothing about it is called clean (supervisor, 2026-09-21).
 ``wick_clip`` (D-396)
-    where there is no usable hourly evidence, a wick flagged by :func:`wick_outliers` is clipped to
-    the bar's body (max/min of open and close).
+    **only for a symbol with no hourly series at all**, a wick flagged by :func:`wick_outliers` is
+    clipped to the bar's body (max/min of open and close). A symbol *with* hourly data is judged by
+    its hourly data on every day: a full hourly day that reaches the extreme **supports** it, a
+    full day that does not is capped, and a short or missing day is not evidence either way. The
+    first version fell through to ``wick_clip`` whenever a day had no breach row, and clipped 54
+    extremes that a full hourly day supported and 5 on short days (T04k acceptance review).
+
+ATR(14) for the wick test is computed on the bars that **survive** the two removal arms, so the
+zero-range padding that ``frozen_cut`` removes cannot shrink it and make an ordinary wick look
+like many ATRs.
 
 ``open``, ``close`` and ``volume`` are **never** touched; only the extremes, and whole bars when an
 arm removes them.
@@ -146,6 +154,7 @@ def clean_daily(
     verdict: SeriesVerdict | None = None,
     frozen_sessions: int | None = None,
     apply_boundary: bool = True,
+    has_hourly: bool | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """``(clean daily frame, changed-bar log)``; the input frame is never modified.
 
@@ -153,8 +162,11 @@ def clean_daily(
     without it the ``extreme_cap`` arm does nothing and every flagged wick goes to ``wick_clip``.
     ``verdict`` is :func:`strategy_factory.data.relisting.analyse_series` output; ``apply_boundary``
     is the **D-399 gate** -- the caller sets it to ``False`` when the cross-check could not settle
-    the signature, and the history is then kept in full.
+    the signature, and the history is then kept in full. ``has_hourly`` says whether the symbol
+    has an hourly series at all; it defaults to "a breach frame was given", and when true the
+    ``wick_clip`` arm never runs (D-396: cap where hourly data exists, otherwise clip).
     """
+    hourly = has_hourly if has_hourly is not None else breaches is not None
     if daily.height == 0:
         return daily, pl.DataFrame(schema={c: pl.Utf8() for c in LOG_COLUMNS})
 
@@ -200,20 +212,24 @@ def clean_daily(
             )
 
     # --- 3 and 4: the extremes, on the bars that survive ------------------------------------
+    keep = [i for i in range(len(dates)) if i not in drop]
+    surviving = frame.with_row_index("_i").filter(pl.col("_i").is_in(keep))
+    flags = {
+        int(r["_i"]): r
+        for r in wick_outliers(surviving, cfg.daily_wick_outlier).iter_rows(named=True)
+    }
     caps = _cap_targets(breaches, cfg)
-    flags = wick_outliers(frame, cfg.daily_wick_outlier)
     highs = list(frame["high"])
     lows = list(frame["low"])
-    for i, day in enumerate(dates):
-        if i in drop:
-            continue
+    for i in keep:
+        day = dates[i]
+        body = flags[i]
         cap = caps.get(day)
         if cap is not None:
             # A cap never moves an extreme past the body: the open and the close really traded,
             # so `low <= open, close <= high` must survive it. Without this the store refuses the
             # bar with `ohlc_outside_range`, which is how it was found -- the RTH hourly range can
             # sit entirely inside the daily body when the hourly feed missed the move.
-            body = flags.row(i, named=True)
             cap_high = max(float(cap["rth_high"]), body["body_high"])
             cap_low = min(float(cap["rth_low"]), body["body_low"])
             for field, values, bound, better in (
@@ -235,11 +251,12 @@ def clean_daily(
                         )
                     )
                     values[i] = bound
-            continue  # a day with usable hourly evidence is never wick-clipped as well
-        if day in _not_evidence(breaches):
-            continue  # a short or missing hourly day corrects nothing (supervisor, 2026-09-21)
-        row = flags.row(i, named=True)
-        if row["flag_high"]:
+            continue
+        if hourly:
+            # The hourly series is the evidence for this symbol on every day: a day without a
+            # correctable breach is either supported by it or not evidence (short or missing).
+            continue
+        if body["flag_high"]:
             rows.append(
                 _log(
                     symbol,
@@ -247,13 +264,13 @@ def clean_daily(
                     ARM_WICK_CLIP,
                     "high",
                     highs[i],
-                    row["body_high"],
-                    f"D-396: high {row['excess_high_atr']:.1f} x ATR(14) and "
-                    f"{row['excess_high_pct']:.1f} % beyond the body",
+                    body["body_high"],
+                    f"D-396: high {body['excess_high_atr']:.1f} x ATR(14) and "
+                    f"{body['excess_high_pct']:.1f} % beyond the body",
                 )
             )
-            highs[i] = row["body_high"]
-        if row["flag_low"]:
+            highs[i] = body["body_high"]
+        if body["flag_low"]:
             rows.append(
                 _log(
                     symbol,
@@ -261,12 +278,12 @@ def clean_daily(
                     ARM_WICK_CLIP,
                     "low",
                     lows[i],
-                    row["body_low"],
-                    f"D-396: low {row['excess_low_atr']:.1f} x ATR(14) and "
-                    f"{row['excess_low_pct']:.1f} % beyond the body",
+                    body["body_low"],
+                    f"D-396: low {body['excess_low_atr']:.1f} x ATR(14) and "
+                    f"{body['excess_low_pct']:.1f} % beyond the body",
                 )
             )
-            lows[i] = row["body_low"]
+            lows[i] = body["body_low"]
 
     clean = (
         frame.with_columns(pl.Series("high", highs), pl.Series("low", lows))
@@ -307,14 +324,3 @@ def _cap_targets(
         & (pl.col("breach_bps") > cfg.daily_extreme_unsupported.eps_bps)
     )
     return {r["session_date"]: r for r in usable.iter_rows(named=True)}
-
-
-def _not_evidence(breaches: pl.DataFrame | None) -> set[dt.date]:
-    """Session dates whose hourly side is short or missing -- never corrected, never cleared."""
-    if breaches is None or breaches.height == 0:
-        return set()
-    return set(
-        breaches.filter(pl.col("breach_class").is_in(sorted(NOT_EVIDENCE)))[
-            "session_date"
-        ].to_list()
-    )

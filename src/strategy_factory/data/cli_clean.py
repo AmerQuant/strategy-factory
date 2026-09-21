@@ -9,11 +9,21 @@ in this order, and the first rule that decides wins:
    history untouched, the symbol listed with its ``--refresh`` command;
 3. the **company names** (D-700): only ``re_use`` trims; anything else keeps the full history and
    is listed for the supervisor.
+
+The input is always the **raw** snapshot (``derived_from`` empty), never the current reference: a
+re-run after ``--set-reference`` must re-derive from raw, or it would clean the clean series and
+clip wicks a second time (T04k acceptance review, V3). Each clean snapshot gets its own changed-bar
+log and provenance record, keyed by its hash, so a superseded snapshot never loses its log.
+
+The quality report for the symbol's clean series -- the clean snapshot, or the raw one where
+nothing changed -- is written in the same pass, **with the hourly evidence**, so
+``daily_extreme_unsupported`` states every short or missing hourly day it could not check.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
@@ -21,6 +31,7 @@ from typing import Annotated, Any
 import polars as pl
 import typer
 
+from strategy_factory.core.config import config_hash
 from strategy_factory.core.errors import SfacError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.data.adapters.alpaca import AlpacaAdapter
@@ -55,16 +66,19 @@ from strategy_factory.data.name_evidence import (
     load_name_changes,
     settle_by_name,
 )
-from strategy_factory.data.relisting import TRIM, SeriesVerdict, analyse_series
+from strategy_factory.data.quality import check_snapshot
+from strategy_factory.data.relisting import EXCLUDE, TRIM, SeriesVerdict, analyse_series
 from strategy_factory.data.schema import SeriesMetadata
 from strategy_factory.data.split_check import read_crosscheck_csv
 from strategy_factory.data.store import SnapshotStore, safe_component
 
 log = get_logger(__name__)
 
-#: Where the changed-bar logs live: one CSV per symbol, beside the store's other reports.
+#: Where the changed-bar logs live: ``_clean/<symbol>/<clean hash>.csv`` plus ``.json``.
 CLEAN_DIR = "_clean"
 SUMMARY_FILE = "clean_daily_summary.csv"
+#: Every short or missing hourly day of every hourly symbol (the days that are not evidence).
+SHORT_DAYS_FILE = "short_hourly_days.csv"
 SUMMARY_COLUMNS = [
     "symbol",
     "status",
@@ -83,6 +97,9 @@ SUMMARY_COLUMNS = [
     "name_evidence",
     "near_identical",
     "boundary_applied",
+    "has_hourly",
+    "short_hourly_days",
+    "quality_status",
     "snapshot_hash",
     "note",
 ]
@@ -105,21 +122,43 @@ def _fail(msg: str) -> typer.Exit:
     return typer.Exit(code=1)
 
 
-def _breach_frame(
-    symbol: str, daily: pl.DataFrame, root: Path, cfg: Any, expected: pl.DataFrame
-) -> pl.DataFrame | None:
-    """The T04i breach frame for ``symbol``, or ``None`` when it has no hourly raw data."""
+def _hourly_evidence(
+    symbol: str,
+    daily: pl.DataFrame,
+    root: Path,
+    alpaca: Any,
+    quality: Any,
+    expected: pl.DataFrame,
+) -> tuple[pl.DataFrame | None, pl.DataFrame | None]:
+    """``(breaches, coverage)`` for ``symbol``; both ``None`` when it has no hourly series.
+
+    ``breaches`` holds only the days whose daily extreme lies outside the RTH hourly range.
+    ``coverage`` holds **every** hourly session with its bar count against the calendar, which is
+    what finds a short day that does not breach (V2).
+    """
     hourly_files = latest_chunks(root, "1H", symbol)
     if not hourly_files:
-        return None
-    hourly, _ = AlpacaAdapter(cfg).to_canonical(hourly_files, timeframe="1H", symbol=symbol)
+        return None, None
+    hourly, _ = AlpacaAdapter(alpaca).to_canonical(hourly_files, timeframe="1H", symbol=symbol)
     if hourly.height == 0:
-        return None
-    tz = cfg.hourly_session.timezone
+        return None, None
+    tz = alpaca.hourly_session.timezone
     raw = raw_extremes(
         pl.concat([pl.read_parquet(f).select("t", "h", "l") for f in hourly_files]), tz
     )
-    return breaches(daily, rth_extremes(hourly, tz), raw, symbol, expected=expected)
+    rth = rth_extremes(hourly, tz)
+    found = breaches(
+        daily,
+        rth,
+        raw,
+        symbol,
+        eps_bps=quality.daily_extreme_unsupported.eps_bps,
+        expected=expected,
+    )
+    coverage = rth.join(expected, on="session_date", how="left").select(
+        "session_date", "rth_bars", "expected_bars"
+    )
+    return found, coverage
 
 
 def _settle(
@@ -156,6 +195,7 @@ def _settle(
         cross,
         cfg.split_check.match_tolerance,
         cfg.split_check.jump_threshold,
+        cfg.split_check.crosscheck_window_days,
     )
 
 
@@ -189,10 +229,16 @@ def clean_cmd(
             changes_by_symbol(load_name_changes(root / alpaca.relisting.name_changes_file)),
             alpaca.relisting.rename_window_days,
         )
-        rows = catalog.table().filter(
-            (pl.col("source") == "alpaca")
-            & (pl.col("timeframe") == timeframe)
-            & pl.col("is_reference")
+        rows = input_rows(catalog, timeframe)
+        fingerprint = config_hash(
+            {
+                "daily_wick_outlier": quality.daily_wick_outlier.model_dump(mode="json"),
+                "daily_extreme_unsupported": quality.daily_extreme_unsupported.model_dump(
+                    mode="json"
+                ),
+                "relisting": alpaca.relisting.model_dump(mode="json"),
+                "split_check": alpaca.split_check.model_dump(mode="json"),
+            }
         )
         wanted = {s.strip() for s in symbols.split(",")} if symbols else None
         if wanted:
@@ -205,27 +251,26 @@ def clean_cmd(
     out_dir = store.root / CLEAN_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     summary: list[dict[str, Any]] = []
+    short_days: list[dict[str, Any]] = []
+    ctx = CleanContext(
+        store, catalog, alpaca, quality, root, expected, splits, names, out_dir, fingerprint
+    )
     for i, row in enumerate(rows.iter_rows(named=True), 1):
-        summary.append(
-            _clean_symbol(
-                row,
-                store,
-                catalog,
-                alpaca,
-                quality,
-                root,
-                expected,
-                splits,
-                names,
-                out_dir,
-                set_reference,
-            )
-        )
+        summary.append(_clean_symbol(row, ctx, set_reference, short_days))
         if i % 250 == 0:
             typer.echo(f"  {i}/{rows.height} symbols")
 
     table = pl.DataFrame(summary, infer_schema_length=None).select(SUMMARY_COLUMNS)
     table.write_csv(out_dir / SUMMARY_FILE)
+    pl.DataFrame(
+        short_days,
+        schema={
+            "symbol": pl.Utf8(),
+            "session_date": pl.Utf8(),
+            "rth_bars": pl.Int64(),
+            "expected_bars": pl.Int64(),
+        },
+    ).write_csv(out_dir / SHORT_DAYS_FILE)
     counts = dict(table.group_by("status").len().rows())
     typer.echo(
         f"{table.height} symbol(s): "
@@ -235,31 +280,75 @@ def clean_cmd(
     typer.echo(f"logs: {out_dir.as_posix()}")
 
 
+def input_rows(catalog: Catalog, timeframe: str = "1D") -> pl.DataFrame:
+    """The **raw** Alpaca snapshot of every symbol -- never a derived one, whatever the reference.
+
+    Selecting by ``is_reference`` would, once the clean snapshots are the references, feed the
+    clean series back in and clip its wicks a second time (V3: 233 symbols, 302 more clips).
+    """
+    return catalog.table().filter(
+        (pl.col("source") == "alpaca")
+        & (pl.col("timeframe") == timeframe)
+        & pl.col("derived_from").is_null()
+    )
+
+
+@dataclass(frozen=True)
+class CleanContext:
+    """Everything one clean pass shares across symbols."""
+
+    store: SnapshotStore
+    catalog: Catalog
+    alpaca: Any
+    quality: Any
+    root: Path
+    expected: pl.DataFrame
+    splits: dict[str, frozenset[dt.date]]
+    names: NameSources
+    out_dir: Path
+    fingerprint: str
+
+
 def _clean_symbol(
     row: dict[str, Any],
-    store: SnapshotStore,
-    catalog: Catalog,
-    alpaca: Any,
-    quality: Any,
-    root: Path,
-    expected: pl.DataFrame,
-    splits: dict[str, frozenset[dt.date]],
-    names: NameSources,
-    out_dir: Path,
+    ctx: CleanContext,
     set_reference: bool,
+    short_days: list[dict[str, Any]],
 ) -> dict[str, Any]:
     symbol = row["symbol"]
     out: dict[str, Any] = {c: 0 if c.endswith("_bars") else "" for c in SUMMARY_COLUMNS}
     out.update(symbol=symbol, status="unchanged", crosscheck_verdict="", note="")
     out["near_identical"] = False
     out["boundary_applied"] = False
+    out["has_hourly"] = False
+    out["short_hourly_days"] = 0
     for arm in ("boundary_trim", "frozen_cut", "extreme_cap", "wick_clip"):
         out[arm] = 0
+    alpaca, quality = ctx.alpaca, ctx.quality
     try:
         raw_meta = _row_to_meta(row)
-        daily = store.read_snapshot("alpaca", symbol, "1D", row["snapshot_hash"])
+        daily = ctx.store.read_snapshot("alpaca", symbol, "1D", row["snapshot_hash"])
         out["raw_bars"] = daily.height
-        breach = _breach_frame(symbol, daily, root, alpaca, expected)
+        breach, coverage = _hourly_evidence(symbol, daily, ctx.root, alpaca, quality, ctx.expected)
+        out["has_hourly"] = coverage is not None
+        if coverage is not None:
+            short = (
+                daily.select(pl.col("ts").dt.date().alias("session_date"))
+                .join(coverage, on="session_date", how="left")
+                .filter(
+                    pl.col("rth_bars").is_null() | (pl.col("rth_bars") < pl.col("expected_bars"))
+                )
+            )
+            out["short_hourly_days"] = short.height
+            short_days += [
+                {
+                    "symbol": symbol,
+                    "session_date": str(d),
+                    "rth_bars": None if b is None else int(b),
+                    "expected_bars": None if e is None else int(e),
+                }
+                for d, b, e in short.rows()
+            ]
         verdict = analyse_series(
             symbol,
             [d.date() for d in daily["ts"].to_list()],
@@ -267,10 +356,17 @@ def _clean_symbol(
             daily["low"].to_list(),
             daily["close"].to_list(),
             alpaca.split_check.jump_threshold,
-            splits.get(symbol, frozenset()),
+            ctx.splits.get(symbol, frozenset()),
             alpaca.relisting.gap_days,
             alpaca.relisting.frozen_min_sessions,
         )
+        if verdict.verdict == EXCLUDE:
+            # D-398 (4): no boundary can be placed from the series. Never silent (S5).
+            out["status"] = "exclude_boundary_unidentifiable"
+            out["note"] = "D-398 (4): list in configs/universe/us_equity_daily_excluded.csv"
+            out["snapshot_hash"] = row["snapshot_hash"]
+            _quality(ctx, raw_meta, breach, coverage, out)
+            return out
         apply_boundary = True
         if verdict.verdict == TRIM:
             out["boundary_reason"] = verdict.boundary_reason
@@ -279,7 +375,7 @@ def _clean_symbol(
             if verdict.boundary_reason == "leading_padding":
                 apply_boundary = True  # D-398 (3): padding before a listing, not a re-use
             else:
-                settled = _settle(symbol, verdict, daily, root, alpaca)
+                settled = _settle(symbol, verdict, daily, ctx.root, alpaca)
                 out["crosscheck_verdict"] = settled.verdict
                 out["crosscheck_evidence"] = settled.evidence
                 if settled.verdict == UNADJUSTED_SPLIT:
@@ -287,18 +383,20 @@ def _clean_symbol(
                     out["status"] = "unadjusted_split"
                     out["note"] = (
                         "D-397: run `uv run sfac data download alpaca --timeframe 1D "
-                        f"--symbols {symbol} --start 2016-01-01 --refresh`, then re-check"
+                        f"--symbols {symbol} --start {alpaca.history_start} --refresh`, "
+                        "then re-check"
                     )
                     out["snapshot_hash"] = row["snapshot_hash"]
+                    _quality(ctx, raw_meta, breach, coverage, out)
                     return out
                 named = settle_by_name(
                     symbol,
                     _break_start(verdict),
                     dt.date.fromisoformat(verdict.boundary_date),
-                    names.assets,
-                    names.changes.get(symbol, []),
-                    names.window_days,
-                    names.changes,
+                    ctx.names.assets,
+                    ctx.names.changes.get(symbol, []),
+                    ctx.names.window_days,
+                    ctx.names.changes,
                 )
                 out["name_verdict"] = named.verdict
                 out["name_evidence"] = named.evidence
@@ -313,6 +411,7 @@ def _clean_symbol(
             verdict=verdict,
             frozen_sessions=alpaca.relisting.frozen_min_sessions,
             apply_boundary=apply_boundary,
+            has_hourly=coverage is not None,
         )
         out["clean_bars"] = clean.height
         out["changed_bars"] = changes.height
@@ -322,19 +421,69 @@ def _clean_symbol(
             # Identical content: the raw snapshot already IS the clean series. Writing it again
             # would return the same hash (rule 10), so nothing is written and the reference stays.
             out["snapshot_hash"] = row["snapshot_hash"]
+            _quality(ctx, raw_meta, breach, coverage, out)
             return out
-        changes.write_csv(out_dir / f"{safe_component(symbol)}.csv")
-        stored = store.write_snapshot(clean, _clean_meta(raw_meta, out, changes))
-        catalog.register(stored)
-        out["snapshot_hash"] = stored.snapshot_hash or ""
+        stored = ctx.store.write_snapshot(clean, _clean_meta(raw_meta, out, changes, ctx))
+        ctx.catalog.register(stored)
+        digest = stored.snapshot_hash or ""
+        folder = ctx.out_dir / safe_component(symbol)
+        folder.mkdir(parents=True, exist_ok=True)
+        changes.write_csv(folder / f"{digest}.csv")
+        (folder / f"{digest}.json").write_text(
+            json.dumps(_provenance(raw_meta, out, changes, ctx), indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        out["snapshot_hash"] = digest
         out["status"] = "cleaned"
-        if set_reference and stored.snapshot_hash:
-            catalog.set_reference(symbol, "1D", stored.snapshot_hash, note="T04k clean daily")
+        _quality(ctx, stored, breach, coverage, out)
+        if set_reference and digest:
+            ctx.catalog.set_reference(symbol, "1D", digest, note="T04k clean daily")
     except Exception as exc:  # one bad symbol must not stop 6,707; it is reported in the summary
         out["status"] = "failed"
         out["note"] = f"{type(exc).__name__}: {exc}"
         log.error("%s: clean failed: %s", symbol, exc)
     return out
+
+
+def _quality(
+    ctx: CleanContext,
+    meta: SeriesMetadata,
+    breach: pl.DataFrame | None,
+    coverage: pl.DataFrame | None,
+    out: dict[str, Any],
+) -> None:
+    """The quality report for the series the research will read, with its hourly evidence."""
+    rep = check_snapshot(
+        meta, ctx.store, ctx.catalog, ctx.quality, breaches=breach, coverage=coverage
+    )
+    out["quality_status"] = rep.status
+
+
+def _provenance(
+    raw: SeriesMetadata, out: dict[str, Any], changes: pl.DataFrame, ctx: CleanContext
+) -> dict[str, Any]:
+    """The structured record of what was applied -- beside the log, keyed by the clean hash."""
+    return {
+        "task": "T04k",
+        "decisions": ["D-396", "D-398", "D-399", "D-700"],
+        "symbol": raw.symbol,
+        "derived_from": raw.snapshot_hash,
+        "config_hash": ctx.fingerprint,
+        "arms": {arm: int(n) for arm, n in changes.group_by("arm").len().rows()},
+        "changed_bars": changes.height,
+        "raw_bars": out["raw_bars"],
+        "clean_bars": out["clean_bars"],
+        "boundary": {
+            "date": out["boundary_date"] or None,
+            "reason": out["boundary_reason"] or None,
+            "applied": bool(out["boundary_applied"]),
+            "crosscheck": out["crosscheck_verdict"] or None,
+            "name_verdict": out["name_verdict"] or None,
+            "name_evidence": out["name_evidence"] or None,
+        },
+        "has_hourly": bool(out["has_hourly"]),
+        "short_hourly_days": out["short_hourly_days"],
+    }
 
 
 def _break_start(verdict: SeriesVerdict) -> dt.date:
@@ -349,11 +498,15 @@ def _break_start(verdict: SeriesVerdict) -> dt.date:
     return dt.date.fromisoformat(str(last["last_date_before_gap"]))
 
 
-def _clean_meta(raw: SeriesMetadata, out: dict[str, Any], changes: pl.DataFrame) -> SeriesMetadata:
-    """The derived snapshot's metadata: ``derived_from`` the raw key, with the arm counts."""
+def _clean_meta(
+    raw: SeriesMetadata, out: dict[str, Any], changes: pl.DataFrame, ctx: CleanContext
+) -> SeriesMetadata:
+    """The derived snapshot's metadata: ``derived_from`` the raw key, what was applied and the
+    config hash of every threshold that decided it (task section 2)."""
     applied = {arm: int(n) for arm, n in changes.group_by("arm").len().rows()}
     note = (
-        f"T04k clean daily (D-396/D-398/D-399/D-700): {changes.height} changed bar(s) - "
+        f"T04k clean daily (D-396/D-398/D-399/D-700), config {ctx.fingerprint[:16]}: "
+        f"{changes.height} changed bar(s) - "
         + ", ".join(f"{k} {v}" for k, v in sorted(applied.items()))
         + f". Raw snapshot {raw.snapshot_hash}."
     )

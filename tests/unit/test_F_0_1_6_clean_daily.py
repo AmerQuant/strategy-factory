@@ -468,6 +468,19 @@ def test_F_0_1_6_D_396_the_extreme_check_is_skipped_without_hourly_data() -> Non
     assert "no hourly series" in str(res.message) + str(res.details)
 
 
+def _coverage(short: dict[int, int] | None = None, n: int = 30) -> pl.DataFrame:
+    """One hourly session per daily bar, 7 of 7 bars except the ``short`` ones."""
+    short = short or {}
+    return pl.DataFrame(
+        {
+            "session_date": [_date(i) for i in range(n)],
+            "rth_bars": [short.get(i, 7) for i in range(n)],
+            "expected_bars": [7] * n,
+        },
+        schema={"session_date": pl.Date(), "rth_bars": pl.UInt32(), "expected_bars": pl.UInt32()},
+    )
+
+
 def test_F_0_1_6_T04k_the_extreme_check_never_counts_a_short_hourly_day_as_a_defect() -> None:
     br = _breaches(
         [
@@ -483,10 +496,30 @@ def test_F_0_1_6_T04k_the_extreme_check_never_counts_a_short_hourly_day_as_a_def
             }
         ]
     )
-    res = check_daily_extreme_unsupported(_daily(_calm(30)), _meta(), CFG, br)
+    res = check_daily_extreme_unsupported(_daily(_calm(30)), _meta(), CFG, br, _coverage({20: 1}))
     assert res.status == "pass"  # not a defect ...
     assert res.details["not_evidence_days"] == 1  # ... but visibly not checked either
-    assert _date(20).isoformat() in res.details["not_evidence_dates"]
+    assert res.details["not_evidence_bars"] == [f"{_date(20)}: 1 of 7 hourly bars"]
+
+
+def test_F_0_1_6_T04k_a_short_day_that_does_not_breach_is_still_stated() -> None:
+    """V2: `breaches()` drops non-breaching days, so a short day inside the range was invisible.
+
+    The report must state it anyway -- the day was not checked, whatever the daily bar did.
+    """
+    res = check_daily_extreme_unsupported(
+        _daily(_calm(30)), _meta(), CFG, _breaches([]), _coverage({5: 2, 9: 4})
+    )
+    assert res.status == "pass"
+    assert res.details["short_hourly_days"] == 2
+    assert f"{_date(5)}: 2 of 7 hourly bars" in res.details["not_evidence_bars"]
+
+
+def test_F_0_1_6_T04k_a_daily_session_with_no_hourly_bar_is_stated_too() -> None:
+    cov = _coverage(n=30).filter(pl.col("session_date") != _date(12))
+    res = check_daily_extreme_unsupported(_daily(_calm(30)), _meta(), CFG, _breaches([]), cov)
+    assert res.details["no_hourly_days"] == 1
+    assert _date(12).isoformat() in res.details["no_hourly_dates"]
 
 
 def test_F_0_1_6_D_396_the_extreme_check_counts_a_real_breach() -> None:
@@ -514,7 +547,7 @@ def test_F_0_1_6_D_396_the_extreme_check_counts_a_real_breach() -> None:
             },
         ]
     )
-    res = check_daily_extreme_unsupported(_daily(_calm(30)), _meta(), CFG, br)
+    res = check_daily_extreme_unsupported(_daily(_calm(30)), _meta(), CFG, br, _coverage({21: 2}))
     assert res.status == "fail" and res.count == 1  # the short day is not counted
     assert res.details["not_evidence_days"] == 1
     assert "unexplained 1" in (res.message or "")
@@ -634,3 +667,47 @@ def test_F_0_1_8_T04k_writing_the_clean_snapshot_leaves_the_raw_one_untouched(
     after = (hashlib.sha256(raw_path.read_bytes()).hexdigest(), raw_path.stat().st_mtime_ns)
     assert after == before  # raw bytes and mtime unchanged
     assert catalog.list_snapshots(symbol="EQ").height == 2  # raw still in the catalog
+
+
+# ------------------------------------------ acceptance review, round 2: V1 and S3 on real shapes
+
+
+def test_F_0_1_6_T04k_a_supported_extreme_on_a_full_hourly_day_is_never_clipped() -> None:
+    """V1: 54 real clips were of extremes a full 7-bar hourly day reached (`URBN` 2020-11-09).
+
+    Such a day has no breach row -- the hourly range supports the extreme -- and the first version
+    fell through to `wick_clip`. With an hourly series, the hourly series decides every day.
+    """
+    rows = _calm(30)
+    rows[20] = (100.0, 160.0, 99.5, 101.0)  # would be a wick outlier on price alone
+    clean, log = clean_daily(_daily(rows), "EQ", CFG, breaches=_breaches([]), has_hourly=True)
+    assert clean["high"][20] == 160.0
+    assert log.height == 0
+
+
+def test_F_0_1_6_T04k_wick_clip_runs_only_without_an_hourly_series() -> None:
+    rows = _calm(30)
+    rows[20] = (100.0, 160.0, 99.5, 101.0)
+    with_hourly, _ = clean_daily(_daily(rows), "EQ", CFG, has_hourly=True)
+    without, log = clean_daily(_daily(rows), "EQ", CFG, has_hourly=False)
+    assert with_hourly["high"][20] == 160.0
+    assert without["high"][20] == 101.0 and log.row(0, named=True)["arm"] == ARM_WICK_CLIP
+
+
+def test_F_0_1_6_T04k_atr_is_measured_on_the_bars_that_survive() -> None:
+    """S3: padding right before a wick shrinks a raw ATR(14) and makes an ordinary wick look huge.
+
+    Calm bars have a 5-point range; 14 padded bars follow, then a bar whose high sits 12 points
+    (12 %) above its body. Against the real bars that is ~2 x ATR (not a bad print); against the
+    padded window it is ~10 x ATR. Once the pad is cut the wick must stand.
+    """
+    rows: list[Bar] = [(100.0, 102.5, 97.5, 100.0) for _ in range(30)]
+    rows += [(100.0, 100.0, 100.0, 100.0)] * 14
+    rows.append((100.0, 112.0, 97.5, 100.0))
+    rows += [(100.0, 102.5, 97.5, 100.0) for _ in range(5)]
+    raw_flags = wick_outliers(_daily(rows), CFG.daily_wick_outlier)
+    assert raw_flags["flag_high"][44]  # on the raw frame the pad makes it a "bad print"
+    clean, log = clean_daily(_daily(rows), "PADWICK", CFG, has_hourly=False)
+    assert log.filter(pl.col("arm") == ARM_WICK_CLIP).height == 0
+    assert log.filter(pl.col("arm") == ARM_FROZEN_CUT).height == 14
+    assert 112.0 in clean["high"].to_list()

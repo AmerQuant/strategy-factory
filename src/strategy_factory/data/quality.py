@@ -274,43 +274,58 @@ def check_daily_extreme_unsupported(
     meta: SeriesMetadata,
     cfg: QualityConfig,
     breaches: pl.DataFrame | None,
+    coverage: pl.DataFrame | None = None,
 ) -> CheckResult:
     """D-396: a daily extreme the hourly feed does not support, where hourly data exists (T04k).
 
-    **A short or missing hourly day is not evidence** (supervisor, 2026-09-21): a day classified
-    ``incomplete_hourly_day`` or ``no_raw_hours`` is never counted as a defect **and never counted
-    as clean** -- it is reported separately, with the bar count it saw against the calendar's
-    expectation, so a silent pass can never be mistaken for a check that ran.
-    """
-    from strategy_factory.data.clean_daily import CORRECTABLE, NOT_EVIDENCE
+    **A short or missing hourly day is not evidence** (supervisor, 2026-09-21): it is never counted
+    as a defect **and never counted as clean**. It is reported separately with the bar count it
+    held against the calendar's expectation, **whether or not the daily bar breaches** -- so a
+    pass can never be mistaken for a check that ran on a day it could not check.
 
+    ``coverage`` (``session_date, rth_bars, expected_bars``, one row per session the hourly series
+    has any bar on) is what finds the short days; ``breaches`` only holds the days that breach, so
+    a short day inside the hourly range would otherwise pass silently. A daily session with no
+    hourly bar at all is ``no_raw_hours`` and is reported the same way.
+    """
+    from strategy_factory.data.clean_daily import CORRECTABLE
+
+    code = "daily_extreme_unsupported"
     if meta.timeframe != "1D":
-        return _skip("daily_extreme_unsupported", "not a daily series")
-    if breaches is None:
-        return _skip("daily_extreme_unsupported", "no hourly series for this symbol")
-    if breaches.height == 0:
-        return _pass("daily_extreme_unsupported", breach_days=0)
+        return _skip(code, "not a daily series")
+    if breaches is None and coverage is None:
+        return _skip(code, "no hourly series for this symbol")
+    details: dict[str, Any] = {}
+    if coverage is not None:
+        days = df.select(pl.col("ts").dt.date().alias("session_date"))
+        seen = days.join(coverage, on="session_date", how="left")
+        short = seen.filter(pl.col("rth_bars") < pl.col("expected_bars"))
+        missing = seen.filter(pl.col("rth_bars").is_null())
+        details = {
+            "not_evidence_days": short.height + missing.height,
+            "short_hourly_days": short.height,
+            "no_hourly_days": missing.height,
+            "not_evidence_bars": [
+                f"{d}: {b} of {e} hourly bars"
+                for d, b, e in short.select("session_date", "rth_bars", "expected_bars").rows()[
+                    :_SAMPLE
+                ]
+            ],
+            "no_hourly_dates": [str(d) for d in missing["session_date"].to_list()[:_SAMPLE]],
+        }
     eps = cfg.daily_extreme_unsupported.eps_bps
-    real = breaches.filter(
-        pl.col("breach_class").is_in(sorted(CORRECTABLE)) & (pl.col("breach_bps") > eps)
+    real = (
+        breaches.filter(
+            pl.col("breach_class").is_in(sorted(CORRECTABLE)) & (pl.col("breach_bps") > eps)
+        )
+        if breaches is not None
+        else pl.DataFrame()
     )
-    unchecked = breaches.filter(pl.col("breach_class").is_in(sorted(NOT_EVIDENCE)))
-    details: dict[str, Any] = {
-        "not_evidence_days": unchecked.height,
-        "not_evidence_dates": [str(d) for d in unchecked["session_date"].to_list()[:_SAMPLE]],
-        # what each skipped day actually held, against what the calendar expects
-        "not_evidence_bars": [
-            f"{d}: {b} of {e} hourly bars"
-            for d, b, e in unchecked.select("session_date", "rth_bars", "expected_bars").rows()[
-                :_SAMPLE
-            ]
-        ],
-    }
     if real.height == 0:
-        return _pass("daily_extreme_unsupported", breach_days=0, **details)
+        return _pass(code, breach_days=0, **details)
     per_class = dict(real.group_by("breach_class").len().rows())
     return _fail(
-        "daily_extreme_unsupported",
+        code,
         cfg.daily_extreme_unsupported.severity,
         real.height,
         f"{real.height} day(s) whose daily extreme the hourly feed does not support "
@@ -373,6 +388,7 @@ def run_quality(
     cfg: QualityConfig,
     sessions_file: Path | None = None,
     breaches: pl.DataFrame | None = None,
+    coverage: pl.DataFrame | None = None,
 ) -> QualityReport:
     """All checks on one stored snapshot."""
     df = df.sort("ts")
@@ -386,7 +402,7 @@ def run_quality(
         check_zero_volume(df, meta, cfg),
         check_dst(df, meta, cfg),
         check_daily_wick_outlier(df, meta, cfg),
-        check_daily_extreme_unsupported(df, meta, cfg, breaches),
+        check_daily_extreme_unsupported(df, meta, cfg, breaches, coverage),
     ]
     worst = max((_RANK[c.severity] for c in checks if c.severity is not None), default=0)
     levels: dict[int, QualityStatus] = {0: "ok", 1: "warning", 2: "critical"}
@@ -448,11 +464,12 @@ def check_snapshot(
     cfg: QualityConfig,
     sessions_file: Path | None = None,
     breaches: pl.DataFrame | None = None,
+    coverage: pl.DataFrame | None = None,
 ) -> QualityReport:
     """Run the checks on a registered snapshot, write the report, record the status."""
     key = meta.key()
     df = store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
-    rep = run_quality(df, meta, cfg, sessions_file, breaches)
+    rep = run_quality(df, meta, cfg, sessions_file, breaches, coverage)
     write_report(rep, store.root)
     failed = ", ".join(f"{c.code}:{c.severity}" for c in rep.failed())
     catalog.set_quality_status(key, rep.status, note=failed or "all checks passed")

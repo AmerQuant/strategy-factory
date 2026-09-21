@@ -73,6 +73,8 @@ class HourlySessionConfig(_Frozen):
 class SplitCheckConfig(_Frozen):
     jump_threshold: float = Field(default=0.40, gt=0)
     match_tolerance: float = Field(default=0.02, gt=0)
+    #: D-399/T04k: how far the cross-check may look for a bar on its own side of a break.
+    crosscheck_window_days: int = Field(default=7, ge=0)
     known_splits_file: Path = Path("configs") / "data" / "known_splits.csv"
 
 

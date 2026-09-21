@@ -89,6 +89,7 @@ def settle_boundary(
     crosscheck: pl.DataFrame | None,
     match_tolerance: float,
     jump_threshold: float,
+    window_days: int = 7,
 ) -> CrosscheckVerdict:
     """Classify one boundary break against the all-adjusted series (``date, close``).
 
@@ -105,8 +106,10 @@ def settle_boundary(
             UNSETTLED,
             f"the ingested series does not break at {before}..{after} (ratio {ratio_ingested:.4f})",
         )
-    b = _bar_near(crosscheck, before, not_after=after - dt.timedelta(days=1))
-    a = _bar_near(crosscheck, after, not_before=before + dt.timedelta(days=1))
+    # Each side looks only outward from its own date, so the two bars can never be the same one
+    # (S2: with a short gap, a single bar between the two dates could satisfy both windows).
+    b = _bar_near(crosscheck, before, window_days, not_after=before)
+    a = _bar_near(crosscheck, after, window_days, not_before=after)
     if b is None or a is None:
         return CrosscheckVerdict(
             symbol,
@@ -147,7 +150,7 @@ def _same_move(a: float, b: float, tolerance: float) -> bool:
 def _bar_near(
     crosscheck: pl.DataFrame,
     day: dt.date,
-    window_days: int = 7,
+    window_days: int,
     not_before: dt.date | None = None,
     not_after: dt.date | None = None,
 ) -> tuple[dt.date, float] | None:

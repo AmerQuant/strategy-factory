@@ -119,3 +119,18 @@ def test_F_0_1_9_T04k_the_bars_on_each_side_are_distinct_and_ordered() -> None:
     only_after = _cross([(AFTER, 50.0), (AFTER + dt.timedelta(days=1), 50.2)])
     got = settle_boundary("X", BEFORE, AFTER, 10.0, only_after, TOL, JUMP)
     assert got.verdict == UNSETTLED
+
+
+def test_F_0_1_9_T04k_one_bar_between_close_dates_cannot_serve_both_sides() -> None:
+    """S2: with a short gap, one cross-check bar strictly between the two dates used to satisfy
+    both windows and report a 1.0 ratio -- the AMLX failure in another shape."""
+    before, after = dt.date(2021, 6, 10), dt.date(2021, 6, 18)
+    cross = _cross([(dt.date(2021, 6, 14), 50.0)])  # between the two dates, nothing else
+    got = settle_boundary("SHORTGAP", before, after, 10.0, cross, TOL, JUMP)
+    assert got.verdict == UNSETTLED
+
+
+def test_F_0_1_9_T04k_the_window_comes_from_the_caller() -> None:
+    far = _cross([(BEFORE - dt.timedelta(days=10), 50.0), (AFTER, 50.5)])
+    assert settle_boundary("W", BEFORE, AFTER, 10.0, far, TOL, JUMP, 7).verdict == UNSETTLED
+    assert settle_boundary("W", BEFORE, AFTER, 10.0, far, TOL, JUMP, 14).verdict == UNADJUSTED_SPLIT
