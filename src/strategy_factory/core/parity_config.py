@@ -117,6 +117,14 @@ class ParityConfig(_Frozen):
     # D-011 thresholds; here, never in code (CLAUDE.md rule 1)
     min_matched_share: float = Field(default=0.98, ge=0, le=1)
     max_net_profit_diff: float = Field(default=0.03, ge=0)
+    #: D-364: below this share of initial capital a TradingView net profit is too small for
+    #: the relative-to-|TV| figure to mean anything, so the net-profit leg is **flagged**
+    #: and the supervisor rules -- the run never switches to another basis on its own.
+    small_net_profit_share: float = Field(default=0.01, gt=0, le=1)
+    #: A price difference of at most this many ticks is a **sub-tick level** difference --
+    #: the same decision rounded differently (supervisor note 1, D-366) -- not a different
+    #: decision. One tick is what Pine's rounding of a level can move it by.
+    sub_tick_tolerance_ticks: float = Field(default=1.0, ge=0)
 
     @model_validator(mode="after")
     def _parity_inputs(self) -> ParityConfig:

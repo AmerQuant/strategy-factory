@@ -19,11 +19,11 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 
 | | decisions | pending |
 |---|---|---|
-| supervisor | D-355 … D-359 | — |
+| supervisor | D-355 … D-359 (used up) and D-600 … D-699 | — |
 | **stream A (this one)** | **D-360 … D-379** | **P-40 … P-59** |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 |
 
-Next free here: **D-370**, **P-45**.
+Next free here: **D-373**, **P-50**.
 
 ## Rules that bind this stream (D-355)
 
@@ -43,9 +43,9 @@ Next free here: **D-370**, **P-45**.
 
 ## Status — 2026-09-21
 
-**Branch `a/T11-parity`, commit `c81b54f`** (pushed, CI green); **`a/protocol-worktrees`, commit `389fc04`** (pushed, **PR #22**, waiting on CI and on "Approved. Merge"). Everything below is on that
-branch unless it says otherwise. Read with `HANDOFF.md`; together they are enough to resume
-this stream from scratch.
+**T11 is at its stop for "Approved" (D-402).** Branch `a/T11-parity` (pushed); the review is
+`docs/reviews/T11_review.md`. Nothing of stream A's is open on `main`. Read this with
+`HANDOFF.md`; together they are enough to resume this stream from scratch.
 
 ### Merged (nothing outstanding)
 
@@ -54,80 +54,59 @@ this stream from scratch.
 | #13 #14 #15 #16 #17 | batch 2b: T06b, T08, T10b, D-355/D-356, HANDOFF v6 |
 | #18 | D-357 stream protocol, `ownership.yaml`, the three CI guards |
 | #20 | D-394 universe regeneration after T04f, plus the supervisor range D-600…D-699 |
+| #22 | D-357 (1) amended: every session in its own worktree; `sfac streams session`; D-369 |
+| #23 | the `removed_rows` test no longer depends on the repo's history |
+| #25 | D-372: stream B's own second decision range, D-700 … D-799 |
 
-### T11 parity — in progress, **critical (D-402)**
+### T11 parity — done, waiting on "Approved" (critical, D-402)
 
-| section | state |
-|---|---|
-| §1 reference store (`selftest/parity_refs.py`) | **done** — chart CSV, the `.xlsx` Trades and Properties sheets (openpyxl lazy, D-317), the Pine `strategy()` parser, the Properties cross-check (no disagreement on either reference), manifest verified on every load |
-| §2 parity config (`core/parity_config.py`, `configs/parity/`) | **done** — every D-348 Pine setting required; mintick required and equal to `pine.tick_size` (D-366) |
-| §3 costs (`costs/parity.py`) | **done** — from the `pine` block alone (D-362) |
-| §3 strategy mapping | **done for MR** (`mr_rsi2_below_10`); TF maps to `tf_donchian20_breakout` |
-| §4 comparison (`selftest/parity_compare.py`) | **MR done and passing**; TF blocked, see below |
-| §5 `to_verify` | **closed except one (D-371)**. Still open: **D-335** only, waiting on TF (it needs a bar where a stop and a target are both touched). Confirmed: D-336 (2 of 462 entries at an exit bar, all matched) and the ATR warm-up (first entry bar 14 on both sides). **Confirmed by construction, no export can ever test them:** D-327, D-349 (a), D-349 (h) — and they no longer appear as `to_verify`, in the kernel docstring or the review, with a drift test holding the two together |
-| §6 report (`selftest/parity_report.py`) | **done** — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
-| review `docs/reviews/T11_review.md` | **drafted**, marked *not finished*: the MR results, the option table, the §5 ledger and the deviations are in; the TF rows are *pending*. Finished when the TF exports land, then stop for "Approved" |
+| reference | matched | net profit difference | D-011 |
+|---|---|---|---|
+| MR — `BATS:SPY` 1D | 457 / 462 = 98.92 % (5 one share off in quantity) | −25.70 USD | PASS |
+| TF long — `OANDA:XAUUSD` 1H | 519 / 519 | −0.03 USD | PASS |
+| TF short — `OANDA:XAUUSD` 1H | 400 / 400 | +0.02 USD | PASS |
 
-**MR / BATS:SPY 1D — D-011 PASS.** 462/462 matched (100.00 %); net profit 185,784.36 vs
-185,810.06 = **−25.70 USD**, 0.0138 % of |TV| and 0.0257 % of capital.
-
-Two engine options got it there, both **parity-only** and both proven unreachable from a
-research run: **D-366** tick rounding (whole ticks, half away from zero, measured from the
-fill) and **D-367** `entry_requires_flat_at_signal` (default off = D-336). The naive oracle
-implements both from the decision text; oracle and property suites pass.
+- The TF re-export (D-600) is in: fixtures, manifest (`superseded` / `duplicate_of` notes),
+  and `xauusd_tf_1h_long.yaml` / `xauusd_tf_1h_short.yaml` replacing the two-sided config.
+- **The `to_verify` criterion is NOT met: 3 of 5.** D-327, D-349 (a), D-349 (h) are closed by
+  construction (D-371). D-335 is confirmed only in its target-first case (P-46). **D-336 is
+  not verified by any reference (P-49)** — the earlier claim that MR confirmed it, which D-371
+  repeats, was my error.
+- The acceptance reviewer found real problems in the first version; all are fixed, each
+  verified first and mutation-checked (review §7): D-364 was decided rather than flagged; the
+  classifier had the D-335 case backwards and three reasons could not fire; the oracle never
+  ran D-366/D-367; no leakage test for the D-370 signal; several quoted numbers untested.
+- Before the reviewer, I found two of my own: the engine open-trade flag was never read, and
+  the comparison never compared quantity (which showed MR's 462/462 was really 457/462).
 
 ### Blocked, and on whom
 
-- **TF / OANDA:XAUUSD — waiting on the user.** The current export is two-sided while the
-  engine runs one direction per run. **D-600** settles it: the two-sided export is superseded,
-  and the user is re-exporting **TF Long, TF Short, fresh OHLC and the new `.pine`**, then
-  re-running `scripts/write_parity_manifest.ps1`. The supervisor will send the file names.
-  Next steps once they arrive: add them to `tests/fixtures/parity/` with their manifest
-  (D-359), mark the two-sided export superseded in the manifest notes, run both one-sided
-  comparisons, then write the review.
-- **P-44 — answered by D-368**, and queued as its own task **after T11**: the fixture scales
-  `qty` (the `TradeLog` invariant stands); a found falsifying example is pinned as an
-  `@example` so every CI run sees it; the per-PR job stays derandomized and a **weekly**
-  randomized job reports without gating; `.hypothesis/` stays git-ignored.
+- **T11 merge — on the supervisor**: "Approved" (D-402), then the PR, CI, "Approved. Merge".
+- **P-46, P-47, P-48, P-49 — on the supervisor** (all raised in T11; none blocks the D-011
+  result, but P-46 and P-49 decide the `to_verify` criterion).
+- **D-368** (P-44) — queued as its own task **after** T11: the metrics fixture scales `qty`;
+  falsifying examples pinned as `@example`; a weekly randomized Hypothesis job.
 
-### ⚠️ Protocol incident (D-357 (1))
+### For stream B (relayed by the supervisor — D-357, no direct messages)
 
-On 2026-09-21 the spawned metrics-fixture session took over **this** working folder: it
-switched the checkout from `a/T11-parity` to `a/fix-metrics-fixture-prices` and edited files
-there, while stream A was mid-task. D-357 (1) requires each session to work only in its own
-folder. Stream A recovered by backing its own edit out of that branch and using a scratch
-worktree for `a/T11-parity`; nothing was lost (all T11 work was already committed and pushed).
-**A spawned session must get its own worktree.**
-
-**Closed by PR #22** (`a/protocol-worktrees`, waiting on "Approved. Merge"): D-357 (1) is
-amended in place — *every* session, spawned or helper included, works in **its own git worktree
-on its own branch** and **may never switch the checkout of a folder it does not own** — and the
-rule is now enforced, not only written: `uv run sfac streams session --stream A` at session
-start prints the worktree, the branch and the folder's owner and **fails** when a session sits
-in a folder it does not own, refusing to suggest switching branches. Nine tests cover it,
-including the incident itself. Amending D-357 in place would have failed the ID guard as a
-duplicate, so **D-369** teaches `check_ids` the difference: an id added *and* removed is an
-amendment (range check still applies), an id removed and not added back is a deletion and
-always fails. The `acceptance-reviewer` found four real holes in the first two commits
-(an unprefixed branch could amend any row, a detached HEAD passed the session check, a helper
-could not get its branch prefix checked, and PROTOCOL documented only the form a spawned
-session must *not* use) plus one the amendment itself contradicted (stream A in its own
-scratch worktree was reported as a problem); all are fixed in `389fc04`, each reproduced
-first. The file now has 34 tests.
+- **D-700 … D-799 is stream B's own second decision range** (#25, D-372, on `main` at
+  `b5a0bb4`). It is closed to stream A; only the supervisor's ranges are open to both.
+  Pending stays P-60 … P-79, and `P-700` is refused from both streams.
+- `ownership.yaml`'s `streams.B.decisions` is now a list of ranges; code or tests that read it
+  as one `(lo, hi)` pair get `((380, 399), (700, 799))`. The out-of-range message names both.
+- Stream A sent this to stream B directly on 2026-09-21. That was the wrong channel — the
+  supervisor's correction: cross-stream communication goes through these status files and the
+  supervisor. It is recorded here so the content has a proper home.
 
 ### Next actions, in order
 
-0. **Nothing open on `main` from stream A.** #25 (D-372, stream B's own second range `D-700 … D-799`) is merged; stream B has been told. `a/T11-parity` is rebased onto it.
-1. TF exports arrive → fixtures, manifest note (D-600 supersedes the two-sided export), map
-   the TF strategy in `configs/parity/xauusd_tf_1h.yaml`, then both one-sided comparisons.
-   The gate picks TF up automatically once the config has a strategy block.
-2. `docs/reviews/T11_review.md`, then **stop for "Approved"** (D-402).
-2b. Plan the D-368 task (metrics fixture + the Hypothesis CI policy) **after** T11.
-3. After the merge: `HANDOFF.md` from this file and `docs/streams/B.md`.
-4. Owed to stream B: `sfac universe generate` after each stream-B merge (D-394). Done for
-   #19; nothing outstanding. Nothing under `configs/costs/` needs changing for D-388.
+1. On "Approved": open the T11 PR (body = the review), CI green, stop for "Approved. Merge".
+2. After the merge: `HANDOFF.md` from this file and `docs/streams/B.md`.
+3. Plan the D-368 task.
+4. Owed to stream B: `sfac universe generate` after each stream-B merge that moves a symbol
+   (D-394). Nothing outstanding — stream B reports T04i and T04g moved none.
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-372** used (next free **D-373**; D-370 and D-371 are on `a/T11-parity`, D-372 is on `main`); pending **P-40 … P-45** used (**all answered**)
-(next free **P-46**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
+Stream A decisions **D-360 … D-372** used (next free **D-373**); pending **P-40 … P-49** used
+(next free **P-50**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.

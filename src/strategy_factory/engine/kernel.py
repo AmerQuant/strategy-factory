@@ -19,9 +19,9 @@ D-326 ... D-338):
   target-first branch on exactly one bar, which agrees; the stop-first branch and an exact
   tie never occur in them, so they are not verified by TradingView: P-46).
 * **Bar j, close:** signal exit (priority) or time exit is scheduled for ``j+1``; an entry is
-  scheduled when flat or when an exit is scheduled (D-336, **confirmed in T11**: the 2 MR
-  entries that fall on an exit bar both match TradingView exactly), if ``j < n-1``
-  and
+  scheduled when flat or when an exit is scheduled (D-336, to_verify -- neither reference
+  exercises it: both Pine scripts gate entries on being flat at the signal close, D-367,
+  which rules it out; P-49), if ``j < n-1`` and
   ``atr[j] > 0`` (warm-up); swap for a position held at the close of a rollover bar on the
   mark-to-market notional ``|qty| x close[j] x point_value x fx_close[j]``, x3 on the
   triple day (D-312). The trailing stop moves to ``extreme since entry -/+ trail x ATR``.
@@ -37,17 +37,21 @@ D-326 ... D-338):
   fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard;
   ``parity_qty_step`` is required per run (BATS:SPY 1, OANDA:XAUUSD 0.01) and the broker step
   and minimum volume are never applied. ``qty = 0`` is a skip.
-* Parity choices after T11 (D-338 rule 1, D-349, **D-371**). Still **to_verify**: only the
+* Parity choices after T11 (D-338 rule 1, D-349, **D-371**). Still **to_verify**: the
   O->H->L->C path and its tie (D-335) -- in part: its target-first branch is confirmed on
   the one TF bar that touched both levels, its stop-first branch and the exact tie are not
-  exercised by any reference (P-46). **Confirmed against the MR reference:** exit + re-entry
-  at one open (D-336). **Confirmed by construction** -- no
+  exercised by any reference (P-46); and exit + re-entry at one open (D-336), which neither
+  reference exercises -- both scripts gate entries on being flat at the signal close (D-367),
+  so no gated run can contain one (P-49; an earlier claim that MR confirmed it was wrong).
+  **Confirmed by construction** -- no
   TradingView export can ever test these, so they are not to_verify and nobody should look
   for one (D-371): no swap on an intrabar exit in a rollover bar (D-327; TradingView models
   no swap), the trailing level moving only at the close (D-349 (a); neither reference script
   trails), and the parity conversion rate (D-349 (h); both references are USD-quoted). Their
-  evidence is the hand fixtures plus ``tests/oracle``. The sizing basis of D-337 is confirmed
-  by the exports; the remaining choices of D-349 ((b)-(g), (i)) are confirmed as implemented.
+  evidence is the hand fixtures plus ``tests/oracle``. The parity sizing basis (D-337, D-347)
+  matches TradingView on every TF trade; on MR TradingView sizes on the close rounded to the
+  tick, which the engine does not (P-48). The remaining choices of D-349 ((b)-(g), (i)) are
+  confirmed as implemented.
 * Money (USD): ``pnl_gross = dir x qty x (exit_base - entry_base) x point_value x
   fx_close[exit]``; spread and slippage cost ``qty x amount x point_value x fx_close`` of the
   fill bar; commission from :func:`commission_kernel`, converted with ``fx_close`` of the fill

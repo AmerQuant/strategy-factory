@@ -414,7 +414,9 @@ def test_F_0_3_8_chart_data_feeds_run_backtest_unchanged(refs: Path) -> None:
 def test_F_0_3_8_d364_net_profit_difference_is_reported_both_ways() -> None:
     from strategy_factory.selftest.parity_report import NetProfitDiff
 
-    diff = NetProfitDiff(engine=10_400.0, tradingview=10_000.0, initial_capital=100_000.0)
+    diff = NetProfitDiff(
+        engine=10_400.0, tradingview=10_000.0, initial_capital=100_000.0, small_share=0.01
+    )
     assert diff.absolute == pytest.approx(400.0)
     assert diff.relative_to_tv == pytest.approx(0.04)
     assert diff.relative_to_capital == pytest.approx(0.004)
@@ -426,12 +428,14 @@ def test_F_0_3_8_d364_net_profit_difference_is_reported_both_ways() -> None:
 def test_F_0_3_8_d364_a_small_tv_profit_is_flagged_not_decided() -> None:
     from strategy_factory.selftest.parity_report import NetProfitDiff
 
-    tiny = NetProfitDiff(engine=300.0, tradingview=100.0, initial_capital=100_000.0)
+    tiny = NetProfitDiff(
+        engine=300.0, tradingview=100.0, initial_capital=100_000.0, small_share=0.01
+    )
     assert tiny.tv_profit_is_small  # 100 is 0.1 % of capital
     assert tiny.relative_to_tv == pytest.approx(2.0)  # 200 % -- meaningless on its own
     assert tiny.relative_to_capital == pytest.approx(0.002)
     assert any("FLAG" in line for line in tiny.lines())
-    zero = NetProfitDiff(engine=50.0, tradingview=0.0, initial_capital=100_000.0)
+    zero = NetProfitDiff(engine=50.0, tradingview=0.0, initial_capital=100_000.0, small_share=0.01)
     assert zero.relative_to_tv is None and zero.tv_profit_is_small
     assert "n/a" in "\n".join(zero.lines())
 
@@ -447,9 +451,18 @@ def test_F_0_3_8_d011_verdict_uses_the_config_thresholds() -> None:
     far = verdict(cfg, matched_share=0.99, engine_net=11_000.0, tv_net=10_000.0)
     assert far.trades_ok and not far.profit_ok  # 10 % > 3 %
     assert "FAIL" in "\n".join(far.lines())
-    # a small TV profit is judged on the capital figure instead (D-364)
+    # D-364: a small TV profit is FLAGGED, not decided -- neither passed on the capital
+    # figure (0.2 % here) nor failed on the relative one (200 %). The supervisor rules.
     tiny = verdict(cfg, matched_share=0.99, engine_net=300.0, tv_net=100.0)
-    assert tiny.profit_ok and tiny.passed  # 0.2 % of capital, although 200 % of |TV|
+    assert tiny.profit_state == "flagged"
+    assert not tiny.profit_ok and not tiny.passed
+    assert "the supervisor rules (D-364)" in "\n".join(tiny.lines())
+    zero = verdict(cfg, matched_share=0.99, engine_net=50.0, tv_net=0.0)
+    assert zero.profit_state == "flagged" and not zero.passed
+    # the threshold is the config's (CLAUDE.md rule 1): a stricter one moves the flag
+    strict = ParityConfig.model_validate(config_dict(small_net_profit_share=0.2))
+    assert verdict(strict, 0.99, 10_200.0, 10_000.0).profit_state == "flagged"  # 10 % < 20 %
+    assert verdict(cfg, 0.99, 10_200.0, 10_000.0).profit_state == "ok"
     looser = ParityConfig.model_validate(config_dict(min_matched_share=0.9))
     assert verdict(looser, 0.95, 10_200.0, 10_000.0).trades_ok
 

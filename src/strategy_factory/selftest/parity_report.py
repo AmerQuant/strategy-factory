@@ -20,10 +20,6 @@ from dataclasses import dataclass
 
 from strategy_factory.core.parity_config import ParityConfig
 
-#: Below this share of initial capital, a relative net-profit difference says little: a tiny
-#: TradingView net profit makes the ratio explode. The run **flags** it; the supervisor rules.
-SMALL_NET_PROFIT_SHARE = 0.01
-
 
 @dataclass(frozen=True)
 class NetProfitDiff:
@@ -32,6 +28,8 @@ class NetProfitDiff:
     engine: float
     tradingview: float
     initial_capital: float
+    #: from ``ParityConfig.small_net_profit_share`` (D-364); a threshold, so never a literal
+    small_share: float
 
     @property
     def absolute(self) -> float:
@@ -52,7 +50,7 @@ class NetProfitDiff:
     @property
     def tv_profit_is_small(self) -> bool:
         """The TradingView net profit is too small for the relative figure to mean much."""
-        return abs(self.tradingview) < SMALL_NET_PROFIT_SHARE * self.initial_capital
+        return abs(self.tradingview) < self.small_share * self.initial_capital
 
     def lines(self) -> list[str]:
         rel = self.relative_to_tv
@@ -67,7 +65,7 @@ class NetProfitDiff:
         if self.tv_profit_is_small:
             out.append(
                 "  FLAG: |TV net profit| is below "
-                f"{SMALL_NET_PROFIT_SHARE:.0%} of initial capital, so the relative-to-|TV| "
+                f"{self.small_share:.0%} of initial capital, so the relative-to-|TV| "
                 "figure is unreliable -- reported, not decided (D-364)"
             )
         return out
@@ -87,12 +85,21 @@ class Verdict:
         return self.matched_share >= self.min_matched_share
 
     @property
-    def profit_ok(self) -> bool:
-        """Judged on the relative-to-|TV| figure; on the capital figure when TV is ~0 (D-364)."""
+    def profit_state(self) -> str:
+        """``ok`` / ``failed`` on the relative-to-|TV| figure (D-011), or ``flagged``.
+
+        D-364: when the TradingView net profit is small the relative figure is **flagged, not
+        decided** -- the run reports it and the supervisor rules. So a flag is its own state:
+        the run does *not* fall back to the capital figure and pass on it (it once did).
+        """
         rel = self.diff.relative_to_tv
         if rel is None or self.diff.tv_profit_is_small:
-            return self.diff.relative_to_capital <= self.max_net_profit_diff
-        return rel <= self.max_net_profit_diff
+            return "flagged"
+        return "ok" if rel <= self.max_net_profit_diff else "failed"
+
+    @property
+    def profit_ok(self) -> bool:
+        return self.profit_state == "ok"
 
     @property
     def passed(self) -> bool:
@@ -106,7 +113,11 @@ class Verdict:
             f"(needs >= {self.min_matched_share:.0%}) -- {'ok' if self.trades_ok else 'FAILED'}",
             *[f"  {line}" for line in self.diff.lines()],
             f"  net profit within {self.max_net_profit_diff:.0%}: "
-            f"{'ok' if self.profit_ok else 'FAILED'}",
+            + {
+                "ok": "ok",
+                "failed": "FAILED",
+                "flagged": "FLAGGED -- not decided here; the supervisor rules (D-364)",
+            }[self.profit_state],
         ]
 
 
@@ -116,7 +127,9 @@ def verdict(
     """The D-011 verdict, with both net-profit figures (D-364)."""
     return Verdict(
         matched_share=matched_share,
-        diff=NetProfitDiff(engine_net, tv_net, config.pine.initial_capital),
+        diff=NetProfitDiff(
+            engine_net, tv_net, config.pine.initial_capital, config.small_net_profit_share
+        ),
         min_matched_share=config.min_matched_share,
         max_net_profit_diff=config.max_net_profit_diff,
     )

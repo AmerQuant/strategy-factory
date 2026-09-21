@@ -101,8 +101,8 @@ def test_F_0_3_8_d011_gate(run: ParityRun) -> None:
     ]
     assert verdict.passed, "\n".join(report)
     # the thresholds are the config's, never literals in the gate (CLAUDE.md rule 1)
-    assert verdict.matched_share >= run.config.min_matched_share
-    assert comparison.by_reason().get("match", 0) == comparison.matched
+    assert verdict.min_matched_share == run.config.min_matched_share
+    assert verdict.max_net_profit_diff == run.config.max_net_profit_diff
 
 
 def test_F_0_3_8_d011_the_open_trade_is_excluded_on_both_sides(run: ParityRun) -> None:
@@ -169,7 +169,7 @@ def test_F_X_7_the_gate_run_is_reproducible(run: ParityRun) -> None:
 
 
 def test_F_0_3_8_d371_the_to_verify_ledger_does_not_drift() -> None:
-    """D-371: after T11 exactly one parity choice is still `to_verify`, and it says so twice.
+    """D-371: after T11 two parity choices are still `to_verify`, and it says so twice.
 
     The kernel docstring is what a reader of the engine sees and the T11 review is what a
     reader of the task sees. If they disagreed, one of them would send somebody looking for a
@@ -183,9 +183,13 @@ def test_F_0_3_8_d371_the_to_verify_ledger_does_not_drift() -> None:
     doc = flat(kernel.__doc__ or "")
     review = (REPO / "docs" / "reviews" / "T11_review.md").read_text(encoding="utf-8")
 
-    # still open: D-335 only, and it is waiting on the TF reference
-    assert "Still **to_verify**: only the O->H->L->C path and its tie (D-335)" in doc
-    assert "still `to_verify`" in review and "D-335" in review
+    # still open: D-335 in part (P-46) and D-336 (P-49) -- and nothing calls D-336 confirmed
+    assert "Still **to_verify**: the O->H->L->C path and its tie (D-335)" in doc
+    assert "and exit + re-entry at one open (D-336), which neither reference exercises" in doc
+    assert "P-46" in doc and "P-49" in doc
+    assert "D-336, **confirmed" not in doc and "Confirmed against the MR reference" not in doc
+    assert review.count("still `to_verify`") == 2  # D-335 and D-336, in the ledger table
+    assert "not verified by any reference" in review
 
     # both say, in as many words, that the other three are NOT to_verify, and why
     assert "no TradingView export can ever test these, so they are not to_verify" in doc
@@ -218,6 +222,7 @@ def test_F_0_3_8_d335_the_intrabar_path_on_every_bar_that_touched_both_levels() 
 
     stop, target = 1, 2  # the engine's exit reasons
     seen = {"stop_first": 0, "target_first": 0, "tie": 0}
+    fills = {"at_level": 0, "gapped": 0}
     for name, d in (("xauusd_tf_1h_long", 1), ("xauusd_tf_1h_short", -1)):
         run = run_reference(config_of(name))
         assert run.config.strategy is not None
@@ -241,6 +246,7 @@ def test_F_0_3_8_d335_the_intrabar_path_on_every_bar_that_touched_both_levels() 
             o, h, lo = chart.open[j], chart.high[j], chart.low[j]
             gapped = (o - level) * d * (1 if reason == target else -1) >= 0
             assert float(t.exit_price[i]) == (o if gapped else level), (name, i)
+            fills["gapped" if gapped else "at_level"] += 1
             if gapped:
                 continue
             touched_sl = lo <= sl if d > 0 else h >= sl
@@ -258,6 +264,8 @@ def test_F_0_3_8_d335_the_intrabar_path_on_every_bar_that_touched_both_levels() 
             assert reason == expected, (name, i, key)
             assert tv_exit[i] == ("TP" if expected == target else "SL"), (name, i, key)
     assert seen == {"stop_first": 0, "target_first": 1, "tie": 0}, seen
+    # the review's "859 stop/target fills, 14 of them gapped at the open"
+    assert fills == {"at_level": 845, "gapped": 14}, fills
 
 
 #: The reason table each reference produces -- the numbers the T11 review quotes. Pinned so a
@@ -273,3 +281,164 @@ REASONS = {
 def test_F_0_3_8_d011_the_reason_table_is_the_reviewed_one(run: ParityRun) -> None:
     assert run.comparison.by_reason() == REASONS[run.config.name]
     assert set(REASONS) == set(GATED)
+
+
+# == the evidence the T11 review quotes, pinned so a number in the review is a tested one ====
+#: engine net profit per reference, to the cent (the TradingView side is pinned by the loader
+#: tests in tests/unit/test_F_0_3_8_parity_refs.py)
+ENGINE_NET = {
+    "spy_mr_1d": 185_784.36,
+    "xauusd_tf_1h_long": 20_637.93,
+    "xauusd_tf_1h_short": -43_610.26,
+}
+
+
+def test_F_0_3_8_d011_the_engine_net_profit_is_the_reviewed_one(run: ParityRun) -> None:
+    assert run.comparison.engine_net_profit == pytest.approx(ENGINE_NET[run.config.name], abs=0.005)
+
+
+#: T11 review §2: each parity option switched off, per reference ->
+#: (matched, D-011 passed, engine - TV net profit, reason table). This is the argument for
+#: D-366 and D-367 -- the gate alone passes without D-366 -- so it is pinned, not quoted.
+OPTION_TABLE = {
+    ("spy_mr_1d", "neither"): (
+        446,
+        False,
+        7031.33,
+        {
+            "match": 446,
+            "same_open_reentry": 17,
+            "missing_in_engine": 7,
+            "quantity": 5,
+            "sub_tick_level": 4,
+            "extra_in_engine": 1,
+        },
+    ),
+    ("spy_mr_1d", "d366_only"): (
+        450,
+        False,
+        7030.75,
+        {
+            "match": 450,
+            "same_open_reentry": 17,
+            "missing_in_engine": 7,
+            "quantity": 5,
+            "extra_in_engine": 1,
+        },
+    ),
+    ("spy_mr_1d", "d367_only"): (
+        453,
+        True,
+        -18.81,
+        {"match": 453, "quantity": 5, "sub_tick_level": 4},
+    ),
+    ("spy_mr_1d", "both"): (457, True, -25.70, {"match": 457, "quantity": 5}),
+    ("xauusd_tf_1h_long", "neither"): (
+        519,
+        False,
+        -1080.13,
+        {"match": 519, "same_open_reentry": 2},
+    ),
+    ("xauusd_tf_1h_long", "d366_only"): (
+        519,
+        False,
+        -1080.29,
+        {"match": 519, "same_open_reentry": 2},
+    ),
+    ("xauusd_tf_1h_long", "d367_only"): (519, True, 0.12, {"match": 519}),
+    ("xauusd_tf_1h_long", "both"): (519, True, -0.03, {"match": 519}),
+    ("xauusd_tf_1h_short", "neither"): (
+        399,
+        True,
+        -426.29,
+        {"match": 399, "same_open_reentry": 1, "sub_tick_level": 1},
+    ),
+    ("xauusd_tf_1h_short", "d366_only"): (
+        400,
+        True,
+        -426.60,
+        {"match": 400, "same_open_reentry": 1},
+    ),
+    ("xauusd_tf_1h_short", "d367_only"): (399, True, 0.33, {"match": 399, "sub_tick_level": 1}),
+    ("xauusd_tf_1h_short", "both"): (400, True, 0.02, {"match": 400}),
+}
+OPTIONS = {
+    "neither": {"parity_tick_size": None, "entry_requires_flat_at_signal": False},
+    "d366_only": {"entry_requires_flat_at_signal": False},
+    "d367_only": {"parity_tick_size": None},
+    "both": {},
+}
+
+
+@pytest.mark.parametrize(("name", "options"), sorted(OPTION_TABLE))
+def test_F_0_3_8_d366_d367_the_option_table(name: str, options: str) -> None:
+    cfg = config_of(name)
+    engine = cfg.engine.model_copy(update=OPTIONS[options])
+    got = run_reference(cfg.model_copy(update={"engine": engine}))
+    matched, passed, diff, reasons = OPTION_TABLE[(name, options)]
+    assert got.comparison.matched == matched
+    assert got.verdict.passed is passed
+    assert got.verdict.diff.absolute == pytest.approx(diff, abs=0.005)
+    assert got.comparison.by_reason() == reasons
+
+
+def test_F_0_3_8_d336_is_never_exercised_under_the_flat_gate(run: ParityRun) -> None:
+    """D-336 (exit and re-enter at one open) is NOT verified by these references -- a claim to
+    the contrary was withdrawn (P-49). Both Pine scripts gate entries on being flat at the
+    signal close (D-367), which rules the event out: no gated run contains one."""
+    assert run.config.engine.entry_requires_flat_at_signal
+    t = run.result.trades
+    reentries = int((t.entry_idx[1:] == t.exit_idx[:-1]).sum())
+    assert reentries == 0
+    # a same-bar exit is a trade stopped out on its own entry bar, not a re-entry
+    assert "same_open_reentry" not in run.comparison.by_reason()
+
+
+def test_F_0_3_8_p48_tradingview_sizes_on_the_tick_rounded_close() -> None:
+    """P-48 evidence: `floor(notional / round(close[j-1], mintick))` is TradingView's quantity
+    on every MR trade; the engine's exact-close sizing (D-347) is one share off on five, and
+    those five carry -18.09 of MR's -25.70 USD."""
+    import math
+
+    from strategy_factory.selftest.parity_compare import round_like_tradingview
+
+    run = run_reference(config_of("spy_mr_1d"))
+    tv, t, chart = run.tv.trades(), run.result.trades, run.chart
+    notional, decimals = run.config.engine.notional, 2  # BATS:SPY mintick 0.01
+    rounded_ok, qty_gap = 0, 0.0
+    compared = [
+        p for p in run.comparison.pairs if p.tv_index is not None and p.engine_index is not None
+    ]
+    for p in compared:
+        assert p.tv_index is not None and p.engine_index is not None
+        signal = int(t.entry_idx[p.engine_index]) - 1
+        close = round_like_tradingview(float(chart.close[signal]), decimals)
+        rounded_ok += math.floor(notional / close) == tv[p.tv_index][0].quantity
+        if p.reason == "quantity":
+            qty_gap += float(t.pnl_net[p.engine_index]) - (tv[p.tv_index][1].pnl or 0.0)
+    assert rounded_ok == len(compared) == 462
+    assert qty_gap == pytest.approx(-18.09, abs=0.005)
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_F_0_3_8_the_tf_component_is_the_pine_rule_on_every_bar(side: int) -> None:
+    """`tf_donchian20_breakout` equals `close > ta.highest(high, 20)[1]` (short: `close <
+    ta.lowest(low, 20)[1]`) on all 21,986 exported bars. It declares `trigger = "event"`, so
+    this is checked rather than assumed: an edge trigger would differ after every exit."""
+    from strategy_factory.components.base import Bars
+    from strategy_factory.components.registry import default_registry
+
+    chart = run_reference(config_of("xauusd_tf_1h_long")).chart
+    n, length = len(chart), 20
+    pine = np.zeros(n, dtype=bool)
+    for i in range(length, n):
+        window = chart.high[i - length : i] if side > 0 else chart.low[i - length : i]
+        pine[i] = chart.close[i] > window.max() if side > 0 else chart.close[i] < window.min()
+    long_, short = (
+        default_registry()
+        .get("tf_donchian20_breakout")
+        .signals(Bars(chart.open, chart.high, chart.low, chart.close), {})
+    )
+    ours = np.asarray(long_ if side > 0 else short, dtype=bool)
+    assert n == 21_986
+    np.testing.assert_array_equal(ours, pine)

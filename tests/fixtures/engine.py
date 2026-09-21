@@ -14,6 +14,7 @@ from strategy_factory.engine.api import (
     CostInputs,
     ExitParams,
     MarketArrays,
+    ParityInputs,
     SimResult,
     SizingInputs,
     simulate,
@@ -62,6 +63,9 @@ class Case:
     step: float = 1.0
     min_volume: float = 1.0
     parity_qty_step: float | None = None  # required in parity mode (D-347)
+    # D-366 / D-367: the two parity-only options, off by default (= research behaviour)
+    parity_tick: float | None = None
+    entry_requires_flat: bool = False
     step_tol: float = 1e-9
     capital: float = 100_000.0
     mode: str = "pessimistic"
@@ -140,6 +144,7 @@ def run_engine(case: Case) -> SimResult:
         MODE[case.mode],
         case.fx_open,
         case.fx_close,
+        ParityInputs(tick_size=case.parity_tick, entry_requires_flat=case.entry_requires_flat),
     )
 
 
@@ -157,7 +162,8 @@ def run_oracle(case: Case) -> Any:
         notional=case.notional, contracts=case.contracts, point_value=case.point_value,
         contract_size=case.contract_size, step=case.step, min_volume=case.min_volume,
         parity_qty_step=case.parity_qty_step, step_tol=case.step_tol, capital=case.capital,
-        mode=case.mode,
+        mode=case.mode, parity_tick=case.parity_tick,
+        entry_requires_flat=case.entry_requires_flat,
     )  # fmt: skip
 
 

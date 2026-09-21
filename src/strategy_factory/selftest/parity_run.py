@@ -23,7 +23,7 @@ from strategy_factory.components.base import ExitSpec
 from strategy_factory.core.errors import ConfigError
 from strategy_factory.core.parity_config import ParityConfig, StrategyRef
 from strategy_factory.costs.parity import parity_cost_arrays
-from strategy_factory.pipeline.backtest import BacktestSpec, run_backtest
+from strategy_factory.pipeline.backtest import BacktestSpec, market_arrays, run_backtest
 from strategy_factory.selftest.parity_compare import Comparison, compare
 from strategy_factory.selftest.parity_refs import (
     ChartData,
@@ -154,13 +154,20 @@ def run_reference(config: ParityConfig, folder: Any = None) -> ParityRun:
         exit_signal=exit_signal_array(config.strategy, chart),
         config=config.engine,
     )
+    qty_step = config.engine.parity_qty_step
+    if qty_step is None:  # ParityConfig refuses this; a model_copy can still get here
+        raise ConfigError(f"parity config {config.name!r} has no engine.parity_qty_step (D-347)")
+    # the chart learns where its ATR becomes usable, so a TradingView entry before that bar
+    # is classified `atr_warm_up` (HANDOFF §8.1) instead of a missing engine trade
+    chart = chart.with_atr_warm_up(market_arrays(bars, config.engine.atr_length).atr)
     comparison = compare(
         chart,
         tv,
         result,
         tick_size=config.pine.tick_size,
         daily=config.reference.timeframe == "1D",
-        qty_step=config.engine.parity_qty_step,
+        sub_tick_ticks=config.sub_tick_tolerance_ticks,
+        qty_step=qty_step,
     )
     return ParityRun(
         config=config,

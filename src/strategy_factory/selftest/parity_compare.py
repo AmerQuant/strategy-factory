@@ -35,9 +35,15 @@ from typing import Literal
 
 import numpy as np
 
+from strategy_factory.engine import kernel as k
 from strategy_factory.metrics.containers import RunResult
 from strategy_factory.selftest.parity_refs import ChartData, TradeList, TradeRow
 
+#: Every reason a pair can get. ``rollover_swap``, ``trailing_at_close`` and
+#: ``conversion_rate`` are the task's named ambiguities (T11 §4) but **cannot occur in a
+#: TradingView parity run** (D-371: TradingView models no swap, neither reference trails, both
+#: are USD-quoted), so this classifier never assigns them; they stay named so a future
+#: reference that could produce one has a place to put it.
 Reason = Literal[
     "match",
     "sub_tick_level",
@@ -52,10 +58,6 @@ Reason = Literal[
     "extra_in_engine",
     "unexplained",
 ]
-#: A price difference at or below this many ticks is a sub-tick level difference, not a
-#: different decision. One tick either side of the rounded level is what the Pine rounding
-#: can move a stop by.
-SUB_TICK_TOLERANCE_TICKS = 1.0
 
 
 @dataclass(frozen=True)
@@ -166,8 +168,8 @@ def compare(
     *,
     tick_size: float,
     daily: bool,
-    sub_tick_ticks: float = SUB_TICK_TOLERANCE_TICKS,
-    qty_step: float | None = None,
+    sub_tick_ticks: float,
+    qty_step: float,
 ) -> Comparison:
     """Pair the engine's trades with TradingView's and classify every difference.
 
@@ -231,17 +233,23 @@ def compare(
             )
         )
 
+    exits = trades.exit_idx.tolist()
     for i, bar in enumerate(trades.entry_idx.tolist()):
         if i in used or not (first_bar <= bar <= last_bar):
             continue  # outside the range the TV list covers (D-363)
+        reentry = i > 0 and exits[i - 1] == bar
         pairs.append(
             TradePair(
                 tv_index=None,
                 engine_index=i,
                 direction=int(trades.direction[i]),
                 entry_bar=int(bar),
-                reason="extra_in_engine",
-                detail="the engine entered where TradingView did not",
+                reason="same_open_reentry" if reentry else "extra_in_engine",
+                detail=(
+                    "the engine re-entered at the open where its previous trade exited (D-336)"
+                    if reentry
+                    else "the engine entered where TradingView did not"
+                ),
                 engine_entry=float(trades.entry_price[i]),
                 engine_exit=float(trades.exit_price[i]),
                 engine_pnl=float(trades.pnl_net[i]),
@@ -284,7 +292,7 @@ def _classify(
     tick: float,
     sub_tick_ticks: float,
     daily: bool,
-    qty_step: float | None = None,
+    qty_step: float,
 ) -> TradePair:
     """One matched entry bar: same trade, or a classified difference.
 
@@ -321,7 +329,8 @@ def _classify(
 
     if same_entry and same_exit and same_exit_bar:
         engine_qty = float(t.qty[engine_i])  # type: ignore[attr-defined]
-        if qty_step is not None and abs(tv_entry.quantity - engine_qty) >= qty_step / 2:
+        # quantities are whole steps, so half a step apart means a different number of steps
+        if abs(tv_entry.quantity - engine_qty) >= qty_step / 2:
             return TradePair(
                 reason="quantity",
                 detail=f"quantity {tv_entry.quantity:g} vs engine {engine_qty:g}",
@@ -337,25 +346,39 @@ def _classify(
             **common,  # type: ignore[arg-type]
         )
 
-    detail = f"exit bar {engine_exit_bar} vs {tv_exit_bar}" if not same_exit_bar else ""
     sub_tick, ticks = _price_reason(tv_exit.price, engine_exit, tick, sub_tick_ticks)
-    if sub_tick and same_exit_bar:
+    if sub_tick:
+        # a level one tick away: the same decision, rounded differently (D-366). On another
+        # bar too -- a stop one tick lower can be touched a bar later.
+        where = "" if same_exit_bar else f", exit bar {engine_exit_bar} vs {tv_exit_bar}"
         return TradePair(
             reason="sub_tick_level",
-            detail=f"exit price differs by {ticks:.2f} ticks",
+            detail=f"exit price differs by {ticks:.2f} ticks{where}",
             **common,  # type: ignore[arg-type]
         )
-    if not same_exit_bar:
+    engine_reason = int(t.exit_reason[engine_i])  # type: ignore[attr-defined]
+    if same_exit_bar and engine_reason in LEVEL_EXITS:
+        # D-335: the bar touched two levels and the two sides took different ones -- the only
+        # difference an intrabar path choice can make is WHICH level, on the SAME bar
         return TradePair(
-            reason="sub_tick_level" if sub_tick else "intrabar_path",
-            detail=detail or f"exit price differs by {ticks:.2f} ticks",
+            reason="intrabar_path",
+            detail=f"same exit bar, price differs by {ticks:.2f} ticks (a level choice)",
             **common,  # type: ignore[arg-type]
         )
     return TradePair(
         reason="unexplained",
-        detail=f"exit price differs by {ticks:.2f} ticks",
+        detail=(
+            f"exit bar {engine_exit_bar} vs {tv_exit_bar}, price differs by {ticks:.2f} ticks"
+            if not same_exit_bar
+            else f"exit price differs by {ticks:.2f} ticks on a non-level exit"
+        ),
         **common,  # type: ignore[arg-type]
     )
+
+
+#: The engine exits that happen AT a price level inside a bar -- the only ones an intrabar
+#: path choice (D-335) can affect. Signal and time exits fill at the next open.
+LEVEL_EXITS = frozenset({k.STOP_LOSS, k.TAKE_PROFIT, k.DISASTER_STOP, k.TRAILING_STOP})
 
 
 def difference_table(comparison: Comparison, limit: int = 20) -> list[str]:
