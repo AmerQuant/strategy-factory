@@ -1,10 +1,17 @@
-# TF reference on OANDA:XAUUSD 1H (D-348). Every `pine` value below is read from the
-# strategy() call of `SF parity TF - Donchian 1H.pine` and cross-checked against the report's
-# Properties sheet (no disagreement). Costs come from this block alone (D-362).
-name: xauusd_tf_1h
+# TF reference on OANDA:XAUUSD 1H, **long side** (D-348, D-600). Every `pine` value below is
+# read from the strategy() call of `  SF parity TF - Donchian 1H oneside.pine` (the file name
+# starts with two spaces) and cross-checked against the Properties sheet of both one-sided
+# reports: no disagreement, and the sheet's Direction input is "Long". Costs come from this
+# block alone (D-362).
+#
+# D-600: the engine runs one direction per run, so TF has two one-sided references. The
+# two-sided export and the script that produced it are superseded and are never read here.
+# The chart export is `OANDA_XAUUSD, 60.csv`; `OANDA_XAUUSD, 60 2026-09-20b.csv` is a
+# byte-identical copy (same sha256) and is not used.
+name: xauusd_tf_1h_long
 reference:
   chart_data: "OANDA_XAUUSD, 60.csv"
-  trade_list: "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20.xlsx"
+  trade_list: "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Long.xlsx"
   symbol: "OANDA:XAUUSD"
   timeframe: "60"
 
@@ -39,6 +46,19 @@ engine:
                                  # `strategy.position_size == 0` at the signal close
   parity_qty_step: 0.01          # D-347: OANDA:XAUUSD
 
-# strategy: the Pine rules are a 20-bar Donchian breakout (long and short), 2-ATR stop,
-# 4-ATR target and a 50-bar time exit. Mapped to a registered component in section 3 of
-# T11 (D-361); the 2-ATR stop is the spec's sl_atr, not the D-130 disaster stop.
+# The Pine rules, mapped to a registered component (T11 section 3, D-361):
+#   side == "Long" and flat and close > ta.highest(high, 20)[1]
+#                                   -> tf_donchian20_breakout, long; identical to the Pine
+#                                      rule on all 21,986 bars of the export
+#   strategy.exit(loss = 2 * ATR)   -> sl_atr: 2.0
+#   strategy.exit(profit = 4 * ATR) -> tp_atr: 4.0
+#   barsHeld >= 50 -> close_all     -> time_exit_bars: 50
+# The script has no 3-ATR stop. The engine's disaster stop (D-130, 3 ATR) sits beyond the
+# 2-ATR stop, so it can never fire first -- on a gap too, where the level nearest the open wins.
+strategy:
+  entry: tf_donchian20_breakout
+  direction: long
+  exit:
+    sl_atr: 2.0
+    tp_atr: 4.0
+    time_exit_bars: 50

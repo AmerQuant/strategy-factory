@@ -47,6 +47,7 @@ Reason = Literal[
     "rollover_swap",
     "trailing_at_close",
     "conversion_rate",
+    "quantity",
     "missing_in_engine",
     "extra_in_engine",
     "unexplained",
@@ -166,6 +167,7 @@ def compare(
     tick_size: float,
     daily: bool,
     sub_tick_ticks: float = SUB_TICK_TOLERANCE_TICKS,
+    qty_step: float | None = None,
 ) -> Comparison:
     """Pair the engine's trades with TradingView's and classify every difference.
 
@@ -225,6 +227,7 @@ def compare(
                 tick_size,
                 sub_tick_ticks,
                 daily,
+                qty_step,
             )
         )
 
@@ -263,9 +266,9 @@ def compare(
             )
         ),
         excluded_open_tv=tuple(tv.open_trades()),
-        excluded_open_engine=bool(result.meta.open_position_marked)
-        if hasattr(result.meta, "open_position_marked")
-        else False,
+        # the flag lives on the run, not on its meta: a `hasattr` guard on `meta` here once hid
+        # that and reported False for every run (found on the TF long reference)
+        excluded_open_engine=result.open_position_marked,
         notes=tuple(notes),
     )
 
@@ -281,8 +284,14 @@ def _classify(
     tick: float,
     sub_tick_ticks: float,
     daily: bool,
+    qty_step: float | None = None,
 ) -> TradePair:
-    """One matched entry bar: same trade, or a classified difference."""
+    """One matched entry bar: same trade, or a classified difference.
+
+    The quantity is compared too, to half a quantity step: the prices and bars can agree while
+    the size does not, and without this a sizing difference is called a match and shows up
+    only in the net profit (found on MR: 5 trades one share off, T11 review §7).
+    """
     t = trades
     engine_entry = float(t.entry_price[engine_i])  # type: ignore[attr-defined]
     engine_exit = float(t.exit_price[engine_i])  # type: ignore[attr-defined]
@@ -311,6 +320,13 @@ def _classify(
     same_exit_bar = tv_exit_bar is None or tv_exit_bar == engine_exit_bar
 
     if same_entry and same_exit and same_exit_bar:
+        engine_qty = float(t.qty[engine_i])  # type: ignore[attr-defined]
+        if qty_step is not None and abs(tv_entry.quantity - engine_qty) >= qty_step / 2:
+            return TradePair(
+                reason="quantity",
+                detail=f"quantity {tv_entry.quantity:g} vs engine {engine_qty:g}",
+                **common,  # type: ignore[arg-type]
+            )
         return TradePair(reason="match", **common)  # type: ignore[arg-type]
 
     if not same_entry:

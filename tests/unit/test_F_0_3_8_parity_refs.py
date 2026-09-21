@@ -316,7 +316,11 @@ def test_F_0_3_8_parity_config_hash_covers_every_pine_value() -> None:
 
 def test_F_0_3_8_repo_parity_templates_are_valid(tmp_path: Path) -> None:
     files = sorted((REPO / PARITY_DIR).glob("*.yaml"))
-    assert {p.name for p in files} == {"spy_mr_1d.yaml", "xauusd_tf_1h.yaml"}
+    assert {p.name for p in files} == {
+        "spy_mr_1d.yaml",
+        "xauusd_tf_1h_long.yaml",
+        "xauusd_tf_1h_short.yaml",
+    }
     steps = {}
     mapped = set()
     for path in files:
@@ -331,8 +335,8 @@ def test_F_0_3_8_repo_parity_templates_are_valid(tmp_path: Path) -> None:
         ExitSpec.model_validate(cfg.strategy.exit)
         if cfg.strategy.exit_signal:  # D-370: and a known parity exit rule, if it uses one
             assert cfg.strategy.exit_signal in PARITY_EXIT_RULES
-    # TF stays unmapped until its one-sided exports arrive (D-600)
-    assert mapped == {"spy_mr_1d"}
+    # every live reference is mapped; the two-sided TF config is gone with its export (D-600)
+    assert mapped == {"spy_mr_1d", "xauusd_tf_1h_long", "xauusd_tf_1h_short"}
     assert steps == {"BATS:SPY": 1.0, "OANDA:XAUUSD": 0.01}  # D-347
     bad = tmp_path / "bad.yaml"
     bad.write_text(yaml.safe_dump({"name": "x"}), encoding="utf-8")
@@ -466,31 +470,41 @@ MR_XLSX = "SF_parity_MR_-_RSI2_daily_BATS_SPY_2026-09-20.xlsx"
 TF_XLSX = "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20.xlsx"
 MR_PINE = "SF parity MR - RSI2 daily.pine"
 TF_PINE = "SF parity TF - Donchian 1H.pine"
+# D-600: the one-sided TF references. The script's file name starts with two spaces -- that is
+# the name in the raw store, which is read-only, so the fixture keeps it.
+TF_LONG_XLSX = "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Long.xlsx"
+TF_SHORT_XLSX = "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Short.xlsx"
+TF_ONESIDE_PINE = "  SF parity TF - Donchian 1H oneside.pine"
+#: Superseded by D-600: kept as fixtures for the loader tests, never read by a parity config.
+SUPERSEDED = (TF_PINE, TF_XLSX)
 NY = zoneinfo.ZoneInfo("America/New_York")
-SIX = (
+FIXTURES = (
     "BATS_SPY, 1D.csv",
     "OANDA_XAUUSD, 60.csv",
     MR_PINE,
     TF_PINE,
+    TF_ONESIDE_PINE,
     MR_XLSX,
     TF_XLSX,
+    TF_LONG_XLSX,
+    TF_SHORT_XLSX,
 )
 
 
-def test_F_0_3_8_d359_all_six_references_are_committed_fixtures() -> None:
+def test_F_0_3_8_d359_every_reference_is_a_committed_fixture() -> None:
     """The gate reads these, so it never skips (CLAUDE.md rule 9)."""
     names = {p.name for p in fixture_dir().iterdir()}
-    assert names == {*SIX, MANIFEST}
+    assert names == {*FIXTURES, MANIFEST}
     entries = load_manifest(fixture_dir())
-    assert set(entries) == set(SIX)
-    total = sum(fixture(n).stat().st_size for n in SIX)
+    assert set(entries) == set(FIXTURES)
+    total = sum(fixture(n).stat().st_size for n in FIXTURES)
     assert total < 4 * 1024 * 1024, f"{total / 1024 / 1024:.1f} MB is too much for the repo"
 
 
 def test_F_0_3_8_d359_every_fixture_matches_its_own_manifest() -> None:
     """The fixture manifest is checked on every load, exactly like the raw one."""
     entries = load_manifest(fixture_dir())
-    for name in SIX:
+    for name in FIXTURES:
         assert verify(fixture(name), entries) == entries[name]["sha256"]
 
 
@@ -535,6 +549,8 @@ def test_F_0_3_8_fixture_chart_exports_load(name: str, rows: int, first: str, la
     [
         (MR_XLSX, 924, 462, [], 185_810.06, {"PrevHigh": 365, "SL": 35, "Time": 62}),
         (TF_XLSX, 1745, 872, [873], -24_372.65, {"SL": 544, "TP": 273, "Time": 55}),
+        (TF_LONG_XLSX, 1039, 519, [520], 20_637.96, {"SL": 309, "TP": 185, "Time": 25}),
+        (TF_SHORT_XLSX, 800, 400, [], -43_610.28, {"SL": 260, "TP": 105, "Time": 35}),
     ],
 )
 def test_F_0_3_8_strategy_reports_load(
@@ -587,7 +603,12 @@ def test_F_0_3_8_daily_trades_match_their_bar_by_date() -> None:
 # -- the Pine sources and the Properties cross-check ------------------------------------------
 @pytest.mark.parametrize(
     ("pine_name", "xlsx", "tick"),
-    [(MR_PINE, MR_XLSX, 0.01), (TF_PINE, TF_XLSX, 0.001)],
+    [
+        (MR_PINE, MR_XLSX, 0.01),
+        (TF_PINE, TF_XLSX, 0.001),
+        (TF_ONESIDE_PINE, TF_LONG_XLSX, 0.001),
+        (TF_ONESIDE_PINE, TF_SHORT_XLSX, 0.001),
+    ],
 )
 def test_F_0_3_8_pine_settings_agree_with_the_properties_sheet(
     pine_name: str, xlsx: str, tick: float
@@ -641,7 +662,8 @@ def test_F_0_3_8_the_repo_parity_configs_describe_the_real_references() -> None:
     mani = load_manifest(fixture_dir())
     for cfg_name, pine_name, xlsx in (
         ("spy_mr_1d.yaml", MR_PINE, MR_XLSX),
-        ("xauusd_tf_1h.yaml", TF_PINE, TF_XLSX),
+        ("xauusd_tf_1h_long.yaml", TF_ONESIDE_PINE, TF_LONG_XLSX),
+        ("xauusd_tf_1h_short.yaml", TF_ONESIDE_PINE, TF_SHORT_XLSX),
     ):
         cfg = load_parity_config(REPO / PARITY_DIR / cfg_name)
         assert cfg.reference.trade_list == xlsx
@@ -742,3 +764,45 @@ def test_F_0_3_8_d367_flat_gate_blocks_a_same_close_reentry() -> None:
     # D-367: the Pine gate refuses that re-entry, so the next entry is a bar later
     assert gated[1] == 5
     assert default != gated
+
+
+# -- D-600: one-sided TF references ---------------------------------------------------------
+def test_F_0_3_8_d600_each_one_sided_report_ran_the_direction_its_name_says() -> None:
+    """The Properties sheet records the script's Direction input; a swapped export is caught
+    here, by name, before the gate would fail on it for a less obvious reason."""
+    mani = load_manifest(fixture_dir())
+    for xlsx, side, cfg_name in (
+        (TF_LONG_XLSX, "Long", "xauusd_tf_1h_long.yaml"),
+        (TF_SHORT_XLSX, "Short", "xauusd_tf_1h_short.yaml"),
+    ):
+        assert load_properties(fixture(xlsx), mani)["Direction"] == side
+        trades = load_strategy_report(fixture(xlsx), NY, mani).trades()
+        expected = 1 if side == "Long" else -1
+        assert {e.direction for e, _ in trades} == {expected}, xlsx
+        cfg = load_parity_config(REPO / PARITY_DIR / cfg_name)
+        assert cfg.strategy is not None and cfg.strategy.direction == side.lower()
+
+
+def test_F_0_3_8_d600_superseded_references_are_never_read_by_a_config() -> None:
+    """Kept for the loader tests, marked in the manifest, and unreachable from the gate."""
+    entries = load_manifest(fixture_dir())
+    for name in SUPERSEDED:
+        assert "D-600" in entries[name].get("superseded", ""), name
+    live = {n for n in FIXTURES if n not in SUPERSEDED}
+    assert not any("superseded" in entries[n] for n in live)
+    for path in sorted((REPO / PARITY_DIR).glob("*.yaml")):
+        cfg = load_parity_config(path)
+        used = {cfg.reference.chart_data, cfg.reference.trade_list}
+        assert not used & set(SUPERSEDED), path.name
+
+
+def test_F_0_3_8_d600_a_byte_identical_raw_copy_is_not_a_fixture() -> None:
+    """`OANDA_XAUUSD, 60 2026-09-20b.csv` is the same bytes as `OANDA_XAUUSD, 60.csv`."""
+    import json
+
+    data = json.loads((fixture_dir() / MANIFEST).read_text(encoding="utf-8"))
+    copies = data["duplicates_not_copied"]
+    assert copies == {"OANDA_XAUUSD, 60 2026-09-20b.csv": "OANDA_XAUUSD, 60.csv"}
+    for copy, original in copies.items():
+        assert not (fixture_dir() / copy).exists()
+        assert original in data["files"]

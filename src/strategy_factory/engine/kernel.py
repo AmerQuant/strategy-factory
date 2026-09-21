@@ -15,12 +15,12 @@ D-326 ... D-338):
   touched: the one nearest the open (highest for a long) wins; ties go in the order stop
   loss, trailing, disaster. Stop and target both touched: ``pessimistic`` (mode 1) takes the
   stop; ``tradingview`` (mode 0) goes O->H->L->C when the high is nearer the open, else
-  O->L->H->C, and a tie takes the stop (D-335, to_verify -- the one item T11 can still
-  close, once the TF reference lands: it needs a bar where a stop and a target are both
-  touched, which only a script with both can produce).
+  O->L->H->C, and a tie takes the stop (D-335, to_verify -- the TF references exercise the
+  target-first branch on exactly one bar, which agrees; the stop-first branch and an exact
+  tie never occur in them, so they are not verified by TradingView: P-46).
 * **Bar j, close:** signal exit (priority) or time exit is scheduled for ``j+1``; an entry is
-  scheduled when flat or when an exit is scheduled (D-336, **confirmed in T11**: 2 of the
-  462 MR entries fall on a bar that is also an exit bar and all 462 match), if ``j < n-1``
+  scheduled when flat or when an exit is scheduled (D-336, **confirmed in T11**: the 2 MR
+  entries that fall on an exit bar both match TradingView exactly), if ``j < n-1``
   and
   ``atr[j] > 0`` (warm-up); swap for a position held at the close of a rollover bar on the
   mark-to-market notional ``|qty| x close[j] x point_value x fx_close[j]``, x3 on the
@@ -38,8 +38,10 @@ D-326 ... D-338):
   ``parity_qty_step`` is required per run (BATS:SPY 1, OANDA:XAUUSD 0.01) and the broker step
   and minimum volume are never applied. ``qty = 0`` is a skip.
 * Parity choices after T11 (D-338 rule 1, D-349, **D-371**). Still **to_verify**: only the
-  O->H->L->C path and its tie (D-335), waiting on the TF reference. **Confirmed against the
-  MR reference:** exit + re-entry at one open (D-336). **Confirmed by construction** -- no
+  O->H->L->C path and its tie (D-335) -- in part: its target-first branch is confirmed on
+  the one TF bar that touched both levels, its stop-first branch and the exact tie are not
+  exercised by any reference (P-46). **Confirmed against the MR reference:** exit + re-entry
+  at one open (D-336). **Confirmed by construction** -- no
   TradingView export can ever test these, so they are not to_verify and nobody should look
   for one (D-371): no swap on an intrabar exit in a rollover bar (D-327; TradingView models
   no swap), the trailing level moving only at the close (D-349 (a); neither reference script

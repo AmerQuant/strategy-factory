@@ -30,10 +30,9 @@ from strategy_factory.selftest.parity_run import ParityRun, run_reference
 REPO = Path(__file__).resolve().parents[2]
 CONFIGS = REPO / "configs" / "parity"
 
-#: The references the gate runs today. TF is absent on purpose: its two-sided export is
-#: superseded (D-600) and the one-sided exports have not arrived, so its config has no
-#: ``strategy`` block yet.
-GATED = ("spy_mr_1d",)
+#: The references the gate runs. TF is two one-sided references (D-600): the engine runs one
+#: direction per run, so the two-sided export is superseded and never read.
+GATED = ("spy_mr_1d", "xauusd_tf_1h_long", "xauusd_tf_1h_short")
 
 
 def config_of(name: str) -> ParityConfig:
@@ -109,16 +108,38 @@ def test_F_0_3_8_d011_gate(run: ParityRun) -> None:
 def test_F_0_3_8_d011_the_open_trade_is_excluded_on_both_sides(run: ParityRun) -> None:
     """Supervisor note 2: a position still open at the end of the export is not compared.
 
-    The MR export ends flat, so this states that and checks that nothing was silently
-    excluded; the exclusion itself is exercised on the TF export, which does end with an open
-    trade, in ``tests/unit/test_F_0_3_8_parity_refs.py``.
+    Excluding it is only clean if **both** sides end the same way: flat on both, or open on
+    both *with the same trade*. MR and TF short end flat; TF long ends open on both sides.
     """
-    assert all(p.tv_exit is not None for p in run.comparison.pairs if p.matched)
-    assert len(run.comparison.pairs) == run.comparison.tv_trades
-    assert set(run.comparison.excluded_open_tv) == set(run.tv.open_trades())
-    if not run.tv.open_trades():
-        assert not run.comparison.excluded_open_engine
-        assert run.comparison.tv_trades == len(run.tv.trades())
+    comparison, tv = run.comparison, run.tv
+    assert all(p.tv_exit is not None for p in comparison.pairs if p.matched)
+    assert len(comparison.pairs) == comparison.tv_trades
+    assert set(comparison.excluded_open_tv) == set(tv.open_trades())
+    tv_open = bool(tv.open_trades())
+    assert comparison.excluded_open_engine == tv_open, "one side ends open, the other flat"
+    if not tv_open:
+        assert comparison.tv_trades == len(tv.trades())
+        return
+    # the same trade: TradingView's open entry is the engine's open entry
+    from strategy_factory.selftest.parity_compare import tv_entry_bar
+
+    (number,) = tv.open_trades()
+    entry = next(r for r in tv.rows if r.trade == number and r.kind == "entry")
+    held = run.result.equity.in_position
+    start = len(held) - 1
+    while start > 0 and held[start - 1]:
+        start -= 1
+    assert tv_entry_bar(run.chart, entry, run.daily) == start
+    assert run.chart.open[start] == pytest.approx(entry.price, abs=run.config.pine.tick_size / 2)
+
+
+def test_F_0_3_8_the_engine_open_flag_is_read_from_the_run() -> None:
+    """Regression: the flag was read from ``result.meta`` behind a ``hasattr`` guard, but it
+    lives on the run, so it was False for every reference. TF long ends open on both sides."""
+    run = run_reference(config_of("xauusd_tf_1h_long"))
+    assert run.result.open_position_marked
+    assert run.comparison.excluded_open_engine
+    assert run.comparison.excluded_open_tv == (520,)
 
 
 def test_F_0_3_8_d011_a_missing_reference_fails_loudly(tmp_path: Path) -> None:
@@ -127,8 +148,7 @@ def test_F_0_3_8_d011_a_missing_reference_fails_loudly(tmp_path: Path) -> None:
         run_reference(config_of(GATED[0]), folder=tmp_path)
     assert "manifest" in str(excinfo.value).lower()
     # and a config whose Pine script is not mapped yet says exactly that
-    unmapped = config_of("xauusd_tf_1h")
-    assert unmapped.strategy is None
+    unmapped = config_of(GATED[0]).model_copy(update={"strategy": None})
     with pytest.raises(ConfigError, match="no strategy block"):
         run_reference(unmapped)
     # ... and one whose export has not arrived says that, rather than skipping
@@ -176,3 +196,80 @@ def test_F_0_3_8_d371_the_to_verify_ledger_does_not_drift() -> None:
     for text in ("confirmed by construction", "D-371"):
         assert text.lower() in doc.lower(), text
         assert text.lower() in review.lower(), text
+
+
+def test_F_0_3_8_d335_the_intrabar_path_on_every_bar_that_touched_both_levels() -> None:
+    """D-335 evidence, from the two TF references (the only ones with a stop AND a target).
+
+    On a bar that touches both, ``tradingview`` mode goes O->H->L->C when the high is nearer the
+    open, else O->L->H->C, and an exact tie takes the stop. The levels are recomputed here from
+    the Pine rule -- ``math.round(k * ATR / mintick)`` ticks from the fill -- not taken from the
+    engine, and every such bar must agree three ways: the path rule, the engine, TradingView.
+
+    The counts are pinned because they are the evidence the T11 review quotes: over 919 trades
+    exactly **one** bar touched both levels (target first), and there is **no** stop-first case
+    and **no** exact tie. That is why D-335 is not closed by these references (P-46).
+    """
+    from decimal import ROUND_HALF_UP, Decimal
+
+    def whole_ticks(distance: float, tick: float) -> float:
+        n = Decimal(repr(distance / tick)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+        return float(n) * tick
+
+    stop, target = 1, 2  # the engine's exit reasons
+    seen = {"stop_first": 0, "target_first": 0, "tie": 0}
+    for name, d in (("xauusd_tf_1h_long", 1), ("xauusd_tf_1h_short", -1)):
+        run = run_reference(config_of(name))
+        assert run.config.strategy is not None
+        sl_k = run.config.strategy.exit["sl_atr"]
+        tp_k = run.config.strategy.exit["tp_atr"]
+        chart, t, tick = run.chart, run.result.trades, run.config.pine.tick_size
+        tv_exit = {
+            p.engine_index: run.tv.trades()[p.tv_index][1].signal
+            for p in run.comparison.pairs
+            if p.matched and p.engine_index is not None and p.tv_index is not None
+        }
+        for i in range(len(t.entry_idx)):
+            reason = int(t.exit_reason[i])
+            if reason not in (stop, target):
+                continue
+            j, fill, atr = int(t.exit_idx[i]), float(t.entry_price[i]), float(t.atr_at_entry[i])
+            sl = fill - d * whole_ticks(sl_k * atr, tick)
+            tp = fill + d * whole_ticks(tp_k * atr, tick)
+            # the recomputed level is exactly the engine's fill, unless the open gapped past it
+            level = sl if reason == stop else tp
+            o, h, lo = chart.open[j], chart.high[j], chart.low[j]
+            gapped = (o - level) * d * (1 if reason == target else -1) >= 0
+            assert float(t.exit_price[i]) == (o if gapped else level), (name, i)
+            if gapped:
+                continue
+            touched_sl = lo <= sl if d > 0 else h >= sl
+            touched_tp = h >= tp if d > 0 else lo <= tp
+            if not (touched_sl and touched_tp):
+                continue
+            up, down = h - o, o - lo
+            if up == down:
+                expected, key = stop, "tie"
+            else:
+                favour_first = (up < down) if d > 0 else (down < up)
+                expected = target if favour_first else stop
+                key = "target_first" if favour_first else "stop_first"
+            seen[key] += 1
+            assert reason == expected, (name, i, key)
+            assert tv_exit[i] == ("TP" if expected == target else "SL"), (name, i, key)
+    assert seen == {"stop_first": 0, "target_first": 1, "tie": 0}, seen
+
+
+#: The reason table each reference produces -- the numbers the T11 review quotes. Pinned so a
+#: change is deliberate: if P-48 is answered by sizing on the tick-rounded close, MR becomes
+#: {"match": 462} and this line changes with the decision, not silently.
+REASONS = {
+    "spy_mr_1d": {"match": 457, "quantity": 5},
+    "xauusd_tf_1h_long": {"match": 519},
+    "xauusd_tf_1h_short": {"match": 400},
+}
+
+
+def test_F_0_3_8_d011_the_reason_table_is_the_reviewed_one(run: ParityRun) -> None:
+    assert run.comparison.by_reason() == REASONS[run.config.name]
+    assert set(REASONS) == set(GATED)

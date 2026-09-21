@@ -160,6 +160,7 @@ def run_reference(config: ParityConfig, folder: Any = None) -> ParityRun:
         result,
         tick_size=config.pine.tick_size,
         daily=config.reference.timeframe == "1D",
+        qty_step=config.engine.parity_qty_step,
     )
     return ParityRun(
         config=config,
