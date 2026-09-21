@@ -36,3 +36,6 @@ split_check:
 relisting:           # re-used tickers and frozen stretches (D-383, amended by D-398)
   frozen_min_sessions: 10   # consecutive bars with an identical close and zero true range
   gap_days: 200             # a break this long is a relisting, not a holiday or a halt
+  rename_window_days: 7     # D-700: a rename away agrees with the boundary inside [break - 7 d, boundary]
+  names_file: reference/alpaca/alpaca_assets_2026-09-20.v2.csv                    # D-700, under SFAC_RAW_ROOT
+  name_changes_file: reference/alpaca/corporate_actions/name_changes_20260920.json   # D-700, the full NAME_CHANGE feed

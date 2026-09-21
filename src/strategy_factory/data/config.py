@@ -86,6 +86,14 @@ class RelistingConfig(_Frozen):
 
     frozen_min_sessions: int = Field(default=DEFAULT_FROZEN_SESSIONS, gt=0)
     gap_days: int = Field(default=DEFAULT_GAP_DAYS, gt=0)
+    #: D-700: a rename away from the ticker agrees with the boundary when it lies in
+    #: ``[break start - rename_window_days, boundary]``.
+    rename_window_days: int = Field(default=7, ge=0)
+    #: D-700 evidence, both under ``SFAC_RAW_ROOT`` (read-only, D-028).
+    names_file: Path = Path("reference") / "alpaca" / "alpaca_assets_2026-09-20.v2.csv"
+    name_changes_file: Path = (
+        Path("reference") / "alpaca" / "corporate_actions" / "name_changes_20260920.json"
+    )
 
 
 class AlpacaConfig(_Frozen):
