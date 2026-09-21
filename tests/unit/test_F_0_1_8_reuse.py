@@ -257,3 +257,14 @@ def test_F_0_1_8_T04l_set_reference_moves_and_a_rerun_derives_from_the_base(
     after = catalog.events().filter(pl.col("event") != "quality")
     assert after.height == events  # REUSE and UNS share bars (one hash): the base is found by key
     assert catalog.get_reference("UNS", "1D").snapshot_hash == moved.snapshot_hash
+
+
+def test_F_0_1_8_T04l_an_hourly_gap_is_dated_as_the_daily_break_it_belongs_to() -> None:
+    """PCL: the hourly series resumes six weeks after the daily one -- one break, the daily date."""
+    from strategy_factory.data.cli_reuse import _same_break
+
+    daily = [(_d("2025-08-01"), 300)]  # daily gap 2024-10-05 .. 2025-08-01
+    assert _same_break(_d("2025-09-12"), 400, daily, []) == _d("2025-08-01")  # overlaps
+    kept = [Boundary(_d("2021-10-04"), "T04k kept")]
+    assert _same_break(_d("2021-10-06"), 300, [], kept) == _d("2021-10-04")  # contains it
+    assert _same_break(_d("2019-01-02"), 250, daily, kept) == _d("2019-01-02")  # its own break

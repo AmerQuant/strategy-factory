@@ -106,6 +106,27 @@ def _base(row: dict[str, Any], table: pl.DataFrame) -> dict[str, Any]:
     return row
 
 
+def _same_break(
+    resumes_1h: dt.date,
+    gap_1h: int,
+    daily_gaps: list[tuple[dt.date, int]],
+    kept: list[Boundary],
+) -> dt.date:
+    """The daily date of the break an hourly gap belongs to. The hourly series may resume on a
+    different day than the daily one (``PCL``: 1D 2025-08-01, 1H 2025-09-12); judged at the later
+    date, the new holder's first rows would land on the before side. An hourly gap that overlaps a
+    daily gap -- or contains a boundary T04k kept -- is that break, dated as the daily series
+    dates it; otherwise it keeps its own date."""
+    lo = resumes_1h - dt.timedelta(days=gap_1h)
+    for r, g in daily_gaps:
+        if lo < r and r - dt.timedelta(days=g) < resumes_1h:
+            return r
+    for b in kept:
+        if lo < b.resumes <= resumes_1h:
+            return b.resumes
+    return resumes_1h
+
+
 def _t04k_candidates(clean_dir: Path) -> dict[str, list[Boundary]]:
     """The boundaries T04k kept: a re-use boundary it found but did not apply (D-700)."""
     path = clean_dir / SUMMARY_FILE
@@ -336,11 +357,13 @@ def _reuse_symbol(
             bases[tf] = base
             bars[tf] = store.read_snapshot("alpaca", symbol, tf, base["snapshot_hash"])
     boundaries = list(kept)
-    for tf, df in bars.items():
-        boundaries += [
-            Boundary(resumes, f"long gap {tf}", None, gap)
-            for resumes, gap in long_gaps(df["ts"], alpaca.relisting.gap_days)
-        ]
+    gap_days = alpaca.relisting.gap_days
+    daily_gaps = long_gaps(bars["1D"]["ts"], gap_days) if "1D" in bars else []
+    boundaries += [Boundary(r, "long gap 1D", None, g) for r, g in daily_gaps]
+    for r_h, g_h in long_gaps(bars["1H"]["ts"], gap_days) if "1H" in bars else []:
+        boundaries.append(
+            Boundary(_same_break(r_h, g_h, daily_gaps, kept), "long gap 1H", None, g_h)
+        )
     if not boundaries:
         return None
     # one boundary per date: a break seen in 1D and in 1H (or also kept by T04k) is one break
