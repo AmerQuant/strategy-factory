@@ -92,3 +92,30 @@ def test_F_0_1_9_D_399_this_test_never_returns_a_trimmable_verdict() -> None:
         assert not got.may_trim
     # the constants D-399 names are still defined, for a future discriminator
     assert RE_USE and HALT
+
+
+# --- the three shapes that produced false `unadjusted_split` verdicts on the real data -------
+
+
+def test_F_0_1_9_T04k_a_crosscheck_with_no_bar_before_the_break_is_unsettled() -> None:
+    """`AMLX`/`ATAI`: MS-US-1D starts at the IPO; the two sides must never collapse onto it."""
+    ipo = dt.date(2022, 1, 7)
+    cross = _cross([(ipo, 18.07), (ipo + dt.timedelta(days=3), 16.72)])
+    got = settle_boundary("AMLX", dt.date(2021, 12, 31), ipo, 18.07 / 9.61, cross, TOL, JUMP)
+    assert got.verdict == UNSETTLED
+    assert "no bar near 2021-12-31" in got.evidence
+
+
+def test_F_0_1_9_T04k_an_ingested_series_that_does_not_break_is_unsettled() -> None:
+    """`NRGZ`: both feeds move 0.693, which is not a break at a 0.40 threshold."""
+    cross = _cross([(BEFORE, 41.83), (AFTER, 28.99)])
+    got = settle_boundary("NRGZ", BEFORE, AFTER, 28.99 / 41.83, cross, TOL, JUMP)
+    assert got.verdict == UNSETTLED
+    assert "does not break" in got.evidence
+
+
+def test_F_0_1_9_T04k_the_bars_on_each_side_are_distinct_and_ordered() -> None:
+    """A nearest-bar fallback may only look on its own side of the break."""
+    only_after = _cross([(AFTER, 50.0), (AFTER + dt.timedelta(days=1), 50.2)])
+    got = settle_boundary("X", BEFORE, AFTER, 10.0, only_after, TOL, JUMP)
+    assert got.verdict == UNSETTLED

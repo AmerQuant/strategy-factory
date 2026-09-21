@@ -31,6 +31,21 @@ So this test yields two useful answers, not four:
 
 ``re_use`` and ``halt`` remain defined because D-399 names them and a future discriminator may
 reach them, but **this** test never returns them: nothing here can prove either one.
+
+**What ``unadjusted_split`` requires, and why each condition is there.** A first version declared
+four symbols ``unadjusted_split`` and all four were wrong (T04k, 2026-09-21):
+
+* ``AMLX`` and ``ATAI`` -- the cross-check has **no bar before the IPO**; the nearest-bar fallback
+  took the IPO bar for *both* sides and reported a "continuous" 1.0000 ratio of a bar with itself.
+  So the two cross-check bars must be **distinct**, one strictly before the other.
+* ``TBRG`` -- the ingested bar before the boundary was **padding** at a stale 13.31 while the
+  cross-check was trading near 9; the ingested "jump" measured the pad. So the caller compares
+  the last **real** bar before the break, never a padded one.
+* ``NRGZ`` -- both feeds made the same 0.693 move, which is **not** a break at the configured
+  threshold in either. So the ingested series must itself break at the compared dates.
+
+An unadjusted split is a jump between two real bars that the all-adjusted series does not make.
+Anything short of that is ``unsettled``.
 """
 
 from __future__ import annotations
@@ -84,14 +99,21 @@ def settle_boundary(
     """
     if crosscheck is None or crosscheck.height == 0:
         return CrosscheckVerdict(symbol, UNSETTLED, "no MS-US-1D cross-check file")
-    c_before = _close_near(crosscheck, before)
-    c_after = _close_near(crosscheck, after)
-    if c_before is None or c_after is None:
+    if abs(ratio_ingested - 1.0) <= jump_threshold:
         return CrosscheckVerdict(
             symbol,
             UNSETTLED,
-            f"cross-check has no bar near {before if c_before is None else after}",
+            f"the ingested series does not break at {before}..{after} (ratio {ratio_ingested:.4f})",
         )
+    b = _bar_near(crosscheck, before, not_after=after - dt.timedelta(days=1))
+    a = _bar_near(crosscheck, after, not_before=before + dt.timedelta(days=1))
+    if b is None or a is None:
+        return CrosscheckVerdict(
+            symbol,
+            UNSETTLED,
+            f"cross-check has no bar near {before if b is None else after} on its own side",
+        )
+    (_, c_before), (_, c_after) = b, a
     if c_before <= 0:
         return CrosscheckVerdict(symbol, UNSETTLED, "cross-check close is not positive")
     ratio_cross = c_after / c_before
@@ -122,16 +144,29 @@ def _same_move(a: float, b: float, tolerance: float) -> bool:
     return abs(math.log(a / b)) <= tolerance
 
 
-def _close_near(crosscheck: pl.DataFrame, day: dt.date, window_days: int = 7) -> float | None:
-    """The cross-check close on ``day``, or the nearest bar within ``window_days``."""
-    exact = crosscheck.filter(pl.col("date") == day)
-    if exact.height:
-        return float(exact["close"][0])
+def _bar_near(
+    crosscheck: pl.DataFrame,
+    day: dt.date,
+    window_days: int = 7,
+    not_before: dt.date | None = None,
+    not_after: dt.date | None = None,
+) -> tuple[dt.date, float] | None:
+    """The cross-check bar on ``day``, or the nearest within ``window_days`` **on its own side**.
+
+    ``not_before`` / ``not_after`` keep the before-bar strictly before the after-bar, so the two
+    sides can never collapse onto one bar (the `AMLX`/`ATAI` failure).
+    """
     lo, hi = day - dt.timedelta(days=window_days), day + dt.timedelta(days=window_days)
+    if not_before is not None:
+        lo = max(lo, not_before)
+    if not_after is not None:
+        hi = min(hi, not_after)
+    if lo > hi:
+        return None
     near = crosscheck.filter(pl.col("date").is_between(lo, hi))
     if near.height == 0:
         return None
     nearest = near.with_columns(
         (pl.col("date") - pl.lit(day)).dt.total_days().abs().alias("_d")
-    ).sort("_d")
-    return float(nearest["close"][0])
+    ).sort("_d", "date")
+    return nearest["date"][0], float(nearest["close"][0])

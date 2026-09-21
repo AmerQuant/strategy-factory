@@ -130,17 +130,27 @@ def _settle(
     frame = daily.with_columns(pl.col("ts").dt.date().alias("d")).sort("d")
     dates = frame["d"].to_list()
     closes = frame["close"].to_list()
+    highs, lows = frame["high"].to_list(), frame["low"].to_list()
     idx = next((i for i, d in enumerate(dates) if d >= boundary), None)
     if idx is None or idx == 0:
         return CrosscheckVerdict(symbol, UNSETTLED, "the boundary is not inside the series")
-    before, after = closes[idx - 1], closes[idx]
+    # The last REAL bar at or before the break's start: at a stale_run boundary the bar just
+    # before the boundary is padding, and a ratio against a pad measures the pad (`TBRG`).
+    start = _break_start(verdict)
+    real = [i for i in range(idx) if dates[i] <= start and not (highs[i] == lows[i] == closes[i])]
+    if not real:
+        return CrosscheckVerdict(
+            symbol, UNSETTLED, f"no real bar before the break at {start}; only padding"
+        )
+    i0 = real[-1]
+    before, after = closes[i0], closes[idx]
     if before <= 0:
-        return CrosscheckVerdict(symbol, UNSETTLED, "the close before the boundary is not positive")
+        return CrosscheckVerdict(symbol, UNSETTLED, "the close before the break is not positive")
     path = crosscheck_file(root, symbol)
     cross = read_crosscheck_csv(path) if path.is_file() else None
     return settle_boundary(
         symbol,
-        dates[idx - 1],
+        dates[i0],
         dates[idx],
         after / before,
         cross,
