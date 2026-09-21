@@ -238,3 +238,51 @@ def test_F_0_1_8_T04k_the_crosscheck_compares_the_last_real_bar_never_the_pad(
     got = _settle("TBRG", verdict, daily, ctx.root, ctx.alpaca)
     assert got.verdict == UNSETTLED
     assert "both feeds break alike" in got.evidence
+
+
+# ------------------------------------------------ round 3: judge the clean series on its own bars
+
+
+def test_F_0_1_8_T04k_a_capped_extreme_is_not_reported_again_on_the_clean_series() -> None:
+    """The first full pass fed the clean snapshot's check the breaches of the RAW bars, so 620
+    hourly symbols were flagged for extremes `extreme_cap` had already corrected."""
+    from strategy_factory.data.clean_daily import clean_daily
+    from strategy_factory.data.cli_clean import HourlyEvidence
+
+    rows = _real(30, 100.0)
+    rows[20] = (100.0, 130.0, 99.5, 100.0)  # the daily high the hourly feed never reached
+    daily = _daily(rows)
+    days = [(START + dt.timedelta(days=i)).date() for i in range(30)]
+    rth = pl.DataFrame(
+        {
+            "session_date": days,
+            "rth_high": [100.5] * 30,
+            "rth_low": [99.5] * 30,
+            "rth_bars": [7] * 30,
+        },
+        schema={
+            "session_date": pl.Date(),
+            "rth_high": pl.Float64(),
+            "rth_low": pl.Float64(),
+            "rth_bars": pl.UInt32(),
+        },
+    )
+    raw = rth.rename({"rth_high": "raw_high", "rth_low": "raw_low", "rth_bars": "raw_bars"})
+    expected = pl.DataFrame(
+        {"session_date": days, "expected_bars": [7] * 30},
+        schema={"session_date": pl.Date(), "expected_bars": pl.UInt32()},
+    )
+    ev = HourlyEvidence(
+        "EQ",
+        rth,
+        raw,
+        rth.select("session_date", "rth_bars").join(expected, on="session_date"),
+        expected,
+        QualityConfig().daily_extreme_unsupported.eps_bps,
+    )
+    assert ev.breaches(daily).height == 1  # the raw series breaches once
+    clean, log = clean_daily(
+        daily, "EQ", QualityConfig(), breaches=ev.breaches(daily), has_hourly=True
+    )
+    assert log.height == 1 and log["arm"][0] == "extreme_cap"
+    assert ev.breaches(clean).height == 0  # judged on its own bars, the clean series is clean

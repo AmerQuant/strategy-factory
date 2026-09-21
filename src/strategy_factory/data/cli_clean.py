@@ -122,43 +122,58 @@ def _fail(msg: str) -> typer.Exit:
     return typer.Exit(code=1)
 
 
+@dataclass(frozen=True)
+class HourlyEvidence:
+    """One symbol's hourly series, reduced to what the daily checks need."""
+
+    symbol: str
+    rth: pl.DataFrame
+    raw: pl.DataFrame
+    coverage: pl.DataFrame
+    expected: pl.DataFrame
+    eps_bps: float
+
+    def breaches(self, daily: pl.DataFrame) -> pl.DataFrame:
+        """The breach days of ``daily`` -- recomputed for whichever series is being judged.
+
+        The quality report of a **clean** series must judge the clean bars: breaches computed on
+        the raw bars would re-count every extreme ``extreme_cap`` already corrected (the first
+        full pass flagged 620 hourly symbols that way).
+        """
+        return breaches(
+            daily, self.rth, self.raw, self.symbol, eps_bps=self.eps_bps, expected=self.expected
+        )
+
+
 def _hourly_evidence(
     symbol: str,
-    daily: pl.DataFrame,
     root: Path,
     alpaca: Any,
     quality: Any,
     expected: pl.DataFrame,
-) -> tuple[pl.DataFrame | None, pl.DataFrame | None]:
-    """``(breaches, coverage)`` for ``symbol``; both ``None`` when it has no hourly series.
+) -> HourlyEvidence | None:
+    """The hourly evidence for ``symbol``, or ``None`` when it has no hourly series.
 
-    ``breaches`` holds only the days whose daily extreme lies outside the RTH hourly range.
     ``coverage`` holds **every** hourly session with its bar count against the calendar, which is
-    what finds a short day that does not breach (V2).
+    what finds a short day that does not breach (V2); ``breaches()`` only holds breach days.
     """
     hourly_files = latest_chunks(root, "1H", symbol)
     if not hourly_files:
-        return None, None
+        return None
     hourly, _ = AlpacaAdapter(alpaca).to_canonical(hourly_files, timeframe="1H", symbol=symbol)
     if hourly.height == 0:
-        return None, None
+        return None
     tz = alpaca.hourly_session.timezone
     raw = raw_extremes(
         pl.concat([pl.read_parquet(f).select("t", "h", "l") for f in hourly_files]), tz
     )
     rth = rth_extremes(hourly, tz)
-    found = breaches(
-        daily,
-        rth,
-        raw,
-        symbol,
-        eps_bps=quality.daily_extreme_unsupported.eps_bps,
-        expected=expected,
-    )
     coverage = rth.join(expected, on="session_date", how="left").select(
         "session_date", "rth_bars", "expected_bars"
     )
-    return found, coverage
+    return HourlyEvidence(
+        symbol, rth, raw, coverage, expected, quality.daily_extreme_unsupported.eps_bps
+    )
 
 
 def _settle(
@@ -329,8 +344,10 @@ def _clean_symbol(
         raw_meta = _row_to_meta(row)
         daily = ctx.store.read_snapshot("alpaca", symbol, "1D", row["snapshot_hash"])
         out["raw_bars"] = daily.height
-        breach, coverage = _hourly_evidence(symbol, daily, ctx.root, alpaca, quality, ctx.expected)
-        out["has_hourly"] = coverage is not None
+        hourly = _hourly_evidence(symbol, ctx.root, alpaca, quality, ctx.expected)
+        breach = hourly.breaches(daily) if hourly is not None else None
+        coverage = hourly.coverage if hourly is not None else None
+        out["has_hourly"] = hourly is not None
         if coverage is not None:
             short = (
                 daily.select(pl.col("ts").dt.date().alias("session_date"))
@@ -365,7 +382,7 @@ def _clean_symbol(
             out["status"] = "exclude_boundary_unidentifiable"
             out["note"] = "D-398 (4): list in configs/universe/us_equity_daily_excluded.csv"
             out["snapshot_hash"] = row["snapshot_hash"]
-            _quality(ctx, raw_meta, breach, coverage, out)
+            _quality(ctx, raw_meta, daily, hourly, out)
             return out
         apply_boundary = True
         if verdict.verdict == TRIM:
@@ -387,7 +404,7 @@ def _clean_symbol(
                         "then re-check"
                     )
                     out["snapshot_hash"] = row["snapshot_hash"]
-                    _quality(ctx, raw_meta, breach, coverage, out)
+                    _quality(ctx, raw_meta, daily, hourly, out)
                     return out
                 named = settle_by_name(
                     symbol,
@@ -421,7 +438,7 @@ def _clean_symbol(
             # Identical content: the raw snapshot already IS the clean series. Writing it again
             # would return the same hash (rule 10), so nothing is written and the reference stays.
             out["snapshot_hash"] = row["snapshot_hash"]
-            _quality(ctx, raw_meta, breach, coverage, out)
+            _quality(ctx, raw_meta, daily, hourly, out)
             return out
         stored = ctx.store.write_snapshot(clean, _clean_meta(raw_meta, out, changes, ctx))
         ctx.catalog.register(stored)
@@ -435,7 +452,7 @@ def _clean_symbol(
         )
         out["snapshot_hash"] = digest
         out["status"] = "cleaned"
-        _quality(ctx, stored, breach, coverage, out)
+        _quality(ctx, stored, clean, hourly, out)
         if set_reference and digest:
             ctx.catalog.set_reference(symbol, "1D", digest, note="T04k clean daily")
     except Exception as exc:  # one bad symbol must not stop 6,707; it is reported in the summary
@@ -448,13 +465,18 @@ def _clean_symbol(
 def _quality(
     ctx: CleanContext,
     meta: SeriesMetadata,
-    breach: pl.DataFrame | None,
-    coverage: pl.DataFrame | None,
+    series: pl.DataFrame,
+    hourly: HourlyEvidence | None,
     out: dict[str, Any],
 ) -> None:
-    """The quality report for the series the research will read, with its hourly evidence."""
+    """The quality report for the series the research will read, judged on **that** series."""
     rep = check_snapshot(
-        meta, ctx.store, ctx.catalog, ctx.quality, breaches=breach, coverage=coverage
+        meta,
+        ctx.store,
+        ctx.catalog,
+        ctx.quality,
+        breaches=hourly.breaches(series) if hourly is not None else None,
+        coverage=hourly.coverage if hourly is not None else None,
     )
     out["quality_status"] = rep.status
 
