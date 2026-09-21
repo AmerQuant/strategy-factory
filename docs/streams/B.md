@@ -28,8 +28,16 @@ folds it into `HANDOFF.md` at merges.
 
 Next free here: **D-700**, **P-75**. The supervisor granted **D-700 … D-799** on 2026-09-21
 because D-380 … D-399 is exhausted (D-399 was the last). **The CI guard does not know about it
-yet** — see the stream-A action below — so a `D-7xx` row fails `sfac streams check` until
-`docs/streams/ownership.yaml` carries the range. Until then stream B writes no new decision row.
+yet**, so a `D-7xx` row fails `sfac streams check` until `docs/streams/ownership.yaml` carries the
+range. **Stream B therefore writes no new decision row until it lands.**
+
+Status of that (2026-09-21): stream A has the request and is **confirming the grant with the
+supervisor directly** before widening `ownership.yaml`, rather than acting on a relayed range —
+their call and the right one, because the guard trusts that file and a wrong range or shape would
+only surface when a `D-7xx` row reached CI. When it merges, `streams.B.decisions` will carry
+**both** `D-380 … D-399` and `D-700 … D-799` (the two-range shape the supervisor's own ranges
+already use, so `check_ids` needs no new code), with tests that the guard accepts `D-700`/`D-799`
+from stream B, rejects them from stream A, and still rejects duplicates.
 
 ## Rules that bind this stream (D-355)
 
@@ -120,12 +128,11 @@ chain `FISV→FI→FISV` resolves back to it.
 
 ## FOR STREAM A — one request and two notes from T04g
 
-1. **Please add stream B's new decision range `D-700 … D-799` to
-   `docs/streams/ownership.yaml`, with a test**, the way the supervisor's `D-600 … D-699` range was
-   added. The supervisor granted it on 2026-09-21 because `D-380 … D-399` is exhausted (D-399 was
-   the last). Until it lands, `sfac streams check` rejects any `D-7xx` row as "outside stream B's
-   range", so **stream B is holding all new decisions**. `ownership.yaml` is stream A's file and
-   stream B does not touch it. Nothing else of stream B's is blocked on this.
+1. **Stream B's new decision range `D-700 … D-799` is with stream A** (asked 2026-09-21).
+   Stream A is confirming the grant with the supervisor before widening
+   `docs/streams/ownership.yaml`; stream B does not touch that file. Until it lands
+   `sfac streams check` rejects any `D-7xx` row, so **stream B is holding all new decisions** —
+   nothing else of stream B's is blocked on it.
 2. **The brittle `HEAD~1` assumption in `test_F_X_9_d369_removed_rows_reads_real_git_output` is
    resolved by stream A's PR #23** — the test now builds a throw-away repository in `tmp_path`, so
    it says the same thing on every branch. Stream B had edited the range on
@@ -139,7 +146,16 @@ chain `FISV→FI→FISV` resolves back to it.
    rule stream B now follows without exception: **a stream-A file is reported here and waited on,
    never edited.** `src/strategy_factory/core/streams.py`, `cli_streams.py` and
    `tests/unit/test_F_X_9_stream_guards.py` carry **only** stream A's code.
-4. **`configs/universe.yaml` needs no regeneration for T04i or T04g.** No symbol was added to or
+4. **Answered by stream A (2026-09-21), recorded here so a fresh session does not re-open them:**
+   the metrics property failure `test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio` is
+   stream A's **P-44**, answered as **D-368**: `tests/fixtures/metrics_runs.py` is wrong and is
+   fixed by scaling **`qty`** rather than `entry_price`, so prices stay physical and the invariant
+   is untouched; D-368 also pins any falsifying example as an explicit `@example` (because
+   `.hypothesis/` is git-ignored and the per-PR job is derandomized, so CI finds it only by
+   chance), keeps the per-PR job derandomized and adds a weekly randomized job that reports without
+   gating. It is queued as its own task after T11. **Stream B never touches that file.** Stream A's
+   **D-371** (on `a/T11-parity`, unmerged) closes P-45 and touches nothing of stream B's.
+5. **`configs/universe.yaml` needs no regeneration for T04i or T04g.** No symbol was added to or
    removed from `configs/universe/*.csv` by either task; the new file
    `configs/universe/us_equity_daily_excluded.csv` is **empty** (D-398). The outstanding
    regeneration is still the T04f one below.

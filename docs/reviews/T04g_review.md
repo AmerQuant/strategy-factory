@@ -287,12 +287,14 @@ test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio` fails on a counterexa
 found during this session: `tests/fixtures/metrics_runs.py:55` derives
 `exit_price = entry_price + direction * pnl_gross / qty` with `entry_price = 100`, so scaling P&L
 by `k = 10` drives the exit price to ≤ 0 and `TradeLog` correctly refuses it. It is a limit of
-**stream A's T09 fixture**, not a product defect. The user reports that stream A has already
-diagnosed it as their **P-44** and that the fix is to scale `qty`, not `entry_price` — scaling must
-grow the position, not the price level, or the property changes meaning. That row is on stream A's
-branch and is **not yet in this worktree's `pending.md`**, so it cannot be cited from here.
-**Nothing on this branch touches `tests/fixtures/metrics_runs.py`,** and the failure is reproducible
-from `origin/main` alone.
+**stream A's T09 fixture**, not a product defect. Stream A has diagnosed it as their **P-44** and
+answered it as **D-368**: the fixture is fixed by scaling `qty`, not `entry_price` — scaling must
+grow the position, not the price level, or the property changes meaning — and any falsifying
+example is pinned as an explicit `@example`, because `.hypothesis/` is git-ignored and the per-PR
+job is derandomized, so **CI finds this only by chance** (it passed on this PR). Those rows are on
+stream A's branches and are **not yet in this worktree's `pending.md` or decisions log**, so they
+cannot be cited from here. **Nothing on this branch touches `tests/fixtures/metrics_runs.py`,** and
+the failure is reproducible from `origin/main` alone.
 
 No new dependency. Nothing under `configs/costs/` or `configs/universe.yaml` was changed
 (D-388, D-394); `configs/universe/us_equity_daily_excluded.csv` is unchanged (still empty).
