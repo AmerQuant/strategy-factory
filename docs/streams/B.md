@@ -26,18 +26,9 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-700**, **P-75**. The supervisor granted **D-700 … D-799** on 2026-09-21
-because D-380 … D-399 is exhausted (D-399 was the last). **The CI guard does not know about it
-yet**, so a `D-7xx` row fails `sfac streams check` until `docs/streams/ownership.yaml` carries the
-range. **Stream B therefore writes no new decision row until it lands.**
-
-Status of that (2026-09-21): **the supervisor granted the range and has told stream A directly**;
-stream A was, before that, **confirming the grant with the supervisor** before widening `ownership.yaml`, rather than acting on a relayed range —
-their call and the right one, because the guard trusts that file and a wrong range or shape would
-only surface when a `D-7xx` row reached CI. When it merges, `streams.B.decisions` will carry
-**both** `D-380 … D-399` and `D-700 … D-799` (the two-range shape the supervisor's own ranges
-already use, so `check_ids` needs no new code), with tests that the guard accepts `D-700`/`D-799`
-from stream B, rejects them from stream A, and still rejects duplicates.
+Next free here: **D-701**, **P-76**. The range **D-700 … D-799** is merged into
+`docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
+the first row (the supervisor's amendment of D-399).
 
 ## Rules that bind this stream (D-355)
 
@@ -61,21 +52,37 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 `docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`, `T04k`; decisions
 **D-380 … D-398** (section I of the log); **P-60 … P-67, P-71 … P-73 closed**, **P-68 … P-70** and
 **P-74** open. Task branches use the `b/` prefix (D-357). Order (D-358, D-396):
-**T04f ✅ → T04i ✅ → T04g ⏭ → T04k → T04h**. T04h stays blocked until the 1H download is complete
+**T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch **`b/T04k-clean-daily`** from `610ae59`. T04i (PR #21) and T04g
-(PR #24) are **merged**; 6,707 of 6,711 daily symbols are in the snapshot store. The **1H download
-is complete and verified**, so **T04h is unblocked** — but the order stays T04k first (D-396: T04k
-must precede T12).
+**Current position:** branch **`b/T04k-clean-daily`** (rebased onto `b5a0bb4`, PR #25). T04i
+(PR #21) and T04g (PR #24) are **merged**. **T04k is implemented and its acceptance review has run
+twice**; the final full clean pass is running **without `--set-reference`** (the supervisor's
+instruction until T04k is approved), then the review is rewritten from its numbers and T04k stops
+for **"Approved"**. After that: `--set-reference`, the PR, then **T04h** (the 1H download is
+complete and verified, so it is unblocked).
 
-**Blocked on one thing, and only for new decisions:** the `D-700 … D-799` range is not in
-`docs/streams/ownership.yaml` yet (stream A's file — see the action below). Open questions
-P-68 … P-70 do not block; P-71 … P-74 are answered (D-395 … D-399).
+**Blocked on the supervisor only:** approving T04k, and **P-75** (six implementation rules T04k
+added beyond D-396/D-399/D-700, all conservative). P-68 … P-70 remain open and do not block.
+
+**What a fresh session needs to know about T04k:**
+- **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
+  `reference/alpaca/alpaca_assets_2026-09-20.v2.csv`, linked across the break by the raw
+  `NAME_CHANGE` feed (`reference/alpaca/corporate_actions/name_changes_20260920.json`, 3,650 rows).
+  D-399's cross-check half was withdrawn for re-use because MS-US-1D is ticker-keyed and splices a
+  re-used ticker identically.
+- Code: `data/clean_daily.py` (four arms), `data/crosscheck.py`, `data/name_evidence.py`,
+  `data/cli_clean.py` (`sfac data clean`), two checks in `data/quality.py`.
+- Store outputs: `<SFAC_DATA_ROOT>/_clean/clean_daily_summary.csv`, `short_hourly_days.csv`, and
+  `_clean/<symbol>/<clean hash>.csv|json` per clean snapshot. The clean pass reads the **raw**
+  snapshot (`derived_from` empty), never the reference.
+- **All 6,707 references are still the raw snapshots**, deliberately.
+- Earlier passes left superseded derived snapshots and flat logs `_clean/<symbol>.csv` from the
+  first layout; neither is a reference, and the report reads only the current layout.
 
 | item | state |
 |---|---|
-| worktree | on `b/T04g-alpaca-daily-ingest`; `uv sync` done |
+| worktree | on `b/T04k-clean-daily`; `uv sync` done |
 | database | `sfac_b` created, `sfac db upgrade` → `0001_initial`, `pytest -m db` 15 passed, 0 skipped |
 | batch 3-data plan | **approved** 2026-09-21; order changed by **D-358** to T04f → T04i → T04g → T04h |
 | T04f | **done**, PR [#19](https://github.com/AmerQuant/strategy-factory/pull/19) — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
@@ -86,7 +93,7 @@ P-68 … P-70 do not block; P-71 … P-74 are answered (D-395 … D-399).
 | T04e phase-B pilot | **hourly part closed by T04i** (D-395). The Yahoo part (first/last dates, `^TNX` scale) and the Dukascopy v1→v2 re-hash stay open — see the runbook's "Deferred" |
 | snapshot store | **6,710 snapshots**: 6,707 Alpaca 1D (`hash_version = 2`, `session = exchange`, all read-only, one reference each) + the 3 Dukascopy Q1-2024 pilots, which are still `hash_version = 1` (the T04e v1→v2 re-hash is deferred to T04j) |
 | T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
-| T04k | **next**, on `b/T04k-clean-daily` from `main` (`docs/tasks/T04k_clean_daily_snapshot.md`), after T04g and **before T12** (D-396). It now also applies **D-398** (cut every frozen stretch, trim to the boundary); its trims wait on **P-74** |
+| T04k | ⏳ **implemented, final pass running, then stops for "Approved"** — `b/T04k-clean-daily`. Review: `docs/reviews/T04k_review.md` (rewritten from the final pass). Decisions D-396, D-398, D-399, **D-700**; open **P-75** |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T12 | not started |
 
