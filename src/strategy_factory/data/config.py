@@ -359,7 +359,8 @@ class DailyWickOutlierConfig(_Frozen):
     is ``price_spikes``, which is the population this check is aimed at.
     """
 
-    k1_atr: float = Field(default=3.0, gt=0)
+    #: A multiple of the **body-range** ATR (D-703), not of the true-range ATR.
+    k1_atr: float = Field(default=9.0, gt=0)
     k2_pct: float = Field(default=10.0, gt=0)
     #: D-703: the ATR is of **body ranges** (|open - close|), so clipping cannot move it.
     atr_length: int = Field(default=14, gt=0)

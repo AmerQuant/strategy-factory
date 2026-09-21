@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-706**; **P-60 … P-79 is used up** (P-79 was the last) — a new pending range is needed from the supervisor. The range **D-700 … D-799** is merged into
+Next free here: **D-706**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21; stream A adds it to `ownership.yaml` — until then `sfac streams check` rejects `P-8x` rows (P-80 is one). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -62,10 +62,11 @@ with answers P-75…P-78 → **D-701…D-704**, and D-705 (CUSIP task **T04l**, 
 cap 3) implemented; the **D-702** retire/quarantine tool built and dry-run (3,262 to retire, 3,250
 flat logs) — **not applied yet**.
 
-**Blocked on the supervisor: P-79.** On the body-range ATR the unchanged `k1_atr: 3.0` flags 9.9x
-more wicks (49,428 vs 4,991); `k1 ≈ 9` reproduces the old count. The re-derivation waits on it.
-Then, in order: `scripts/ingest/T04k_rederive_quarantine.py --apply` (moves, never deletes) → full
-`sfac data clean` → assert every clean snapshot's notes carry its config hash and its log's arms →
+**Blocked on the supervisor: P-80.** P-79 is answered (`k1_atr: 9` on the body-range ATR, now in
+config), but the ratio it was to be justified by is 2.22 (median), not ~3: 9 = 3 x the p90 ratio.
+The re-derivation waits on P-80. Then, in order: `scripts/ingest/T04k_rederive_quarantine.py
+--apply` (moves, never deletes; the folder is left for the supervisor to empty) → full
+`sfac data clean` → assert every clean snapshot carries its config hash and its log's arms →
 `sfac data clean --set-reference` → PR → stop for "Approved. Merge".
 
 **What a fresh session needs to know about T04k:**
