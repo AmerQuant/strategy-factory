@@ -20,6 +20,83 @@ rows) carries **`old_cusip` and `new_cusip`**. A CUSIP identifies the **security
 so it can separate two companies that shared a ticker even where no name is left to compare, and it
 cannot be fooled by a company renaming itself (D-705).
 
+## Update 2026-09-21 — scope after D-707/D-708, and the measured coverage (§1 done)
+
+**Branch:** `b/T04l-cusip-reuse` from `main` (`d2ebc6a`: T04k, T04h and the provenance follow-up merged).
+
+### Candidates (D-705, D-708)
+
+| set | where from | rows |
+|---|---|---|
+| T04k kept | the re-use candidates D-700 left spliced (`T04k_boundaries.csv`, outcome `kept …`) | 221 (1D) |
+| D-708 long gaps | every gap ≥ `relisting.gap_days` (200) **without** a price-level break in a current reference (`T04h_long_gaps.csv`) — the price jump is **dropped** from the criterion (D-708) | 92 gaps on 87 symbols (1D), 4 (1H: `CSRA`, `DOW`, `EMC`, `Q`) |
+
+317 rows, 304 distinct symbols. Every boundary T04l trims in a 1D series is applied to that symbol's 1H
+series too (D-707, D-708).
+
+### What the `NAME_CHANGE` feed can and cannot speak to (measured: `scripts/analysis/T04l_coverage.py` → `docs/reviews/T04l_cusip_coverage.csv`)
+
+The feed is the **only CUSIP source in the raw store**: the Alpaca and quantplatform asset lists carry
+today's name per ticker and no CUSIP; the S&P PIT list and MS-US-1D are ticker-keyed. The feed (3,650
+rows, 813 with a CUSIP change) holds a CUSIP **only on a rename row** — `old_symbol/old_cusip →
+new_symbol/new_cusip`. So a ticker has CUSIP evidence only where a holder **renamed into or away from
+it**. A re-listing years later by an unrelated company (an IPO, a SPAC, a spin-off listing under a free
+ticker) and an old holder that left by **merger, acquisition or delisting** produce **no rename row** —
+the feed is silent on exactly the typical re-use. Per side of the break (before: a rename away before
+the series resumes, or a rename into it before the break; after: a rename into it from the break on,
+or away after it resumes):
+
+| candidates | CUSIP both sides | before only | after only | none |
+|---|---|---|---|---|
+| T04k kept (221, 1D) | **9** | 19 | 35 | **158** |
+| D-708 long gaps (92, 1D) | **6** | 23 | 11 | **52** |
+| D-708 long gaps (4, 1H) | 0 | 0 | 1 (`Q`) | 3 |
+
+Where both sides have a CUSIP (15 rows, 14 symbols — `REED` is in both sets):
+
+| relation | symbols | reading |
+|---|---|---|
+| **different issuer** (first 6 characters differ) | `AACI`, `BRPM`, `CMII`, `HYAC`, `SVAC` (long gaps); `CTRA`, `GRAF` (T04k kept) | a different security → **re-use** |
+| **same issuer, new CUSIP** | `REED`, `AIM`, `BURU`, `PAPL`, `PTN`, `QTI`, `WW` | a corporate action of one issuer — here the pattern of a **reverse-split CUSIP reissue** → same company |
+| same CUSIP | — | same security |
+
+So on today's evidence the CUSIP settles **6 of the 92 daily long gaps** (5 re-uses, 1 same issuer) and
+**0 of the 4 hourly** ones, and **9 of the 221** T04k kept (2 re-uses: `CTRA`, `GRAF`; 7 same issuer).
+Of the named Moneta targets only **`CTRA`** is settled (a re-use: Contura/Alpha `020764106` → Coterra
+`127097103`); `MBLY`, `SE`, `SNOW` have **no feed row**. `PCL`, `Q`, `CSRA`, `AYA`, `HAWK`, `DOW`, `EMC` —
+the long gaps that prompted D-708 — have none either (`Q` after-side only).
+
+**Fallback for the rest.** Inside the store there is none beyond what T04k already used: D-700's company
+names (today's holder only) and the ticker-keyed cross-check (D-399: it cannot see a re-use). By
+**D-399 (4)** every candidate the CUSIP cannot settle **keeps its full history and is listed**. Whether
+to fetch more identity evidence — a user network run (D-031) — is **P-84**.
+
+### How a trimmed symbol's reference moves, and what that touches
+
+- **1D:** `sfac data clean --set-reference` derives a **new** clean snapshot from the **raw** one with the
+  CUSIP boundary applied (`derived_from` raw, config hash, log, provenance naming D-705/D-708) and makes it
+  the reference. The **previous clean reference stays** in the store and the catalog (rule 10); it was a
+  reference, so it is **not** retired (D-702 does not extend to it). The catalog logs a `set_reference`
+  event with the note `T04l CUSIP boundary`.
+- **1H:** a **derived 1H snapshot** of the raw 1H series, trimmed at the same boundary, with the same log
+  discipline and its own quality report, becomes the `(symbol, 1H)` reference; the raw 1H snapshot stays.
+- **Every moved reference is listed** in `docs/reviews/T04l_references_moved.csv` (symbol, timeframe, old
+  hash, new hash, boundary, evidence) and in `docs/streams/B.md` for stream A — nothing is re-pointed
+  silently.
+- **What was computed from the old references: nothing.** Stream B's registry (`sfac_b`) has 0 trials, 0
+  pipeline runs, 0 `data_snapshots` rows (checked 2026-09-21); T12 has not started; stream A's parity (T11)
+  reads the TradingView fixtures, not the Alpaca store. A run resolves references when it starts and
+  records their hashes (`core/config.py`), so a run made before T04l would still reproduce from the old
+  snapshot, which stays; a run after T04l reads the new one. That is why T04l must merge before T12
+  (D-705).
+- Symbols the CUSIP does not settle: **no reference moves**.
+
+### Stop
+
+Per §1 and §2: the coverage is measured and **thin** (15 of 317 rows can be decided). T04l **stops here**
+for the supervisor to confirm the rule with this coverage (**P-83**) and to decide on more evidence
+(**P-84**). No rule is implemented and no reference moves before that.
+
 ## Scope
 
 1. **Measure first.** For each of the 221 kept candidates (`docs/reviews/T04k_boundaries.csv`,

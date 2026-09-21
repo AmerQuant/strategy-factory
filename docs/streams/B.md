@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-707**, **P-83**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-709**, **P-85**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -55,26 +55,25 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04h done, PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30) open, stopped for "Approved. Merge"** — branch
-`b/T04h-alpaca-hourly-ingest`. Coverage gate passed (806 × 11 years, 0 missing); **805 1H references**
-ingested (`CCE` `no_data`), 371 MB, hours 09–15 only, 0 bars outside the session, quality ok 381 /
-warning 424 / critical 0, `summary_alpaca_1D.md` byte-identical, idempotent. Review:
-`docs/reviews/T04h_review.md`.
+**Current position:** **T04l stopped at §1 for the supervisor** — branch `b/T04l-cusip-reuse`
+(from `main` `d2ebc6a`), pushed, no PR. **T04h merged** (PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30)),
+**#29 merged**. P-81 → **D-707** (no general hourly cleaning; rests on 4 bars / 11,180 days, RTH-only
+by construction, 156 wick flags on 105 symbols), P-82 → **D-708** (every gap ≥ 200 days is a T04l
+candidate regardless of price; the CUSIP decides; D-399 (4) stands; 1H too).
 
-**T04k merged** (PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28), `5babc6e`): 3,239
-clean daily snapshots are the references. The D-702 quarantine folders
-(`<store>/_quarantine/T04k_D-702_*`) are **left for the supervisor and the user to empty**.
+T04l's plan and measured coverage are in `docs/tasks/T04l_cusip_reuse.md` ("Update 2026-09-21") and
+`docs/reviews/T04l_cusip_coverage.csv`: the rename feed is the only CUSIP source and speaks only where a
+holder renamed; the CUSIP can decide **15 of 317** candidate rows (7 re-uses: `AACI`, `BRPM`, `CMII`,
+`HYAC`, `SVAC`, `CTRA`, `GRAF`; 7 same issuer). D-708's long gaps: 6 of 92 daily settled, 0 of 4 hourly.
+Nothing implemented, **no reference moved**.
 
-**Merged:** PR [#29](https://github.com/AmerQuant/strategy-factory/pull/29) (`d0dd2b9`) — `CLEAN_DECISIONS`
-names D-701/D-703/D-704/D-706 in later clean provenance.
+**Blocked on the supervisor:** **P-83** (confirm the rule on this coverage) and **P-84** (fetch the other
+Alpaca corporate-action types — a user network run — so "the old security ceased before the break" can
+be evidence).
 
-**Open for the supervisor:** **P-81** (does 1H need its own cleaning pass — measured: no frozen
-stretches in the hourly feed, bad prints rare, re-use boundaries matter → recommend T04l applies its
-boundaries to 1H too), **P-82** (found in T04h: the re-use sweep needs a > 40 % price break, so 87 daily
-and 4 hourly references still splice two companies across a long gap — `PCL`, `Q`, `CSRA`, … →
-recommend T04l takes every long gap as a candidate).
-
-**Next:** **T04l** (CUSIP) after T04h merges, before T12 — its scope depends on P-81 and P-82.
+**For stream A:** when T04l runs, the 1D and 1H references of the trimmed symbols move to new derived
+snapshots; each move will be listed in `docs/reviews/T04l_references_moved.csv` and here. Nothing is
+computed from them yet (registry `sfac_b` empty; T12 not started).
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -106,7 +105,8 @@ recommend T04l takes every long gap as a candidate).
 | T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
-| T04h | ⏸ **done, PR open** — `b/T04h-alpaca-hourly-ingest`. 805 1H references, gate and verification in `docs/reviews/T04h_review.md`; P-81, P-82 open |
+| T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
+| T04l | ⏸ **stopped at §1** — `b/T04l-cusip-reuse`; coverage measured (15 of 317 decidable); P-83, P-84 open |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
