@@ -39,18 +39,24 @@ def test_F_0_1_9_D_399_a_continuous_crosscheck_is_an_unadjusted_split() -> None:
     assert "all-adjusted 1.0100" in got.evidence
 
 
-def test_F_0_1_9_D_399_both_series_making_the_same_move_is_a_halt() -> None:
-    """The price really did move across the gap, and both feeds agree it did."""
+def test_F_0_1_9_T04k_a_shared_break_does_not_settle_a_re_use() -> None:
+    """Measured on `PX`: MS-US-1D is ticker-keyed too, so it splices a re-used ticker identically.
+
+    A break in both feeds proves the break is in the data, never what caused it. D-399 (4) then
+    applies: keep the whole history and list the symbol.
+    """
     cross = _cross([(BEFORE, 50.0), (AFTER, 10.0)])
-    got = settle_boundary("HALTED", BEFORE, AFTER, 0.2, cross, TOL, JUMP)
-    assert got.verdict == HALT and not got.may_trim
+    got = settle_boundary("SHARED", BEFORE, AFTER, 0.2, cross, TOL, JUMP)
+    assert got.verdict == UNSETTLED and not got.may_trim
+    assert "both feeds break alike" in got.evidence
+    assert "cannot separate a re-use from a halt" in got.evidence
 
 
-def test_F_0_1_9_D_399_a_crosscheck_that_breaks_differently_is_a_re_use() -> None:
-    """The all-adjusted series breaks too, and by a different factor: a different company."""
+def test_F_0_1_9_T04k_feeds_breaking_by_different_factors_are_unsettled_too() -> None:
     cross = _cross([(BEFORE, 50.0), (AFTER, 150.0)])
-    got = settle_boundary("REUSED", BEFORE, AFTER, 0.2, cross, TOL, JUMP)
-    assert got.verdict == RE_USE and got.may_trim
+    got = settle_boundary("DIFFERENT", BEFORE, AFTER, 0.2, cross, TOL, JUMP)
+    assert got.verdict == UNSETTLED and not got.may_trim
+    assert "different factors" in got.evidence
 
 
 def test_F_0_1_9_D_399_no_crosscheck_file_is_unsettled_and_never_trims() -> None:
@@ -72,14 +78,17 @@ def test_F_0_1_9_D_399_a_nearby_bar_is_used_when_the_exact_date_is_missing() -> 
     assert got.verdict == UNADJUSTED_SPLIT
 
 
-def test_F_0_1_9_D_399_only_re_use_may_trim() -> None:
-    cross_by_verdict = {
-        UNADJUSTED_SPLIT: _cross([(BEFORE, 50.0), (AFTER, 50.5)]),
-        HALT: _cross([(BEFORE, 50.0), (AFTER, 10.0)]),
-        RE_USE: _cross([(BEFORE, 50.0), (AFTER, 150.0)]),
-    }
-    for expected, cross in cross_by_verdict.items():
-        ratio = 10.0 if expected is UNADJUSTED_SPLIT else 0.2
+def test_F_0_1_9_D_399_this_test_never_returns_a_trimmable_verdict() -> None:
+    """Only `re_use` may trim, and nothing this test can see proves a re-use (T04k finding)."""
+    cases = [
+        (10.0, _cross([(BEFORE, 50.0), (AFTER, 50.5)]), UNADJUSTED_SPLIT),
+        (0.2, _cross([(BEFORE, 50.0), (AFTER, 10.0)]), UNSETTLED),
+        (0.2, _cross([(BEFORE, 50.0), (AFTER, 150.0)]), UNSETTLED),
+        (0.2, None, UNSETTLED),
+    ]
+    for ratio, cross, expected in cases:
         got = settle_boundary("X", BEFORE, AFTER, ratio, cross, TOL, JUMP)
         assert got.verdict == expected
-        assert got.may_trim is (expected == RE_USE)
+        assert not got.may_trim
+    # the constants D-399 names are still defined, for a future discriminator
+    assert RE_USE and HALT

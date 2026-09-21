@@ -516,3 +516,63 @@ def test_F_0_1_6_D_396_the_extreme_check_counts_a_real_breach() -> None:
     assert res.status == "fail" and res.count == 1  # the short day is not counted
     assert res.details["not_evidence_days"] == 1
     assert "unexplained 1" in (res.message or "")
+
+
+def test_F_0_1_6_T04k_a_cap_never_moves_an_extreme_past_the_body() -> None:
+    """The open and the close really traded, so `low <= open, close <= high` must survive a cap.
+
+    Found by the store refusing 5 of 7 smoke-test symbols with `ohlc_outside_range`: the RTH
+    hourly range can sit entirely inside the daily body when the hourly feed missed the move.
+    """
+    rows = _calm(30)
+    rows[20] = (100.0, 130.0, 70.0, 125.0)  # the close is above the hourly high
+    br = _breaches(
+        [
+            {
+                "symbol": "EQ",
+                "session_date": _date(20),
+                "breach_class": UNEXPLAINED,
+                "breach_bps": 3000.0,
+                "rth_high": 101.0,
+                "rth_low": 99.0,
+                "rth_bars": 7,
+                "expected_bars": 7,
+            }
+        ]
+    )
+    clean, log = clean_daily(_daily(rows), "EQ", CFG, breaches=br)
+    assert clean["high"][20] == 125.0  # max(open, close), not the 101.0 hourly high
+    assert clean["low"][20] == 99.0  # the low may still be capped
+    assert all(
+        lo <= min(o, c) and max(o, c) <= hi
+        for o, hi, lo, c in zip(
+            clean["open"], clean["high"], clean["low"], clean["close"], strict=True
+        )
+    )
+    assert "bounded by the body" in log.row(0, named=True)["evidence"]
+
+
+def test_F_0_1_6_T04k_the_clean_frame_always_satisfies_the_ohlc_invariant() -> None:
+    """Whatever the arms do, every bar still has `low <= open, close <= high`."""
+    rows = _padded(20, 15, 20)
+    rows[50] = (100.0, 160.0, 40.0, 101.0)
+    rows[52] = (100.0, 100.5, 40.0, 99.0)
+    br = _breaches(
+        [
+            {
+                "symbol": "EQ",
+                "session_date": _date(51),
+                "breach_class": UNEXPLAINED,
+                "breach_bps": 3000.0,
+                "rth_high": 100.2,
+                "rth_low": 100.1,
+                "rth_bars": 7,
+                "expected_bars": 7,
+            }
+        ]
+    )
+    clean, _log = clean_daily(_daily(rows), "EQ", CFG, breaches=br)
+    for o, hi, lo, c in zip(
+        clean["open"], clean["high"], clean["low"], clean["close"], strict=True
+    ):
+        assert lo <= min(o, c) and max(o, c) <= hi

@@ -209,9 +209,16 @@ def clean_daily(
             continue
         cap = caps.get(day)
         if cap is not None:
+            # A cap never moves an extreme past the body: the open and the close really traded,
+            # so `low <= open, close <= high` must survive it. Without this the store refuses the
+            # bar with `ohlc_outside_range`, which is how it was found -- the RTH hourly range can
+            # sit entirely inside the daily body when the hourly feed missed the move.
+            body = flags.row(i, named=True)
+            cap_high = max(float(cap["rth_high"]), body["body_high"])
+            cap_low = min(float(cap["rth_low"]), body["body_low"])
             for field, values, bound, better in (
-                ("high", highs, cap["rth_high"], highs[i] > cap["rth_high"]),
-                ("low", lows, cap["rth_low"], lows[i] < cap["rth_low"]),
+                ("high", highs, cap_high, highs[i] > cap_high),
+                ("low", lows, cap_low, lows[i] < cap_low),
             ):
                 if better:
                     rows.append(
@@ -224,7 +231,7 @@ def clean_daily(
                             bound,
                             f"D-396 ({cap['breach_class']}): RTH hourly range "
                             f"{cap['rth_low']}..{cap['rth_high']} from {cap['rth_bars']} of "
-                            f"{cap['expected_bars']} expected bars",
+                            f"{cap['expected_bars']} expected bars, bounded by the body",
                         )
                     )
                     values[i] = bound

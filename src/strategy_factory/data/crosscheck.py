@@ -7,25 +7,30 @@ A frozen stretch or a long gap with a level break is what **three** different th
 * a long **trading halt** that resumes at a different level.
 
 The ingested series cannot tell them apart, and **D-399 forbids trimming on an ambiguous
-signature**. The all-adjusted cross-check can: it applies every corporate action, so it runs
-**continuously** across a split and **breaks** across a change of company. That is the test that
-settled AVGO, and this module applies it to each `trim_to_boundary` candidate.
+signature**.
 
-Verdicts and what T04k does with each (D-399):
+**Measured limit of this test (T04k, 2026-09-21).** D-399 expects the all-adjusted series to be
+continuous across a corporate action and to break where the company actually changed. The first
+half holds -- it is what settled `AVGO`. **The second half does not**, because MS-US-1D is keyed by
+**ticker**, exactly like the Alpaca feed, so a re-used ticker splices **identically in both**.
+Measured on `PX`: the cross-check goes 156.80 -> 11.51 on 2021-10-21, the same day and the same
+shape as the ingested series, and it carries the same frozen padding at 156.80 before it. `MBLY` is
+the same. A shared break therefore proves only that the break is in the data, which a re-use and a
+halt both satisfy.
+
+So this test yields two useful answers, not four:
 
 ``unadjusted_split``
-    the cross-check is continuous where the ingested series jumps. **Not a boundary**: the symbol
-    takes the D-397 path (it fails ingest and is listed with its ``--refresh`` command) and its
-    history is left **untouched**.
-``halt``
-    both series resume at about the same level relative to each other and the break is a gap rather
-    than a change of company. **Not a boundary**: the frozen stretch is still cut under D-398 (1),
-    the history on both sides is kept, and the gap is stated in the quality report.
-``re_use``
-    the cross-check breaks too. **A boundary**: trim under D-398 (2).
+    the cross-check is **continuous** where the ingested series jumps. **Not a boundary**: the
+    symbol takes the D-397 path (it fails ingest and is listed with its ``--refresh`` command) and
+    its history is left **untouched**. This is the `AVGO` case and the test is decisive here.
 ``unsettled``
-    no cross-check file, no overlapping bars, or the two disagree. **Not a boundary**: the full
-    history is kept and the symbol is listed for the supervisor.
+    anything else -- both feeds break alike (the common case), they break differently, there is no
+    cross-check file, or there is no overlapping bar. **Not a boundary**: the full history is kept,
+    nothing is trimmed, and the symbol is listed for the supervisor, exactly as D-399 (4) says.
+
+``re_use`` and ``halt`` remain defined because D-399 names them and a future discriminator may
+reach them, but **this** test never returns them: nothing here can prove either one.
 """
 
 from __future__ import annotations
@@ -96,11 +101,19 @@ def settle_boundary(
     )
     if not broke:
         return CrosscheckVerdict(symbol, UNADJUSTED_SPLIT, evidence, ratio_ingested, ratio_cross)
-    if _same_move(ratio_ingested, ratio_cross, match_tolerance):
-        # Both series make the same move, so the level break is a real price move across a halt,
-        # not a different company: the two feeds agree about what happened.
-        return CrosscheckVerdict(symbol, HALT, evidence, ratio_ingested, ratio_cross)
-    return CrosscheckVerdict(symbol, RE_USE, evidence, ratio_ingested, ratio_cross)
+    # The cross-check breaks too. Both feeds are keyed by ticker, so they splice a re-used ticker
+    # the same way: a shared break proves the break is real, never *what* caused it. Nothing here
+    # separates a re-use from a halt, so the case is not settled and nothing is trimmed (D-399).
+    alike = _same_move(ratio_ingested, ratio_cross, match_tolerance)
+    why = "both feeds break alike" if alike else "the feeds break by different factors"
+    return CrosscheckVerdict(
+        symbol,
+        UNSETTLED,
+        f"{evidence}; {why}, and MS-US-1D is ticker-keyed like the ingested feed, "
+        f"so it cannot separate a re-use from a halt",
+        ratio_ingested,
+        ratio_cross,
+    )
 
 
 def _same_move(a: float, b: float, tolerance: float) -> bool:
