@@ -55,7 +55,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04h done, PR open, stopped for "Approved. Merge"** — branch
+**Current position:** **T04h done, PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30) open, stopped for "Approved. Merge"** — branch
 `b/T04h-alpaca-hourly-ingest`. Coverage gate passed (806 × 11 years, 0 missing); **805 1H references**
 ingested (`CCE` `no_data`), 371 MB, hours 09–15 only, 0 bars outside the session, quality ok 381 /
 warning 424 / critical 0, `summary_alpaca_1D.md` byte-identical, idempotent. Review:
