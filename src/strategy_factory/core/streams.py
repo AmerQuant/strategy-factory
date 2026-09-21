@@ -50,6 +50,21 @@ _DOWN = re.compile(
 )
 
 
+def as_ranges(value: Any) -> Any:
+    """Accept one ``[lo, hi]`` pair as well as a list of them (D-372, D-600).
+
+    A range gets used up, so both the supervisor and a stream can end up holding more than
+    one. The single-pair form stays valid so no existing ownership file has to be rewritten.
+    """
+    if isinstance(value, (list, tuple)) and value and all(isinstance(v, int) for v in value):
+        return (tuple(value),)
+    return value
+
+
+def describe(ranges: tuple[tuple[int, int], ...], kind: str = "D") -> str:
+    return " and ".join(f"{kind}-{lo} … {kind}-{hi}" for lo, hi in ranges)
+
+
 class StreamSpec(BaseModel):
     """One stream's branch prefix and ID ranges."""
 
@@ -58,19 +73,36 @@ class StreamSpec(BaseModel):
     name: str
     branch_prefix: str = Field(min_length=2)
     folder: str = ""  # D-357 (1): the only folder this stream may work in
-    decisions: tuple[int, int]
+    #: One or more decision ranges: a stream's range can be used up, so stream B holds
+    #: ``D-380 … D-399`` and ``D-700 … D-799`` (D-372). Pending stays a single range --
+    #: a ``P-`` number always belongs to the stream that raised the question.
+    decisions: tuple[tuple[int, int], ...]
     pending: tuple[int, int]
+
+    _ranges = field_validator("decisions", mode="before")(as_ranges)
 
     @model_validator(mode="after")
     def _ordered(self) -> StreamSpec:
-        for label, lo_hi in (("decisions", self.decisions), ("pending", self.pending)):
-            if lo_hi[0] > lo_hi[1]:
-                raise ValueError(f"{self.name}: {label} range {lo_hi} is inverted")
+        if not self.decisions:
+            raise ValueError(f"{self.name}: at least one decision range is needed")
+        for lo, hi in self.decisions:
+            if lo > hi:
+                raise ValueError(f"{self.name}: decision range ({lo}, {hi}) is inverted")
+        if self.pending[0] > self.pending[1]:
+            raise ValueError(f"{self.name}: pending range {self.pending} is inverted")
         return self
 
     def covers(self, kind: str, number: int) -> bool:
-        lo, hi = self.decisions if kind == "D" else self.pending
+        if kind == "D":
+            return any(lo <= number <= hi for lo, hi in self.decisions)
+        lo, hi = self.pending
         return lo <= number <= hi
+
+    def describe(self, kind: str) -> str:
+        """The stream's own ranges, for an error message."""
+        if kind == "D":
+            return describe(self.decisions)
+        return describe((self.pending,), "P")
 
 
 class SupervisorRange(BaseModel):
@@ -85,13 +117,7 @@ class SupervisorRange(BaseModel):
 
     decisions: tuple[tuple[int, int], ...]
 
-    @field_validator("decisions", mode="before")
-    @classmethod
-    def _as_ranges(cls, value: Any) -> Any:
-        """Accept one ``[lo, hi]`` pair as well as a list of them."""
-        if isinstance(value, (list, tuple)) and value and all(isinstance(v, int) for v in value):
-            return (tuple(value),)
-        return value
+    _ranges = field_validator("decisions", mode="before")(as_ranges)
 
     @model_validator(mode="after")
     def _ordered(self) -> SupervisorRange:
@@ -106,7 +132,7 @@ class SupervisorRange(BaseModel):
         return kind == "D" and any(lo <= number <= hi for lo, hi in self.decisions)
 
     def describe(self) -> str:
-        return " and ".join(f"D-{lo} … D-{hi}" for lo, hi in self.decisions)
+        return describe(self.decisions)
 
 
 class Ownership(BaseModel):
@@ -236,12 +262,11 @@ def check_ids(
             continue  # a decision the supervisor dictated (D-355): any stream may carry it
         spec = ownership.streams[stream]
         if not spec.covers(kind, number):
-            lo, hi = spec.decisions if kind == "D" else spec.pending
             extra = ""
             if ownership.supervisor is not None and kind == "D":
                 extra = f"; the supervisor's range is {ownership.supervisor.describe()}"
             problems.append(
-                f"{label}: outside stream {stream}'s range {kind}-{lo} … {kind}-{hi} (D-355){extra}"
+                f"{label}: outside stream {stream}'s range {spec.describe(kind)} (D-355){extra}"
             )
     return problems
 

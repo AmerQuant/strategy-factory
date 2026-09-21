@@ -21,7 +21,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 |---|---|---|
 | supervisor | D-355 … D-359 | — |
 | **stream A (this one)** | **D-360 … D-379** | **P-40 … P-59** |
-| stream B | D-380 … D-399 | P-60 … P-79 |
+| stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 |
 
 Next free here: **D-360**, **P-40**.
 
