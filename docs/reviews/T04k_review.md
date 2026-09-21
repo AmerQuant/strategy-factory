@@ -318,12 +318,12 @@ the log.
 ## 13. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                            1327 passed, 1 failed (below)
-uv run pytest tests/parity tests/leakage tests/oracle    283 passed
+uv run pytest -m "not slow"                            1439 passed, 1 failed (below)
+uv run pytest tests/parity tests/leakage tests/oracle    327 passed
 uv run pytest -m db                                       21 passed, 0 skipped
 uv run ruff check . / ruff format --check .             clean
-uv run mypy src                                         no issues in 104 source files
-uv run sfac streams check --base origin/main            fails on one row only: P-80 (range P-80…P-99 queued with stream A, as instructed)
+uv run mypy src                                         no issues in 111 source files
+uv run sfac streams check --base origin/main            ok (rebased onto main 0615538, which carries D-376: P-80 … P-99)
 ```
 
 The one failure is stream A's `test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio` (their
@@ -332,8 +332,8 @@ changed; `SFAC_RAW_ROOT` was only read.
 
 ## 14. For the supervisor
 
-- **"Approved. Merge"** for this PR. CI's ID guard is red **only** for the `P-80` row: the P-80…P-99
-  range is queued with stream A and not yet in `ownership.yaml`; not worked around, as instructed.
+- **"Approved. Merge"** for this PR. The ID guard is **green**: stream A's D-376 (PR #27) landed the
+  P-80 … P-99 range, and the branch is rebased onto it.
 - The quarantine folders to empty when you choose (§15).
 - **221 of the 280 stay spliced** (minus padding), four of the five named Moneta targets among them —
   **T04l** (CUSIP) after T04h, before T12 (D-705).

@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-707**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21; stream A adds it to `ownership.yaml` — until then `sfac streams check` rejects `P-8x` rows (P-80 is one). The range **D-700 … D-799** is merged into
+Next free here: **D-707**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -70,8 +70,8 @@ rule's reach; 6.66 rejected). The approved sequence has run:
 Before/after per arm and flags: `docs/reviews/T04k_review.md` §15 (ok→warning 632 → 24;
 `daily_extreme_unsupported` 572 → 0; non-hourly wick flags 230 series → 0).
 
-**CI:** the ID guard is red **only** for the `P-80` row — the P-80…P-99 range is queued with stream
-A. Not worked around (supervisor's instruction); the supervisor sequences the merges.
+**CI:** the ID guard is green — stream A's D-376 (PR #27) landed P-80 … P-99 and the branch is
+rebased onto `main` (0615538).
 
 **Next:** after the merge, **T04h** (1H ingest), then **T04l** (CUSIP, before T12).
 
