@@ -74,7 +74,9 @@ def show_cmd(
 ) -> None:
     """Show the reference snapshot's metadata for SYMBOL and TIMEFRAME."""
     try:
-        meta = Catalog().get_reference(symbol, timeframe)
+        catalog = Catalog()
+        meta = catalog.get_reference(symbol, timeframe)
+        splices = catalog.splices(meta.key())
     except SfacError as exc:
         raise _fail(exc) from exc
     for key, value in meta.model_dump().items():
@@ -84,6 +86,10 @@ def show_cmd(
                 typer.echo(f"{'':<17}{ref.sha256[:12]}  {ref.path}")
             continue
         typer.echo(f"{key:<15}: {value}")
+    # D-709: a series that joins (or was cut from) what may be two companies says so here
+    typer.echo(f"{'splices':<15}: {len(splices) or 'none'}")
+    for s in splices:
+        typer.echo(f"{'':<17}{s.role} {s.boundary} {s.reason} ({s.decision}): {s.evidence}")
 
 
 def _register_subcommands() -> None:

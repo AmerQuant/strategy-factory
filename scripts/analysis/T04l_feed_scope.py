@@ -19,7 +19,8 @@ from typing import Any
 
 import polars as pl
 
-from strategy_factory.data.download.rawfiles import raw_root, version_of
+from strategy_factory.data.download.alpaca_reference import latest_action_files
+from strategy_factory.data.download.rawfiles import raw_root
 
 SYMBOL_FIELDS = (
     "symbol",
@@ -44,18 +45,11 @@ KNOWN = [
 
 
 def _load(folder: Path) -> dict[str, list[dict[str, Any]]]:
-    """The **latest** download of each answer key (a re-run writes ``<name>.vN.json``)."""
-    latest: dict[str, tuple[str, int, Path]] = {}
-    for f in folder.glob("*.json"):
-        if f.name.endswith(".manifest.json") or f.name.startswith("name_changes"):
-            continue
-        base, n = version_of(f, ".json")
-        key, stamp = base.rsplit("_", 1)
-        if key not in latest or (stamp, n) > latest[key][:2]:
-            latest[key] = (stamp, n, f)
-    for _key, (_, _, f) in sorted(latest.items()):
-        print(f"  reading {f.name}")
-    return {key: json.loads(f.read_text(encoding="utf-8")) for key, (_, _, f) in latest.items()}
+    """The **latest** download of each answer key (the library's selection, D-711)."""
+    files = {k: p for k, p in latest_action_files(folder).items() if k != "name_changes"}
+    for p in files.values():
+        print(f"  reading {p.name}")
+    return {k: json.loads(p.read_text(encoding="utf-8")) for k, p in files.items()}
 
 
 def _date(row: dict[str, Any]) -> str:

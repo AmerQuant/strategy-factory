@@ -124,19 +124,25 @@ class Splice(BaseModel):
     (D-392), so a marker written there would be silently lost.
 
     ``role`` says which snapshot carries it: ``full_history`` -- this series still joins what may
-    be two companies across ``boundary``; ``research_window`` -- this series was derived to start at
-    the last unsettled boundary (D-713) and is the one research reads.
+    be two companies across ``boundary`` (or, for ``unadjusted_split``, holds a price jump its
+    history is not adjusted for: the D-397 path); ``research_window`` -- this series was derived
+    to start at the last unsettled boundary (D-713) and is the one research reads.
+    ``break_start`` is the last bar before the break when the break is a gap (else empty).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     boundary: dt.date
+    break_start: dt.date | None = None
     role: Literal["full_history", "research_window"]
     reason: Literal[
         "cusip_none",
         "cusip_before_only",
         "cusip_after_only",
         "cusip_disagrees_with_name",
+        "cusip_mixed",
+        "same_issuer_split_unsettled",
+        "unadjusted_split",
     ]
     evidence: str
     decision: str = "D-709"

@@ -20,10 +20,13 @@ from typer.testing import CliRunner
 from strategy_factory.cli import app
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.cli_reuse import REUSE_DIR, SUMMARY, T04L_TAG
-from strategy_factory.data.cusip_evidence import Event, classify
+from strategy_factory.data.cusip_evidence import Event, SplitRecord, classify
 from strategy_factory.data.reuse import (
     KEEP,
+    NO_BREAK,
     SPLIT,
+    SPLIT_MATCH,
+    SPLIT_UNEXPLAINED,
     TRIM,
     UNSETTLED,
     Boundary,
@@ -31,6 +34,7 @@ from strategy_factory.data.reuse import (
     decide,
     long_gaps,
     plan,
+    split_test,
 )
 from strategy_factory.data.store import SnapshotStore
 
@@ -72,9 +76,9 @@ def test_F_0_1_2_D_709_the_actions() -> None:
         b.resumes,
         W,
     )
-    assert decide(b, diff) == TRIM
+    assert decide(b, diff) == (TRIM, "")
     same_company = Boundary(b.resumes, "T04k kept", "same_company")
-    assert decide(same_company, diff) == UNSETTLED  # CUSIP and names disagree
+    assert decide(same_company, diff) == (UNSETTLED, "cusip_disagrees_with_name")
     same = classify(
         [
             Event("reverse_splits", "id_before", "00901B105", "2021-10-04"),
@@ -83,19 +87,91 @@ def test_F_0_1_2_D_709_the_actions() -> None:
         b.resumes,
         W,
     )
-    assert decide(b, same, "unsettled") == KEEP
-    assert decide(b, same, "unadjusted_split") == SPLIT
-    assert decide(b, classify([], b.resumes, W)) == UNSETTLED
+    assert decide(b, classify([], b.resumes, W)) == (UNSETTLED, "cusip_none")
+    re_use = Boundary(b.resumes, "T04k kept", "re_use")
+    assert decide(re_use, same, NO_BREAK) == (UNSETTLED, "cusip_disagrees_with_name")
+
+
+def test_F_0_1_2_D_709_the_same_cusip_across_a_halt_keeps() -> None:
+    b = Boundary(_d("2023-05-15"), "long gap 1D", None, 400)
+    halt = classify(
+        [
+            Event("cash_dividends", "id", "268648102", "2021-03-01"),
+            Event("cash_dividends", "id", "268648102", "2023-08-01"),
+        ],
+        b.resumes,
+        W,
+        b.break_start,
+    )
+    assert halt.relation == "same_cusip"
+    assert decide(b, halt, NO_BREAK) == (KEEP, "")
+
+
+def test_F_0_1_2_D_709_a_split_test_that_cannot_tell_is_never_no_split() -> None:
+    """Reviewer B1: every outcome of the known-split test other than 'no break' is not a keep."""
+    b = Boundary(_d("2025-06-17"), "T04k kept", "ambiguous")
+    same = classify(
+        [
+            Event("reverse_splits", "id_before", "00901B105", "2025-06-12"),
+            Event("reverse_splits", "id", "00901B303", "2025-06-12"),
+        ],
+        b.resumes,
+        W,
+    )
+    assert decide(b, same, SPLIT_UNEXPLAINED) == (UNSETTLED, "same_issuer_split_unsettled")
+    assert decide(b, same, SPLIT_MATCH) == (SPLIT, "unadjusted_split")
+    assert decide(b, same, None) == (UNSETTLED, "same_issuer_split_unsettled")
+    assert decide(b, same, NO_BREAK) == (KEEP, "")
+
+
+def test_F_0_1_2_D_709_the_known_split_test() -> None:
+    ev = classify(
+        [
+            Event("reverse_splits", "id_before", "00901B105", "2025-06-12"),
+            Event("reverse_splits", "id", "00901B303", "2025-06-12"),
+        ],
+        _d("2025-06-17"),
+        W,
+    )
+    split = SplitRecord("2025-06-12", 100.0, ("00901B105", "00901B303"), "AIMID")
+    a, b = _d("2025-06-10"), _d("2025-06-17")
+    assert split_test(1.1, a, b, ev, [split], 0.40, 0.02)[0] == NO_BREAK
+    assert split_test(100.5, a, b, ev, [split], 0.40, 0.02)[0] == SPLIT_MATCH
+    assert split_test(107.0, a, b, ev, [split], 0.40, 0.02)[0] == SPLIT_UNEXPLAINED
+    assert split_test(100.0, a, b, ev, [], 0.40, 0.02)[0] == SPLIT_UNEXPLAINED  # none recorded
+    other = SplitRecord("2025-06-12", 100.0, ("99999Z101",), "OTHER")  # another issuer's split
+    assert split_test(100.0, a, b, ev, [other], 0.40, 0.02)[0] == SPLIT_UNEXPLAINED
+
+
+def test_F_0_1_2_D_709_mixed_evidence_is_unsettled() -> None:
+    ev = classify(
+        [
+            Event("reverse_splits", "id_before", "74841Q100", "2022-08-12"),
+            Event("stock_mergers", "id", "74841Q407", "2026-06-01"),
+            Event("stock_mergers", "id", "G73264114", "2026-06-02"),
+        ],
+        _d("2026-05-29"),
+        W,
+    )
+    assert decide(Boundary(_d("2026-05-29"), "T04k kept"), ev) == (UNSETTLED, "cusip_mixed")
 
 
 def test_F_0_1_2_D_713_the_series_starts_at_the_last_cut() -> None:
     p = plan([_decision("2019-01-02", TRIM), _decision("2022-05-02", UNSETTLED)])
     assert p.kind == "research_window" and p.start == _d("2022-05-02")
-    assert [d.boundary.resumes for d in p.unsettled] == [_d("2022-05-02")]
+    assert [d.boundary.resumes for d in p.marked] == [_d("2022-05-02")]
     p = plan([_decision("2019-01-02", UNSETTLED), _decision("2022-05-02", TRIM)])
-    assert p.kind == "trim" and p.start == _d("2022-05-02") and p.unsettled == ()
+    assert p.kind == "trim" and p.start == _d("2022-05-02") and p.marked == ()
     assert plan([_decision("2019-01-02", KEEP)]).kind == "none"
-    assert plan([_decision("2019-01-02", TRIM), _decision("2020-01-02", SPLIT)]).kind == SPLIT
+    p = plan([_decision("2019-01-02", TRIM), _decision("2020-01-02", SPLIT)])
+    assert p.kind == SPLIT and [d.boundary.resumes for d in p.marked] == [_d("2020-01-02")]
+
+
+def test_F_0_1_2_D_713_the_window_marker_names_only_its_own_boundary() -> None:
+    """Reviewer: a boundary the window already cut away is not on the window's marker (FIG)."""
+    p = plan([_decision("2022-05-17", UNSETTLED), _decision("2025-07-31", UNSETTLED)])
+    assert [d.boundary.resumes for d in p.marked] == [_d("2022-05-17"), _d("2025-07-31")]
+    assert [d.boundary.resumes for d in p.window] == [_d("2025-07-31")]
 
 
 # ------------------------------------------------------------------------------- end to end
@@ -268,3 +344,118 @@ def test_F_0_1_8_T04l_an_hourly_gap_is_dated_as_the_daily_break_it_belongs_to() 
     kept = [Boundary(_d("2021-10-04"), "T04k kept")]
     assert _same_break(_d("2021-10-06"), 300, [], kept) == _d("2021-10-04")  # contains it
     assert _same_break(_d("2019-01-02"), 250, daily, kept) == _d("2019-01-02")  # its own break
+
+
+# ------------------------------------------------------------ the fixes of the acceptance review
+
+
+def test_F_0_1_8_T04l_1d_is_rederived_from_raw_and_names_its_base(env: tuple[Path, Path]) -> None:
+    """D-713 'exactly as T04k': the 1D snapshot is derived from raw with every arm; the T04k clean
+    reference it replaces is its base (named in the notes), which keeps the marker."""
+    root, _ = env
+    store, catalog = SnapshotStore(root), Catalog(root)
+    raw_meta = make_meta(source="alpaca", source_symbol="UNS", symbol="UNS", session="exchange")
+    raw = catalog.register(store.write_snapshot(_spliced("2017-01-02", "2021-01-04"), raw_meta))
+    clean_bars = _spliced("2017-01-02", "2021-01-04").with_columns(pl.col("high") + 0.01)
+    clean_meta = raw_meta.model_copy(
+        update={"derived_from": raw.key(), "notes": "T04k clean daily (test)"}
+    )
+    clean = catalog.register(store.write_snapshot(clean_bars, clean_meta))
+    catalog.set_reference("UNS", "1D", clean.snapshot_hash or "")
+    _run()
+    row = pl.read_csv(root / REUSE_DIR / SUMMARY).row(0, named=True)
+    assert row["derived_from"] == raw.snapshot_hash and row["base_hash"] == clean.snapshot_hash
+    new = catalog.get(clean.key().model_copy(update={"snapshot_hash": row["new_hash"]}))
+    assert new.derived_from == raw.key()
+    assert f"Base snapshot {clean.snapshot_hash}" in new.notes
+    assert [s.role for s in catalog.splices(clean.key())] == ["full_history"]
+    assert catalog.splices(raw.key()) == ()  # the raw snapshot is not the base here
+
+
+def test_F_0_1_8_T04l_stale_notes_are_never_made_a_reference(env: tuple[Path, Path]) -> None:
+    """D-392: identical bars return the first writer's notes; such a snapshot is not moved to."""
+    root, _ = env
+    h = _register(root, "UNS", _spliced("2017-01-02", "2021-01-04"))
+    store, catalog = SnapshotStore(root), Catalog(root)
+    window = store.read_snapshot("alpaca", "UNS", "1D", h).filter(
+        pl.col("ts").dt.date() >= dt.date(2021, 1, 4)
+    )
+    old = make_meta(
+        source="alpaca", source_symbol="UNS", symbol="UNS", session="exchange", notes="old notes"
+    )
+    catalog.register(store.write_snapshot(window, old))  # an earlier writer of the same bars
+    _run("--set-reference")
+    row = pl.read_csv(root / REUSE_DIR / SUMMARY).row(0, named=True)
+    assert row["metadata_stale"] is True and row["reference_moved"] is False
+    assert "NOT moved" in row["note"]
+    assert catalog.get_reference("UNS", "1D").snapshot_hash == h
+
+
+def test_F_0_1_8_T04l_new_evidence_that_settles_a_break_undoes_the_move(
+    env: tuple[Path, Path],
+) -> None:
+    root, raw = env
+    h = _register(root, "UNS", _spliced("2017-01-02", "2021-01-04"))
+    _run("--set-reference")
+    catalog = Catalog(root)
+    assert catalog.get_reference("UNS", "1D").snapshot_hash != h
+    folder = raw / "reference" / "alpaca" / "corporate_actions"
+    (folder / "cash_dividends_20260922.json").write_text(  # later evidence: one security
+        json.dumps(
+            [
+                {"symbol": "UNS", "cusip": "555555101", "process_date": "2017-02-01"},
+                {"symbol": "UNS", "cusip": "555555101", "process_date": "2021-06-01"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    _run("--set-reference")
+    assert catalog.get_reference("UNS", "1D").snapshot_hash == h
+    assert catalog.splices(catalog.get_reference("UNS", "1D").key()) == ()
+
+
+def test_F_0_1_8_T04l_data_show_prints_the_marker(env: tuple[Path, Path]) -> None:
+    root, _ = env
+    _register(root, "UNS", _spliced("2017-01-02", "2021-01-04"))
+    _run("--set-reference")
+    out = CliRunner().invoke(app, ["data", "show", "UNS", "1D"])
+    assert out.exit_code == 0, out.output
+    assert "research_window 2021-01-04 cusip_none" in out.output
+
+
+def test_F_0_1_8_T04l_an_unadjusted_split_is_marked_and_derives_nothing(
+    env: tuple[Path, Path],
+) -> None:
+    """D-709 change 1 / D-397: a same-issuer break whose jump matches a recorded split."""
+    root, raw = env
+    a, b = _days("2017-01-02", 60), _days("2021-01-04", 60)
+    h = _register(root, "SPL", pl.concat([_bars(a, 4.0), _bars(b, 40.0)]))
+    _actions(
+        raw,
+        "reverse_splits",
+        [
+            {
+                "symbol": "SPL",
+                "old_cusip": "777777101",
+                "new_cusip": "777777309",
+                "old_rate": 10,
+                "new_rate": 1,
+                "process_date": "2020-12-01",
+            }
+        ],
+    )
+    _actions(
+        raw,
+        "cash_dividends",
+        [
+            {"symbol": "SPL", "cusip": "777777101", "process_date": "2017-02-01"},
+            {"symbol": "SPL", "cusip": "777777309", "process_date": "2021-06-01"},
+        ],
+    )
+    _run("--set-reference")
+    catalog = Catalog(root)
+    row = pl.read_csv(root / REUSE_DIR / SUMMARY).row(0, named=True)
+    assert row["kind"] == "unadjusted_split" and "--refresh" in row["note"]
+    assert catalog.get_reference("SPL", "1D").snapshot_hash == h  # nothing derived
+    marker = catalog.splices(catalog.get_reference("SPL", "1D").key())
+    assert [(s.role, s.reason) for s in marker] == [("full_history", "unadjusted_split")]

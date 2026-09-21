@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-712**, **P-86**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-714**, **P-87**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -55,36 +55,25 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04l stopped at §1 for the supervisor** — branch `b/T04l-cusip-reuse`
-(from `main` `d2ebc6a`), pushed, no PR. **T04h merged** (PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30)),
-**#29 merged**. P-81 → **D-707** (no general hourly cleaning; rests on 4 bars / 11,180 days, RTH-only
-by construction, 156 wick flags on 105 symbols), P-82 → **D-708** (every gap ≥ 200 days is a T04l
-candidate regardless of price; the CUSIP decides; D-399 (4) stands; 1H too).
+**Current position:** **T04l implemented and run without `--set-reference`; stopped for the review**
+— branch `b/T04l-cusip-reuse`, pushed, no PR. Review: `docs/reviews/T04l_review.md`.
+Decisions this round: **D-712** (the feed is not point-in-time; two re-keying rules, the CTRA example;
+no evidence before 2020 by construction), **D-713** (P-85: a derived snapshot from the last unsettled
+boundary becomes the reference — not a read-side rule; the 169 1D series too short after it were never
+usable).
 
-T04l's plan and measured coverage are in `docs/tasks/T04l_cusip_reuse.md` ("Update 2026-09-21") and
-`docs/reviews/T04l_cusip_coverage.csv`: the rename feed is the only CUSIP source and speaks only where a
-holder renamed; the CUSIP can decide **15 of 317** candidate rows (7 re-uses: `AACI`, `BRPM`, `CMII`,
-`HYAC`, `SVAC`, `CTRA`, `GRAF`; 7 same issuer). D-708's long gaps: 6 of 92 daily settled, 0 of 4 hourly.
-Nothing implemented, **no reference moved**.
+Result on the store: 317 boundaries on 304 symbols — **45 trims, 17 kept** (no unadjusted split),
+**255 unsettled**; derived 287 1D (45 trim, 242 research window) and 27 1H (4 trim, 23 window); bases
+marked `full_history`, windows `research_window`; **no reference moved**.
 
-**Answered:** P-83 → **D-709** (rule accepted; same-issuer cases settled by the known-split
-cross-check, an unadjusted split goes the D-397 path; every unsettled splice carries a marker in the
-store — catalog column `splices` + `splice` events + a `known_splice` quality check; moving a
-reference affects only future runs). P-84 → **D-710** (fetch the other corporate-action types).
+**Blocked on the supervisor:** approval of T04l, and **P-86** — three derived snapshots (`CA` 1H,
+`PCL` 1D/1H) carry first-run notes after the hourly-date fix; recommendation: retire and quarantine
+them (plus the superseded `CA` 1D) with the D-702 tools, re-run, then `--set-reference`.
 
-**Corporate actions:** the user's full re-run is on disk (v2, 387,840 rows) and passes the tested
-truncation check; the first run had been cut at 1,000 rows a year and its guard crashed unseen —
-recorded as **D-711**. Coverage re-measured per action type (`docs/reviews/T04l_coverage_by_type.csv`):
-the CUSIP decides 63 of 317 candidate rows; **245 of 304 symbols stay unsettled**; nothing before 2020
-can be settled from this feed.
-
-**Blocked on the supervisor:** **P-85** — may a marked splice enter stage 1, and with which history
-(recommendation: read it only from its last unsettled boundary on; 107 stay splittable, 138 leave via
-D-008). D-709 is **not implemented** yet.
-
-**For stream A:** when T04l runs, the 1D and 1H references of the trimmed symbols move to new derived
-snapshots; each move will be listed in `docs/reviews/T04l_references_moved.csv` and here. Nothing is
-computed from them yet (registry `sfac_b` empty; T12 not started).
+**For stream A:** when T04l's references move (after approval), 314 references (287 1D, 27 1H) change
+to derived snapshots, listed in `docs/reviews/T04l_references_moved.csv`; stage 1 can read the marker
+through `DataAccess.splices()` (a read-only method added to `data/split.py`). Nothing is computed from
+them yet.
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -117,7 +106,7 @@ computed from them yet (registry `sfac_b` empty; T12 not started).
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
-| T04l | ⏸ **waiting for P-85** — `b/T04l-cusip-reuse`; full corporate actions on disk (D-711); CUSIP decides 63 of 317 rows, 245 of 304 symbols unsettled |
+| T04l | ⏸ **stopped for the review** — `b/T04l-cusip-reuse`; run without `--set-reference`: 45 trims, 255 unsettled (research windows), 17 kept; P-86 open |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)

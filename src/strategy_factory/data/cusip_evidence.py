@@ -12,11 +12,19 @@ date; ``into`` / ``away`` -- a rename into / away from the ticker; ``ceased`` --
 **Sides of a break** (``resumes`` = the first bar after it), with the two rules of **D-712** -- the
 feed is not point-in-time (about 5 % of rows sit under a ticker the security took later):
 
-1. **Re-keyed rows:** a row of a CUSIP under the ticker, dated before that CUSIP renamed **into**
-   the ticker, is not evidence of who held the ticker then -- dropped.
-2. **The arriving holder:** a rename into the ticker, or any ``id`` row, dated within
-   ``window_days`` before the resumption counts on the **after** side; a rename away and a
-   cessation stay on the before side until the resumption.
+1. **Re-keyed rows:** a row of a CUSIP under the ticker, dated more than ``window_days`` before
+   that CUSIP renamed **into** the ticker, is not evidence of who held the ticker then -- dropped.
+   (Rows inside the window are the arriving holder's own, e.g. a reverse split days before its
+   rename.)
+2. **The arriving holder:** a rename into the ticker, any ``id`` row dated within ``window_days``
+   before the resumption (never earlier than the break's start, when known), and any row of a
+   CUSIP that renames into the ticker count on the **after** side; a rename away and a cessation
+   stay on the before side up to and
+   including the resumption date (a merger dated on that day ends the old security).
+
+**Relation** of the CUSIPs across the break, by issuer (the first six characters): the same issuers
+on both sides -> ``same_cusip`` / ``same_issuer``; no issuer in common -> ``different_issuer``;
+some in common and some not -> ``mixed`` -- a disagreement, never read as "same".
 
 ``CTRA`` (D-712's worked example): without rule 1 Cabot's 2021 dividends -- filed under ``CTRA``
 before Cabot renamed into it -- put Coterra's CUSIP on the before side and the break read *same
@@ -45,6 +53,7 @@ NONE: Final = "none"
 SAME_CUSIP: Final = "same_cusip"
 SAME_ISSUER: Final = "same_issuer"
 DIFFERENT_ISSUER: Final = "different_issuer"
+MIXED: Final = "mixed"
 
 #: (symbol field, cusip field, role) per answer key.
 FIELDS: Final[dict[str, tuple[tuple[str, str, str], ...]]] = {
@@ -132,14 +141,24 @@ def load_events(folder: Path) -> tuple[dict[str, list[Event]], dict[str, int]]:
     return dict(by_symbol), dict(no_cusip)
 
 
-def classify(events: list[Event], resumes: dt.date, window_days: int) -> Evidence:
+def classify(
+    events: list[Event],
+    resumes: dt.date,
+    window_days: int,
+    break_start: dt.date | None = None,
+) -> Evidence:
     """The CUSIPs on each side of a break that resumes on ``resumes`` (D-709, D-712)."""
     r = resumes.isoformat()
-    arriving = (resumes - dt.timedelta(days=window_days)).isoformat()
+    window = dt.timedelta(days=window_days)
+    start = resumes - window
+    if break_start is not None:
+        start = max(start, break_start)
+    arriving = start.isoformat()
     arrived: dict[str, str] = {}
     for e in events:
         if e.role == "into":
-            arrived[e.cusip] = min(arrived.get(e.cusip, e.date), e.date)
+            first = (dt.date.fromisoformat(e.date) - window).isoformat()
+            arrived[e.cusip] = min(arrived.get(e.cusip, first), first)
     before: dict[str, set[str]] = defaultdict(set)
     after: dict[str, set[str]] = defaultdict(set)
     ceased: set[str] = set()
@@ -149,24 +168,27 @@ def classify(events: list[Event], resumes: dt.date, window_days: int) -> Evidenc
             dropped += 1  # D-712 rule 1: filed under a ticker the security took later
             continue
         if e.role in ("into", "id"):
-            side = after if e.date >= arriving else before  # D-712 rule 2
+            # D-712 rule 2: the arriving holder -- inside the window before the resumption, or a
+            # row of a CUSIP that renames into the ticker (rule 1 already dropped its older rows)
+            side = after if e.date >= arriving or e.cusip in arrived else before
         elif e.role == "id_before":
             side = before if e.date <= r else after
-        else:  # away, ceased: the old holder leaving
-            side = before if e.date < r else after
+        else:  # away, ceased: the old holder leaving -- up to and including the resumption
+            side = before if e.date <= r else after
         side[e.cusip].add(e.type)
-        if e.role == "ceased" and e.date < r:
+        if e.role == "ceased" and e.date <= r:
             ceased.add(e.type)
     b, a = set(before), set(after)
     coverage = BOTH if b and a else BEFORE_ONLY if b else AFTER_ONLY if a else NONE
     relation = None
     if coverage == BOTH:
-        if b & a:
-            relation = SAME_CUSIP
-        elif {x[:ISSUER_LEN] for x in b} & {x[:ISSUER_LEN] for x in a}:
-            relation = SAME_ISSUER
-        else:
+        bi, ai = {x[:ISSUER_LEN] for x in b}, {x[:ISSUER_LEN] for x in a}
+        if not bi & ai:
             relation = DIFFERENT_ISSUER
+        elif bi != ai:
+            relation = MIXED
+        else:
+            relation = SAME_CUSIP if b & a else SAME_ISSUER
     return Evidence(
         coverage,
         relation,
@@ -177,3 +199,31 @@ def classify(events: list[Event], resumes: dt.date, window_days: int) -> Evidenc
         tuple(sorted(ceased)),
         dropped,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class SplitRecord:
+    """A forward or reverse split in the feed: the price multiplies by ``factor`` on ``date``
+    when the history is **not** adjusted for it (``old_rate / new_rate``)."""
+
+    date: str
+    factor: float
+    cusips: tuple[str, ...]
+    symbol: str
+
+
+def load_splits(folder: Path) -> list[SplitRecord]:
+    """Every forward and reverse split with its rates (D-709 change 1: the known-split test)."""
+    out: list[SplitRecord] = []
+    for key, path in latest_action_files(folder).items():
+        if key not in ("forward_splits", "reverse_splits"):
+            continue
+        for row in json.loads(path.read_text(encoding="utf-8")):
+            old, new = row.get("old_rate"), row.get("new_rate")
+            if not old or not new:
+                continue
+            cusips = tuple(str(row[k]) for k in ("cusip", "old_cusip", "new_cusip") if row.get(k))
+            out.append(
+                SplitRecord(action_date(row), float(old) / float(new), cusips, str(row["symbol"]))
+            )
+    return out
