@@ -26,6 +26,33 @@ says a warning alone is not enough: the data the pipeline reads must be correcte
 Only **826 of 6,711** daily symbols have hourly data, so the correction has two arms and the
 cheaper one must work for every symbol.
 
+## How much of the universe this is — measured, not assumed
+
+T04g ingested 6,707 daily snapshots and ran the quality checks over all of them: **4,002 `ok`,
+2,705 `warning`, 0 `critical`**. The 2,705 warnings partition as follows (each snapshot counted
+once, in the first bucket it falls into; source `docs/reviews/T04g_quality_1D.csv` joined to
+`docs/reviews/T04i_relisting_verdicts.csv`):
+
+| bucket | snapshots | share of the warnings | what T04k does with it |
+|---|---|---|---|
+| **A1.** a D-398 finding, verdict `frozen_removed` | **517** | 19.1 % | cut the frozen stretch (§1b (1)) |
+| **A2.** a D-398 finding, verdict `trim_to_boundary` | **280** | 10.4 % | settle it under **D-399** (§1c), then trim, refresh or keep |
+| **B.** `stale_prices` or `zero_volume`, **no** D-398 finding | **954** | 35.3 % | the padding signature **below** the 10-session threshold, or zero volume without a frozen price — §1b cuts nothing here; the checks keep reporting it |
+| **C.** `missing_bars` without a padding signature | **23** | 0.9 % | nothing; a genuinely sparse series |
+| **D.** `price_spikes` only | **931** | 34.4 % | the **`daily_wick_outlier`** arm (§1, D-396): this is the bucket the wick clip is for |
+
+So the two arms are about the same size and they barely overlap: **797 snapshots (29.5 %)** are the
+D-398 padding/re-use family and **931 (34.4 %)** are spike-only. Bucket **B** is the one to watch —
+it is the largest single bucket and **T04k changes none of it**, because the frozen runs there are
+shorter than `relisting.frozen_min_sessions`. If the review finds bucket B is dominated by runs of
+5–9 sessions, that is an argument for lowering the threshold, and it is a **supervisor decision**,
+not a task-level one.
+
+The delisted tail is inside bucket A: its `missing_pct` has a median of 0 but a p90 of **8.4 %** and
+a maximum of **94 %** (`MDA`, 135 real bars spread over 2017-10-05 … 2026-09-18), while every other
+bucket has a p90 of **0 %**. Trimming and padding-removal is what closes that gap; no other bucket
+has a missing-bar problem at all.
+
 ## Scope
 
 ### 1. Two quality checks (F-0.1.6, D-396 part 1)
@@ -126,7 +153,9 @@ one pass over the symbol and one derived snapshot, not two.
 ### 3. Report
 
 `docs/reviews/T04k_review.md` plus a committed CSV of every changed bar, aggregated per symbol and
-per date. Compare the before/after distribution of the daily range, and state how many symbols were
+per date. **Re-measure the five buckets above after the clean snapshots exist** and say which ones
+moved: A1 and A2 should empty, D should shrink to the wicks the clip did not touch, and B should be
+unchanged — if B moved, something cut more than D-398 allows. Compare the before/after distribution of the daily range, and state how many symbols were
 touched at all — if the clean snapshot differs from the raw one for only a small minority, say so
 plainly, because that is the argument for making it the default reference.
 

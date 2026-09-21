@@ -22,11 +22,14 @@ folds it into `HANDOFF.md` at merges.
 
 | | decisions | pending |
 |---|---|---|
-| supervisor | D-355 … D-359 | — |
+| supervisor | D-355 … D-359 (used up), **D-600 … D-699** | — |
 | stream A | D-360 … D-379 | P-40 … P-59 |
-| **stream B (this one)** | **D-380 … D-399** | **P-60 … P-79** |
+| **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-400** (range exhausted — ask the supervisor), **P-75**.
+Next free here: **D-700**, **P-75**. The supervisor granted **D-700 … D-799** on 2026-09-21
+because D-380 … D-399 is exhausted (D-399 was the last). **The CI guard does not know about it
+yet** — see the stream-A action below — so a `D-7xx` row fails `sfac streams check` until
+`docs/streams/ownership.yaml` carries the range. Until then stream B writes no new decision row.
 
 ## Rules that bind this stream (D-355)
 
@@ -53,14 +56,14 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ⏭ → T04k → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch **`b/T04g-alpaca-daily-ingest`** at `4491fa6`, rebased onto
-`a48f6f4` (stream A's PR #22). T04i is **merged** (PR #21). **T04g is complete** — 6,707 of 6,711
+**Current position:** branch **`b/T04g-alpaca-daily-ingest`**, rebased onto `48ba1ac`
+(stream A's PR #23). T04i is **merged** (PR #21). **T04g is complete** — 6,707 of 6,711
 daily symbols are in the snapshot store — and waits for review; next is **T04k**, then T04h when
 the 1H download is confirmed complete.
 
-**Blocked on nothing.** Open questions P-68 … P-70 do not block; P-71 … P-74 are answered
-(D-395 … D-399). **Stream B's decision range D-380 … D-399 is now exhausted** — a further stream-B
-decision needs a new range from the supervisor.
+**Blocked on one thing, and only for new decisions:** the `D-700 … D-799` range is not in
+`docs/streams/ownership.yaml` yet (stream A's file — see the action below). Open questions
+P-68 … P-70 do not block; P-71 … P-74 are answered (D-395 … D-399).
 
 | item | state |
 |---|---|
@@ -115,22 +118,28 @@ The daily universe is unchanged at 6,711 rows.
 `EQR` and `IR` are Moneta targets kept under D-388; `FISV` (broker `FI`, D-356) stays because the
 chain `FISV→FI→FISV` resolves back to it.
 
-## FOR STREAM A — two things from T04g
+## FOR STREAM A — one request and two notes from T04g
 
-1. **`test_F_X_9_d369_removed_rows_reads_real_git_output` was changed (one range, same intent).**
-   Stream A's new D-369 test diffs `HEAD~1..HEAD` over `docs/decisions/decisions_log.md` and
-   asserts the diff carries a `--- a/…` header. That holds only when the previous commit happened
-   to edit the log, so it fails on **any** branch whose last commit does not — it failed on
-   `b/T04g-alpaca-daily-ingest`. It now diffs from the parent of the **last commit that touched the
-   file** (an ancestor of `HEAD`, so `base..HEAD` still carries the change). The assertions are
-   untouched. Stream A owns the file; revert or reshape it freely, but the `HEAD~1` assumption
-   needs to go either way.
-2. **Stream B independently hit the same guard defect and reverted its fix.** While T04g was
-   running, answering P-74 tripped `sfac streams check` with "P-74: duplicate id". Stream B
-   implemented the same `removed_rows` exemption, then found stream A had already merged it as
-   **D-369** (`01ce80f`, PR #22), reverted its own version and rebased onto `a48f6f4`.
-   `src/strategy_factory/core/streams.py` and `cli_streams.py` carry **only** stream A's code.
-3. **`configs/universe.yaml` needs no regeneration for T04i or T04g.** No symbol was added to or
+1. **Please add stream B's new decision range `D-700 … D-799` to
+   `docs/streams/ownership.yaml`, with a test**, the way the supervisor's `D-600 … D-699` range was
+   added. The supervisor granted it on 2026-09-21 because `D-380 … D-399` is exhausted (D-399 was
+   the last). Until it lands, `sfac streams check` rejects any `D-7xx` row as "outside stream B's
+   range", so **stream B is holding all new decisions**. `ownership.yaml` is stream A's file and
+   stream B does not touch it. Nothing else of stream B's is blocked on this.
+2. **The brittle `HEAD~1` assumption in `test_F_X_9_d369_removed_rows_reads_real_git_output` is
+   resolved by stream A's PR #23** — the test now builds a throw-away repository in `tmp_path`, so
+   it says the same thing on every branch. Stream B had edited the range on
+   `b/T04g-alpaca-daily-ingest` before #23 existed; **that edit is dropped**, the branch is rebased
+   onto `48ba1ac` and takes main's file wholesale. The finding is kept here only as the record of
+   what happened.
+3. **Two independent fixes to the same stream-A file happened once and must not happen again.**
+   While T04g ran, answering P-74 tripped `sfac streams check` with "P-74: duplicate id"; stream B
+   implemented the `removed_rows` exemption, then found stream A had already merged exactly that as
+   **D-369** (PR #22). Stream B reverted. This is the collision `D-357` exists to prevent, and the
+   rule stream B now follows without exception: **a stream-A file is reported here and waited on,
+   never edited.** `src/strategy_factory/core/streams.py`, `cli_streams.py` and
+   `tests/unit/test_F_X_9_stream_guards.py` carry **only** stream A's code.
+4. **`configs/universe.yaml` needs no regeneration for T04i or T04g.** No symbol was added to or
    removed from `configs/universe/*.csv` by either task; the new file
    `configs/universe/us_equity_daily_excluded.csv` is **empty** (D-398). The outstanding
    regeneration is still the T04f one below.

@@ -243,16 +243,19 @@ carries the rule and its acceptance test. **T04g proceeded as is**, which is wha
    `src/strategy_factory/core/streams.py` and `cli_streams.py` are untouched by stream B and the
    guard passes on stream A's code. The episode is worth recording because it is what the protocol
    is for: two streams hit the same defect within an hour, and the one that owns the file won.
-3. **One of stream A's new D-369 tests depended on the shape of the branch's history.**
-   `test_F_X_9_d369_removed_rows_reads_real_git_output` diffed `HEAD~1..HEAD` over
-   `docs/decisions/decisions_log.md` and asserted the diff has a `--- a/…` header; that holds only
-   when the previous commit happened to edit the log. On this branch the previous commit is the
-   T04g review, so the diff was empty and the test failed — it would fail on **any** branch whose
-   last commit does not touch the decisions log. Changed to diff from the parent of the **last
-   commit that touched the file** (an ancestor of `HEAD`, so `base..HEAD` still carries the
-   change): the assertion and its intent are unchanged, only the range is chosen rather than
-   assumed. This is a **stream-A test file** — the change is minimal and is reported to stream A in
-   `docs/streams/B.md`.
+3. **One of stream A's new D-369 tests depended on the shape of the branch's history — reported,
+   not fixed here.** `test_F_X_9_d369_removed_rows_reads_real_git_output` diffed `HEAD~1..HEAD`
+   over `docs/decisions/decisions_log.md` and asserted the diff has a `--- a/…` header; that holds
+   only when the previous commit happened to edit the log, so it failed on this branch and would
+   fail on **any** branch whose last commit does not. I first changed the range here; on the
+   supervisor's instruction that edit was **dropped**. **Stream A fixed it in PR #23** by building
+   a throw-away repository in `tmp_path`, which says the same thing on every branch and depends on
+   no history at all — a better fix than mine. This branch is rebased onto `48ba1ac` and takes
+   main's version of the file wholesale.
+
+   Together with §7 (2) this is the same lesson twice in one task: **a stream-A file is reported in
+   `docs/streams/B.md` and waited on, never edited.** Stream B's branch now changes nothing under
+   `src/strategy_factory/core/` or `tests/unit/test_F_X_9_stream_guards.py`.
 
 ## 8. Tests added
 
