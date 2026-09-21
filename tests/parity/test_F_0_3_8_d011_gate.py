@@ -146,3 +146,33 @@ def test_F_X_7_the_gate_run_is_reproducible(run: ParityRun) -> None:
     for field in ("entry_idx", "exit_idx", "qty", "entry_price", "exit_price", "pnl_net"):
         np.testing.assert_array_equal(getattr(first, field), getattr(second, field))
     np.testing.assert_array_equal(run.result.equity.equity_mtm, again.result.equity.equity_mtm)
+
+
+def test_F_0_3_8_d371_the_to_verify_ledger_does_not_drift() -> None:
+    """D-371: after T11 exactly one parity choice is still `to_verify`, and it says so twice.
+
+    The kernel docstring is what a reader of the engine sees and the T11 review is what a
+    reader of the task sees. If they disagreed, one of them would send somebody looking for a
+    TradingView export that cannot exist -- which is the thing D-371 exists to prevent.
+    """
+    from strategy_factory.engine import kernel
+
+    def flat(text: str) -> str:
+        return " ".join(text.split())
+
+    doc = flat(kernel.__doc__ or "")
+    review = (REPO / "docs" / "reviews" / "T11_review.md").read_text(encoding="utf-8")
+
+    # still open: D-335 only, and it is waiting on the TF reference
+    assert "Still **to_verify**: only the O->H->L->C path and its tie (D-335)" in doc
+    assert "still `to_verify`" in review and "D-335" in review
+
+    # both say, in as many words, that the other three are NOT to_verify, and why
+    assert "no TradingView export can ever test these, so they are not to_verify" in doc
+    assert "No TradingView export can ever close three of these five items" in review
+    assert review.count("not `to_verify`") == 3  # one per closed item, in the table
+    for item in ("D-327", "D-349 (a)", "D-349 (h)"):
+        assert item in doc and item in review, item
+    for text in ("confirmed by construction", "D-371"):
+        assert text.lower() in doc.lower(), text
+        assert text.lower() in review.lower(), text

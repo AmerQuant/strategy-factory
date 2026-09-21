@@ -46,24 +46,30 @@ gate but by the result — 99.13 % against 100.00 % — so if it is ever questio
 not the gate, is the argument for it. D-367 is load-bearing: without it the net-profit leg
 fails.
 
-## 3. The `to_verify` ledger (§5, D-338 rule 1, D-349)
+## 3. The `to_verify` ledger (§5, D-338 rule 1, D-349, **D-371**)
 
-| # | item | outcome | evidence |
+**No TradingView export can ever close three of these five items.** That is not a gap waiting
+on the TF re-export, and not something a third reference would fix: D-371 settles them as
+**confirmed by construction**, evidenced by the hand fixtures and `tests/oracle`, and takes
+them off the `to_verify` list under that name so that nobody later goes looking for an export
+that cannot exist.
+
+| # | item | outcome | why |
 |---|---|---|---|
-| 1 | O→H→L→C path and its tie (**D-335**) | *pending TF* | MR has **no target and no trailing stop**, so only one level can be hit in a bar and a tie cannot arise. TF has a 2-ATR stop and a 4-ATR target and can show one. |
-| 2 | Exit + re-entry at one open (**D-336**) | **confirmed** | 2 of the 462 engine entries fall on a bar that is also an exit bar, and all 462 trades match TradingView, so both sides exit and re-enter at the same open. |
-| 3 | No swap on intrabar exits in rollover bars (**D-327**) | **not verifiable by any TradingView reference** — raised as **P-45** | TradingView models no swap, and a parity cost array carries none (D-362): the MR run's total swap cost is exactly 0.00. There is nothing to disagree with. |
-| 4 | The trailing level moving only at the bar close (**D-349 (a)**) | **stays `to_verify`** | Neither Pine script uses a trailing stop. It needs a third reference with `strategy.exit(trail_points=…)`, or an explicit decision to leave it unverified. |
-| 5 | The parity conversion rate, the signal bar's `fx_close` (**D-349 (h)**) | **not verifiable by these references** — raised as **P-45** | Both references are USD-quoted, so no conversion is performed. |
+| 1 | O→H→L→C path and its tie (**D-335**) | **still `to_verify`** — the only one left, pending TF | It needs a bar where a stop **and** a target are both touched. MR has no target and no trailing stop, so only one level can ever be hit; TF has a 2-ATR stop and a 4-ATR target and can produce one. |
+| 2 | Exit + re-entry at one open (**D-336**) | **confirmed** against the MR reference | 2 of the 462 engine entries fall on a bar that is also an exit bar, and all 462 trades match TradingView, so both sides exit and re-enter at the same open. |
+| 3 | No swap on an intrabar exit in a rollover bar (**D-327**) | **confirmed by construction** (D-371) — not `to_verify` | TradingView models **no swap at all**, and a parity cost array carries none (D-362): the MR run's total swap cost is exactly 0.00. "tradingview mode applies none" agrees with TradingView by definition; there is no export that could disagree. |
+| 4 | The trailing level moving only at the bar close (**D-349 (a)**) | **confirmed by construction** (D-371) — not `to_verify` | **Neither** reference script trails, and no further reference is commissioned. Research mode is final on this (D-349 (a)); the parity behaviour is covered by the hand fixtures and the oracle. |
+| 5 | The parity conversion rate, the signal bar's `fx_close` (**D-349 (h)**) | **confirmed by construction** (D-371) — not `to_verify` | Both references are USD-quoted (`BATS:SPY`, and `OANDA:XAUUSD` is quoted in USD), so no conversion is performed on either. A non-USD reference is not commissioned. |
+
+So after T11 the parity `to_verify` list holds **one** item, D-335, and it closes when TF
+lands. The kernel docstring says the same thing, in the same words, so the code and this
+review cannot drift apart.
 
 The ATR warm-up note (HANDOFF §8.1) is **confirmed** for MR: the first engine entry and the
 first TradingView entry are both bar 14, and no trade is classified `atr_warm_up`. The Pine
 script's own `not na(r) and not na(a)` guard is what keeps TradingView out of the warm-up, so
 this confirms agreement on *these* scripts, not that TradingView never enters during a warm-up.
-
-**Three of the five items (3, 4, 5) cannot be closed by any TradingView reference.** That is a
-question for the supervisor, not a judgement for this task: **P-45** asks whether to record
-them as confirmed-by-construction / permanently unverifiable, or to commission a third export.
 
 ## 4. Wilder's ATR, before any trade was compared
 
@@ -106,7 +112,8 @@ therefore **skips in CI** — it is evidence, not a gate.
 
 ## 7. Open questions
 
-- **P-45** — items 3, 4 and 5 of the `to_verify` ledger (above).
+- **P-45** — answered by **D-371**: no third reference; items 3, 4 and 5 are confirmed by
+  construction and are no longer `to_verify`.
 - **D-368** is answered and queued as its own task **after** T11: the metrics fixture scales
   `qty`; a falsifying example is pinned as an `@example`; the per-PR Hypothesis job stays
   derandomized and a weekly randomized job reports without gating.
@@ -121,4 +128,5 @@ therefore **skips in CI** — it is evidence, not a gate.
    listed, so it cannot be forgotten).
 3. Run both one-sided comparisons; both must pass D-011. Report both net-profit figures and
    flag the tight relative basis rather than deciding it (D-364).
-4. Close item 1 of the ledger (D-335) with the TF tie evidence.
+4. Close item 1 of the ledger (**D-335**, the only `to_verify` item left) with the TF tie
+   evidence: a bar where the 2-ATR stop and the 4-ATR target are both touched.
