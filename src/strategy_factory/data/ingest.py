@@ -25,10 +25,15 @@ from strategy_factory.data.universe import DAILY_RAW_DIR
 log = get_logger(__name__)
 
 
+#: D-397: a known split the feed did not apply poisons every backtest crossing that date, so the
+#: symbol is **not** ingested. It is listed in the split-check report and the run continues.
+UNADJUSTED = "unadjusted"
+
+
 @dataclass(frozen=True)
 class IngestResult:
     symbol: str
-    status: str  # "ingested" | "no_data"
+    status: str  # "ingested" | "no_data" | "unadjusted_split" | "failed"
     snapshot_hash: str | None = None
     rows: int = 0
     is_reference: bool = False
@@ -78,6 +83,16 @@ def ingest_alpaca_symbol(
     )
     write_report(raw_root / "_reports" / f"alpaca_split_check_{timeframe}.csv", symbol, rows)
     warning = warning_note(rows)
+    unadjusted = [r for r in rows if r["verdict"] == UNADJUSTED]
+    if unadjusted:
+        # D-397: fail this symbol, not the run. AVGO 2024-07-15 is the worked case (T04i section 4).
+        dates = ", ".join(str(r["date"]) for r in unadjusted)
+        log.error("%s %s: known split unadjusted on %s - not ingested", symbol, timeframe, dates)
+        return IngestResult(
+            symbol,
+            "unadjusted_split",
+            split_warning=f"known split unadjusted on {dates}; not ingested (D-397)",
+        )
     notes = meta.notes + (
         "" if cross is not None else " No cross-check file (MS-US-1D) for this symbol."
     )

@@ -124,6 +124,13 @@ def ingest_alpaca(
     symbols: Annotated[
         str | None, typer.Option(help="Comma-separated symbols (default: all raw).")
     ] = None,
+    universe: Annotated[
+        Path | None, typer.Option(help="Universe CSV with a `symbol` column.")
+    ] = None,
+    excluded: Annotated[
+        Path | None,
+        typer.Option(help="Exclusion CSV (symbol, reason, evidence) subtracted from the list."),
+    ] = None,
     set_reference: Annotated[
         bool, typer.Option("--set-reference", help="Make new snapshots the reference.")
     ] = False,
@@ -133,7 +140,16 @@ def ingest_alpaca(
     try:
         cfg = load_alpaca_config(config)
         root = raw_root()
-        syms = _symbols_from(None, symbols) if symbols else raw_symbols(root, timeframe)
+        if symbols:
+            syms = _symbols_from(None, symbols)
+        elif universe is not None:
+            syms = _symbols_from(universe, None)
+        else:
+            syms = raw_symbols(root, timeframe)
+        # The exclusions live in a committed file (T04i, D-383/D-398), never in code.
+        drop = _excluded_symbols(excluded)
+        skipped = [s for s in syms if s in drop]
+        syms = [s for s in syms if s not in drop]
         store, catalog = SnapshotStore(), Catalog()
         pit_map = pit_symbols_of(Path("configs") / "universe" / "us_equity_hourly.csv")
         results: list[IngestResult] = []
@@ -163,9 +179,26 @@ def ingest_alpaca(
         typer.echo(f"{r.symbol:<8} {r.status:<9} {hash_:<12} rows={r.rows}{ref}{warn}")
     failed = sum(r.status == "failed" for r in results)
     ingested = sum(r.status == "ingested" for r in results)
-    typer.echo(f"{len(results)} symbols: {ingested} ingested, {failed} failed")
+    no_data = sum(r.status == "no_data" for r in results)
+    unadjusted = [r.symbol for r in results if r.status == "unadjusted_split"]
+    typer.echo(
+        f"{len(results)} symbols: {ingested} ingested, {no_data} no_data, "
+        f"{len(unadjusted)} unadjusted_split, {failed} failed, {len(skipped)} excluded"
+    )
+    if unadjusted:  # D-397: reported, and the run still succeeded for the rest
+        typer.echo("unadjusted known split (not ingested): " + ", ".join(sorted(unadjusted)))
+    if skipped:
+        typer.echo("excluded: " + ", ".join(sorted(skipped)))
     if failed:
         raise typer.Exit(code=2)
+
+
+def _excluded_symbols(path: Path | None) -> set[str]:
+    """Symbols listed in the exclusion CSV; an absent or header-only file excludes nothing."""
+    if path is None or not path.is_file():
+        return set()
+    with path.open(encoding="utf-8", newline="") as fh:
+        return {r["symbol"].strip() for r in csv.DictReader(fh) if r.get("symbol")}
 
 
 @universe_app.command("us-equity")

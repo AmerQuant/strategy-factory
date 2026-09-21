@@ -188,3 +188,88 @@ def test_F_0_1_2_ingest_records_historical_pit_ticker(tmp_path: Path) -> None:
     meta = catalog.get_reference("META", "1D")
     assert res.status == "ingested" and meta.source_symbol == "META"
     assert "Historical (S&P 500 PIT) ticker: FB; downloaded as META." in meta.notes
+
+
+# --- T04g / D-397: an unadjusted known split fails that symbol, not the run -------------------
+
+
+def _unadjusted_aapl(raw: Path) -> None:
+    """AAPL 2020 with the 4:1 split of 2020-08-31 NOT applied to the pre-split bars."""
+    rows = [dict(r) for r in load_fixture("daily_2020.json")["AAPL"]]
+    for r in rows:
+        if r["t"][:10] < "2020-08-31":
+            for k in ("o", "h", "l", "c"):
+                r[k] = r[k] * 4.0
+    write_chunk(raw, "1D", "AAPL", 2020, rows, REQ, True, "fake 0")
+
+
+def test_F_0_1_2_D_397_an_unadjusted_known_split_fails_that_symbol(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    _unadjusted_aapl(raw)
+    store, catalog = SnapshotStore(tmp_path / "s"), Catalog(tmp_path / "s")
+    res = ingest_alpaca_symbol("AAPL", "1D", raw, store, catalog, make_config())
+    assert res.status == "unadjusted_split"
+    assert "2020-08-31" in res.split_warning
+    assert catalog.list_snapshots(symbol="AAPL").height == 0  # nothing ingested
+    report = pl.read_csv(raw / "_reports" / "alpaca_split_check_1D.csv")
+    assert "unadjusted" in report["verdict"].to_list()  # it is listed, as D-397 asks
+
+
+def test_F_0_1_2_D_397_one_unadjusted_symbol_does_not_stop_the_others(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    _unadjusted_aapl(raw)
+    write_chunk(raw, "1D", "TSLA", 2020, load_fixture("daily_2020.json")["TSLA"], REQ, True, "f")
+    store, catalog, cfg = SnapshotStore(tmp_path / "s"), Catalog(tmp_path / "s"), make_config()
+    out = [ingest_alpaca_symbol(s, "1D", raw, store, catalog, cfg) for s in ("AAPL", "TSLA")]
+    assert [r.status for r in out] == ["unadjusted_split", "ingested"]
+
+
+def test_F_0_1_2_T04g_the_ingest_reads_the_universe_and_the_exclusion_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task section 1: symbols = the universe CSV minus the exclusion CSV, never hard-coded."""
+    raw = tmp_path / "raw"
+    for sym in ("AAPL", "TSLA"):
+        write_chunk(raw, "1D", sym, 2020, load_fixture("daily_2020.json")[sym], REQ, True, "f")
+    universe = tmp_path / "u.csv"
+    universe.write_text("symbol\nAAPL\nTSLA\n", encoding="utf-8")
+    excluded = tmp_path / "x.csv"
+    excluded.write_text("symbol,reason,evidence\nTSLA,re-used,see T04i\n", encoding="utf-8")
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(raw))
+    monkeypatch.setenv("SFAC_DATA_ROOT", str(tmp_path / "s"))
+    out = CliRunner().invoke(
+        app,
+        [
+            "data",
+            "ingest",
+            "alpaca",
+            "--timeframe",
+            "1D",
+            "--universe",
+            str(universe),
+            "--excluded",
+            str(excluded),
+        ],
+    )
+    assert out.exit_code == 0, out.output
+    assert "AAPL" in out.output and "1 excluded" in out.output
+    assert Catalog(tmp_path / "s").list_snapshots(symbol="TSLA").height == 0
+
+
+def test_F_0_1_2_D_397_the_cli_still_exits_zero_when_a_symbol_is_unadjusted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-397: the symbol fails, the run does not."""
+    raw = tmp_path / "raw"
+    _unadjusted_aapl(raw)
+    write_chunk(raw, "1D", "TSLA", 2020, load_fixture("daily_2020.json")["TSLA"], REQ, True, "f")
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(raw))
+    monkeypatch.setenv("SFAC_DATA_ROOT", str(tmp_path / "s"))
+    out = CliRunner().invoke(
+        app,
+        ["data", "ingest", "alpaca", "--timeframe", "1D", "--symbols", "AAPL,TSLA"],
+    )
+    assert out.exit_code == 0, out.output
+    assert "1 unadjusted_split" in out.output
+    assert "unadjusted known split (not ingested): AVGO" not in out.output
+    assert "unadjusted known split (not ingested): AAPL" in out.output
