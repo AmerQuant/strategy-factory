@@ -48,10 +48,11 @@ def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert rules.supervisor.decisions == ((355, 359), (600, 699))
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
     assert rules.streams["A"].decisions == ((360, 379),)
-    assert rules.streams["A"].pending == (40, 59)
+    assert rules.streams["A"].pending == ((40, 59),)
     # D-372: stream B's first range is used up, so it holds two
     assert rules.streams["B"].decisions == ((380, 399), (700, 799))
-    assert rules.streams["B"].pending == (60, 79)
+    # D-376: and its first pending range too
+    assert rules.streams["B"].pending == ((60, 79), (80, 99))
     assert rules.append_only == (
         "docs/decisions/decisions_log.md",
         "docs/decisions/pending.md",
@@ -568,8 +569,8 @@ def test_F_X_9_d372_the_message_names_every_range_a_stream_holds(rules: Ownershi
     assert "outside stream B's range D-380 … D-399 and D-700 … D-799" in problems[0]
 
 
-def test_F_X_9_d372_pending_ranges_are_unchanged(rules: Ownership) -> None:
-    """A `P-` number always belongs to the stream that raised the question, so P-700 is not one."""
+def test_F_X_9_d372_a_p_number_outside_the_streams_ranges_is_refused(rules: Ownership) -> None:
+    """The supervisor has no pending range, so P-700 is nobody's (renamed under D-376)."""
     for stream in ("A", "B"):
         problems = check_ids(stream, ["| P-700 | not a pending number |"], [], rules)
         assert len(problems) == 1, stream
@@ -631,5 +632,82 @@ def test_F_X_9_d372_an_inverted_or_empty_range_is_refused(tmp_path: Path) -> Non
         }
 
     for bad in ([[700, 690]], [[380, 399], [799, 700]], []):
+        with pytest.raises(ConfigError):
+            written(tmp_path, spec(bad))
+
+
+# -- D-376: a stream's own second pending range ----------------------------------------------
+def test_F_X_9_d376_stream_b_may_use_its_second_pending_range(rules: Ownership) -> None:
+    existing = ["| P-79 | the last of the first range |"]
+    for number in (80, 90, 99):
+        assert check_ids("B", [f"| P-{number} | stream B |"], existing, rules) == [], number
+    assert check_ids("B", ["| P-65 | still fine |"], existing, rules) == []
+
+
+def test_F_X_9_d376_the_second_pending_range_is_still_stream_bs_own(rules: Ownership) -> None:
+    for number in (80, 90, 99):
+        problems = check_ids("A", [f"| P-{number} | stream A reaching |"], [], rules)
+        assert len(problems) == 1, number
+        assert "outside stream A's range P-40 … P-59" in problems[0]
+    # the supervisor has no pending range: its decision numbers do not open P- numbers
+    assert check_ids("A", ["| P-600 | not a decision |"], [], rules) != []
+    assert check_ids("B", ["| P-600 | not a decision |"], [], rules) != []
+
+
+def test_F_X_9_d376_the_message_names_every_pending_range(rules: Ownership) -> None:
+    problems = check_ids("B", ["| P-100 | neither range |"], [], rules)
+    assert len(problems) == 1
+    assert "outside stream B's range P-60 … P-79 and P-80 … P-99" in problems[0]
+
+
+def test_F_X_9_d376_duplicates_and_amendments_in_the_new_pending_range(
+    rules: Ownership,
+) -> None:
+    existing = ["| P-80 | already taken |"]
+    assert any("duplicate id" in p for p in check_ids("B", ["| P-80 | again |"], existing, rules))
+    twice = check_ids("B", ["| P-81 | a |", "| P-81 | b |"], [], rules)
+    assert any("duplicate id" in p for p in twice)
+    assert check_ids("B", ["| P-80 | answered |"], existing, rules, existing) == []
+    assert any(
+        "may not amend" in p
+        for p in check_ids(None, ["| P-80 | answered |"], existing, rules, existing)
+    )
+
+
+def test_F_X_9_d376_one_pending_pair_is_still_a_valid_range(tmp_path: Path) -> None:
+    """Every ownership file written before D-376 keeps working."""
+    rules = written(
+        tmp_path,
+        {
+            "streams": {
+                "A": {
+                    "name": "a",
+                    "branch_prefix": "a/",
+                    "decisions": [360, 379],
+                    "pending": [40, 59],
+                },
+            },
+            "owners": {},
+        },
+    )
+    assert rules.streams["A"].pending == ((40, 59),)
+    assert check_ids("A", ["| P-45 | fine |"], [], rules) == []
+
+
+def test_F_X_9_d376_an_inverted_or_empty_pending_range_is_refused(tmp_path: Path) -> None:
+    def spec(pending: Any) -> dict[str, Any]:
+        return {
+            "streams": {
+                "A": {
+                    "name": "a",
+                    "branch_prefix": "a/",
+                    "decisions": [360, 379],
+                    "pending": pending,
+                }
+            },
+            "owners": {},
+        }
+
+    for bad in ([[99, 80]], [[60, 79], [99, 80]], []):
         with pytest.raises(ConfigError):
             written(tmp_path, spec(bad))

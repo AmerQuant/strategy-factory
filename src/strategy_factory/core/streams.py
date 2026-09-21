@@ -73,36 +73,36 @@ class StreamSpec(BaseModel):
     name: str
     branch_prefix: str = Field(min_length=2)
     folder: str = ""  # D-357 (1): the only folder this stream may work in
-    #: One or more decision ranges: a stream's range can be used up, so stream B holds
-    #: ``D-380 … D-399`` and ``D-700 … D-799`` (D-372). Pending stays a single range --
-    #: a ``P-`` number always belongs to the stream that raised the question.
+    #: One or more ranges of each kind: a stream's range can be used up, so stream B holds
+    #: ``D-380 … D-399`` and ``D-700 … D-799`` (D-372), and ``P-60 … P-79`` and
+    #: ``P-80 … P-99`` (D-376). Every range is the stream's own; only the supervisor's are
+    #: open to either stream, and those are decisions only.
     decisions: tuple[tuple[int, int], ...]
-    pending: tuple[int, int]
+    pending: tuple[tuple[int, int], ...]
 
-    _ranges = field_validator("decisions", mode="before")(as_ranges)
+    _ranges = field_validator("decisions", "pending", mode="before")(as_ranges)
 
     @model_validator(mode="after")
     def _ordered(self) -> StreamSpec:
         if not self.decisions:
             raise ValueError(f"{self.name}: at least one decision range is needed")
-        for lo, hi in self.decisions:
-            if lo > hi:
-                raise ValueError(f"{self.name}: decision range ({lo}, {hi}) is inverted")
-        if self.pending[0] > self.pending[1]:
-            raise ValueError(f"{self.name}: pending range {self.pending} is inverted")
+        if not self.pending:
+            raise ValueError(f"{self.name}: at least one pending range is needed")
+        for label, ranges in (("decision", self.decisions), ("pending", self.pending)):
+            for lo, hi in ranges:
+                if lo > hi:
+                    raise ValueError(f"{self.name}: {label} range ({lo}, {hi}) is inverted")
         return self
 
+    def ranges(self, kind: str) -> tuple[tuple[int, int], ...]:
+        return self.decisions if kind == "D" else self.pending
+
     def covers(self, kind: str, number: int) -> bool:
-        if kind == "D":
-            return any(lo <= number <= hi for lo, hi in self.decisions)
-        lo, hi = self.pending
-        return lo <= number <= hi
+        return any(lo <= number <= hi for lo, hi in self.ranges(kind))
 
     def describe(self, kind: str) -> str:
         """The stream's own ranges, for an error message."""
-        if kind == "D":
-            return describe(self.decisions)
-        return describe((self.pending,), "P")
+        return describe(self.ranges(kind), kind)
 
 
 class SupervisorRange(BaseModel):
