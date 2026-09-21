@@ -3,7 +3,7 @@
 **Features:** F-0.1.6 (data-quality checks and report), F-0.1.8 (immutable snapshots, derived snapshots), F-0.1.2 (frozen stretches and the re-use boundary, D-398), F-0.1.9 groundwork · **Priority:** MVP · **Depends on:** **T04g** (the raw 1D snapshots) and ideally **T04h** (hourly coverage) · **Must be done before:** the first real stage-1 run (**T12**)
 **Branch:** `b/T04k-clean-daily` from `b/T04g-alpaca-daily-ingest` (or from `main` once T04g is merged).
 
-Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396**, **D-398** and **D-399** (the
+Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396**, **D-398**, **D-399** and **D-700** (the
 decisions this task implements), D-033, D-023, D-008, D-383, D-397, D-522, and
 `docs/reviews/T04i_review.md` — T04i measured both problems, this task fixes them.
 
@@ -151,29 +151,39 @@ input — it is evidence, not a config.
 `SplitManager` with `HistoryTooShortError` when a stage tries to split them. Do **not** add them to
 the exclusion file and do not shorten the split rules for them.
 
-### 1c. No trim on an ambiguous signature — D-399 (the P-74 answer)
+### 1c. No trim on an ambiguous signature — D-399, amended by D-700
 
-**A trim is never applied on an ambiguous signature.** A frozen stretch or a gap with a level break
-is equally what an **unadjusted (reverse) split** and a **long trading halt** look like, and
-`configs/data/known_splits.csv` holds only 11 hand-picked splits. T04i flags **29 of the 280 trims**
-as `reverse_split_suspect` in `docs/reviews/T04i_relisting_verdicts.csv`; `MARA` is the halt case,
-and it currently loses 252 bars of real history.
+**A trim is never applied on an ambiguous signature** (D-399 (4), which stands). A frozen stretch
+or a gap with a level break is equally what an **unadjusted (reverse) split**, a **long trading
+halt** and a **re-used ticker** look like.
 
-**Settle every one of the 29 with the MS-US-1D cross-check** — the test that settled AVGO. The
-all-adjusted series lives at `SFAC_RAW_ROOT/us_equity/alpaca_sip_all/1D/us_<symbol>.csv` and is
-**continuous** across a genuine corporate action and **discontinuous** where the company actually
-changed. `data/split_check.py` already computes `ratio_crosscheck`; reuse it rather than writing a
-second comparison.
+**D-399 asked the MS-US-1D cross-check to separate all three. T04k measured that it can separate
+only the first.** MS-US-1D is keyed by **ticker**, exactly like the Alpaca feed, so a re-used
+ticker splices identically in both (`PX`: 156.80 → 11.51 on 2021-10-21 in both, with the same
+frozen padding before it). The supervisor therefore withdrew D-399's cross-check half for the
+re-use case and moved the discriminator to the **company name** — **D-700**. A boundary is now
+decided in this order; the first rule that decides wins:
 
-| cross-check says | verdict | what T04k does |
+| step | evidence | outcome |
 |---|---|---|
-| continuous across the break → **unadjusted split or reverse split** | **not a boundary** | the symbol takes the **D-397** path: it **fails ingest** and is listed with its `--refresh` command; **history untouched**, nothing trimmed |
-| the series resumes at the same level → **trading halt** | **not a boundary** | the frozen stretch is still removed (**D-398 (1)**), the history on **both** sides is kept, and the snapshot carries a **gap the quality report states** |
-| discontinuous → **genuine re-use** | **boundary** | trim as **D-398 (2)** |
-| the cross-check **cannot settle it** (no cross-check file, no overlap, contradictory) | **not a boundary** | keep the **full history**, mark the symbol in the artefact and **list it for the supervisor** |
+| 1 | the boundary ends a **leading** pad | padding before a listing, not a re-use signature: **trim** (D-398 (3)) |
+| 2 | MS-US-1D is **continuous** between two **real** bars where the ingested series jumps | **unadjusted split** → the **D-397** path: no clean snapshot, history untouched, listed with its `--refresh` command |
+| 3 | a `NAME_CHANGE` rename **away** from the ticker inside `[break start − 7 d, boundary]`, and the assets file's name for the destination is a **different string** from the ticker's current name | **re-use** → **trim** at the boundary (D-398 (2)) |
+| — | anything else: one name only, the rename disagrees with the boundary, two renames, or the destination changed hands again | **keep the full history** and list the symbol for the supervisor |
 
-The verdict per symbol goes into the artefact and the review; the frozen-stretch cut (D-398 (1))
-is unaffected by all of this and needs no cross-check.
+Name matching is **exact identity** (D-700 (4)). Two conditions were added because the data
+refuted a simpler version, both in the conservative direction:
+
+- **The cross-check compares real bars, never a pad.** A first version called `AMLX`, `ATAI`,
+  `NRGZ` and `TBRG` unadjusted splits; all four were wrong (the cross-check had no pre-IPO bar and
+  the fallback compared the IPO bar with itself; the ingested "jump" measured a stale pad; neither
+  feed broke the threshold).
+- **A destination that changed hands again is not evidence.** `PTN`: Palatin went `PTN → PTNT` and
+  came **back**; an ETF then took `PTNT`, so `PTNT`'s current name called Palatin a re-use of
+  itself — 2,264 real bars would have gone.
+
+The frozen-stretch cut (D-398 (1)) is unaffected by all of this and needs no evidence: padding is
+removed wherever it is.
 
 ### 2. The derived clean daily snapshot (D-396 part 2)
 

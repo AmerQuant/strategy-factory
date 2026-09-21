@@ -298,6 +298,13 @@ def check_daily_extreme_unsupported(
     details: dict[str, Any] = {
         "not_evidence_days": unchecked.height,
         "not_evidence_dates": [str(d) for d in unchecked["session_date"].to_list()[:_SAMPLE]],
+        # what each skipped day actually held, against what the calendar expects
+        "not_evidence_bars": [
+            f"{d}: {b} of {e} hourly bars"
+            for d, b, e in unchecked.select("session_date", "rth_bars", "expected_bars").rows()[
+                :_SAMPLE
+            ]
+        ],
     }
     if real.height == 0:
         return _pass("daily_extreme_unsupported", breach_days=0, **details)

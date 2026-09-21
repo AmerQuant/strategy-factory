@@ -8,8 +8,10 @@ boundary) and D-399 (never trim on an ambiguous signature), plus the supervisor'
 from __future__ import annotations
 
 import datetime as dt
+import pathlib
 
 import polars as pl
+import pytest
 from fixtures.bars import make_meta
 
 from strategy_factory.data.clean_daily import (
@@ -576,3 +578,59 @@ def test_F_0_1_6_T04k_the_clean_frame_always_satisfies_the_ohlc_invariant() -> N
         clean["open"], clean["high"], clean["low"], clean["close"], strict=True
     ):
         assert lo <= min(o, c) and max(o, c) <= hi
+
+
+# ------------------------------------ D-398/D-008: short history fails the split, raw untouched
+
+
+def test_F_0_1_6_D_398_a_trimmed_history_too_short_fails_the_split_not_the_universe() -> None:
+    """D-398/D-008: a too-short trimmed history is not excluded; `SplitManager` refuses it."""
+    from strategy_factory.data.config import SplitConfig
+    from strategy_factory.data.split import HistoryTooShortError, compute_split
+
+    rows = _calm(400)
+    verdict = SeriesVerdict(
+        symbol="SHORT",
+        verdict=TRIM,
+        boundary_date=_date(300).isoformat(),
+        boundary_reason="stale_run",
+        dropped_from=_date(0).isoformat(),
+        dropped_to=_date(299).isoformat(),
+        dropped_bars=300,
+    )
+    clean, _log = clean_daily(_daily(rows), "SHORT", CFG, verdict=verdict)
+    assert clean.height == 100  # the clean series exists -- nothing excluded it
+    key = make_meta(symbol="SHORT", snapshot_hash="c" * 64).key()
+    with pytest.raises(HistoryTooShortError):
+        compute_split(clean["ts"], key, SplitConfig())
+
+
+def test_F_0_1_8_T04k_writing_the_clean_snapshot_leaves_the_raw_one_untouched(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Rule 10: the clean snapshot is new; the raw parquet keeps its bytes and its mtime."""
+    import hashlib
+
+    from strategy_factory.data.catalog import Catalog
+    from strategy_factory.data.store import SnapshotStore
+
+    store, catalog = SnapshotStore(tmp_path), Catalog(tmp_path)
+    rows = _calm(60)
+    rows[40] = (100.0, 160.0, 99.5, 101.0)
+    raw = _daily(rows)
+    raw_meta = catalog.register(store.write_snapshot(raw, make_meta(symbol="EQ")))
+    raw_path, _ = store.paths("test", "EQ", "1D", raw_meta.snapshot_hash or "")
+    before = (hashlib.sha256(raw_path.read_bytes()).hexdigest(), raw_path.stat().st_mtime_ns)
+
+    clean, log = clean_daily(raw, "EQ", CFG)
+    assert log.height == 1
+    derived = raw_meta.model_copy(
+        update={"snapshot_hash": None, "derived_from": raw_meta.key(), "notes": "T04k"}
+    )
+    stored = catalog.register(store.write_snapshot(clean, derived))
+
+    assert stored.snapshot_hash != raw_meta.snapshot_hash
+    assert stored.derived_from == raw_meta.key()
+    after = (hashlib.sha256(raw_path.read_bytes()).hexdigest(), raw_path.stat().st_mtime_ns)
+    assert after == before  # raw bytes and mtime unchanged
+    assert catalog.list_snapshots(symbol="EQ").height == 2  # raw still in the catalog

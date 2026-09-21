@@ -357,6 +357,16 @@ def _clean_meta(raw: SeriesMetadata, out: dict[str, Any], changes: pl.DataFrame)
         + ", ".join(f"{k} {v}" for k, v in sorted(applied.items()))
         + f". Raw snapshot {raw.snapshot_hash}."
     )
+    if out.get("boundary_applied"):
+        note += (
+            f" History starts {out['boundary_date']} ({out['boundary_reason']}; "
+            f"D-398, evidence: {out.get('name_verdict') or 'leading padding'})."
+        )
+    elif out.get("boundary_date"):
+        note += (
+            f" Boundary {out['boundary_date']} NOT applied "
+            f"({out.get('name_verdict') or out.get('crosscheck_verdict')}): full history kept."
+        )
     return raw.model_copy(
         update={
             "snapshot_hash": None,
