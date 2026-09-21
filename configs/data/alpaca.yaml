@@ -40,3 +40,7 @@ relisting:           # re-used tickers and frozen stretches (D-383, amended by D
   rename_window_days: 7     # D-700: a rename away agrees with the boundary inside [break - 7 d, boundary]
   names_file: reference/alpaca/alpaca_assets_2026-09-20.v2.csv                    # D-700, under SFAC_RAW_ROOT
   name_changes_file: reference/alpaca/corporate_actions/name_changes_20260920.json   # D-700, the full NAME_CHANGE feed
+
+coverage:            # T04h raw coverage gate (D-386; P-62: there is no --allow-gaps)
+  gate_timeframes: [1H]          # an ingest of these refuses to run while a required year has no file
+  require_from: first_data_year  # a symbol's required years start at its first year with a bar

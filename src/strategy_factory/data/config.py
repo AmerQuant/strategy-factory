@@ -98,6 +98,23 @@ class RelistingConfig(_Frozen):
     )
 
 
+GatedTimeframe = Literal["1D", "1H"]
+
+
+def _hourly_only() -> list[GatedTimeframe]:
+    return ["1H"]
+
+
+class CoverageConfig(_Frozen):
+    """The raw coverage gate in front of an ingest (T04h, D-386, P-62: no ``--allow-gaps``)."""
+
+    #: Timeframes whose ingest refuses to run on a gap. 1D was ingested by T04g without a gate.
+    gate_timeframes: list[GatedTimeframe] = Field(default_factory=_hourly_only)
+    #: Where a symbol's required years start: ``history_start``'s year, or the symbol's first
+    #: year that holds a bar (a symbol listed in 2019 has no 2016 bars).
+    require_from: Literal["history_start", "first_data_year"] = "first_data_year"
+
+
 class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
@@ -109,6 +126,7 @@ class AlpacaConfig(_Frozen):
     hourly_session: HourlySessionConfig = Field(default_factory=HourlySessionConfig)
     split_check: SplitCheckConfig = Field(default_factory=SplitCheckConfig)
     relisting: RelistingConfig = Field(default_factory=RelistingConfig)
+    coverage: CoverageConfig = Field(default_factory=CoverageConfig)
 
     @field_validator("batch_size")
     @classmethod
