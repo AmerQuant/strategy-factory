@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-706**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21; stream A adds it to `ownership.yaml` — until then `sfac streams check` rejects `P-8x` rows (P-80 is one). The range **D-700 … D-799** is merged into
+Next free here: **D-707**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21; stream A adds it to `ownership.yaml` — until then `sfac streams check` rejects `P-8x` rows (P-80 is one). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -55,19 +55,25 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch **`b/T04k-clean-daily`**, pushed. T04k **approved** by the supervisor
-with answers P-75…P-78 → **D-701…D-704**, and D-705 (CUSIP task **T04l**, file written). Done:
-**AVGO refreshed and ingested** (2024-07-15 `adjusted` in 1D and 1H; 6,708 daily raw snapshots);
-**D-701** (extreme check bounded by the body) implemented; **D-703** (body-range ATR, fixed point,
-cap 3) implemented; the **D-702** retire/quarantine tool built and dry-run (3,262 to retire, 3,250
-flat logs) — **not applied yet**.
+**Current position:** branch **`b/T04k-clean-daily`**, pushed; **PR open, stopped for "Approved.
+Merge"**. P-80 answered as **D-706** (supervisor: `k1_atr` 9 on the body-range ATR keeps the old
+rule's reach; 6.66 rejected). The approved sequence has run:
+1. **D-702 quarantine** — `<store>/_quarantine/T04k_D-702_20260921T132719Z/` (3,262 snapshots) and
+   `…_20260921T135526Z/` (70 more, see the review §12.3); moved, nothing deleted. **The folders are
+   left for the supervisor and the user to empty.**
+2. **Full re-derivation** under D-701/D-703/D-706 (config `bdd070ad70e7dc13`): 3,239 cleaned, 3,469
+   unchanged, 0 failed.
+3. **Provenance asserted** on all 3,239 (`scripts/analysis/T04k_assert_provenance.py`):
+   `metadata_stale` 0.
+4. **`sfac data clean --set-reference`**: the 3,239 clean snapshots are the references; the 3,469
+   unchanged keep their raw snapshot.
+Before/after per arm and flags: `docs/reviews/T04k_review.md` §15 (ok→warning 632 → 24;
+`daily_extreme_unsupported` 572 → 0; non-hourly wick flags 230 series → 0).
 
-**Blocked on the supervisor: P-80.** P-79 is answered (`k1_atr: 9` on the body-range ATR, now in
-config), but the ratio it was to be justified by is 2.22 (median), not ~3: 9 = 3 x the p90 ratio.
-The re-derivation waits on P-80. Then, in order: `scripts/ingest/T04k_rederive_quarantine.py
---apply` (moves, never deletes; the folder is left for the supervisor to empty) → full
-`sfac data clean` → assert every clean snapshot carries its config hash and its log's arms →
-`sfac data clean --set-reference` → PR → stop for "Approved. Merge".
+**CI:** the ID guard is red **only** for the `P-80` row — the P-80…P-99 range is queued with stream
+A. Not worked around (supervisor's instruction); the supervisor sequences the merges.
+
+**Next:** after the merge, **T04h** (1H ingest), then **T04l** (CUSIP, before T12).
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -80,9 +86,9 @@ The re-derivation waits on P-80. Then, in order: `scripts/ingest/T04k_rederive_q
 - Store outputs: `<SFAC_DATA_ROOT>/_clean/clean_daily_summary.csv`, `short_hourly_days.csv`, and
   `_clean/<symbol>/<clean hash>.csv|json` per clean snapshot. The clean pass reads the **raw**
   snapshot (`derived_from` empty), never the reference.
-- **All 6,707 references are still the raw snapshots**, deliberately.
-- Earlier passes left superseded derived snapshots and flat logs `_clean/<symbol>.csv` from the
-  first layout; neither is a reference, and the report reads only the current layout.
+- **References:** the 3,239 clean snapshots (set 2026-09-21); the 3,469 unchanged symbols keep their raw one.
+- Earlier passes' derived snapshots and first-layout flat logs were retired and moved to
+  `_quarantine/` (D-702); the catalog holds only the current 3,239 derived 1D snapshots.
 
 | item | state |
 |---|---|
@@ -97,7 +103,7 @@ The re-derivation waits on P-80. Then, in order: `scripts/ingest/T04k_rederive_q
 | T04e phase-B pilot | **hourly part closed by T04i** (D-395). The Yahoo part (first/last dates, `^TNX` scale) and the Dukascopy v1→v2 re-hash stay open — see the runbook's "Deferred" |
 | snapshot store | **6,710 snapshots**: 6,707 Alpaca 1D (`hash_version = 2`, `session = exchange`, all read-only, one reference each) + the 3 Dukascopy Q1-2024 pilots, which are still `hash_version = 1` (the T04e v1→v2 re-hash is deferred to T04j) |
 | T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
-| T04k | ⏸ **complete, stopped for "Approved"** — `b/T04k-clean-daily`. 3,250 clean snapshots derived (not references yet); the 280 re-use candidates: 59 trimmed, 221 kept. Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700**; open **P-75 … P-78** |
+| T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T12 | not started |
 

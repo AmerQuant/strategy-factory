@@ -133,6 +133,8 @@ Adds `daily_extreme_unsupported` and `daily_wick_outlier` to the quality checks 
 **derived, versioned** clean daily snapshot that becomes the research reference. T04g ingests the
 raw as-is; T04k corrects it without editing raw and without overwriting a snapshot.
 **It must be merged before the first real stage-1 run (T12).**
+**Status 2026-09-21:** approved; D-701 … D-706 applied, re-derived after the D-702 quarantine,
+provenance asserted, references set (3,239 clean snapshots). PR open, waiting for "Approved. Merge".
 
 ### Step 5 — T04h (1H ingest) — **blocked until the download is complete**
 **P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20

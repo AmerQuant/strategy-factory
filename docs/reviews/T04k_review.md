@@ -2,13 +2,16 @@
 
 **Task:** `docs/tasks/T04k_clean_daily_snapshot.md` · **Branch:** `b/T04k-clean-daily` from `main` (T04g merged, PR #24; rebased onto `b5a0bb4`, PR #25)
 **Features:** F-0.1.6 (quality checks and report), F-0.1.8 (immutable and derived snapshots), F-0.1.2 (frozen stretches, re-use boundary), F-0.1.9 groundwork
-**Decisions used:** D-008, D-023, D-033, D-383, D-384, D-392, D-395, D-396, D-397, D-398, D-399, **D-700** (new, supervisor — amends D-399)
-**Open for the supervisor:** **P-75** (six implementation rules, all conservative), **P-76** (the official close counted as unsupported), **P-77** (stale metadata on most clean snapshots), **P-78** (one-pass wick clip)
-**Status:** complete and **waiting for "Approved"**. As instructed, every pass ran **without `--set-reference`**: all 6,707 references are still the raw snapshots.
+**Decisions used:** D-008, D-023, D-033, D-383, D-384, D-392, D-395, D-396, D-397, D-398, D-399, **D-700 … D-706** (supervisor)
+**Open for the supervisor:** none. P-75 … P-80 are answered (D-701 … D-706).
+**Status:** T04k approved; the approved sequence has run — quarantine (D-702) → full re-derivation
+under D-701/D-703/D-706 → provenance asserted on every clean snapshot → **`--set-reference`**. **Waiting
+for "Approved. Merge"** (§15).
 
 The acceptance reviewer ran **three** times. The rounds found real defects (§7), one more turned
-up on a full pass (§7.4), and the last round's findings are fixed or raised as P-77 and P-78. Every
-number below is from the final pass and is reproduced by `scripts/analysis/T04k_report.py`.
+up on a full pass (§7.4), and the last round's findings were answered by D-701 … D-706. **Every
+number below is from the final pass under D-706** (config `bdd070ad70e7dc13`) and is reproduced by
+`scripts/analysis/T04k_report.py`; §15 gives each one against the pass before D-701/D-703.
 
 ## 1. What was built
 
@@ -21,6 +24,8 @@ number below is from the final pass and is reproduced by `scripts/analysis/T04k_
 | `src/strategy_factory/data/cli_clean.py` | `sfac data clean`: raw snapshot in; clean snapshot, per-hash log and provenance, and the quality report out |
 | `configs/data/quality.yaml`, `configs/data/alpaca.yaml` | every threshold (rule 1): `k1_atr`, `k2_pct`, `eps_bps`, `rename_window_days`, `crosscheck_window_days`, the two evidence paths |
 | `scripts/analysis/T04k_report.py` | every aggregate below, reproducible |
+| `scripts/ingest/T04k_rederive_quarantine.py` | D-702: retire the never-referenced T04k snapshots and **move** them (and their logs and reports) to `_quarantine/`, with a manifest; nothing deleted |
+| `scripts/analysis/T04k_assert_provenance.py` | asserts every current clean snapshot's catalog notes carry this run's config hash and the arms its log and provenance list |
 | `docs/reviews/T04k_boundaries.csv` | the 280 re-use candidates, each with both verdicts and its outcome |
 | `docs/reviews/T04k_changes_per_symbol.csv`, `…_per_date.csv` | changed bars by arm |
 | `docs/reviews/T04k_short_hourly_dates.csv` | every short or missing hourly day, per date |
@@ -35,37 +40,40 @@ snapshot; `_clean/clean_daily_summary.csv`; `_clean/short_hourly_days.csv`.
 ## 2. The run
 
 ```
-uv run sfac data clean            # no --set-reference, as instructed
+uv run python scripts/ingest/T04k_rederive_quarantine.py --apply   # D-702
+uv run sfac data clean
+uv run python scripts/analysis/T04k_assert_provenance.py
+uv run sfac data clean --set-reference
 ```
 
 | | symbols |
 |---|---|
-| raw daily snapshots processed | 6,707 |
-| **cleaned** (a new derived snapshot) | **3,250** |
-| **unchanged** (the raw snapshot already is the clean series) | 3,457 |
+| raw daily snapshots processed | 6,708 (AVGO added) |
+| **cleaned** (a new derived snapshot) | **3,239** |
+| **unchanged** (the raw snapshot already is the clean series) | 3,469 |
 | `unadjusted_split` (D-397 path) | 0 |
 | `exclude_boundary_unidentifiable` (D-398 (4)) | 0 |
 | failed | **0** |
 
-**11,947,857 raw bars → 11,733,903 clean: 213,954 removed (1.79 %), almost all padding.**
+**11,950,550 raw bars → 11,736,596 clean: 213,954 removed (1.79 %), almost all padding.**
 
 | arm | changed bars | symbols |
 |---|---|---|
 | `frozen_cut` (D-398 (1)) | **181,503** | 709 |
 | `boundary_trim` (D-398 (2)/(3)) | 32,451 | 59 |
-| `extreme_cap` (D-396, where hourly data exists) | 6,925 | 795 |
-| `wick_clip` (D-396, only where it does not) | 5,336 | 2,059 |
+| `extreme_cap` (D-396/D-701, where hourly data exists) | 6,931 | 796 |
+| `wick_clip` (D-396/D-703/D-706, only where it does not) | 5,412 | 2,043 |
 
-"Cleaned" is 48 % of the universe but it is three populations: **2,854** symbols with at least one
-extreme corrected (a handful of bars each), **365** touched only by padding removal and **31** only
+"Cleaned" is 48 % of the universe but it is three populations: **2,839** symbols with at least one
+extreme corrected (a handful of bars each), **378** touched only by padding removal and **22** only
 by a boundary trim.
 
-**The daily range on the 12,239 bars an extreme arm changed** (bps of the close):
+**The daily range on the 12,247 bars an extreme arm changed** (bps of the close):
 
 | | median | p90 | p99 | max |
 |---|---|---|---|---|
-| before | 484.3 | 8,513.6 | 18,829.3 | 252,352.9 |
-| after | 305.9 | 2,523.4 | 6,560.0 | 32,771.4 |
+| before | 483.9 | 7,940.6 | 18,366.3 | 252,352.9 |
+| after | 295.8 | 2,025.7 | 5,713.3 | 22,961.4 |
 
 The median barely moves; the tail collapses.
 
@@ -238,12 +246,19 @@ T04g raw reports:
 
 | raw (T04g) → clean series | snapshots |
 |---|---|
-| ok → ok | 3,370 |
-| warning → warning | 2,674 |
-| warning → ok | 31 |
-| **ok → warning** | **632** |
+| ok → ok | 3,978 |
+| warning → warning | 2,671 |
+| warning → ok | 34 |
+| **ok → warning** | **24** (was 632 before D-701/D-703) |
 
-The 632 are **not cleaning making series worse**; T04g's reports never ran these two checks:
+The **24** are all hourly symbols failing `daily_wick_outlier`: their wicks the hourly evidence keeps,
+and D-396 asks for the check on every symbol. **D-701 removed all 572** `daily_extreme_unsupported`
+warnings — the closing-auction residual below is within the body, so no longer flagged — and
+**D-703 removed all 60** non-hourly wick warnings: **0 of the 5,882** non-hourly clean series still
+flag a wick (was 230 series, 267 bars). Correctable breach days: **15,559 raw → 8,753 clean**, every
+one on the close (42 `unexplained`, 8,711 `extended_hours`; median 2.7 bps, p99 98.0).
+
+*The analysis that led to D-701, as written for the pass before it:*
 
 - **572** (all hourly) fail `daily_extreme_unsupported` on a **residual the cap cannot remove**. Over
   the 825 hourly symbols, **8,750 of 15,550** correctable breach days remain (43.7 % resolved), on
@@ -272,11 +287,11 @@ the log.
 |---|---|---|
 | both checks from YAML; a bad print, an extended-hours extreme, a volatile bar that must not flag | `test_F_0_1_6_D_396_*` | pass |
 | a short hourly day changes nothing, is not reported clean, appears with its bar count | `…_a_short_hourly_day_*`, `…_never_counts_a_short_hourly_day_as_a_defect`, `…_a_short_day_that_does_not_breach_is_still_stated`, `…_no_hourly_bar_is_stated_too`, `…_the_pass_judges_the_clean_series_with_real_hourly_files` (end to end) | pass |
-| every log row carries its arm and evidence | `…_every_log_row_names_its_arm_and_its_evidence`; store: 0 empty of 226,215 | pass |
+| every log row carries its arm and evidence | `…_every_log_row_names_its_arm_and_its_evidence`; store: 0 empty of 226,297 | pass |
 | D-398: padded stretch, leading pad, re-use boundary; boundary in the metadata; too short fails the split | `…_frozen_stretch_is_cut…`, `…_a_leading_pad_is_trimmed_without_any_name_evidence`, `…_a_re_use_by_name_trims…`, `…_each_clean_snapshot_has_its_own_log_and_provenance` (notes and JSON), `…_too_short_fails_the_split…` | pass |
 | D-399 as amended by D-700: an ambiguous signature never trims | `test_F_0_1_9_*`, `test_F_0_1_2_name_evidence.py`, `…_one_name_keeps_the_history…` | pass |
 | `daily_wick_outlier` runs without hourly data | `…_the_wick_check_runs_without_hourly_data` | pass |
-| a clean snapshot for every raw one, `derived_from`, **the reference**, raw untouched | raw untouched: `…_leaves_the_raw_one_untouched` (bytes and mtime); reference **deferred as instructed** (§12.1) | partial, by instruction |
+| a clean snapshot for every raw one, `derived_from`, **the reference**, raw untouched | raw untouched: `…_leaves_the_raw_one_untouched` (bytes and mtime); `T04k_assert_provenance.py` on all 3,239; **references set** (§15) | pass |
 | replaying the log reproduces the clean bars | `…_replaying_the_log_reproduces_the_clean_bars` | pass |
 | `open`/`close`/`volume` identical | `…_open_close_and_volume_are_never_changed`; store: 0 differences | pass |
 | re-running writes nothing new | `…_the_input_is_the_raw_snapshot_even_after_set_reference`; store: `catalog.parquet` sha256 `b3b6cda7f280ac2b` before and after a re-run, 16,752 non-quality events before and after (a re-run does append `quality` events: the checks run again) | pass |
@@ -284,23 +299,18 @@ the log.
 
 ## 12. Deviations
 
-1. **The clean snapshots are not the references yet**, by instruction. On approval,
-   `uv run sfac data clean --set-reference` reads raw, finds every clean snapshot already stored,
-   writes no bar and moves 3,250 references.
+1. The provenance JSON's `decisions` list and the note's prefix still name D-396/D-398/D-399/D-700
+   only; D-701/D-703/D-706 are carried by the config hash (`bdd070ad…`), which covers every threshold
+   they set. Not changed mid-sequence, to keep the notes of all 3,239 snapshots identical in form.
 2. **No separate snapshot for the 3,457 unchanged symbols**: identical content has the same hash, so
    the raw snapshot *is* their clean series (rule 10).
-3. **82 superseded clean snapshots** from the passes that ran before the fixes remain in the store and
-   the catalog (immutable, rule 10); none is a reference. The first-layout flat logs
-   `_clean/<symbol>.csv` remain beside them; the report reads only the current layout.
-4. **3,180 of the 3,250 current clean snapshots carry stale catalog metadata, and 46 of those name a
-   different arm than their log** (§7.6). The store returns the first writer's metadata for identical
-   content and D-392 allows no correction. The pass detects it (`metadata_stale`), and every current
-   clean snapshot has the correct provenance in `_clean/<symbol>/<hash>.json`. Whether to accept that
-   or to re-derive the never-referenced T04k snapshots once is **P-77** — I recommend re-deriving
-   before they become references.
-5. **`wick_clip` is one pass.** Clipping lowers ATR(14), so a wick the first bad print masked can then
-   clear `k1_atr`: **230 of the 5,882** non-hourly clean series still fail `daily_wick_outlier` (267
-   bars). **P-78**.
+3. **The D-702 quarantine ran twice** (§15). The first application selected snapshots stale *under
+   the pass before D-701/D-703*; 70 then-current ones were correct at that time and stayed, and 56 of
+   them came back byte-identical under the new config with the old notes. The assertion caught it;
+   the same script, re-run, retired and moved exactly those 70 (56 stale, 14 superseded), and a
+   second full pass followed. No superseded or stale T04k snapshot is left in the catalog.
+4. The quarantine folders stay in the store for the supervisor and the user to empty.
+5. The former P-77 (stale metadata) and P-78 (one-pass clip) deviations are resolved by D-702/D-703.
 6. `short_hourly_days.csv` counts per **raw** daily session, including padded days later cut; the
    quality reports count per clean session.
 7. The full `NAME_CHANGE` feed is used, not only `configs/universe/symbol_changes.csv` (§5).
@@ -308,12 +318,12 @@ the log.
 ## 13. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                            1320 passed, 1 failed (below)
+uv run pytest -m "not slow"                            1327 passed, 1 failed (below)
 uv run pytest tests/parity tests/leakage tests/oracle    283 passed
 uv run pytest -m db                                       21 passed, 0 skipped
 uv run ruff check . / ruff format --check .             clean
 uv run mypy src                                         no issues in 104 source files
-uv run sfac streams check --base origin/main            ownership, ids (D-700 in range), alembic head: ok
+uv run sfac streams check --base origin/main            fails on one row only: P-80 (range P-80…P-99 queued with stream A, as instructed)
 ```
 
 The one failure is stream A's `test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio` (their
@@ -322,13 +332,45 @@ changed; `SFAC_RAW_ROOT` was only read.
 
 ## 14. For the supervisor
 
-- **Approve T04k**, and with it `--set-reference`.
-- **P-75**: confirm the six implementation rules, all conservative.
-- **P-76**: the closing-auction residual behind 572 `warning`s.
-- **P-77**: stale metadata on 3,180 clean snapshots — accept, or re-derive once before they become
-  references (my recommendation).
-- **P-78**: whether `wick_clip` should iterate to a fixed point.
-- **221 of the 280 stay spliced** (minus padding), four of the five named Moneta targets among them.
-  The next evidence would be **CUSIPs** — the `NAME_CHANGE` feed carries `old_cusip`/`new_cusip`,
-  which identify the security rather than its name — but that is a new discriminator and yours to
-  decide.
+- **"Approved. Merge"** for this PR. CI's ID guard is red **only** for the `P-80` row: the P-80…P-99
+  range is queued with stream A and not yet in `ownership.yaml`; not worked around, as instructed.
+- The quarantine folders to empty when you choose (§15).
+- **221 of the 280 stay spliced** (minus padding), four of the five named Moneta targets among them —
+  **T04l** (CUSIP) after T04h, before T12 (D-705).
+
+## 15. The re-derivation under D-701 … D-706 — before and after
+
+**Quarantine (D-702).** `<store>/_quarantine/T04k_D-702_20260921T132719Z/` (3,262 snapshots, 22,494
+files) and `…_20260921T135526Z/` (70 snapshots, 420 files), each with `manifest.csv`. Retired in the
+catalog (`retire` events), moved, **nothing deleted**; no raw snapshot and no reference touched.
+
+**Provenance asserted** before `--set-reference` (`T04k_assert_provenance.py`): all **3,239** current
+clean snapshots are in the store and the catalog, `derived_from` their raw snapshot, and their notes
+carry config `bdd070ad70e7dc13` with arm counts equal to their log and provenance JSON;
+`metadata_stale` **0** (was 3,180).
+
+**Per arm** — the pass before D-701/D-703 against the final pass:
+
+| arm | before: bars / symbols | after: bars / symbols | why it moved |
+|---|---|---|---|
+| `boundary_trim` | 32,451 / 59 | 32,451 / 59 | identical, symbol by symbol |
+| `frozen_cut` | 181,503 / 709 | 181,503 / 709 | identical, symbol by symbol |
+| `extreme_cap` | 6,925 / 795 | 6,931 / 796 | **AVGO** only (+6), newly ingested; D-701 changes the check, not the cap |
+| `wick_clip` | 5,336 / 2,059 | 5,412 / 2,043 | D-703 body-range ATR at `k1_atr` 9 (D-706), iterated to a fixed point: 204 symbols gained, 220 lost, 833 changed count |
+
+**Flags** (the quality checks on the clean series):
+
+| | before | after |
+|---|---|---|
+| `ok → warning` against T04g | 632 | **24** |
+| … `daily_extreme_unsupported` (D-701) | 572 | **0** |
+| … `daily_wick_outlier`, hourly symbols | 26 | 24 |
+| … `daily_wick_outlier`, non-hourly (D-703) | 60 | **0** |
+| non-hourly clean series still flagging a wick | 230 (267 bars) | **0** |
+| wick flags on the raw non-hourly series (D-706 reach) | 4,991 (true-range ATR × 3) | 5,011 (body-range ATR × 9) |
+| cleaned / unchanged symbols | 3,250 / 3,457 | 3,239 / 3,469 (198 left the cleaned set, 187 joined) |
+
+**References.** `sfac data clean --set-reference` moved the reference of every cleaned symbol to its
+clean snapshot; the 3,469 unchanged keep their raw snapshot, which is their clean series (rule 10).
+Verified after the run: **6,708 references, one per symbol** — 3,239 derived, 3,469 raw — and every one
+equals the snapshot the summary names; the provenance assertion passes again after `--set-reference`.

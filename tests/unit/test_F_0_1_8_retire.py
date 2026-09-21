@@ -1,4 +1,4 @@
-"""F-0.1.8 (T04k, D-702): retiring never-referenced derived snapshots -- the only exception to D-392.
+"""F-0.1.8 (T04k, D-702): retiring never-referenced derived snapshots, the one D-392 exception.
 
 A raw snapshot is never retired; neither is a reference, nor anything that was ever one. Files are
 moved to a quarantine, never deleted, and every retirement is an event.
