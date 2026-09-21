@@ -17,13 +17,14 @@ from typing import Any
 import numpy as np
 import pytest
 from fixtures.engine import SIZE, Case, random_case, run_engine, to_result
+from fixtures.hypothesis_budget import examples
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from strategy_factory.engine import kernel as k
 from strategy_factory.engine.api import CostInputs, MarketArrays, SizingInputs, simulate_grid
 
-SETTINGS = settings(max_examples=150, deadline=None)
+SETTINGS = settings(max_examples=examples(150), deadline=None)
 
 
 @st.composite

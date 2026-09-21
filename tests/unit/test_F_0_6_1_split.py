@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 from fixtures.bars import make_meta
+from fixtures.hypothesis_budget import examples
 from fixtures.registry_db import RUN_CONFIG
 from fixtures.t05 import MemoryLedger, bars_from_close, random_close
 from hypothesis import given, settings
@@ -164,7 +165,7 @@ def test_F_0_6_1_critical_quality_blocks_data_access(tmp_path: Path) -> None:
         access._splits.open_holdout("c", "TEST", "1D", stage=HOLDOUT_STAGE)
 
 
-@settings(max_examples=30, deadline=None)
+@settings(max_examples=examples(30), deadline=None)
 @given(
     n=st.integers(min_value=900, max_value=4000),
     fraction=st.floats(min_value=0.05, max_value=0.5),

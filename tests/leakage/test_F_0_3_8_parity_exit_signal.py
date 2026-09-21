@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from fixtures.hypothesis_budget import examples
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -43,7 +44,7 @@ def head(chart: ChartData, t: int) -> ChartData:
 
 
 @pytest.mark.parametrize("name", sorted(PARITY_EXIT_RULES))
-@settings(max_examples=60, deadline=None)
+@settings(max_examples=examples(60), deadline=None)
 @given(cut=st.integers(min_value=1, max_value=len(CHART)))
 def test_F_0_3_8_parity_exit_signal_truncation_invariance(name: str, cut: int) -> None:
     rule = PARITY_EXIT_RULES[name]

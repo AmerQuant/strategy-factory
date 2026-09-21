@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 import pytest
 import yaml
+from fixtures.hypothesis_budget import examples
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from typer.testing import CliRunner
@@ -1049,7 +1050,7 @@ def total(order: float, lot_charge: float, pts: float) -> float:
 pos = st.floats(min_value=0.0, max_value=10.0, allow_nan=False)
 
 
-@settings(max_examples=100, deadline=None)
+@settings(max_examples=examples(100), deadline=None)
 @given(base=st.tuples(pos, pos, pos), which=st.integers(0, 2), bump=st.floats(1e-6, 5.0))
 def test_F_0_2_4_new_models_monotone(
     base: tuple[float, float, float], which: int, bump: float

@@ -5,6 +5,7 @@ on:
   pull_request:
   schedule:
     - cron: "0 2 * * *" # nightly 02:00 UTC: slow self-tests
+    - cron: "0 4 * * 0" # weekly, Sunday 04:00 UTC: randomized Hypothesis search (D-368)
   workflow_dispatch:
 
 env:
@@ -72,7 +73,7 @@ jobs:
           EOF
 
   nightly-slow:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,3 +86,45 @@ jobs:
         # Exit code 5 = no tests collected: accepted here only, while no slow tests exist.
         # Every other job and local run fails when nothing is collected.
         run: uv run pytest -m slow || [ $? -eq 5 ]
+
+  # D-368: the per-PR job is derandomized and `.hypothesis/` is git-ignored, so a falsifying
+  # example found on a laptop never reaches CI. This job goes looking for new ones: every
+  # Hypothesis test, randomized, with its budget multiplied. It runs on the weekly cron (or by
+  # hand) and on no pull request, so a failure REPORTS -- a red scheduled run, with the
+  # falsifying example and a reproduction blob in the log and the job summary -- and gates no
+  # merge. What it finds is pinned as an `@example` on the test, after which the per-PR job
+  # sees it too. No continue-on-error: that would hide the report this job exists for.
+  weekly-hypothesis:
+    if: github.event.schedule == '0 4 * * 0' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HYPOTHESIS_PROFILE: weekly
+      # 40x every per-PR budget. Measured on a GitHub runner before merge (D-368 review):
+      # 10x ran 126 tests in 9 min 33 s, 40x in 29 min 53 s -- a sixth of the timeout.
+      HYPOTHESIS_BUDGET_MULTIPLIER: "40"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync
+      - name: Randomized property search (every Hypothesis test)
+        run: |
+          set -o pipefail
+          files=$(grep -rl "@given" tests --include=*.py)
+          uv run pytest $files -m "not slow and not db" -p no:cacheprovider -rf 2>&1 | tee hypothesis.log
+      - name: Report falsifying examples
+        if: failure()
+        run: |
+          {
+            echo "## Weekly Hypothesis search found a failure (D-368)"
+            echo
+            echo "Pin each falsifying example below as an \`@example\` on its test, then fix the"
+            echo "cause. Reproduce locally with the \`@reproduce_failure\` blob."
+            echo
+            echo '```'
+            grep -E -A40 "Falsifying|reproduce_failure|^FAILED" hypothesis.log | head -400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
