@@ -65,8 +65,8 @@ warning 424 / critical 0, `summary_alpaca_1D.md` byte-identical, idempotent. Rev
 clean daily snapshots are the references. The D-702 quarantine folders
 (`<store>/_quarantine/T04k_D-702_*`) are **left for the supervisor and the user to empty**.
 
-**Also open:** PR [#29](https://github.com/AmerQuant/strategy-factory/pull/29) (`b/T04k-provenance-names`,
-`CLEAN_DECISIONS` names D-701/D-703/D-704/D-706 in later clean provenance) — waiting for "Approved. Merge".
+**Merged:** PR [#29](https://github.com/AmerQuant/strategy-factory/pull/29) (`d0dd2b9`) — `CLEAN_DECISIONS`
+names D-701/D-703/D-704/D-706 in later clean provenance.
 
 **Open for the supervisor:** **P-81** (does 1H need its own cleaning pass — measured: no frozen
 stretches in the hourly feed, bad prints rare, re-use boundaries matter → recommend T04l applies its
