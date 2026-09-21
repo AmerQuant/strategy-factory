@@ -299,9 +299,16 @@ the log.
 
 ## 12. Deviations
 
-1. The provenance JSON's `decisions` list and the note's prefix still name D-396/D-398/D-399/D-700
-   only; D-701/D-703/D-706 are carried by the config hash (`bdd070ad…`), which covers every threshold
-   they set. Not changed mid-sequence, to keep the notes of all 3,239 snapshots identical in form.
+1. **The current 3,239 clean snapshots carry the config hash, not the decision names, for
+   D-701/D-703/D-706.** Their provenance JSON's `decisions` list and their note's prefix name
+   D-396/D-398/D-399/D-700 only; config `bdd070ad…` covers every threshold D-701/D-703/D-706 set.
+   Accepted by the supervisor for this run (a 40-minute pass for a note is not worth it). **Fixed for
+   every later pass** (branch `b/T04k-provenance-names`): one constant, `CLEAN_DECISIONS` in
+   `data/cli_clean.py`, feeds both the note and the provenance list and names D-396, D-398, D-399,
+   D-700, D-701, D-703, D-704 and D-706. `metadata_stale` now compares the part of the note that
+   records what was done (config hash, arms, raw snapshot, boundary), not the label, so a longer
+   label alone does not flag the 3,239 references as stale on the next pass. The provenance JSON is
+   rewritten by every pass, so the next pass over these symbols (T04l) gives them the names.
 2. **No separate snapshot for the 3,457 unchanged symbols**: identical content has the same hash, so
    the raw snapshot *is* their clean series (rule 10).
 3. **The D-702 quarantine ran twice** (§15). The first application selected snapshots stale *under
@@ -357,6 +364,10 @@ carry config `bdd070ad70e7dc13` with arm counts equal to their log and provenanc
 | `frozen_cut` | 181,503 / 709 | 181,503 / 709 | identical, symbol by symbol |
 | `extreme_cap` | 6,925 / 795 | 6,931 / 796 | **AVGO** only (+6), newly ingested; D-701 changes the check, not the cap |
 | `wick_clip` | 5,336 / 2,059 | 5,412 / 2,043 | D-703 body-range ATR at `k1_atr` 9 (D-706), iterated to a fixed point: 204 symbols gained, 220 lost, 833 changed count |
+
+**The evidence that `k1_atr` 9 preserved the old rule's reach (D-706):** the fixed point leaves **0**
+non-hourly clean series flagged (was 230), while the clipped population moved only **5,336 → 5,412
+bars** (+1.4 %) — the basis changed, how strict the check is did not.
 
 **Flags** (the quality checks on the clean series):
 

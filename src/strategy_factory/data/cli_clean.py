@@ -79,6 +79,26 @@ CLEAN_DIR = "_clean"
 SUMMARY_FILE = "clean_daily_summary.csv"
 #: Every short or missing hourly day of every hourly symbol (the days that are not evidence).
 SHORT_DAYS_FILE = "short_hourly_days.csv"
+#: The decisions that decide what the clean pass does to a bar, named in every clean snapshot's
+#: notes and provenance so a reader never has to resolve the config hash to a decision: the arms
+#: (D-396), frozen stretches and boundaries (D-398), the cross-check (D-399), the name rule
+#: (D-700), the extreme check bounded by the body (D-701), the body-range ATR and fixed point
+#: (D-703), the implementation rules (D-704) and ``k1_atr`` 9 (D-706). Extend it with the
+#: decision whenever a rule of the pass changes.
+CLEAN_DECISIONS: tuple[str, ...] = (
+    "D-396",
+    "D-398",
+    "D-399",
+    "D-700",
+    "D-701",
+    "D-703",
+    "D-704",
+    "D-706",
+)
+#: Where the part of a clean note that records what was done begins (the decision label before
+#: it can grow without the record changing).
+_RECORD_START = "config "
+_NOTE_HEAD = "T04k clean daily ("
 SUMMARY_COLUMNS = [
     "symbol",
     "status",
@@ -451,7 +471,9 @@ def _clean_symbol(
         # correction path). When an earlier pass wrote it, its notes can be stale or even name a
         # different arm (`AENT`: `frozen_cut 278` stored, `boundary_trim 278` now). Never silent:
         # the summary flags it, and the provenance JSON beside the log is the current record.
-        out["metadata_stale"] = stored.notes != intended.notes
+        # Compared on what was done (config hash, arms, raw snapshot, boundary), not on the
+        # decision label: naming a decision that was always in force does not make a note stale.
+        out["metadata_stale"] = _note_record(stored.notes) != _note_record(intended.notes)
         ctx.catalog.register(stored)
         digest = stored.snapshot_hash or ""
         folder = ctx.out_dir / safe_component(symbol)
@@ -498,7 +520,7 @@ def _provenance(
     """The structured record of what was applied -- beside the log, keyed by the clean hash."""
     return {
         "task": "T04k",
-        "decisions": ["D-396", "D-398", "D-399", "D-700"],
+        "decisions": list(CLEAN_DECISIONS),
         "symbol": raw.symbol,
         "derived_from": raw.snapshot_hash,
         "config_hash": ctx.fingerprint,
@@ -517,6 +539,14 @@ def _provenance(
         "has_hourly": bool(out["has_hourly"]),
         "short_hourly_days": out["short_hourly_days"],
     }
+
+
+def _note_record(notes: str) -> str:
+    """The part of a clean snapshot's notes that records what was done (from the config hash on);
+    the whole notes when there is none."""
+    head = notes.find(_NOTE_HEAD)
+    at = notes.find(_RECORD_START, head) if head >= 0 else -1
+    return notes if at < 0 else notes[at:]
 
 
 def _break_start(verdict: SeriesVerdict) -> dt.date:
@@ -538,7 +568,7 @@ def _clean_meta(
     config hash of every threshold that decided it (task section 2)."""
     applied = {arm: int(n) for arm, n in changes.group_by("arm").len().rows()}
     note = (
-        f"T04k clean daily (D-396/D-398/D-399/D-700), config {ctx.fingerprint[:16]}: "
+        f"{_NOTE_HEAD}{'/'.join(CLEAN_DECISIONS)}), {_RECORD_START}{ctx.fingerprint[:16]}: "
         f"{changes.height} changed bar(s) - "
         + ", ".join(f"{k} {v}" for k, v in sorted(applied.items()))
         + f". Raw snapshot {raw.snapshot_hash}."
