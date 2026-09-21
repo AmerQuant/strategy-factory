@@ -269,6 +269,40 @@ def check_daily_wick_outlier(
     )
 
 
+def unsupported_beyond_body(
+    breaches: pl.DataFrame, daily: pl.DataFrame, eps_bps: float
+) -> pl.DataFrame:
+    """The correctable breach days whose extreme lies outside the RTH range **and** the body.
+
+    D-701: the official close is the closing-auction print, a traded price; an extreme that sits
+    on the open or the close is supported by definition. T04k measured every one of the 8,750
+    residual breach days on the clean series on the close (median 2.7 bps), because the auction
+    print is filed in the 16:00 hourly bar D-023 drops. The bound is the one ``extreme_cap``
+    already respects, so the check and the correction agree.
+    """
+    from strategy_factory.data.clean_daily import CORRECTABLE
+
+    body = daily.select(
+        pl.col("ts").dt.date().alias("session_date"),
+        pl.max_horizontal("open", "close").alias("body_high"),
+        pl.min_horizontal("open", "close").alias("body_low"),
+    )
+    bps = 1e4 / pl.col("daily_close")
+    return (
+        breaches.filter(pl.col("breach_class").is_in(sorted(CORRECTABLE)))
+        .join(body, on="session_date", how="inner")
+        .with_columns(
+            ((pl.col("daily_high") - pl.max_horizontal("rth_high", "body_high")) * bps).alias(
+                "beyond_high_bps"
+            ),
+            ((pl.min_horizontal("rth_low", "body_low") - pl.col("daily_low")) * bps).alias(
+                "beyond_low_bps"
+            ),
+        )
+        .filter((pl.col("beyond_high_bps") > eps_bps) | (pl.col("beyond_low_bps") > eps_bps))
+    )
+
+
 def check_daily_extreme_unsupported(
     df: pl.DataFrame,
     meta: SeriesMetadata,
@@ -288,7 +322,6 @@ def check_daily_extreme_unsupported(
     a short day inside the hourly range would otherwise pass silently. A daily session with no
     hourly bar at all is ``no_raw_hours`` and is reported the same way.
     """
-    from strategy_factory.data.clean_daily import CORRECTABLE
 
     code = "daily_extreme_unsupported"
     if meta.timeframe != "1D":
@@ -313,11 +346,8 @@ def check_daily_extreme_unsupported(
             ],
             "no_hourly_dates": [str(d) for d in missing["session_date"].to_list()[:_SAMPLE]],
         }
-    eps = cfg.daily_extreme_unsupported.eps_bps
     real = (
-        breaches.filter(
-            pl.col("breach_class").is_in(sorted(CORRECTABLE)) & (pl.col("breach_bps") > eps)
-        )
+        unsupported_beyond_body(breaches, df, cfg.daily_extreme_unsupported.eps_bps)
         if breaches is not None
         else pl.DataFrame()
     )

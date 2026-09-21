@@ -47,7 +47,6 @@ from strategy_factory.data.daily_session import (
     INCOMPLETE_HOURLY_DAY,
     NO_RAW_HOURS,
     UNEXPLAINED,
-    with_atr,
 )
 from strategy_factory.data.relisting import (
     EXCLUDE,
@@ -78,14 +77,24 @@ LOG_COLUMNS: Final = [
 
 
 def wick_outliers(daily: pl.DataFrame, cfg: DailyWickOutlierConfig) -> pl.DataFrame:
-    """Per bar: is the high or the low beyond the body by **both** thresholds? (D-396)
+    """Per bar: is the high or the low beyond the body by **both** thresholds? (D-396, D-703)
 
     Returns ``idx, session_date, atr, body_high, body_low, flag_high, flag_low`` plus the two
     measured excesses per side, so the changed-bar log can quote the evidence the arm acted on.
     Requiring **both** an ATR multiple and a percentage is what keeps a genuinely volatile day:
     a wide-but-real bar clears the percentage and not the multiple, a bad print clears both.
+
+    ``atr`` here is the rolling mean of **body ranges**, ``|open - close|`` (D-703), not of true
+    ranges: open and close are never changed by any arm, so clipping a wick cannot shrink the
+    threshold that flagged it. With a high/low ATR it did -- 230 non-hourly clean series still
+    flagged after one pass, each wick masked by a bigger one next to it.
     """
-    frame = daily if "atr" in daily.columns else with_atr(daily)
+    frame = daily.sort("ts").with_columns(
+        (pl.col("open") - pl.col("close"))
+        .abs()
+        .rolling_mean(window_size=cfg.atr_length, min_samples=cfg.atr_length)
+        .alias("atr")
+    )
     body_high = pl.max_horizontal("open", "close")
     body_low = pl.min_horizontal("open", "close")
     out = frame.with_columns(
@@ -241,38 +250,46 @@ def clean_daily(
                     )
                     values[i] = bound
             continue
-        if hourly:
-            # The hourly series is the evidence for this symbol on every day: a day without a
-            # correctable breach is either supported by it or not evidence (short or missing).
-            continue
-        if body["flag_high"]:
-            rows.append(
-                _log(
-                    symbol,
-                    day,
-                    ARM_WICK_CLIP,
-                    "high",
-                    highs[i],
-                    body["body_high"],
-                    f"D-396: high {body['excess_high_atr']:.1f} x ATR(14) and "
-                    f"{body['excess_high_pct']:.1f} % beyond the body",
-                )
+        # (the hourly series decides every day of an hourly symbol; wicks are clipped below,
+        # only where there is none)
+
+    if not hourly:
+        # D-703: iterate to a fixed point on the body-range ATR, at most `max_passes` passes.
+        # Open and close never change, so the threshold cannot move and the second pass should
+        # find nothing; the cap guards against a baseline that ever does move.
+        for n in range(1, cfg.daily_wick_outlier.max_passes + 1):
+            current = (
+                frame.with_columns(pl.Series("high", highs), pl.Series("low", lows))
+                .with_row_index("_i")
+                .filter(pl.col("_i").is_in(keep))
             )
-            highs[i] = body["body_high"]
-        if body["flag_low"]:
-            rows.append(
-                _log(
-                    symbol,
-                    day,
-                    ARM_WICK_CLIP,
-                    "low",
-                    lows[i],
-                    body["body_low"],
-                    f"D-396: low {body['excess_low_atr']:.1f} x ATR(14) and "
-                    f"{body['excess_low_pct']:.1f} % beyond the body",
-                )
+            hits = wick_outliers(current, cfg.daily_wick_outlier).filter(
+                pl.col("flag_high") | pl.col("flag_low")
             )
-            lows[i] = body["body_low"]
+            if hits.height == 0:
+                break
+            for r in hits.iter_rows(named=True):
+                i, day = int(r["_i"]), dates[int(r["_i"])]
+                for field, values, bound, excess, pct in (
+                    ("high", highs, r["body_high"], r["excess_high_atr"], r["excess_high_pct"]),
+                    ("low", lows, r["body_low"], r["excess_low_atr"], r["excess_low_pct"]),
+                ):
+                    if not r[f"flag_{field}"]:
+                        continue
+                    rows.append(
+                        _log(
+                            symbol,
+                            day,
+                            ARM_WICK_CLIP,
+                            field,
+                            values[i],
+                            bound,
+                            f"D-396/D-703 pass {n}: {field} {excess:.1f} x body-ATR"
+                            f"({cfg.daily_wick_outlier.atr_length}) and {pct:.1f} % beyond "
+                            "the body",
+                        )
+                    )
+                    values[i] = bound
 
     clean = (
         frame.with_columns(pl.Series("high", highs), pl.Series("low", lows))

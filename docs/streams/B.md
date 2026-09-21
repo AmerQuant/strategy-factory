@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-701**, **P-79** (P-79 is the last of P-60 … P-79). The range **D-700 … D-799** is merged into
+Next free here: **D-706**; **P-60 … P-79 is used up** (P-79 was the last) — a new pending range is needed from the supervisor. The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -55,17 +55,18 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch **`b/T04k-clean-daily`**, pushed. **T04k is complete and STOPPED for
-the supervisor's "Approved"** (review `docs/reviews/T04k_review.md`, three acceptance-review rounds).
-No PR yet; all 6,707 references are still the raw snapshots (no `--set-reference`, by instruction).
-On approval: settle P-77 first (it decides whether the clean snapshots are re-derived), then
-`uv run sfac data clean --set-reference`, the PR, and **T04h** (unblocked: the 1H set is complete).
+**Current position:** branch **`b/T04k-clean-daily`**, pushed. T04k **approved** by the supervisor
+with answers P-75…P-78 → **D-701…D-704**, and D-705 (CUSIP task **T04l**, file written). Done:
+**AVGO refreshed and ingested** (2024-07-15 `adjusted` in 1D and 1H; 6,708 daily raw snapshots);
+**D-701** (extreme check bounded by the body) implemented; **D-703** (body-range ATR, fixed point,
+cap 3) implemented; the **D-702** retire/quarantine tool built and dry-run (3,262 to retire, 3,250
+flat logs) — **not applied yet**.
 
-**Blocked on the supervisor only:** approval of T04k and **P-75 … P-78** —
-P-75 six implementation rules (conservative); P-76 the official close (16:00 closing auction)
-counted as unsupported, behind 572 warnings; **P-77 stale metadata on 3,180 of 3,250 clean
-snapshots (46 contradict their log) — re-derive once before they become references?**; P-78 one-pass
-wick clip. P-68 … P-70 remain open and do not block.
+**Blocked on the supervisor: P-79.** On the body-range ATR the unchanged `k1_atr: 3.0` flags 9.9x
+more wicks (49,428 vs 4,991); `k1 ≈ 9` reproduces the old count. The re-derivation waits on it.
+Then, in order: `scripts/ingest/T04k_rederive_quarantine.py --apply` (moves, never deletes) → full
+`sfac data clean` → assert every clean snapshot's notes carry its config hash and its log's arms →
+`sfac data clean --set-reference` → PR → stop for "Approved. Merge".
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in

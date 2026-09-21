@@ -56,8 +56,9 @@ def _daily(rows: list[Bar], start: dt.datetime = START) -> pl.DataFrame:
 
 
 def _calm(n: int, price: float = 100.0) -> list[Bar]:
-    """``n`` ordinary bars with a 1-point range, so ATR(14) settles at 1.0."""
-    return [(price, price + 0.5, price - 0.5, price) for _ in range(n)]
+    """``n`` ordinary bars: a 1-point range around a 0.4-point body, so the body-range ATR(14)
+    of D-703 settles at 0.4 (a zero body would make it 0 and switch the wick check off)."""
+    return [(price - 0.2, price + 0.5, price - 0.5, price + 0.2) for _ in range(n)]
 
 
 def _date(i: int) -> dt.date:
@@ -74,8 +75,21 @@ def _breaches(rows: list[dict[str, object]]) -> pl.DataFrame:
         "rth_low": pl.Float64(),
         "rth_bars": pl.UInt32(),
         "expected_bars": pl.UInt32(),
+        "daily_high": pl.Float64(),
+        "daily_low": pl.Float64(),
+        "daily_close": pl.Float64(),
     }
-    return pl.DataFrame(rows, schema=schema)
+    # like `breaches()`: every row carries the day's prices; default to "inside the RTH range"
+    full = [
+        {
+            "daily_high": r.get("rth_high"),
+            "daily_low": r.get("rth_low"),
+            "daily_close": 100.0,
+            **r,
+        }
+        for r in rows
+    ]
+    return pl.DataFrame(full, schema=schema)
 
 
 # --------------------------------------------------------------------- daily_wick_outlier
@@ -90,7 +104,7 @@ def test_F_0_1_6_D_396_a_bad_print_exceeds_both_thresholds_and_flags() -> None:
 
 def test_F_0_1_6_D_396_a_wide_but_real_day_is_not_flagged() -> None:
     """It clears the percentage and not the ATR multiple, so requiring both keeps it."""
-    rows = [(100.0, 112.0, 88.0, 100.0) for _ in range(30)]  # every day is 24 % wide
+    rows = [(94.0, 112.0, 88.0, 106.0) for _ in range(30)]  # 24 % wide, with a 12 % body
     flagged = wick_outliers(_daily(rows), CFG.daily_wick_outlier)
     assert not any(flagged["flag_high"].to_list())
     assert not any(flagged["flag_low"].to_list())
@@ -98,8 +112,8 @@ def test_F_0_1_6_D_396_a_wide_but_real_day_is_not_flagged() -> None:
 
 def test_F_0_1_6_D_396_a_large_atr_multiple_alone_is_not_enough() -> None:
     """A quiet series makes ATR tiny; a 2 % wick is many ATRs but is not a bad print."""
-    rows = [(100.0, 100.01, 99.99, 100.0) for _ in range(30)]
-    rows[20] = (100.0, 102.0, 99.99, 100.0)  # ~200 x ATR, only 2 %
+    rows = [(99.995, 100.01, 99.99, 100.005) for _ in range(30)]  # body-ATR 0.01
+    rows[20] = (100.0, 102.0, 99.99, 100.0)  # ~200 x body-ATR, only 2 %
     flagged = wick_outliers(_daily(rows), CFG.daily_wick_outlier)
     assert not any(flagged["flag_high"].to_list())
 
@@ -133,7 +147,7 @@ def test_F_0_1_6_D_396_a_flagged_wick_is_clipped_to_the_body() -> None:
     row = log.row(0, named=True)
     assert row["arm"] == ARM_WICK_CLIP and row["field"] == "high"
     assert (row["old"], row["new"]) == (160.0, 101.0)
-    assert "x ATR(14)" in row["evidence"] and "% beyond the body" in row["evidence"]
+    assert "x body-ATR(14)" in row["evidence"] and "% beyond the body" in row["evidence"]
 
 
 def test_F_0_1_6_D_396_open_close_and_volume_are_never_changed() -> None:
@@ -534,6 +548,9 @@ def test_F_0_1_6_D_396_the_extreme_check_counts_a_real_breach() -> None:
                 "rth_low": 99.0,
                 "rth_bars": 7,
                 "expected_bars": 7,
+                "daily_high": 130.0,
+                "daily_low": 99.5,
+                "daily_close": 100.0,
             },
             {
                 "symbol": "EQ",
@@ -695,19 +712,101 @@ def test_F_0_1_6_T04k_wick_clip_runs_only_without_an_hourly_series() -> None:
 
 
 def test_F_0_1_6_T04k_atr_is_measured_on_the_bars_that_survive() -> None:
-    """S3: padding right before a wick shrinks a raw ATR(14) and makes an ordinary wick look huge.
+    """S3/D-703: padding right before a wick shrinks a raw body-range ATR(14) (a pad has no body)
+    and makes an ordinary wick look like many ATRs.
 
-    Calm bars have a 5-point range; 14 padded bars follow, then a bar whose high sits 12 points
-    (12 %) above its body. Against the real bars that is ~2 x ATR (not a bad print); against the
-    padded window it is ~10 x ATR. Once the pad is cut the wick must stand.
+    Calm bars have a 4-point body; 14 padded bars follow, then a bar whose high sits 11 points
+    (11 %) above a 2-point body. Against the real bars that is under 3 x body-ATR; against the
+    padded window it is ~78 x. Once the pad is cut the wick must stand.
     """
-    rows: list[Bar] = [(100.0, 102.5, 97.5, 100.0) for _ in range(30)]
+    rows: list[Bar] = [(97.0, 102.5, 97.5, 101.0) for _ in range(30)]
     rows += [(100.0, 100.0, 100.0, 100.0)] * 14
-    rows.append((100.0, 112.0, 97.5, 100.0))
-    rows += [(100.0, 102.5, 97.5, 100.0) for _ in range(5)]
+    rows.append((99.0, 112.0, 97.5, 101.0))
+    rows += [(97.0, 102.5, 97.5, 101.0) for _ in range(5)]
     raw_flags = wick_outliers(_daily(rows), CFG.daily_wick_outlier)
     assert raw_flags["flag_high"][44]  # on the raw frame the pad makes it a "bad print"
     clean, log = clean_daily(_daily(rows), "PADWICK", CFG, has_hourly=False)
     assert log.filter(pl.col("arm") == ARM_WICK_CLIP).height == 0
     assert log.filter(pl.col("arm") == ARM_FROZEN_CUT).height == 14
     assert 112.0 in clean["high"].to_list()
+
+
+# ------------------------------------------------------------------------------------ D-701
+
+
+def test_F_0_1_6_D_701_an_extreme_on_the_close_is_never_unsupported() -> None:
+    """The official close is the closing-auction print: a traded price. T04k found every one of
+    the 8,750 residual breach days on the close, a few bps outside the RTH hourly range."""
+    rows = _calm(30)
+    rows[20] = (100.0, 101.2, 99.5, 101.2)  # the close IS the high, above the 101.0 RTH high
+    br = _breaches(
+        [
+            {
+                "symbol": "EQ",
+                "session_date": _date(20),
+                "breach_class": EXTENDED_HOURS,
+                "breach_bps": 20.0,
+                "rth_high": 101.0,
+                "rth_low": 99.0,
+                "rth_bars": 7,
+                "expected_bars": 7,
+                "daily_high": 101.2,
+                "daily_low": 99.5,
+                "daily_close": 101.2,
+            }
+        ]
+    )
+    res = check_daily_extreme_unsupported(_daily(rows), _meta(), CFG, br, _coverage())
+    assert res.status == "pass"
+
+
+def test_F_0_1_6_D_701_an_extreme_beyond_the_body_and_the_range_is_still_flagged() -> None:
+    rows = _calm(30)
+    rows[20] = (100.0, 105.0, 99.5, 101.2)  # 105 is past both the 101.0 RTH high and the body
+    br = _breaches(
+        [
+            {
+                "symbol": "EQ",
+                "session_date": _date(20),
+                "breach_class": UNEXPLAINED,
+                "breach_bps": 400.0,
+                "rth_high": 101.0,
+                "rth_low": 99.0,
+                "rth_bars": 7,
+                "expected_bars": 7,
+                "daily_high": 105.0,
+                "daily_low": 99.5,
+                "daily_close": 101.2,
+            }
+        ]
+    )
+    res = check_daily_extreme_unsupported(_daily(rows), _meta(), CFG, br, _coverage())
+    assert res.status == "fail" and res.count == 1
+
+
+# ------------------------------------------------------------------------------------ D-703
+
+
+def test_F_0_1_6_D_703_clipping_cannot_shrink_its_own_threshold() -> None:
+    """Two bad prints side by side. With a high/low ATR the bigger one inflated the threshold and
+    masked the smaller, which only flagged after the first clip; the body-range ATR does not
+    move when a wick is clipped, so both are clipped in the first pass and the second finds none."""
+    rows = _calm(40)
+    rows[25] = (100.0, 170.0, 99.8, 100.2)
+    rows[27] = (100.0, 125.0, 99.8, 100.2)
+    clean, log = clean_daily(_daily(rows), "TWO", CFG, has_hourly=False)
+    clips = log.filter(pl.col("arm") == ARM_WICK_CLIP)
+    assert clips.height == 2
+    assert all("pass 1" in e for e in clips["evidence"].to_list())
+    again = wick_outliers(clean, CFG.daily_wick_outlier)
+    assert not any(again["flag_high"].to_list())  # a fixed point
+
+
+def test_F_0_1_6_D_703_the_iteration_is_capped_by_config() -> None:
+    from strategy_factory.data.config import DailyWickOutlierConfig, QualityConfig
+
+    capped = QualityConfig(daily_wick_outlier=DailyWickOutlierConfig(max_passes=1))
+    rows = _calm(40)
+    rows[25] = (100.0, 170.0, 99.8, 100.2)
+    _clean, log = clean_daily(_daily(rows), "CAP", capped, has_hourly=False)
+    assert log.height == 1

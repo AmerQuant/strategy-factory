@@ -361,6 +361,10 @@ class DailyWickOutlierConfig(_Frozen):
 
     k1_atr: float = Field(default=3.0, gt=0)
     k2_pct: float = Field(default=10.0, gt=0)
+    #: D-703: the ATR is of **body ranges** (|open - close|), so clipping cannot move it.
+    atr_length: int = Field(default=14, gt=0)
+    #: D-703: `wick_clip` iterates to a fixed point, at most this many passes.
+    max_passes: int = Field(default=3, gt=0)
     severity: Severity = "warning"
 
 
