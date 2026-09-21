@@ -110,6 +110,21 @@ for the supervisor to confirm the rule with this coverage (**P-83**) and to deci
    317 candidate rows is reported **per action type** (how many each settles) — **stop and report**.
 3. Only then **implement D-709**, re-derive the affected symbols, set the markers, move the references.
 
+### The first download was truncated (2026-09-21) — found before any use
+
+The user's first run returned **11,000 rows: exactly 1,000 per year** for every year 2016–2026. alpaca-py's
+`CorporateActionsRequest.limit` defaults to **1,000 as a cap on the total**, not a page size, so each
+yearly request stopped after its first page, which is ordered by symbol: dividends end at `A…`
+(`AAPL` present, `JNJ`/`KO` absent), and the known events are missing — `AVGO` 2024-07-15, `GOOGL`
+2022-07-18, `TSLA` 2022-08-25 forward splits, Plum Creek's 2016 merger. Only 1,134 symbols, 197 of them
+in our daily universe. It was a **truncation, not a scope limit of the feed**, and nothing was measured
+on it. Fixed: `limit=None`, the manifest records rows per year and flags a year that ends on a whole
+page (`suspect_truncation`); two tests. T04f's `name_changes` file is **not** affected (its largest
+year has 700 rows) and its fetch now also sets `limit=None`. The truncated files stay in the raw store
+(immutable); every reader takes the **latest version** of each answer key. 3,971 of the 11,000 rows
+carried **no CUSIP at all** — to be re-counted on the full download, because a row without a CUSIP is
+not identity evidence. The re-run and a re-check of the known events come **before** the coverage.
+
 ### How each action type speaks to identity
 
 | type | CUSIP field(s) | what it proves |

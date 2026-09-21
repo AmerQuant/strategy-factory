@@ -119,6 +119,16 @@ if ($files.Count -eq 0) {
         Write-Log ("  {0,-45} rows {1,8}  sha256 {2}" -f $f.Name, $m.rows, $m.sha256.Substring(0, 12))
     }
     Write-Log ("  {0} file(s), {1} rows" -f $files.Count, $total)
+    # every manifest of a run carries the same per-year totals (all types together)
+    $m0 = Get-Content -LiteralPath ($files[0].FullName + '.manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $years = @($m0.rows_per_year_all_types.PSObject.Properties | ForEach-Object { "{0}:{1}" -f $_.Name, $_.Value })
+    Write-Log ("  rows per year, all types: {0}" -f ($years -join '  '))
+    $suspect = @($m0.suspect_truncation)
+    if ($suspect.Count -gt 0) {
+        Write-Log ("  WARNING: a whole number of 1,000-row pages in {0} - possibly truncated; report this" -f ($suspect -join ', '))
+    } else {
+        Write-Log '  no year ends on a page boundary (no sign of truncation)'
+    }
 }
 
 Write-Log ''

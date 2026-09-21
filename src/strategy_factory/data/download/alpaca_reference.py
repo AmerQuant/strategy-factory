@@ -132,7 +132,9 @@ def fetch_name_changes(creds: Credentials, start: dt.date, end: dt.date, raw_roo
     for year in range(start.year, end.year + 1):
         lo = max(start, dt.date(year, 1, 1))
         hi = min(end, dt.date(year, 12, 31))
-        req = CorporateActionsRequest(types=[CorporateActionsType.NAME_CHANGE], start=lo, end=hi)
+        req = CorporateActionsRequest(
+            types=[CorporateActionsType.NAME_CHANGE], start=lo, end=hi, limit=None
+        )
         try:
             raw = client.get_corporate_actions(req)
         except APIError as exc:
@@ -163,6 +165,8 @@ def fetch_name_changes(creds: Credentials, start: dt.date, end: dt.date, raw_roo
 #: by T04f). Each carries a CUSIP: the mergers, redemptions and worthless removals show a security
 #: ceasing to exist; dividends, splits, spin-offs and rights show which security held a ticker on a
 #: date. They are identity evidence for re-used tickers, not price data (D-030 does not apply).
+#: The endpoint's page size; a year that returns an exact multiple of it is suspect.
+PAGE_SIZE = 1000
 EVIDENCE_ACTION_TYPES = (
     "cash_merger",
     "stock_merger",
@@ -189,7 +193,13 @@ def fetch_corporate_actions(
 ) -> list[Path]:
     """Corporate actions of ``types`` in [start, end], fetched year by year and written as one
     immutable JSON per answer key (``<key>_<YYYYMMDD>.json``, e.g. ``cash_mergers_20260921.json``)
-    with a manifest. ``client`` is injectable for tests; by default the alpaca-py client."""
+    with a manifest. ``client`` is injectable for tests; by default the alpaca-py client.
+
+    **No row cap.** alpaca-py's ``CorporateActionsRequest.limit`` defaults to 1,000 and is a cap on
+    the **total** rows, not a page size: the first run (2026-09-21) got exactly 1,000 rows per year
+    and lost the rest, alphabetically. The request sets ``limit=None`` so the client follows
+    ``next_page_token`` to the end; the manifest records the rows per year, and a year whose count
+    is a whole multiple of the page size is flagged ``suspect_truncation`` for the reader."""
     from alpaca.data.enums import CorporateActionsType
     from alpaca.data.requests import CorporateActionsRequest
 
@@ -204,10 +214,11 @@ def fetch_corporate_actions(
 
         client = CorporateActionsClient(creds.key, creds.secret, raw_data=True)
     by_key: dict[str, list[dict[str, Any]]] = {}
+    per_year: dict[str, int] = {}
     for year in range(start.year, end.year + 1):
         lo = max(start, dt.date(year, 1, 1))
         hi = min(end, dt.date(year, 12, 31))
-        req = CorporateActionsRequest(types=enums, start=lo, end=hi)
+        req = CorporateActionsRequest(types=enums, start=lo, end=hi, limit=None)
         try:
             raw = client.get_corporate_actions(req)
         except TLSVerificationError:
@@ -217,9 +228,12 @@ def fetch_corporate_actions(
             if status is not None:
                 raise PermanentError(f"corporate actions: HTTP {status}") from exc
             raise _wrap_network(exc, "corporate actions") from exc
+        got = 0
         for key, rows in dict(raw).items():
             if isinstance(rows, list):
                 by_key.setdefault(key, []).extend(rows)
+                got += len(rows)
+        per_year[str(year)] = got
     out_dir = raw_root.joinpath(*REF_DIR, "corporate_actions")
     stamp = f"{dt.date.today():%Y%m%d}"
     written: list[Path] = []
@@ -238,6 +252,10 @@ def fetch_corporate_actions(
                     "start": start.isoformat(),
                     "end": end.isoformat(),
                     "rows": len(rows),
+                    "rows_per_year_all_types": per_year,
+                    "suspect_truncation": sorted(
+                        y for y, n in per_year.items() if n and n % PAGE_SIZE == 0
+                    ),
                     "downloaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
                 },
             )

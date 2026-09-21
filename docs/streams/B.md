@@ -72,8 +72,10 @@ cross-check, an unadjusted split goes the D-397 path; every unsettled splice car
 store — catalog column `splices` + `splice` events + a `known_splice` quality check; moving a
 reference affects only future runs). P-84 → **D-710** (fetch the other corporate-action types).
 
-**Blocked on the user (network, D-031):** run `scripts/pilots/T04l_corporate_actions.ps1`. Then the
-coverage is re-measured per action type and reported — stop — before D-709 is implemented.
+**Blocked on the user (network, D-031):** **re-run** `scripts/pilots/T04l_corporate_actions.ps1` —
+the first run was truncated at 1,000 rows per year by alpaca-py's default `limit` (fixed). Then the
+feed's scope is re-checked (known events, symbols), the coverage re-measured per action type and
+reported — stop — before D-709 is implemented.
 
 **For stream A:** when T04l runs, the 1D and 1H references of the trimmed symbols move to new derived
 snapshots; each move will be listed in `docs/reviews/T04l_references_moved.csv` and here. Nothing is

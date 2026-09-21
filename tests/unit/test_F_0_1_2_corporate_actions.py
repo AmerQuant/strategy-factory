@@ -98,3 +98,19 @@ def test_F_0_1_2_T04l_the_evidence_types_are_every_type_but_name_change() -> Non
 
     offered = {t.value for t in CorporateActionsType}
     assert set(EVIDENCE_ACTION_TYPES) == offered - {"name_change"}
+
+
+def test_F_0_1_2_T04l_the_request_has_no_row_cap(tmp_path: Path) -> None:
+    """alpaca-py's default limit (1,000) caps the TOTAL rows: the first real run lost everything
+    after the first page of each year. The request must ask for all of them."""
+    client = FakeClient({"stock_mergers": [MERGER]})
+    _fetch(tmp_path, client)
+    assert all(req.limit is None for req in client.requests)
+
+
+def test_F_0_1_2_T04l_a_full_page_year_is_flagged_in_the_manifest(tmp_path: Path) -> None:
+    client = FakeClient({"cash_dividends": [REMOVAL] * 1000})
+    path = _fetch(tmp_path, client)[0]
+    manifest = json.loads((path.parent / (path.name + ".manifest.json")).read_text("utf-8"))
+    assert manifest["rows_per_year_all_types"] == {"2016": 1000, "2017": 1000}
+    assert manifest["suspect_truncation"] == ["2016", "2017"]
