@@ -1,0 +1,56 @@
+{
+  "description": "Byte-identical copies of the TradingView parity references (D-359). The raw store stays the source of truth; test_F_0_3_8_d359_fixtures_match_the_raw_store asserts each sha256 equals the raw manifest's when SFAC_RAW_ROOT is present. Files marked `superseded` (D-600) are kept for the loader tests and are never read by a parity config; a raw file that is a byte-identical copy of another is not copied (duplicates_not_copied).",
+  "source": "SFAC_RAW_ROOT/reference/tradingview/parity/",
+  "files": {
+    "  SF parity TF - Donchian 1H oneside.pine": {
+      "sha256": "76c5fe5d6468170b6c8bad2d3817eb441bf3630a63f302fc96f9d3f57d0a5308",
+      "size_bytes": 1615,
+      "rows": null
+    },
+    "BATS_SPY, 1D.csv": {
+      "sha256": "7fe8690ee6018c3ad144b59e227cea6dd36ba0e1360661a408f7a542766dd07b",
+      "size_bytes": 347645,
+      "rows": 8467
+    },
+    "OANDA_XAUUSD, 60.csv": {
+      "sha256": "998d5ad9cf3267f78fc7fa448f2a65d5e314adbcf9640f68623431b33b20ed20",
+      "size_bytes": 983456,
+      "rows": 21986
+    },
+    "SF parity MR - RSI2 daily.pine": {
+      "sha256": "0b68c17894475e1ae91b13ac5a7d35ea741947345dbf73441e79c19c48c42dd1",
+      "size_bytes": 1363,
+      "rows": null
+    },
+    "SF parity TF - Donchian 1H.pine": {
+      "sha256": "c383c0341e7b4a7a7a61c5d087acb063783b6b41c6c8b005eb1f5b89f84037b0",
+      "size_bytes": 1507,
+      "rows": null,
+      "superseded": "D-600: superseded by the one-sided script with a Direction input"
+    },
+    "SF_parity_MR_-_RSI2_daily_BATS_SPY_2026-09-20.xlsx": {
+      "sha256": "cd9ce73427c2d73842038218c0b4a66e10ab89e0112dc5cd0a7aa6bbfbb841a8",
+      "size_bytes": 234472,
+      "rows": null
+    },
+    "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20.xlsx": {
+      "sha256": "3e95594cd00b0362db959db3a080987b11997c7b94c9721b8ad900c0aafb9d25",
+      "size_bytes": 448667,
+      "rows": null,
+      "superseded": "D-600: two-sided; superseded by the one-sided _Long and _Short exports"
+    },
+    "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Long.xlsx": {
+      "sha256": "da0a6af38098c58da7fd6ba0264ca48de6e976a2b7638afda43b304aff33f21a",
+      "size_bytes": 269486,
+      "rows": null
+    },
+    "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Short.xlsx": {
+      "sha256": "c4ab5f2410ceecdfb9dce5134fc14e885468fd62dcecb37a0d041cd4a76ebc86",
+      "size_bytes": 213136,
+      "rows": null
+    }
+  },
+  "duplicates_not_copied": {
+    "OANDA_XAUUSD, 60 2026-09-20b.csv": "OANDA_XAUUSD, 60.csv"
+  }
+}

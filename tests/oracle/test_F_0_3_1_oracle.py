@@ -7,6 +7,7 @@ type, both intrabar modes and all three sizing modes. Never skipped (D-330).
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 import numpy as np
@@ -66,6 +67,10 @@ def cases(draw: Any) -> Case:
         "step": draw(st.sampled_from([1.0, 0.1, 0.01])),
         "contract_size": draw(st.sampled_from([1.0, 1000.0])),
         "parity_qty_step": draw(st.sampled_from([1.0, 0.01, 0.5])),  # D-347
+        # D-366 / D-367: the parity-only options, drawn in every mode so the oracle checks
+        # them against the kernel (they were implemented in both but never run together)
+        "parity_tick": draw(st.sampled_from([None, 0.01, 0.001, 0.25])),
+        "entry_requires_flat": draw(st.booleans()),
     }  # fmt: skip
     kw["min_volume"] = kw["step"] * draw(st.sampled_from([1, 2]))
     kw["comm_p"] = {
@@ -104,6 +109,9 @@ def test_F_0_3_1_oracle_sweep_covers_every_path() -> None:
     all sizing modes, same-bar exits, re-entries at the exit open and skips actually occur."""
     reasons: set[int] = set()
     seen = {"same_bar": 0, "reentry": 0, "skipped": 0, "swap": 0}
+    # D-366 / D-367: each option must actually change some run -- an oracle that agrees with
+    # the kernel only because the option never mattered would prove nothing
+    bites = {"tick_rounding": 0, "flat_gate": 0}
     for seed in range(600):
         rng = np.random.default_rng(seed)
         n = int(rng.integers(20, 90))
@@ -117,6 +125,8 @@ def test_F_0_3_1_oracle_sweep_covers_every_path() -> None:
             mode="tradingview" if seed % 6 < 3 else "pessimistic",
             notional=[100_000.0, 5.0][int(rng.integers(0, 2))], step=0.1, min_volume=0.1,
             parity_qty_step=float(rng.choice([1.0, 0.01])),  # D-347
+            parity_tick=[None, 0.01, 0.25][seed % 3 if seed % 4 else 0],  # D-366
+            entry_requires_flat=bool(seed % 2),  # D-367
         )  # fmt: skip
         case.swap_long = np.full(n, -0.001)
         case.swap_short = np.full(n, -0.001)
@@ -128,5 +138,20 @@ def test_F_0_3_1_oracle_sweep_covers_every_path() -> None:
         seen["reentry"] += int(np.sum(sim.entry_idx[1:] == sim.exit_idx[:-1]))
         seen["skipped"] += sim.n_skipped_min_volume
         seen["swap"] += int(np.sum(sim.cost_swap != 0))
+        if case.parity_tick is not None:
+            plain = run_engine(dataclasses.replace(case, parity_tick=None))
+            bites["tick_rounding"] += int(not _same_trades(sim, plain))
+        if case.entry_requires_flat:
+            plain = run_engine(dataclasses.replace(case, entry_requires_flat=False))
+            bites["flat_gate"] += int(not _same_trades(sim, plain))
     assert reasons == {0, 1, 2, 3, 4, 5}, reasons
     assert all(v > 0 for v in seen.values()), seen
+    assert all(v > 0 for v in bites.values()), bites
+
+
+def _same_trades(a: Any, b: Any) -> bool:
+    if a.entry_idx.size != b.entry_idx.size:
+        return False
+    return bool(
+        np.array_equal(a.entry_idx, b.entry_idx) and np.array_equal(a.exit_price, b.exit_price)
+    )

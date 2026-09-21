@@ -1,0 +1,57 @@
+# MR reference on BATS:SPY 1D (D-348). Every `pine` value below is read from the strategy()
+# call of `SF parity MR - RSI2 daily.pine` and cross-checked against the report's Properties
+# sheet (no disagreement). Costs come from this block alone (D-362).
+name: spy_mr_1d
+reference:
+  chart_data: "BATS_SPY, 1D.csv"
+  trade_list: "SF_parity_MR_-_RSI2_daily_BATS_SPY_2026-09-20.xlsx"
+  symbol: "BATS:SPY"
+  timeframe: "1D"
+
+pine:                            # every field is required (D-348)
+  atr_length: 14                 # script input "ATR length"; D-343
+  initial_capital: 100000.0      # strategy(initial_capital)
+  qty_type: cash_amount          # strategy.cash
+  qty_value: 100000.0            # strategy(default_qty_value)
+  commission_type: percent       # strategy.commission.percent
+  commission_value: 0.02         # 0.02 % per order
+  slippage_ticks: 0
+  tick_size: 0.01                # Properties: "Tick size 0.0100"
+  pyramiding: 0                  # D-004: one position per strategy
+  process_orders_on_close: false
+  calc_on_every_tick: false
+  bar_magnifier: false           # Properties: "Bar detalization: Default (4 ticks per bar)"
+  fill_assumptions: "strategy(): fill_orders_on_standard_ohlc = true, calc_on_order_fills = false, margin_long = 0, margin_short = 0"
+  # America/New_York, verified: the report's stamps line up with the chart export only in NY
+  # time (the CSV's first bar, 1993-01-29 14:30 UTC, is 09:30 New York).
+  export_timezone: "America/New_York"
+
+engine:
+  initial_capital: 100000.0
+  notional: 100000.0
+  disaster_stop_atr: 3.0         # script input "Disaster stop (ATR)" = 3
+  atr_length: 14                 # must equal pine.atr_length (D-343)
+  futures_contracts: 1
+  parity_tick_size: 0.01          # D-366: syminfo.mintick, from the report's
+                                 # Properties sheet ("Tick size"); must equal
+                                 # pine.tick_size
+  entry_requires_flat_at_signal: true   # D-367: the script gates on
+                                 # `strategy.position_size == 0` at the signal close
+  parity_qty_step: 1             # D-347: BATS:SPY
+
+# The Pine rules, mapped to a registered component (T11 section 3, D-361):
+#   longSig = flat and r < 10          -> mr_rsi2_below_10, long
+#   close > high[1]                    -> signal exit, rule `close_above_prev_high` (D-370)
+#   barsHeld >= 5                      -> time_exit_bars: 5
+#   strategy.exit(loss = 3 * ATR)      -> the engine disaster stop, engine.disaster_stop_atr
+# The script has no target and no trailing stop, so tp_atr and trail_atr stay unset.
+strategy:
+  entry: mr_rsi2_below_10
+  direction: long
+  exit_signal: close_above_prev_high
+  exit:
+    signal_exit: true
+    time_exit_bars: 5
+  note: >-
+    The 3-ATR stop is the engine's disaster stop (D-130), not sl_atr: the script places it
+    once at entry and never moves it, which is what the disaster stop is.

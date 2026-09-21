@@ -1,0 +1,64 @@
+# TF reference on OANDA:XAUUSD 1H, **short side** (D-348, D-600). Every `pine` value below is
+# read from the strategy() call of `  SF parity TF - Donchian 1H oneside.pine` (the file name
+# starts with two spaces) and cross-checked against the Properties sheet of both one-sided
+# reports: no disagreement, and the sheet's Direction input is "Short". Costs come from this
+# block alone (D-362).
+#
+# D-600: the engine runs one direction per run, so TF has two one-sided references. The
+# two-sided export and the script that produced it are superseded and are never read here.
+# The chart export is `OANDA_XAUUSD, 60.csv`; `OANDA_XAUUSD, 60 2026-09-20b.csv` is a
+# byte-identical copy (same sha256) and is not used.
+name: xauusd_tf_1h_short
+reference:
+  chart_data: "OANDA_XAUUSD, 60.csv"
+  trade_list: "SF_parity_TF_-_Donchian_1H_OANDA_XAUUSD_2026-09-20_Short.xlsx"
+  symbol: "OANDA:XAUUSD"
+  timeframe: "60"
+
+pine:                            # every field is required (D-348)
+  atr_length: 14                 # script input "ATR length"; D-343
+  initial_capital: 100000.0      # strategy(initial_capital)
+  qty_type: cash_amount          # strategy.cash
+  qty_value: 100000.0            # strategy(default_qty_value)
+  commission_type: percent       # strategy.commission.percent
+  commission_value: 0.02         # 0.02 % per order
+  slippage_ticks: 0
+  tick_size: 0.001               # Properties: "Tick size 0.001"
+  pyramiding: 0                  # D-004: one position per strategy
+  process_orders_on_close: false
+  calc_on_every_tick: false
+  bar_magnifier: false           # Properties: "Bar detalization: Default (4 ticks per bar)"
+  fill_assumptions: "strategy(): fill_orders_on_standard_ohlc = true, calc_on_order_fills = false, margin_long = 0, margin_short = 0"
+  # America/New_York, verified: the first trade is stamped 2023-01-04 03:00 and fills at the
+  # 08:00 UTC bar whose open is exactly the exported price, 1858.34.
+  export_timezone: "America/New_York"
+
+engine:
+  initial_capital: 100000.0
+  notional: 100000.0
+  disaster_stop_atr: 3.0         # D-130; the script's own stop is 2 ATR (see below)
+  atr_length: 14                 # must equal pine.atr_length (D-343)
+  futures_contracts: 1
+  parity_tick_size: 0.001          # D-366: syminfo.mintick, from the report's
+                                 # Properties sheet ("Tick size"); must equal
+                                 # pine.tick_size
+  entry_requires_flat_at_signal: true   # D-367: the script gates on
+                                 # `strategy.position_size == 0` at the signal close
+  parity_qty_step: 0.01          # D-347: OANDA:XAUUSD
+
+# The Pine rules, mapped to a registered component (T11 section 3, D-361):
+#   side == "Short" and flat and close < ta.lowest(low, 20)[1]
+#                                   -> tf_donchian20_breakout, short; identical to the Pine
+#                                      rule on all 21,986 bars of the export
+#   strategy.exit(loss = 2 * ATR)   -> sl_atr: 2.0
+#   strategy.exit(profit = 4 * ATR) -> tp_atr: 4.0
+#   barsHeld >= 50 -> close_all     -> time_exit_bars: 50
+# The script has no 3-ATR stop. The engine's disaster stop (D-130, 3 ATR) sits beyond the
+# 2-ATR stop, so it can never fire first -- on a gap too, where the level nearest the open wins.
+strategy:
+  entry: tf_donchian20_breakout
+  direction: short
+  exit:
+    sl_atr: 2.0
+    tp_atr: 4.0
+    time_exit_bars: 50

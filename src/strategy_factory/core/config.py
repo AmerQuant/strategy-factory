@@ -72,6 +72,13 @@ class EngineConfig(BaseModel):
     # parity section (D-347): the TradingView quantity step of the symbol; no default, a
     # parity run must set it (with the Pine ATR length, D-343)
     parity_qty_step: float | None = Field(default=None, gt=0)
+    # D-366: the symbol's mintick. In parity mode stop and target distances are rounded to
+    # whole ticks and measured from the fill, as Pine's math.round(k * atr / mintick) does.
+    # None = the research behaviour (unrounded levels from the raw open).
+    parity_tick_size: float | None = Field(default=None, gt=0)
+    # D-367: mirror Pine's `strategy.position_size == 0` entry gate, which refuses a re-entry
+    # on the close that schedules the exit. False = D-336, the research default.
+    entry_requires_flat_at_signal: bool = False
 
 
 def load_engine_config(path: Path | None = None) -> EngineConfig:

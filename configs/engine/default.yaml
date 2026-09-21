@@ -8,6 +8,14 @@ disaster_stop_atr: 3.0         # D-130: fixed, never optimized
 atr_length: 14                 # D-343: configurable default (TradingView ta.atr default);
                                # parity runs pass the length of the Pine script they reproduce
 futures_contracts: 1           # D-329: fixed contract count for futures (flagged)
-# Parity section (D-347): the TradingView quantity step of the symbol, e.g. 1 for BATS:SPY and
-# 0.01 for OANDA:XAUUSD. No default: a parity run must set it (with the Pine ATR length, D-343).
+# Parity-only settings. They are ignored outside intrabar_mode: tradingview (the glue passes
+# them only there), so a research run can never be changed by one.
+# D-347: the TradingView quantity step of the symbol, e.g. 1 for BATS:SPY, 0.01 for
+# OANDA:XAUUSD. No default: a parity run must set it (with the Pine ATR length, D-343).
 # parity_qty_step: 1
+# D-366: the symbol's mintick. Stop and target distances are rounded to whole ticks and
+# measured from the fill, as Pine's math.round(k * atr / syminfo.mintick) does. No default.
+# parity_tick_size: 0.01
+entry_requires_flat_at_signal: false   # D-367: false = the research behaviour (D-336); a
+                                       # parity run sets it from the Pine `position_size == 0`
+                                       # gate, which refuses a same-close re-entry

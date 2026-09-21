@@ -15,29 +15,47 @@ D-326 ... D-338):
   touched: the one nearest the open (highest for a long) wins; ties go in the order stop
   loss, trailing, disaster. Stop and target both touched: ``pessimistic`` (mode 1) takes the
   stop; ``tradingview`` (mode 0) goes O->H->L->C when the high is nearer the open, else
-  O->L->H->C, and a tie takes the stop (D-335, to_verify).
+  O->L->H->C, and a tie takes the stop (D-335, to_verify -- the TF references exercise the
+  target-first branch on exactly one bar, which agrees; the stop-first branch and an exact
+  tie never occur in them -- tracked in T11b, D-375).
 * **Bar j, close:** signal exit (priority) or time exit is scheduled for ``j+1``; an entry is
-  scheduled when flat or when an exit is scheduled (D-336, to_verify), if ``j < n-1`` and
+  scheduled when flat or when an exit is scheduled (D-336, to_verify -- neither reference
+  exercises it: both Pine scripts gate entries on being flat at the signal close, D-367,
+  which rules it out -- tracked in T11b, D-375), if ``j < n-1`` and
   ``atr[j] > 0`` (warm-up); swap for a position held at the close of a rollover bar on the
   mark-to-market notional ``|qty| x close[j] x point_value x fx_close[j]``, x3 on the
   triple day (D-312). The trailing stop moves to ``extreme since entry -/+ trail x ATR``.
 * A stop/target exit **inside** a rollover bar (D-327): pessimistic mode applies that bar's
-  swap if it is a charge (never a credit); tradingview mode applies none (to_verify).
+  swap if it is a charge (never a credit); tradingview mode applies none -- **confirmed by
+  construction** (D-371): TradingView models no swap at all, so no export can disagree.
 * Levels (D-326): from the raw open of the entry bar and ``atr_e = atr[entry - 1]``.
   Every fill in bar ``j`` pays ``half_spread[j] + slippage_fixed[j] + frac x atr[j-1]``.
 * Sizing: mode 0 research (D-313, D-315, D-328): ``lots = floor(notional /
   (open[j] x fx_open[j] x contract_size) / step) x step``, ``qty = lots x contract_size``;
   below ``min_volume`` the entry is skipped and counted. Mode 1 futures: ``qty = contracts``
-  (D-329). Mode 2 parity (D-337, D-347): ``qty = floor(notional / (close[j-1] x
-  fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard;
+  (D-329). Mode 2 parity (D-337, D-347, D-374): ``qty = floor(notional / (close[j-1] x
+  fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard, where
+  ``close[j-1]`` is first rounded to the mintick when one is given (D-374, as TradingView);
   ``parity_qty_step`` is required per run (BATS:SPY 1, OANDA:XAUUSD 0.01) and the broker step
   and minimum volume are never applied. ``qty = 0`` is a skip.
-* Parity choices still marked **to_verify until T11** (D-338 rule 1, D-349): the O->H->L->C
-  path and its tie (D-335); exit + re-entry at one open (D-336); no swap on intrabar exits in
-  rollover bars (D-327); the trailing level moving only at the close (D-349 (a); final in
-  research, to match against the Pine script in parity); and the parity conversion rate
-  (D-349 (h)). The sizing basis of D-337 is confirmed by the exports and is no longer
-  to_verify; the remaining choices of D-349 ((b)-(g), (i)) are confirmed as implemented.
+* Parity choices after T11 (D-338 rule 1, D-349, **D-371**). Still **to_verify**: the
+  O->H->L->C path and its tie (D-335) -- in part: its target-first branch is confirmed on
+  the one TF bar that touched both levels, its stop-first branch and the exact tie are not
+  exercised by any reference; and exit + re-entry at one open (D-336), which neither
+  reference exercises -- both scripts gate entries on being flat at the signal close (D-367),
+  so no gated run can contain one (an earlier claim that MR confirmed it was wrong). Both are
+  **tracked in T11b** (D-375), a targeted reference with no `flat` gate; **T11's merge does
+  not close them**.
+  **Confirmed by construction** -- no
+  TradingView export can ever test these, so they are not to_verify and nobody should look
+  for one (D-371): no swap on an intrabar exit in a rollover bar (D-327; TradingView models
+  no swap), the trailing level moving only at the close (D-349 (a); neither reference script
+  trails), and the parity conversion rate (D-349 (h); both references are USD-quoted). Their
+  evidence is the hand fixtures plus ``tests/oracle``. The parity sizing basis (D-337, D-347)
+  matches TradingView on every TF trade; on MR TradingView sizes on the close rounded to the
+  tick, which the engine now does too (D-374); it fills at the open rounded to the tick,
+  which the engine does not (P-50). The remaining choices of D-349 ((b)-(g), (i)) are
+  confirmed as implemented.
 * Money (USD): ``pnl_gross = dir x qty x (exit_base - entry_base) x point_value x
   fx_close[exit]``; spread and slippage cost ``qty x amount x point_value x fx_close`` of the
   fill bar; commission from :func:`commission_kernel`, converted with ``fx_close`` of the fill
@@ -87,6 +105,19 @@ def research_lots(notional_usd, price_usd, contract_size, volume_step, min_volum
 
 
 @njit(cache=True)
+def _ticks(distance, tick):
+    """``distance`` as whole ticks, rounded half **away from zero** like Pine's ``math.round``.
+
+    Pine writes stop and target distances as ``math.round(k * atr / syminfo.mintick)``; the
+    level is then that many ticks from the fill. ``math.floor(x + 0.5)`` is half-up, which for
+    a non-negative distance is half away from zero.
+    """
+    if tick <= 0.0:
+        return distance
+    return math.floor(abs(distance) / tick + 0.5) * tick
+
+
+@njit(cache=True)
 def _core(
     open_, high, low, close, atr, entry_sig, exit_sig, direction,
     time_exit_bars, sl_atr, tp_atr, trail_atr, disaster_atr,
@@ -94,7 +125,7 @@ def _core(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode, record,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat, record,
     t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
     t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
     equity, in_pos, realized_out,
@@ -195,7 +226,10 @@ def _core(
             elif sizing_mode == SIZE_CONTRACTS:
                 q = contracts
             else:  # D-347: TradingView sizes at the signal close and floors to its step
-                steps = notional / (close[s] * fx_close[s]) / parity_qty_step
+                # D-374: on the close rounded to the mintick, half away from zero -- the
+                # D-366 tick, so it only happens where a mintick reaches the engine (parity)
+                px = _ticks(close[s], parity_tick) if parity_tick > 0.0 else close[s]
+                steps = notional / (px * fx_close[s]) / parity_qty_step
                 q = math.floor(steps * (1.0 + step_tol)) * parity_qty_step
             if skip or not q > 0.0:
                 n_skipped += 1
@@ -215,14 +249,27 @@ def _core(
                 c_swap = 0.0
                 fav = 0.0
                 adv = 0.0
-                lvl_dis = e_base - d * disaster_atr * atr_e
-                if use_sl:
-                    lvl_sl = e_base - d * sl_atr * atr_e
-                if use_tp:
-                    lvl_tp = e_base + d * tp_atr * atr_e
-                if use_trail:
-                    lvl_tr = e_base - d * trail_atr * atr_e
-                    extreme = e_base
+                # D-366: in parity mode with a tick size, TradingView turns the distance into
+                # whole ticks (math.round, half away from zero) and measures it from the
+                # ACTUAL FILL price. Research mode keeps the unrounded level from the raw open.
+                if parity_tick > 0.0:
+                    lvl_dis = e_fill - d * _ticks(disaster_atr * atr_e, parity_tick)
+                    if use_sl:
+                        lvl_sl = e_fill - d * _ticks(sl_atr * atr_e, parity_tick)
+                    if use_tp:
+                        lvl_tp = e_fill + d * _ticks(tp_atr * atr_e, parity_tick)
+                    if use_trail:
+                        lvl_tr = e_fill - d * _ticks(trail_atr * atr_e, parity_tick)
+                        extreme = e_base
+                else:
+                    lvl_dis = e_base - d * disaster_atr * atr_e
+                    if use_sl:
+                        lvl_sl = e_base - d * sl_atr * atr_e
+                    if use_tp:
+                        lvl_tp = e_base + d * tp_atr * atr_e
+                    if use_trail:
+                        lvl_tr = e_base - d * trail_atr * atr_e
+                        extreme = e_base
         # ---------------------------------------------------------------- intrabar
         if in_trade:
             best = -1.0e300
@@ -311,7 +358,10 @@ def _core(
                 d * qty * (close[j] - e_base) * point_value * fx_close[j]
                 - c_spread - c_slip - c_comm - c_swap
             )  # fmt: skip
-        if entry_sig[j] and j < n - 1 and atr[j] > 0.0 and (not in_trade or pend_exit):
+        # D-367: `entry_requires_flat` mirrors Pine's `strategy.position_size == 0` gate, which
+        # refuses a re-entry on the close that schedules the exit. Default off = D-336.
+        may_enter = (not in_trade) if entry_requires_flat else (not in_trade or pend_exit)
+        if entry_sig[j] and j < n - 1 and atr[j] > 0.0 and may_enter:
             pend_entry = True
         equity[j] = initial_capital + realized + open_pnl
         in_pos[j] = in_trade
@@ -367,7 +417,7 @@ def simulate_one(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat,
 ):  # fmt: skip
     """One run with its trade list. Returns (trade arrays..., equity, in_position, realized,
     n_trades, open_pnl_end, n_skipped_min_volume)."""
@@ -397,7 +447,7 @@ def simulate_one(
         c_code, c_p0, c_p1, c_p2, comm_in_quote,
         fx_open, fx_close, sizing_mode, notional, contracts, point_value,
         contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-        initial_capital, intrabar_mode, True,
+        initial_capital, intrabar_mode, parity_tick, entry_requires_flat, True,
         t_entry, t_exit, t_qty, t_entry_price, t_exit_price, t_gross, t_spread, t_slip,
         t_comm, t_swap, t_net, t_reason, t_mae, t_mfe, t_atr,
         equity, in_pos, realized,
@@ -418,7 +468,7 @@ def simulate_grid_kernel(
     c_code, c_p0, c_p1, c_p2, comm_in_quote,
     fx_open, fx_close, sizing_mode, notional, contracts, point_value,
     contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-    initial_capital, intrabar_mode,
+    initial_capital, intrabar_mode, parity_tick, entry_requires_flat,
 ):  # fmt: skip
     """Configurations = columns of ``entry_mat``/``exit_mat`` (``n x k``) and entries of the
     per-configuration exit parameter arrays (length ``k``). Returns ``equity (k x n)``,
@@ -445,7 +495,7 @@ def simulate_grid_kernel(
             c_code, c_p0, c_p1, c_p2, comm_in_quote,
             fx_open, fx_close, sizing_mode, notional, contracts, point_value,
             contract_size, volume_step, min_volume, parity_qty_step, step_tol,
-            initial_capital, intrabar_mode, False,
+            initial_capital, intrabar_mode, parity_tick, entry_requires_flat, False,
             dummy_i, dummy_i, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f, dummy_f,
             dummy_f, dummy_f, dummy_f, dummy_i, dummy_f, dummy_f, dummy_f,
             eq, ip, realized,
