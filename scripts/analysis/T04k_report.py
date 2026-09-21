@@ -11,7 +11,9 @@ CSVs under `docs/reviews/`; changes nothing in the store::
 * `T04k_short_hourly_dates.csv`      -- **every** short or missing hourly day per date (not only
   the ones that breach), i.e. the days the hourly series is not evidence;
 * `T04k_split_after_trim.csv`        -- whether each trimmed series still has a split (D-008);
-* `T04k_suspects.csv`                -- what became of T04i's 29 `reverse_split_suspect` trims.
+* `T04k_suspects.csv`                -- what became of T04i's 29 `reverse_split_suspect` trims;
+* `T04k_residual_breaches.csv`      -- every correctable breach day the clean series still has,
+  with the side of the body at fault and its size (P-76). Needs every hourly series: slow.
 
 The per-bar logs stay in the store at `_clean/<symbol>/<clean hash>.csv`, with a provenance JSON
 beside each.
@@ -27,8 +29,21 @@ from typing import Any
 import polars as pl
 
 from strategy_factory.data.catalog import Catalog, _row_to_meta
-from strategy_factory.data.cli_clean import CLEAN_DIR, SHORT_DAYS_FILE, SUMMARY_FILE
-from strategy_factory.data.config import load_split_config
+from strategy_factory.data.clean_daily import CORRECTABLE
+from strategy_factory.data.cli_clean import (
+    CLEAN_DIR,
+    SHORT_DAYS_FILE,
+    SUMMARY_FILE,
+    _hourly_evidence,
+)
+from strategy_factory.data.config import (
+    load_alpaca_config,
+    load_quality_config,
+    load_split_config,
+)
+from strategy_factory.data.daily_session import expected_bars
+from strategy_factory.data.download.alpaca_reference import load_sessions
+from strategy_factory.data.download.rawfiles import raw_root
 from strategy_factory.data.quality import QUALITY_DIR
 from strategy_factory.data.split import HistoryTooShortError, compute_split
 from strategy_factory.data.store import SnapshotStore, safe_component
@@ -134,8 +149,74 @@ def main() -> None:
     before = pl.read_csv(QUALITY_BEFORE, infer_schema_length=None).select(
         "symbol", pl.col("status").alias("before")
     )
-    after = summary.select("symbol", pl.col("quality_status").alias("after"))
-    moved = before.join(after, on="symbol").group_by("before", "after").len().sort("before")
+    after = summary.select("symbol", "has_hourly", pl.col("quality_status").alias("after"))
+    joined = before.join(after, on="symbol")
+    moved = joined.group_by("before", "after").len().sort("before")
+    worse = joined.filter((pl.col("before") == "ok") & (pl.col("after") == "warning"))
+    why: dict[tuple[str, bool], int] = {}
+    for symbol, hourly in worse.select("symbol", "has_hourly").rows():
+        digest = summary.filter(pl.col("symbol") == symbol)["snapshot_hash"][0]
+        report = json.loads(
+            (store.root / QUALITY_DIR / f"{digest}.json").read_text(encoding="utf-8")
+        )
+        for c in report["checks"]:
+            if c["status"] == "fail" and c.get("severity") in ("warning", "critical"):
+                why[(c["code"], bool(hourly))] = why.get((c["code"], bool(hourly)), 0) + 1
+
+    # -- P-76: correctable breaches, raw against clean, over EVERY hourly symbol ---------------
+    alpaca, quality = load_alpaca_config(), load_quality_config()
+    root = raw_root()
+    expected = expected_bars(
+        load_sessions(alpaca.hourly_session.sessions_file), alpaca.hourly_session.first_bar
+    )
+    raw_ref = dict(
+        table.filter(
+            (pl.col("source") == "alpaca")
+            & (pl.col("timeframe") == "1D")
+            & pl.col("derived_from").is_null()
+        )
+        .select("symbol", "snapshot_hash")
+        .rows()
+    )
+    raw_total = 0
+    residual: list[dict[str, Any]] = []
+    for symbol, digest in (
+        summary.filter(pl.col("has_hourly")).select("symbol", "snapshot_hash").rows()
+    ):
+        ev = _hourly_evidence(symbol, root, alpaca, quality, expected)
+        if ev is None:
+            continue
+        raw_bars = store.read_snapshot("alpaca", symbol, "1D", raw_ref[symbol])
+        raw_total += (
+            ev.breaches(raw_bars).filter(pl.col("breach_class").is_in(sorted(CORRECTABLE))).height
+        )
+        clean = store.read_snapshot("alpaca", symbol, "1D", digest)
+        left = ev.breaches(clean).filter(pl.col("breach_class").is_in(sorted(CORRECTABLE)))
+        body = clean.select(pl.col("ts").dt.date().alias("session_date"), "open", "close")
+        for r in left.join(body, on="session_date").iter_rows(named=True):
+            sides = []
+            if r["high_side"]:
+                sides.append("close" if r["close"] >= r["open"] else "open")
+            if r["low_side"]:
+                sides.append("close" if r["close"] <= r["open"] else "open")
+            residual.append(
+                {
+                    "symbol": symbol,
+                    "session_date": str(r["session_date"]),
+                    "breach_class": r["breach_class"],
+                    "breach_bps": r["breach_bps"],
+                    "side": "+".join(sides),
+                }
+            )
+    res = pl.DataFrame(residual)
+    res.write_csv(OUT / "T04k_residual_breaches.csv")
+    derived = table.filter(
+        (pl.col("source") == "alpaca")
+        & (pl.col("timeframe") == "1D")
+        & pl.col("derived_from").is_not_null()
+    )
+    current = set(summary.filter(pl.col("status") == "cleaned")["snapshot_hash"].to_list())
+    superseded = derived.filter(~pl.col("snapshot_hash").is_in(sorted(current))).height
 
     # -- print --------------------------------------------------------------------------------
     print(summary.group_by("status").len().sort("status"))
@@ -150,6 +231,19 @@ def main() -> None:
     print(sus.group_by("outcome").len())
     print("quality status, raw (T04g) -> clean series:")
     print(moved)
+    print("ok -> warning, by failing check and hourly:", sorted(why.items()))
+    print(f"correctable breach days over the hourly symbols: raw {raw_total}, clean {res.height}")
+    if res.height:
+        print(res.group_by("side").len().sort("len", descending=True))
+        print(res.group_by("breach_class").len())
+        q = res["breach_bps"]
+        print(
+            f"residual bps: median {q.median():.2f} p75 {q.quantile(0.75):.2f} "
+            f"p90 {q.quantile(0.9):.2f} p99 {q.quantile(0.99):.1f} max {q.max():.1f}"
+        )
+    print(f"derived snapshots {derived.height}, current {len(current)}, superseded {superseded}")
+    stale = summary.filter(pl.col("metadata_stale") == True).height  # noqa: E712
+    print(f"current clean snapshots whose stored metadata is stale: {stale}")
     reports = list((store.root / QUALITY_DIR).glob("*.json"))
     carrying = sum(
         1

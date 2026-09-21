@@ -89,7 +89,7 @@ def settle_boundary(
     crosscheck: pl.DataFrame | None,
     match_tolerance: float,
     jump_threshold: float,
-    window_days: int = 7,
+    window_days: int,
 ) -> CrosscheckVerdict:
     """Classify one boundary break against the all-adjusted series (``date, close``).
 

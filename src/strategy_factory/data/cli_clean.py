@@ -100,6 +100,7 @@ SUMMARY_COLUMNS = [
     "has_hourly",
     "short_hourly_days",
     "quality_status",
+    "metadata_stale",
     "snapshot_hash",
     "note",
 ]
@@ -301,11 +302,14 @@ def input_rows(catalog: Catalog, timeframe: str = "1D") -> pl.DataFrame:
     Selecting by ``is_reference`` would, once the clean snapshots are the references, feed the
     clean series back in and clip its wicks a second time (V3: 233 symbols, 302 more clips).
     """
-    return catalog.table().filter(
+    raw = catalog.table().filter(
         (pl.col("source") == "alpaca")
         & (pl.col("timeframe") == timeframe)
         & pl.col("derived_from").is_null()
     )
+    # One raw snapshot per symbol: after a D-397 `--refresh` and re-ingest a symbol has two, and
+    # the newest is the one the refresh produced (S-c).
+    return raw.sort("created_at").unique(subset=["symbol"], keep="last", maintain_order=True)
 
 
 @dataclass(frozen=True)
@@ -335,6 +339,7 @@ def _clean_symbol(
     out.update(symbol=symbol, status="unchanged", crosscheck_verdict="", note="")
     out["near_identical"] = False
     out["boundary_applied"] = False
+    out["metadata_stale"] = False
     out["has_hourly"] = False
     out["short_hourly_days"] = 0
     for arm in ("boundary_trim", "frozen_cut", "extreme_cap", "wick_clip"):
@@ -440,7 +445,13 @@ def _clean_symbol(
             out["snapshot_hash"] = row["snapshot_hash"]
             _quality(ctx, raw_meta, daily, hourly, out)
             return out
-        stored = ctx.store.write_snapshot(clean, _clean_meta(raw_meta, out, changes, ctx))
+        intended = _clean_meta(raw_meta, out, changes, ctx)
+        stored = ctx.store.write_snapshot(clean, intended)
+        # Identical content returns the metadata stored by whoever wrote it first (D-392: no
+        # correction path). When an earlier pass wrote it, its notes can be stale or even name a
+        # different arm (`AENT`: `frozen_cut 278` stored, `boundary_trim 278` now). Never silent:
+        # the summary flags it, and the provenance JSON beside the log is the current record.
+        out["metadata_stale"] = stored.notes != intended.notes
         ctx.catalog.register(stored)
         digest = stored.snapshot_hash or ""
         folder = ctx.out_dir / safe_component(symbol)

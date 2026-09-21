@@ -286,3 +286,78 @@ def test_F_0_1_8_T04k_a_capped_extreme_is_not_reported_again_on_the_clean_series
     )
     assert log.height == 1 and log["arm"][0] == "extreme_cap"
     assert ev.breaches(clean).height == 0  # judged on its own bars, the clean series is clean
+
+
+def test_F_0_1_8_T04k_the_pass_judges_the_clean_series_with_real_hourly_files(
+    tmp_path: Path,
+) -> None:
+    """S-a: the whole path with hourly raw files on disk -- `_hourly_evidence`, the cap, and the
+    quality report of the clean snapshot judged on the CLEAN bars (§7.4).
+
+    If the pass handed the report the raw bars' breaches, the capped day would still be counted.
+    """
+    from fixtures.alpaca_helpers import load_fixture
+
+    from strategy_factory.data.daily_session import expected_bars
+    from strategy_factory.data.download.alpaca import write_chunk
+    from strategy_factory.data.download.alpaca_reference import load_sessions
+
+    ctx = _ctx(tmp_path)
+    write_chunk(
+        ctx.root,
+        "1H",
+        "AAPL",
+        2024,
+        load_fixture("hourly_2024.json")["AAPL"],
+        {"feed": "sip", "adjustment": "split"},
+        True,
+        "fake 0",
+    )
+    cfg = ctx.alpaca
+    ctx = CleanContext(
+        **{
+            **ctx.__dict__,
+            "expected": expected_bars(
+                load_sessions(cfg.hourly_session.sessions_file), cfg.hourly_session.first_bar
+            ),
+        }
+    )
+    days = [dt.datetime(2024, 3, 8, tzinfo=dt.UTC), dt.datetime(2024, 3, 11, tzinfo=dt.UTC)]
+    days.append(dt.datetime(2024, 11, 29, tzinfo=dt.UTC))
+    daily = pl.DataFrame(
+        {
+            "ts": days,
+            "open": [171.0, 173.0, 238.0],
+            "high": [200.0, 173.7, 238.4],  # 2024-03-08: a high no hourly bar reached (RTH 171.7)
+            "low": [170.6, 172.6, 237.6],
+            "close": [171.2, 173.2, 238.1],
+            "volume": [1000.0] * 3,
+        }
+    )
+    meta = make_meta(source="alpaca", source_symbol="AAPL", symbol="AAPL", session="exchange")
+    stored = ctx.catalog.register(ctx.store.write_snapshot(daily, meta))
+    ctx.catalog.set_reference("AAPL", "1D", stored.snapshot_hash or "", note="raw")
+    row = input_rows(ctx.catalog).row(0, named=True)
+
+    out = _run(ctx, row)
+    assert out["has_hourly"] is True
+    assert out["extreme_cap"] == 1 and out["wick_clip"] == 0
+    report = ctx.store.root / QUALITY_DIR / f"{out['snapshot_hash']}.json"
+    check = next(
+        c
+        for c in json.loads(report.read_text(encoding="utf-8"))["checks"]
+        if c["code"] == "daily_extreme_unsupported"
+    )
+    assert check["status"] == "pass"  # the capped day is not counted again
+    assert check["details"]["short_hourly_days"] == 0
+
+
+def test_F_0_1_8_T04k_one_raw_snapshot_per_symbol_after_a_refresh(tmp_path: Path) -> None:
+    """S-c: a D-397 refresh and re-ingest leaves two raw snapshots; the newest is the input."""
+    ctx = _ctx(tmp_path)
+    old = _register(ctx, "RFR", _real(40, 100.0))
+    meta = make_meta(source="alpaca", source_symbol="RFR", symbol="RFR", session="exchange")
+    ctx.catalog.register(ctx.store.write_snapshot(_daily(_real(40, 101.0)), meta))
+    rows = input_rows(ctx.catalog)
+    assert rows.height == 1
+    assert rows["snapshot_hash"][0] != old["snapshot_hash"]

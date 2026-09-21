@@ -47,6 +47,7 @@ from strategy_factory.data.daily_session import (
     INCOMPLETE_HOURLY_DAY,
     NO_RAW_HOURS,
     UNEXPLAINED,
+    with_atr,
 )
 from strategy_factory.data.relisting import (
     EXCLUDE,
@@ -84,7 +85,7 @@ def wick_outliers(daily: pl.DataFrame, cfg: DailyWickOutlierConfig) -> pl.DataFr
     Requiring **both** an ATR multiple and a percentage is what keeps a genuinely volatile day:
     a wide-but-real bar clears the percentage and not the multiple, a bad print clears both.
     """
-    frame = daily if "atr" in daily.columns else _with_atr(daily)
+    frame = daily if "atr" in daily.columns else with_atr(daily)
     body_high = pl.max_horizontal("open", "close")
     body_low = pl.min_horizontal("open", "close")
     out = frame.with_columns(
@@ -111,18 +112,6 @@ def wick_outliers(daily: pl.DataFrame, cfg: DailyWickOutlierConfig) -> pl.DataFr
             pl.col("ts").dt.date().alias("session_date"),
         )
         .with_row_index("idx")
-    )
-
-
-def _with_atr(daily: pl.DataFrame, length: int = 14) -> pl.DataFrame:
-    prev_close = pl.col("close").shift(1)
-    true_range = pl.max_horizontal(
-        pl.col("high") - pl.col("low"),
-        (pl.col("high") - prev_close).abs(),
-        (pl.col("low") - prev_close).abs(),
-    )
-    return daily.with_columns(
-        true_range.rolling_mean(window_size=length, min_samples=length).alias("atr")
     )
 
 
