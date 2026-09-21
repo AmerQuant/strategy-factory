@@ -31,13 +31,19 @@ import csv
 import datetime as dt
 import json
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.data.download.alpaca import Credentials
 from strategy_factory.data.download.ratelimit import PermanentError, TLSVerificationError
-from strategy_factory.data.download.rawfiles import next_version_path, write_immutable
+from strategy_factory.data.download.rawfiles import (
+    MANIFEST_SUFFIX,
+    next_version_path,
+    version_of,
+    write_immutable,
+)
 
 REF_DIR = ("reference", "alpaca")
 SESSIONS_COLUMNS = ["date", "open_local", "close_local"]
@@ -261,6 +267,67 @@ def fetch_corporate_actions(
             )
         )
     return written
+
+
+#: The date an action row is filed under, by the first field present.
+ACTION_DATE_FIELDS = ("process_date", "ex_date", "effective_date", "payable_date")
+
+
+def latest_action_files(folder: Path) -> dict[str, Path]:
+    """The **latest** download of every corporate-action answer key in ``folder``, name changes
+    included (``{"cash_mergers": .../cash_mergers_20260921.v2.json, ...}``). A re-run writes
+    ``<key>_<YYYYMMDD>[.vN].json``; the newest date, then the highest version, wins -- a reader must
+    never mix a truncated older file into a newer download."""
+    best: dict[str, tuple[str, int, Path]] = {}
+    if not folder.is_dir():
+        return {}
+    for f in folder.glob("*.json"):
+        if f.name.endswith(MANIFEST_SUFFIX):
+            continue
+        base, n = version_of(f, ".json")
+        if "_" not in base:
+            continue
+        key, stamp = base.rsplit("_", 1)
+        if key not in best or (stamp, n) > best[key][:2]:
+            best[key] = (stamp, n, f)
+    return {k: v[2] for k, v in sorted(best.items())}
+
+
+def action_date(row: dict[str, Any]) -> str:
+    for k in ACTION_DATE_FIELDS:
+        if row.get(k):
+            return str(row[k])
+    return ""
+
+
+@dataclass(frozen=True)
+class TruncationCheck:
+    """Rows per year over one download's files, counted **from the data**, and the verdict."""
+
+    files: dict[str, Path]
+    rows_per_year: dict[str, int]
+    suspect_years: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.files) and not self.suspect_years
+
+
+def check_truncation(folder: Path, exclude: Iterable[str] = ("name_changes",)) -> TruncationCheck:
+    """D-710 incident: a year whose total over every action type is a whole number of pages is
+    **suspect** -- the endpoint pages by ``PAGE_SIZE`` and a capped request ends exactly on a page.
+    Counted from the rows themselves (latest version of each key), not from a manifest field, so a
+    renamed field or a stale file cannot make the check silently pass; a download with no file at
+    all is not ``ok`` either."""
+    skip = set(exclude)
+    files = {k: p for k, p in latest_action_files(folder).items() if k not in skip}
+    per_year: dict[str, int] = {}
+    for path in files.values():
+        for row in json.loads(path.read_text(encoding="utf-8")):
+            year = action_date(row)[:4]
+            per_year[year] = per_year.get(year, 0) + 1
+    suspect = sorted(y for y, n in per_year.items() if n and n % PAGE_SIZE == 0)
+    return TruncationCheck(files, dict(sorted(per_year.items())), suspect)
 
 
 def read_changes_csv(path: Path) -> list[dict[str, str]]:

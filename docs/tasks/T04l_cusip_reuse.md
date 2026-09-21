@@ -125,6 +125,27 @@ year has 700 rows) and its fetch now also sets `limit=None`. The truncated files
 carried **no CUSIP at all** — to be re-counted on the full download, because a row without a CUSIP is
 not identity evidence. The re-run and a re-check of the known events come **before** the coverage.
 
+### The full download (2026-09-21, v2) — scope, and what it can say (D-711)
+
+- **Complete by page:** 387,840 rows (376,840 of the 12 new types); rows per year 24,401 ... 47,871;
+  the tested check (`sfac data reference alpaca-corporate-actions-check`) finds **no year on a page
+  boundary**. Known events present: `AVGO` 2024-07-15 10:1, `GOOGL` 2022-07-18 20:1, `TSLA` 2022-08-25
+  3:1 (and `NVDA`, `AAPL`); 28,039 distinct symbols, market-wide (not only tradable or listed ones).
+- **But its evidence is time-bound.** Mergers start 2019-20 (cash 2020, stock 2 rows before 2019),
+  worthless removals 2023, redemptions 2023 only; cash-dividend CUSIPs are **blank for all of 2016-18**
+  (93 % of 2019, 0 % from 2021). The Plum Creek 2016 merger into Weyerhaeuser is **absent**; `PCL`'s only
+  rows are the new holder's 2025-26 dividends. **Before 2020 a missing row is evidence of nothing**, and
+  D-709 never reads absence as evidence at any date.
+- **Rows without a CUSIP** are not evidence and are counted apart: cash dividends 102,766 (28 %),
+  reverse splits 1,840 field values (old/new), forward splits 224; every other type 0.
+- **Some rows are filed under a later ticker.** For 2,563 same-CUSIP renames, rows dated before the
+  rename are under the **old** ticker in most cases (dividends 5,198) but under the **new** one in 268
+  (≈ 5 %; reverse splits 29 of 387) — `CTRA`'s May/Aug 2021 dividends are Cabot's (then `COG`), `CIVI`'s
+  2017 reverse split is Bonanza Creek's. Evidence rule: a row of a CUSIP under the ticker dated before
+  that CUSIP renamed **into** the ticker is dropped; a row of the new holder within `rename_window_days`
+  before the resumption counts on the after side. Without these two rules `CTRA` read "same CUSIP";
+  with them it reads a different issuer (Alpha/Contura `020764106` → Coterra `127097103`).
+
 ### How each action type speaks to identity
 
 | type | CUSIP field(s) | what it proves |

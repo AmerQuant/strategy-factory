@@ -18,8 +18,11 @@ from strategy_factory.data.coverage import coverage_frame, coverage_gaps, descri
 from strategy_factory.data.download.alpaca import load_credentials, make_client, run_download
 from strategy_factory.data.download.alpaca_reference import (
     EVIDENCE_ACTION_TYPES,
+    REF_DIR,
+    TruncationCheck,
     build_sessions_csv,
     build_symbol_changes,
+    check_truncation,
     fetch_calendar,
     fetch_corporate_actions,
     fetch_name_changes,
@@ -398,6 +401,36 @@ def reference_alpaca_corporate_actions(
     for p in paths:
         manifest = json.loads(manifest_path(p).read_text(encoding="utf-8"))
         typer.echo(f"  {p.name:<45} rows {manifest['rows']}")
+    # the truncation guard runs here, in the same process, on what was just written (D-711)
+    _report_truncation(check_truncation(root.joinpath(*REF_DIR, "corporate_actions")))
+
+
+@reference_app.command("alpaca-corporate-actions-check")
+def reference_alpaca_corporate_actions_check() -> None:
+    """Rows per year and the truncation verdict of the latest corporate-action files (offline)."""
+    try:
+        check = check_truncation(raw_root().joinpath(*REF_DIR, "corporate_actions"))
+    except SfacError as exc:
+        raise _fail(str(exc)) from exc
+    _report_truncation(check)
+
+
+def _report_truncation(check: TruncationCheck) -> None:
+    """Print the files read, rows per year and the verdict; exit 1 unless it is clean."""
+    for key, path in check.files.items():
+        typer.echo(f"  reading {key:<24} {path.name}")
+    typer.echo(
+        "rows per year, all action types: "
+        + "  ".join(f"{y}:{n}" for y, n in check.rows_per_year.items())
+    )
+    if not check.files:
+        raise _fail("TRUNCATION CHECK: no corporate-action file found")
+    if check.suspect_years:
+        raise _fail(
+            "TRUNCATION CHECK: SUSPECT - a whole number of pages in "
+            + ", ".join(check.suspect_years)
+        )
+    typer.echo("TRUNCATION CHECK: OK - no year ends on a page boundary")
 
 
 def latest_pit_csv(root: Path) -> Path:

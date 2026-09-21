@@ -101,35 +101,13 @@ Write-Log "  log     : $log"
 Invoke-Step '1 Alpaca corporate actions 2016-01-01 .. today' `
     'uv run sfac data reference alpaca-corporate-actions --start 2016-01-01'
 
-# --- 2. Summary (local, no network) ----------------------------------------------------------
-Write-Log ''
-Write-Log ('=' * 80)
-Write-Log 'SUMMARY (files written today, rows from each manifest)'
-$today = (Get-Date).ToString('yyyyMMdd')
-$files = @(Get-ChildItem -LiteralPath $outDir -Filter "*_$today*.json" |
-           Where-Object { $_.Name -notlike '*.manifest.json' -and $_.Name -notlike 'name_changes_*' } |
-           Sort-Object Name)
-if ($files.Count -eq 0) {
-    Write-Log '  NO FILE WRITTEN TODAY - check the log above'
-} else {
-    $total = 0
-    foreach ($f in $files) {
-        $m = Get-Content -LiteralPath ($f.FullName + '.manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-        $total += [int]$m.rows
-        Write-Log ("  {0,-45} rows {1,8}  sha256 {2}" -f $f.Name, $m.rows, $m.sha256.Substring(0, 12))
-    }
-    Write-Log ("  {0} file(s), {1} rows" -f $files.Count, $total)
-    # every manifest of a run carries the same per-year totals (all types together)
-    $m0 = Get-Content -LiteralPath ($files[0].FullName + '.manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $years = @($m0.rows_per_year_all_types.PSObject.Properties | ForEach-Object { "{0}:{1}" -f $_.Name, $_.Value })
-    Write-Log ("  rows per year, all types: {0}" -f ($years -join '  '))
-    $suspect = @($m0.suspect_truncation)
-    if ($suspect.Count -gt 0) {
-        Write-Log ("  WARNING: a whole number of 1,000-row pages in {0} - possibly truncated; report this" -f ($suspect -join ', '))
-    } else {
-        Write-Log '  no year ends on a page boundary (no sign of truncation)'
-    }
-}
+# --- 2. Truncation check (local, no network) -------------------------------------------------
+# The verdict is computed by the tested Python command, from the rows of the LATEST version of each
+# file (never a stale .v1 beside it) - not by this script. Step 1 already ran the same check; this
+# repeats it on disk so the log ends with the per-year counts and the verdict, and a SUSPECT verdict
+# stops the script with a non-zero exit (D-711).
+Invoke-Step '2 Truncation check (rows per year, whole-page years)' `
+    'uv run sfac data reference alpaca-corporate-actions-check'
 
 Write-Log ''
 Write-Log "T04l CORPORATE ACTIONS DONE. Log: $log"

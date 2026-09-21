@@ -19,6 +19,7 @@ from strategy_factory.core.errors import ConfigError
 from strategy_factory.data.download.alpaca import Credentials
 from strategy_factory.data.download.alpaca_reference import (
     EVIDENCE_ACTION_TYPES,
+    check_truncation,
     fetch_corporate_actions,
 )
 from strategy_factory.data.download.ratelimit import PermanentError, TLSVerificationError
@@ -114,3 +115,108 @@ def test_F_0_1_2_T04l_a_full_page_year_is_flagged_in_the_manifest(tmp_path: Path
     manifest = json.loads((path.parent / (path.name + ".manifest.json")).read_text("utf-8"))
     assert manifest["rows_per_year_all_types"] == {"2016": 1000, "2017": 1000}
     assert manifest["suspect_truncation"] == ["2016", "2017"]
+
+
+# ------------------------------------------------ the truncation guard itself (D-711)
+
+
+def _write(folder: Path, name: str, rows: list[dict[str, Any]]) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_text(json.dumps(rows), encoding="utf-8")
+
+
+def _rows(year: int, n: int) -> list[dict[str, Any]]:
+    return [{"symbol": "X", "cusip": "1", "process_date": f"{year}-03-01"}] * n
+
+
+def test_F_0_1_2_T04l_the_guard_reads_what_the_fetch_writes(tmp_path: Path) -> None:
+    """Round trip, no field name in between: a capped answer (1,000 rows a year) is SUSPECT,
+    a full one is OK -- counted from the rows the fetch wrote."""
+    folder = tmp_path / "reference" / "alpaca" / "corporate_actions"
+    _fetch(tmp_path, FakeClient({"cash_dividends": _rows(2016, 1000)}))
+    capped = check_truncation(folder)
+    assert not capped.ok and capped.suspect_years == ["2016"]
+    _fetch(tmp_path, FakeClient({"cash_dividends": _rows(2016, 1234)}))  # writes .v2
+    full = check_truncation(folder)
+    assert full.ok and full.rows_per_year == {"2016": 2468}  # two yearly requests, 1234 each
+    assert full.files["cash_dividends"].name.endswith(".v2.json")
+
+
+def test_F_0_1_2_T04l_the_guard_never_mixes_a_truncated_older_file_in(tmp_path: Path) -> None:
+    """The PowerShell summary crashed because it read the old v1 file; the guard takes the
+    latest version of each key and ignores name changes."""
+    _write(tmp_path, "cash_dividends_20260921.json", _rows(2016, 1000))
+    _write(tmp_path, "cash_dividends_20260921.v2.json", _rows(2016, 1500))
+    _write(tmp_path, "stock_mergers_20260921.json", _rows(2016, 7))
+    _write(tmp_path, "name_changes_20260920.json", _rows(2016, 993))
+    check = check_truncation(tmp_path)
+    assert sorted(p.name for p in check.files.values()) == [
+        "cash_dividends_20260921.v2.json",
+        "stock_mergers_20260921.json",
+    ]
+    assert check.rows_per_year == {"2016": 1507} and check.ok
+
+
+def test_F_0_1_2_T04l_no_file_is_not_a_pass(tmp_path: Path) -> None:
+    assert not check_truncation(tmp_path / "missing").ok
+
+
+def test_F_0_1_2_T04l_the_check_command_fails_loudly_on_a_suspect_download(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typer.testing import CliRunner
+
+    from strategy_factory.cli import app
+
+    folder = tmp_path / "reference" / "alpaca" / "corporate_actions"
+    _write(folder, "cash_mergers_20260921.json", _rows(2020, 2000))
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(tmp_path))
+    out = CliRunner().invoke(app, ["data", "reference", "alpaca-corporate-actions-check"])
+    assert out.exit_code == 1 and "SUSPECT" in out.output and "2020:2000" in out.output
+    _write(folder, "cash_mergers_20260921.v2.json", _rows(2020, 2001))
+    ok = CliRunner().invoke(app, ["data", "reference", "alpaca-corporate-actions-check"])
+    assert ok.exit_code == 0 and "TRUNCATION CHECK: OK" in ok.output
+
+
+def test_F_0_1_2_T04l_the_fetch_command_runs_the_guard_after_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The guard is part of the fetch, in the same process -- not a summary that may crash."""
+    from typer.testing import CliRunner
+
+    from strategy_factory.cli import app
+    from strategy_factory.data import cli_alpaca
+
+    def fake_fetch(creds, types, start, end, raw_root, client=None):
+        return fetch_corporate_actions(
+            creds,
+            types,
+            start,
+            end,
+            raw_root,
+            client=FakeClient({"cash_dividends": _rows(2016, 1000)}),
+        )
+
+    monkeypatch.setattr(cli_alpaca, "fetch_corporate_actions", fake_fetch)
+    monkeypatch.setattr(cli_alpaca, "load_credentials", lambda: CREDS)
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(tmp_path))
+    out = CliRunner().invoke(
+        app,
+        [
+            "data",
+            "reference",
+            "alpaca-corporate-actions",
+            "--start",
+            "2016-01-01",
+            "--end",
+            "2016-12-31",
+        ],
+    )
+    assert out.exit_code == 1 and "TRUNCATION CHECK: SUSPECT" in out.output
+
+
+def test_F_0_1_2_T04l_the_user_script_delegates_the_verdict_to_the_tested_command() -> None:
+    """No verdict logic in PowerShell: the script calls the check command and fails on its exit."""
+    script = Path("scripts/pilots/T04l_corporate_actions.ps1").read_text(encoding="utf-8")
+    assert "sfac data reference alpaca-corporate-actions-check" in script
+    assert "rows_per_year_all_types" not in script and "suspect_truncation" not in script
