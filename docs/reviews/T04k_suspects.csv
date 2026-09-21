@@ -1,0 +1,30 @@
+symbol,crosscheck_verdict,name_verdict,outcome,crosscheck_evidence
+ADPT,unsettled,one_name,kept (one_name),cross-check has no bar near 2017-04-19 on its own side
+AGC,unsettled,disagrees,kept (disagrees),"ingested 2.0896 vs all-adjusted 2.0896 over 2018-08-24..2020-12-01; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+BIOA,unsettled,one_name,kept (one_name),"ingested 114.5091 vs all-adjusted 114.5091 over 2018-02-08..2024-09-26; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+CART,unsettled,one_name,kept (one_name),"ingested 2.5824 vs all-adjusted 2.5824 over 2019-12-31..2023-09-19; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+DCTH,unsettled,one_name,kept (one_name),"ingested 76.6767 vs all-adjusted 76.6767 over 2017-09-14..2020-05-01; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+DO,unsettled,one_name,kept (one_name),"ingested 7.9923 vs all-adjusted 7.9923 over 2020-04-24..2022-03-30; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+FGMC,unsettled,one_name,kept (one_name),"ingested 2.0021 vs all-adjusted 2.0021 over 2023-08-25..2025-02-11; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+GDP,unsettled,one_name,kept (one_name),"ingested 103.8040 vs all-adjusted 103.8040 over 2016-01-13..2017-04-11; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+GRO,unsettled,one_name,kept (one_name),"ingested 15.9128 vs all-adjusted 15.9128 over 2016-11-02..2024-11-27; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+HCP,unsettled,ambiguous,kept (ambiguous),"ingested 2.3809 vs all-adjusted 2.3809 over 2019-11-04..2021-12-09; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+IBTA,unsettled,one_name,kept (one_name),"ingested 4.0730 vs all-adjusted 4.0730 over 2021-11-30..2024-04-18; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+ISRL,unsettled,re_use,"trimmed (re_use, D-700)",cross-check has no bar near 2026-09-01 on its own side
+KELYB,unsettled,one_name,kept (one_name),"ingested 2.5580 vs all-adjusted 2.5572 over 2020-06-30..2020-08-11; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+LGCY,unsettled,one_name,kept (one_name),"ingested 101.7722 vs all-adjusted 101.7722 over 2019-06-27..2024-09-26; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+MDXG,unsettled,one_name,kept (one_name),"ingested 1.9754 vs all-adjusted 1.9754 over 2018-11-07..2020-11-04; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+NES,unsettled,one_name,kept (one_name),"ingested 58.5139 vs all-adjusted 58.5139 over 2016-01-19..2017-10-12; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+OILU,unsettled,one_name,kept (one_name),cross-check has no bar near 2020-03-27 on its own side
+OSIR,unsettled,one_name,kept (one_name),"ingested 2.8627 vs all-adjusted 2.8627 over 2017-03-13..2018-08-01; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+PARA,unsettled,one_name,kept (one_name),cross-check has no bar near 2018-07-11 on its own side
+RAIN,unsettled,one_name,kept (one_name),"ingested 6.0331 vs all-adjusted 6.0331 over 2024-01-25..2025-01-02; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+RSLS,unsettled,disagrees,kept (disagrees),"ingested 24.2588 vs all-adjusted 24.2588 over 2018-12-28..2021-06-16; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+S,unsettled,one_name,kept (one_name),cross-check has no bar near 2020-03-31 on its own side
+SES,unsettled,one_name,kept (one_name),"ingested 2.5560 vs all-adjusted 2.5560 over 2020-05-15..2022-02-04; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+SHNY,unsettled,one_name,kept (one_name),"ingested 4.9140 vs all-adjusted 4.9140 over 2018-09-24..2023-02-22; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+SMRT,unsettled,one_name,kept (one_name),cross-check has no bar near 2020-08-21 on its own side
+SN,unsettled,one_name,kept (one_name),"ingested 117.2997 vs all-adjusted 117.3148 over 2019-02-19..2023-07-31; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+SPRB,unsettled,ambiguous,kept (ambiguous),"ingested 124.6819 vs all-adjusted 124.6819 over 2025-04-28..2025-09-15; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+VAL,unsettled,one_name,kept (one_name),"ingested 71.8182 vs all-adjusted 71.8182 over 2020-08-14..2021-05-03; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"
+VRM,unsettled,one_name,kept (one_name),"ingested 6.1876 vs all-adjusted 6.1876 over 2024-11-29..2025-02-20; both feeds break alike, and MS-US-1D is ticker-keyed like the ingested feed, so it cannot separate a re-use from a halt"

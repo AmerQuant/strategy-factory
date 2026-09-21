@@ -88,6 +88,7 @@ def show_cmd(
 
 def _register_subcommands() -> None:
     from strategy_factory.data import (  # noqa: F401  (register commands)
+        cli_clean,
         cli_dukascopy,
         cli_prep,
         cli_yahoo,

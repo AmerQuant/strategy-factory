@@ -238,6 +238,133 @@ def check_dst(df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig) -> Che
     )
 
 
+def check_daily_wick_outlier(
+    df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig
+) -> CheckResult:
+    """D-396: a daily high or low beyond the body by **both** k1 x ATR(14) and k2 % (T04k).
+
+    Runs for **every** daily symbol, hourly data or not -- it is the arm that works on all 6,707.
+    Counts are reported per symbol (the count itself) and per date (the sample), because T04i
+    showed the date-wide clusters that point at the feed rather than at an instrument.
+    """
+    from strategy_factory.data.clean_daily import wick_outliers
+
+    if meta.timeframe != "1D":
+        return _skip("daily_wick_outlier", "not a daily series")
+    if df.height == 0:
+        return _skip("daily_wick_outlier", "empty series")
+    flagged = wick_outliers(df, cfg.daily_wick_outlier)
+    hits = flagged.filter(pl.col("flag_high") | pl.col("flag_low"))
+    if hits.height == 0:
+        return _pass("daily_wick_outlier", bars=df.height)
+    return _fail(
+        "daily_wick_outlier",
+        cfg.daily_wick_outlier.severity,
+        hits.height,
+        f"{hits.height} bar(s) with a wick beyond the body by both "
+        f"{cfg.daily_wick_outlier.k1_atr} x ATR(14) and {cfg.daily_wick_outlier.k2_pct} %",
+        dates=[str(d) for d in hits["session_date"].to_list()[:_SAMPLE]],
+        high_side=int(hits["flag_high"].sum()),
+        low_side=int(hits["flag_low"].sum()),
+    )
+
+
+def unsupported_beyond_body(
+    breaches: pl.DataFrame, daily: pl.DataFrame, eps_bps: float
+) -> pl.DataFrame:
+    """The correctable breach days whose extreme lies outside the RTH range **and** the body.
+
+    D-701: the official close is the closing-auction print, a traded price; an extreme that sits
+    on the open or the close is supported by definition. T04k measured every one of the 8,750
+    residual breach days on the clean series on the close (median 2.7 bps), because the auction
+    print is filed in the 16:00 hourly bar D-023 drops. The bound is the one ``extreme_cap``
+    already respects, so the check and the correction agree.
+    """
+    from strategy_factory.data.clean_daily import CORRECTABLE
+
+    body = daily.select(
+        pl.col("ts").dt.date().alias("session_date"),
+        pl.max_horizontal("open", "close").alias("body_high"),
+        pl.min_horizontal("open", "close").alias("body_low"),
+    )
+    bps = 1e4 / pl.col("daily_close")
+    return (
+        breaches.filter(pl.col("breach_class").is_in(sorted(CORRECTABLE)))
+        .join(body, on="session_date", how="inner")
+        .with_columns(
+            ((pl.col("daily_high") - pl.max_horizontal("rth_high", "body_high")) * bps).alias(
+                "beyond_high_bps"
+            ),
+            ((pl.min_horizontal("rth_low", "body_low") - pl.col("daily_low")) * bps).alias(
+                "beyond_low_bps"
+            ),
+        )
+        .filter((pl.col("beyond_high_bps") > eps_bps) | (pl.col("beyond_low_bps") > eps_bps))
+    )
+
+
+def check_daily_extreme_unsupported(
+    df: pl.DataFrame,
+    meta: SeriesMetadata,
+    cfg: QualityConfig,
+    breaches: pl.DataFrame | None,
+    coverage: pl.DataFrame | None = None,
+) -> CheckResult:
+    """D-396: a daily extreme the hourly feed does not support, where hourly data exists (T04k).
+
+    **A short or missing hourly day is not evidence** (supervisor, 2026-09-21): it is never counted
+    as a defect **and never counted as clean**. It is reported separately with the bar count it
+    held against the calendar's expectation, **whether or not the daily bar breaches** -- so a
+    pass can never be mistaken for a check that ran on a day it could not check.
+
+    ``coverage`` (``session_date, rth_bars, expected_bars``, one row per session the hourly series
+    has any bar on) is what finds the short days; ``breaches`` only holds the days that breach, so
+    a short day inside the hourly range would otherwise pass silently. A daily session with no
+    hourly bar at all is ``no_raw_hours`` and is reported the same way.
+    """
+
+    code = "daily_extreme_unsupported"
+    if meta.timeframe != "1D":
+        return _skip(code, "not a daily series")
+    if breaches is None and coverage is None:
+        return _skip(code, "no hourly series for this symbol")
+    details: dict[str, Any] = {}
+    if coverage is not None:
+        days = df.select(pl.col("ts").dt.date().alias("session_date"))
+        seen = days.join(coverage, on="session_date", how="left")
+        short = seen.filter(pl.col("rth_bars") < pl.col("expected_bars"))
+        missing = seen.filter(pl.col("rth_bars").is_null())
+        details = {
+            "not_evidence_days": short.height + missing.height,
+            "short_hourly_days": short.height,
+            "no_hourly_days": missing.height,
+            "not_evidence_bars": [
+                f"{d}: {b} of {e} hourly bars"
+                for d, b, e in short.select("session_date", "rth_bars", "expected_bars").rows()[
+                    :_SAMPLE
+                ]
+            ],
+            "no_hourly_dates": [str(d) for d in missing["session_date"].to_list()[:_SAMPLE]],
+        }
+    real = (
+        unsupported_beyond_body(breaches, df, cfg.daily_extreme_unsupported.eps_bps)
+        if breaches is not None
+        else pl.DataFrame()
+    )
+    if real.height == 0:
+        return _pass(code, breach_days=0, **details)
+    per_class = dict(real.group_by("breach_class").len().rows())
+    return _fail(
+        code,
+        cfg.daily_extreme_unsupported.severity,
+        real.height,
+        f"{real.height} day(s) whose daily extreme the hourly feed does not support "
+        f"({', '.join(f'{k} {v}' for k, v in sorted(per_class.items()))})",
+        dates=[str(d) for d in real["session_date"].to_list()[:_SAMPLE]],
+        **details,
+    )
+
+
 def schedule_checks(
     df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig, sessions_file: Path | None
 ) -> tuple[CheckResult, CheckResult, dict[str, Any]]:
@@ -290,6 +417,8 @@ def run_quality(
     meta: SeriesMetadata,
     cfg: QualityConfig,
     sessions_file: Path | None = None,
+    breaches: pl.DataFrame | None = None,
+    coverage: pl.DataFrame | None = None,
 ) -> QualityReport:
     """All checks on one stored snapshot."""
     df = df.sort("ts")
@@ -302,6 +431,8 @@ def run_quality(
         check_stale(df, cfg),
         check_zero_volume(df, meta, cfg),
         check_dst(df, meta, cfg),
+        check_daily_wick_outlier(df, meta, cfg),
+        check_daily_extreme_unsupported(df, meta, cfg, breaches, coverage),
     ]
     worst = max((_RANK[c.severity] for c in checks if c.severity is not None), default=0)
     levels: dict[int, QualityStatus] = {0: "ok", 1: "warning", 2: "critical"}
@@ -362,11 +493,13 @@ def check_snapshot(
     catalog: Catalog,
     cfg: QualityConfig,
     sessions_file: Path | None = None,
+    breaches: pl.DataFrame | None = None,
+    coverage: pl.DataFrame | None = None,
 ) -> QualityReport:
     """Run the checks on a registered snapshot, write the report, record the status."""
     key = meta.key()
     df = store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
-    rep = run_quality(df, meta, cfg, sessions_file)
+    rep = run_quality(df, meta, cfg, sessions_file, breaches, coverage)
     write_report(rep, store.root)
     failed = ", ".join(f"{c.code}:{c.severity}" for c in rep.failed())
     catalog.set_quality_status(key, rep.status, note=failed or "all checks passed")

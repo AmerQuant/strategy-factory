@@ -28,40 +28,50 @@
 
 ## 2. Coverage (D-358)
 
-Run on **826 symbols** that have both timeframes: **1,796,508** session days compared, at
-**2026-09-20 15:21 UTC**. The hourly raw store is still filling while the user downloads the
+> **Amended 2026-09-21 — the hourly download is complete and this section was re-run.**
+> The numbers below and in §3 are the **2026-09-21 07:44 UTC** sweep over the completed raw set.
+> The original 2026-09-20 15:21 UTC run is kept in the paragraphs that describe what changed.
+> Regenerate with `uv run python scripts/analysis/T04i_daily_session.py`.
+>
+> **Coverage verdict: complete.** Every one of the **806** hourly universe symbols has a file for
+> every year 2016 … 2026 — **0 missing symbol-years of 8,866** — and the user's final pass without
+> `--end` covers 2026 (695 of 806 symbols carry bars to 2026-09-18; the other 111 stop earlier and
+> **109 of them stop in the daily series on the same day or have no 2026 bars in either timeframe**,
+> i.e. they are delistings, not gaps). One symbol, **`CCE`**, has **0 bars in all eleven years** and
+> will ingest as `no_data` in T04h, like `BHGE`/`FBHS`/`JEC` in 1D. `VMRK` has hourly bars but still
+> no daily ones (the D-388 `EQR` case). **T04h's coverage gate (D-386) is satisfied.**
+
+Run on **826 symbols** that have both timeframes: **1,956,214** session days compared, at
+**2026-09-21 07:44 UTC** (the first run, on the incomplete set, compared 1,796,508 days). The hourly raw store is still filling while the user downloads the
 missing years, so **these counts move between runs** — regenerate with
 `uv run python scripts/analysis/T04i_daily_session.py` and the CSVs and this review stay in step.
 At this run:
 
-| year | symbols with an hourly file (of 832) |
+| year | universe symbols with an hourly file (of 806) |
 |---|---|
-| 2016–2019 | 832 |
-| 2020 | 829 |
-| 2021 | 806 |
-| 2022 | 806 |
-| 2023 | **237** |
-| 2024–2026 | 827 |
+| **2016 – 2026** | **806 — every year, every symbol** |
 
-2022 filled in while T04i was being written (it was 0 at the first run); **2023 is the year still
-largely missing**. Every hourly statistic below is restricted to the days that exist, and a day
-whose hourly side is only partly downloaded is its own class rather than evidence (§3).
+At the first run the same table read 832/832 for 2016–2019, 829 for 2020, 806 for 2021–2022,
+**237** for 2023 and 827 for 2024–2026. The gap is closed.
 
-**Coverage moved again while this review was being amended.** Re-counted at
-**2026-09-20 19:18 local** (newest 1H raw file), the same 832 folders now hold: 2016–2019 832,
-2020 829, 2021 806, 2022 806, **2023 787**, 2024–2026 827. 2023 has gone from 237 to 787 of 832
-and is the only year still short. **The breach counts in §3 are therefore the 15:21 UTC run and
-are deliberately left as they were**, with their timestamp, so every number in this review comes
-from one consistent sweep. They are regenerated — CSVs and tables together — once the user
-confirms the download is complete:
+A year file with **0 rows** is not a gap: 57–98 symbols per year have one, and they are the years
+before a company listed or after it delisted — the same shape the daily series shows. Every hourly
+statistic below still restricts itself to the days that exist, and a day whose hourly side is short
+is its own class (§3) — which now means something different from what it meant on 2026-09-20.
 
-```bash
-uv run python scripts/analysis/T04i_daily_session.py
-```
+**What the completed download did to the numbers.** Breach days went from **17,648 (0.982 %)** to
+**18,580 (0.950 %)** — more breaches in absolute terms over more compared days, exactly as
+predicted: more hourly data can only **add** breach days, never remove one. D-395 (§7) is
+reinforced, not threatened.
 
-More hourly data can only **add** breach days, never remove one, so the completed run cannot
-overturn D-395 (§7); what it will do is move most of the `incomplete_hourly_day` rows into a
-real class.
+**One prediction in this review was wrong, and it matters.** The 2026-09-20 draft said the
+completed run would "move most of the `incomplete_hourly_day` rows into a real class", on the
+reading that they were the download in progress. They did not move: **2,896 → 3,017**, and their
+median is still **1 hourly bar against 7 expected**. With every symbol-year present, that reading
+is refuted — these are **genuine gaps in Alpaca's SIP hourly feed**, concentrated on particular
+dates (2021-04-19: 438 symbols, 2021-10-25: 401, 2022-03-08: 347, 2022-01-24: 279, 2018-05-02:
+194) across **665 symbols and 784 dates**. They are a property of the feed, and T04k must keep
+treating such a day as "not evidence" rather than as a defect of the daily bar.
 
 ## 3. Breach classification
 
@@ -72,32 +82,34 @@ the **raw** hourly file, which still holds the extended-hours bars the adapter d
 
 | class | days | % of compared days | median bps | p90 | p95 | p99 | max | median × ATR(14) | > 100 bps | > 1000 bps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `extended_hours` | 11,565 | 0.644 | 3.1 | 19.6 | 38.7 | 142.0 | 3,523 | 0.02 | 188 | 3 |
-| `unexplained` | 3,187 | 0.177 | 8.5 | 71.4 | 149.8 | 556.9 | 8,921 | 0.04 | 229 | 16 |
-| `incomplete_hourly_day` | 2,896 | 0.161 | 44.7 | 236.8 | 329.8 | 551.3 | 1,570 | 0.29 | 868 | 2 |
-| **total** | **17,648** | **0.982** | | | | | | | | |
+| `extended_hours` | 12,286 | 0.628 | 3.1 | 19.7 | 39.1 | 142.0 | 3,523 | 0.02 | 198 | 3 |
+| `unexplained` | 3,277 | 0.168 | 8.3 | 73.9 | 158.0 | 565.3 | 8,921 | 0.04 | 247 | 16 |
+| `incomplete_hourly_day` | 3,017 | 0.154 | 43.5 | 236.7 | 329.7 | 551.0 | 1,570 | 0.28 | 895 | 2 |
+| **total** | **18,580** | **0.950** | | | | | | | | |
 
 Every cell is recomputed from `docs/reviews/T04i_breach_days.csv` (quantiles: linear interpolation).
 
-**Sides:** high only 9361 low only 8257 both sides 30 — almost every breach is one-sided, which is
-what a single bad print or a single out-of-hours trade looks like.
+**Sides:** high only 9,875, low only 8,675, both sides 30 — almost every breach is one-sided, which
+is what a single bad print or a single out-of-hours trade looks like.
 
 `incomplete_hourly_day` — the session has fewer hourly bars than its calendar close implies — was
 added **after** a first pass put those days in `unexplained`. On 2021-04-19 alone, **438** symbols
-"breached" with a median of **one** hourly bar: that is the download in progress, not the data.
-Without checking the bar count against the calendar those days read as bad prints. Its median
-breach (44.7 bps, 0.29 × ATR) is far larger than either real class, which is the signature of a
-partial session rather than a price event.
+"breached" with a median of **one** hourly bar. The first draft read that as the download in
+progress; **the completed download proves otherwise** (§2): the class barely moved, so these are
+gaps in the SIP hourly feed itself. Its median breach (43.5 bps, 0.28 × ATR) is far larger than
+either real class, which is the signature of a short session rather than a price event — and the
+reason the class exists at all is that, without counting bars against the calendar, those days read
+as bad prints.
 
 **By symbol class** (from the hourly universe's `reason`; `unknown` = not in it):
 
 | symbol_class | extended_hours | incomplete_hourly_day | unexplained |
 |---|---|---|---|
 | unknown | 135 | 122 | 52 |
-| etf | 4,088 | 216 | 440 |
-| sp500_pit | 7,342 | 2,558 | 2,695 |
+| etf | 4,494 | 289 | 496 |
+| sp500_pit | 7,657 | 2,606 | 2,729 |
 
-ETFs are 4,744 of the 17,648 breach days from 82 symbols, so they breach far more per symbol than
+ETFs are 5,279 of the 18,580 breach days from 82 symbols, so they breach far more per symbol than
 the index members — consistent with `SPY`, `QQQ` and `IWM` topping the `unexplained` list.
 
 **By year:**
@@ -109,23 +121,25 @@ the index members — consistent with `SPY`, `QQQ` and `IWM` topping the `unexpl
 | 2018 | 1,504 | 435 | 348 |
 | 2019 | 1,349 | 60 | 311 |
 | 2020 | 1,255 | 35 | 316 |
-| 2021 | 1,425 | 886 | 293 |
-| 2022 | 548 | 658 | 267 |
-| 2023 | 381 | 34 | 39 |
-| 2024 | 681 | 115 | 67 |
-| 2025 | 966 | 336 | 127 |
-| 2026 | 586 | 285 | 54 |
+| 2021 | 1,425 | 886 | 311 |
+| 2022 | 989 | 765 | 331 |
+| 2023 | 655 | 48 | 65 |
+| 2024 | 682 | 115 | 67 |
+| 2025 | 967 | 336 | 127 |
+| 2026 | 590 | 285 | 54 |
 
 `unexplained` peaks in 2016–2017 (619, 746) and the median size is flat, so this is not a recent
-regression; `incomplete_hourly_day` tracks the download, not the calendar.
+regression. 2022 and 2023 are the rows the completed download changed (2022: 548 → 989
+`extended_hours`, 2023: 381 → 655), because those were the thin years; `incomplete_hourly_day`
+stayed put, which is what proves it is the feed and not the download.
 
 ### Does `unexplained` cluster?
 
-3,187 days over **741 of 826** symbols and **1,143** distinct dates — median 3 per affected symbol,
-so it is not concentrated in a few bad symbols. By symbol the top are the big ETFs, `SPY` (83),
-`QQQ` (31), `IWM` (29), then `TXT` (22), `CA` (17), `XLY` (15). **By date it does cluster**, and
+3,277 days over **742 of 826** symbols and **1,168** distinct dates — median 4 per affected symbol,
+so it is not concentrated in a few bad symbols. By symbol the top are the big ETFs, `SPY` (87),
+`QQQ` (33), `IWM` (30), then `TXT` (22), `CA` (17), `XLY` (15). **By date it does cluster**, and
 that is the useful signal: 2019-10-31 (75 symbols), 2019-08-12 (64), 2025-03-06 (55, all one-sided
-low). A date-wide cluster points at the feed; a symbol-wide one at that symbol.
+low), 2017-12-26 (25). A date-wide cluster points at the feed; a symbol-wide one at that symbol.
 
 ### The 20 largest breaches
 
@@ -380,10 +394,14 @@ Re-ran the known-split check over both timeframes, all 11 splits in
 | timeframe | adjusted | unadjusted | no data on the split date |
 |---|---|---|---|
 | 1D | 10 | **1** (`AVGO` 2024-07-15) | 0 |
-| 1H | 8 | **1** (`AVGO` 2024-07-15) | 2 (`GOOGL` 2022-07-18, `TSLA` 2022-08-25 — 2022 hourly was missing at the time of the run; it has since filled to 806 symbols, so re-run this check in T04h) |
+| 1H (first run, incomplete raw) | 8 | **1** (`AVGO`) | 2 (`GOOGL` 2022-07-18, `TSLA` 2022-08-25) |
+| **1H (re-run 2026-09-21, complete raw)** | **10** | **1** (`AVGO` 2024-07-15) | **0** |
 
 **AVGO is the only genuinely unadjusted split, and it is unadjusted in both timeframes.** The two
-`no_data_on_split_date` rows are the download gap, not a defect; they resolve with T04h.
+`no_data_on_split_date` rows **were** the download gap, not a defect: with the completed hourly set
+`GOOGL` 2022-07-18 and `TSLA` 2022-08-25 both come back **`adjusted`**, so the 1H table now matches
+the 1D one exactly. That closes the "re-run this check in T04h" note; T04h inherits no open
+split question.
 
 The unadjusted stretch is **2016 through 2024-07-12** — yearly close ranges run 116 → 1,829 and
 then drop to 136–481 from 2024-07-15 on — so the refresh must cover every year up to and including
@@ -422,12 +440,14 @@ the evidence in hand, not a clean bill of health: it holds for the 11 splits in
 ## 7. D-033 — accepted as D-395
 
 The rule was fixed in the task before the numbers were seen: `RTH` only if the daily range is inside
-the RTH hourly range on **every** compared day. It is not — 15,559 days breach, 0.96 % — so the
-evidence says the label stays **`exchange`**.
+the RTH hourly range on **every** compared day. It is not — **18,580 days breach, 0.95 %** over the
+**complete** hourly set — so the evidence says the label stays **`exchange`**.
 
-**The conclusion does not depend on the missing years** (D-358): more hourly data can only add
-breach days, never remove the ones already observed. For `RTH` to become correct, every one of the
-15,559 would have to be wrong, which is refuted by the worked examples in §3.
+**The conclusion never depended on the missing years** (D-358), and that is now demonstrated rather
+than argued: the decision was taken on 15,559 breaches over an incomplete set, and the completed
+download raised the count to 18,580. More hourly data can only add breach days, never remove one.
+For `RTH` to become correct, every one of them would have to be wrong, which is refuted by the
+worked examples in §3.
 
 Recorded as **D-395**: `daily_session` stays **`exchange`**, and `configs/data/alpaca.yaml` already
 carries that value, so no config change was needed. The stale "decided in T04e phase B" comment is
@@ -448,9 +468,8 @@ overwrite — which becomes the research reference. T04g ingests the raw as-is.
 
 - the **AVGO refresh** — the two commands are in §6b; a network run, so the user's (D-031). No other
   symbol needs one (§6b);
-- **re-running the breach sweep** once the user confirms the hourly download is complete, which
-  moves most of the 2,896 `incomplete_hourly_day` rows into a real class (§2 has the command and the
-  current coverage);
+- ~~re-running the breach sweep once the hourly download is complete~~ — **done 2026-09-21**
+  (§2, §3). It did **not** move the `incomplete_hourly_day` rows, which is itself the finding;
 - **P-74** — cross-checking the 280 D-398 trims (29 of them flagged `reverse_split_suspect`)
   against the all-adjusted MS-US-1D series before **T04k** applies them, so an unadjusted reverse
   split is not mistaken for a re-used ticker;

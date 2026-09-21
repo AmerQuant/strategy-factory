@@ -133,6 +133,8 @@ Adds `daily_extreme_unsupported` and `daily_wick_outlier` to the quality checks 
 **derived, versioned** clean daily snapshot that becomes the research reference. T04g ingests the
 raw as-is; T04k corrects it without editing raw and without overwriting a snapshot.
 **It must be merged before the first real stage-1 run (T12).**
+**Status 2026-09-21:** approved; D-701 … D-706 applied, re-derived after the D-702 quarantine,
+provenance asserted, references set (3,239 clean snapshots). PR open, waiting for "Approved. Merge".
 
 ### Step 5 — T04h (1H ingest) — **blocked until the download is complete**
 **P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
@@ -149,7 +151,8 @@ the six rename destinations that have no hourly raw at all (**P-70**).
 | **Dukascopy pilot re-hash v1 → v2** (T04e §1) | The three pilot snapshots (`EURUSD`, `XAUUSD`, `USA500IDXUSD` 1H) are still `hash_version = 1` in the catalog; T04e's "re-ingest and move the reference, event note `rehash v1→v2`" never ran | folds naturally into T04j |
 | **Yahoo aux ingest** (7 series, F-0.1.4/F-0.1.11) | Raw downloaded (`DX-Y.NYB, ^DJI, ^GSPC, ^NDX, ^RUT, ^TNX, ^VIX`), never ingested; the batch brief scopes phase B to the hourly data | a short follow-up task |
 | **Registry `data_snapshots` population** | No CLI writes the catalog into PostgreSQL today; the table is filled by run writers | **D-390**: left to the first pipeline run |
-| **AVGO re-download** (D-397) | Its 10:1 split of 2024-07-15 is not applied in either timeframe; `--refresh` now exists and the exact command is in `docs/reviews/T04i_review.md` | the user's PowerShell run |
+| **T04l — re-used tickers by CUSIP** (D-705) | the 221 splices D-700 keeps need the security, not the name | after T04h, **before the first real stage-1 run (T12)** — `docs/tasks/T04l_cusip_reuse.md` |
+| **AVGO re-download** (D-397) — **done 2026-09-21**: both refreshes clean, 2024-07-15 `adjusted` in 1D and 1H, ingested | Its 10:1 split of 2024-07-15 is not applied in either timeframe; `--refresh` now exists and the exact command is in `docs/reviews/T04i_review.md` | the user's PowerShell run |
 
 ## Dependencies
 No new third-party dependency is expected in this batch. If one becomes necessary it is listed in

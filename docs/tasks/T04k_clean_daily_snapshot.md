@@ -3,7 +3,7 @@
 **Features:** F-0.1.6 (data-quality checks and report), F-0.1.8 (immutable snapshots, derived snapshots), F-0.1.2 (frozen stretches and the re-use boundary, D-398), F-0.1.9 groundwork · **Priority:** MVP · **Depends on:** **T04g** (the raw 1D snapshots) and ideally **T04h** (hourly coverage) · **Must be done before:** the first real stage-1 run (**T12**)
 **Branch:** `b/T04k-clean-daily` from `b/T04g-alpaca-daily-ingest` (or from `main` once T04g is merged).
 
-Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396**, **D-398** and **D-399** (the
+Read first: `CLAUDE.md` (rules 1, 10, 11), **D-395**, **D-396**, **D-398**, **D-399** and **D-700** (the
 decisions this task implements), D-033, D-023, D-008, D-383, D-397, D-522, and
 `docs/reviews/T04i_review.md` — T04i measured both problems, this task fixes them.
 
@@ -48,10 +48,38 @@ shorter than `relisting.frozen_min_sessions`. If the review finds bucket B is do
 5–9 sessions, that is an argument for lowering the threshold, and it is a **supervisor decision**,
 not a task-level one.
 
-The delisted tail is inside bucket A: its `missing_pct` has a median of 0 but a p90 of **8.4 %** and
-a maximum of **94 %** (`MDA`, 135 real bars spread over 2017-10-05 … 2026-09-18), while every other
-bucket has a p90 of **0 %**. Trimming and padding-removal is what closes that gap; no other bucket
-has a missing-bar problem at all.
+### The delisted tail, measured separately
+
+The supervisor asked how many of the 2,705 warnings are the **delisted-tail family** — a company
+that stopped trading years ago while the feed still returns a bar near the end of the window, so the
+snapshot spans eleven years and holds a few hundred real bars. Defined as **span > 3 years and
+fewer than 75 % of that span's sessions traded** (`row_count / (span_years × 252)`), measured
+against the catalog's own `first_ts` / `last_ts` / `row_count`:
+
+| | snapshots | share of the 2,705 | `missing_pct` median | p90 | max |
+|---|---|---|---|---|---|
+| **delisted tail** | **76** | **2.8 %** | **60.7 %** | 84.3 % | 94.0 % |
+| **everything else** | **2,629** | 97.2 % | 0.0 % | 0.0 % | 39.3 % |
+
+It is a **small, sharply separated** family, not the bulk of the warnings — worth saying plainly,
+because the T04g review's "twenty worst `missing_pct`" table makes it look larger than it is. The
+two groups do not overlap at all on the metric that matters: the tail's median is 60.7 % missing,
+the rest's p90 is 0 %.
+
+- **55 of the 76** also carry a D-398 finding, so §1b/§1c already reach them; the other 21 are
+  sparse without a padding signature and **T04k changes nothing about them**.
+- The tail's density runs p10 **0.16** to p90 **0.67**, median **714** real bars over a median span
+  of **10.7 years**. The worst: `MDA` 135 bars over 2017-10-05 … 2026-09-18 (94.0 % missing), `POM`
+  294 (89.1 %), `NPT` 295, `XE` 273, `CAM` 302, `MOBI` 314.
+- **All 76 are `warning`; none is `ok`** — no `ok` snapshot in the whole store is tail-shaped, so
+  the quality status already separates them cleanly.
+- Of the **187** warning snapshots failing `missing_bars`, **76 are the tail** and **111 are
+  ordinary gappy series** (density 0.83–0.97, a few per cent missing) that need nothing.
+
+**What this means for T04k's scope.** The wick-outlier arm (931 spike-only snapshots) and the
+D-398 padding/re-use arm (797) are each **an order of magnitude larger** than the delisted tail.
+T04k should not be designed around the tail; it is a by-product that §1b's padding removal and
+§1c's boundary rule already cover for 55 of its 76 members.
 
 ## Scope
 
@@ -61,7 +89,26 @@ has a missing-bar problem at all.
 low lies outside the **full raw hourly range** (extended hours included) of that session date by
 more than a configured epsilon. Reuse `strategy_factory.data.daily_session` from T04i, which
 already computes this and distinguishes `extended_hours`, `unexplained`, `incomplete_hourly_day`
-and `no_raw_hours`. A day whose hourly side is incomplete is **never** flagged as a defect.
+and `no_raw_hours`.
+
+### A short hourly day is not evidence, in either direction (supervisor, 2026-09-21)
+
+T04i predicted that completing the hourly download would empty the `incomplete_hourly_day` class.
+**It did not**: with every symbol-year present the class grew, 2,896 → **3,017**, median still
+**1 hourly bar against 7 expected**, over **665 symbols and 784 dates**. So these are **gaps in
+Alpaca's SIP hourly feed**, not an artefact of an unfinished download, and they are permanent. Two
+rules follow and both are acceptance criteria:
+
+1. **Never cap a daily high or low from a short hourly day**, and **never mark the day clean
+   because the hourly range "agrees"** — agreement with one surviving bar is not agreement. On a
+   day classified `incomplete_hourly_day` (or `no_raw_hours`) the daily bar is **left untouched**
+   and the quality report **states it**, with the bar count it saw against the calendar's
+   expectation. A silent pass is the failure mode to avoid: it would read as "checked and clean"
+   when nothing was checked.
+2. **The clustering is the signal.** `incomplete_hourly_day` clusters by **date**, not by symbol —
+   2021-04-19 (438 symbols), 2021-10-25 (401), 2022-03-08 (347), 2022-01-24 (279), 2018-05-02
+   (194) — which points at feed-wide events rather than at any instrument. The **T04k review lists
+   the worst such dates** with their symbol counts, so a later reader can recognise the shape.
 
 **`daily_wick_outlier`** — for **every** symbol, hourly data or not. A day is flagged when a high or
 low lies beyond the bar's **body** (max/min of open and close) by more than **both**
@@ -104,29 +151,39 @@ input — it is evidence, not a config.
 `SplitManager` with `HistoryTooShortError` when a stage tries to split them. Do **not** add them to
 the exclusion file and do not shorten the split rules for them.
 
-### 1c. No trim on an ambiguous signature — D-399 (the P-74 answer)
+### 1c. No trim on an ambiguous signature — D-399, amended by D-700
 
-**A trim is never applied on an ambiguous signature.** A frozen stretch or a gap with a level break
-is equally what an **unadjusted (reverse) split** and a **long trading halt** look like, and
-`configs/data/known_splits.csv` holds only 11 hand-picked splits. T04i flags **29 of the 280 trims**
-as `reverse_split_suspect` in `docs/reviews/T04i_relisting_verdicts.csv`; `MARA` is the halt case,
-and it currently loses 252 bars of real history.
+**A trim is never applied on an ambiguous signature** (D-399 (4), which stands). A frozen stretch
+or a gap with a level break is equally what an **unadjusted (reverse) split**, a **long trading
+halt** and a **re-used ticker** look like.
 
-**Settle every one of the 29 with the MS-US-1D cross-check** — the test that settled AVGO. The
-all-adjusted series lives at `SFAC_RAW_ROOT/us_equity/alpaca_sip_all/1D/us_<symbol>.csv` and is
-**continuous** across a genuine corporate action and **discontinuous** where the company actually
-changed. `data/split_check.py` already computes `ratio_crosscheck`; reuse it rather than writing a
-second comparison.
+**D-399 asked the MS-US-1D cross-check to separate all three. T04k measured that it can separate
+only the first.** MS-US-1D is keyed by **ticker**, exactly like the Alpaca feed, so a re-used
+ticker splices identically in both (`PX`: 156.80 → 11.51 on 2021-10-21 in both, with the same
+frozen padding before it). The supervisor therefore withdrew D-399's cross-check half for the
+re-use case and moved the discriminator to the **company name** — **D-700**. A boundary is now
+decided in this order; the first rule that decides wins:
 
-| cross-check says | verdict | what T04k does |
+| step | evidence | outcome |
 |---|---|---|
-| continuous across the break → **unadjusted split or reverse split** | **not a boundary** | the symbol takes the **D-397** path: it **fails ingest** and is listed with its `--refresh` command; **history untouched**, nothing trimmed |
-| the series resumes at the same level → **trading halt** | **not a boundary** | the frozen stretch is still removed (**D-398 (1)**), the history on **both** sides is kept, and the snapshot carries a **gap the quality report states** |
-| discontinuous → **genuine re-use** | **boundary** | trim as **D-398 (2)** |
-| the cross-check **cannot settle it** (no cross-check file, no overlap, contradictory) | **not a boundary** | keep the **full history**, mark the symbol in the artefact and **list it for the supervisor** |
+| 1 | the boundary ends a **leading** pad | padding before a listing, not a re-use signature: **trim** (D-398 (3)) |
+| 2 | MS-US-1D is **continuous** between two **real** bars where the ingested series jumps | **unadjusted split** → the **D-397** path: no clean snapshot, history untouched, listed with its `--refresh` command |
+| 3 | a `NAME_CHANGE` rename **away** from the ticker inside `[break start − 7 d, boundary]`, and the assets file's name for the destination is a **different string** from the ticker's current name | **re-use** → **trim** at the boundary (D-398 (2)) |
+| — | anything else: one name only, the rename disagrees with the boundary, two renames, or the destination changed hands again | **keep the full history** and list the symbol for the supervisor |
 
-The verdict per symbol goes into the artefact and the review; the frozen-stretch cut (D-398 (1))
-is unaffected by all of this and needs no cross-check.
+Name matching is **exact identity** (D-700 (4)). Two conditions were added because the data
+refuted a simpler version, both in the conservative direction:
+
+- **The cross-check compares real bars, never a pad.** A first version called `AMLX`, `ATAI`,
+  `NRGZ` and `TBRG` unadjusted splits; all four were wrong (the cross-check had no pre-IPO bar and
+  the fallback compared the IPO bar with itself; the ingested "jump" measured a stale pad; neither
+  feed broke the threshold).
+- **A destination that changed hands again is not evidence.** `PTN`: Palatin went `PTN → PTNT` and
+  came **back**; an ETF then took `PTNT`, so `PTNT`'s current name called Palatin a re-use of
+  itself — 2,264 real bars would have gone.
+
+The frozen-stretch cut (D-398 (1)) is unaffected by all of this and needs no evidence: padding is
+removed wherever it is.
 
 ### 2. The derived clean daily snapshot (D-396 part 2)
 
@@ -139,8 +196,12 @@ A **new** snapshot per symbol, never an overwrite (rule 10):
 - **D-398** additionally **removes bars**: the frozen stretches and everything before the
   boundary. Removal is logged bar for bar like a cap, and the metadata carries `boundary_date`,
   `dropped_bars` and `frozen_bars_cut` so the shorter series is self-explaining;
-- a **changed-bar log** beside the snapshot lists every touched bar with the old and the new value
-  and which rule applied. Without it the transformation is not auditable and must not ship;
+- a **changed-bar log** beside the snapshot lists every touched bar with the old and the new
+  value, **which arm changed it** (`extreme_cap`, `wick_clip`, `frozen_cut`, `boundary_trim`)
+  **and the evidence that arm acted on** — for `extreme_cap` the hourly range and its bar count
+  against the calendar; for `wick_clip` the ATR(14) multiple and the percentage; for
+  `frozen_cut`/`boundary_trim` the stretch or gap and the D-398/D-399 verdict. Without it the
+  transformation is not auditable and must not ship;
 - the metadata says what was applied: the rule, the config hash of the thresholds, and the counts.
   The material-metadata guard (D-384/D-392) means this must be right at the first write.
 - **The clean snapshot becomes the research reference** for `(symbol, 1D)`; the raw snapshot stays
@@ -153,7 +214,8 @@ one pass over the symbol and one derived snapshot, not two.
 ### 3. Report
 
 `docs/reviews/T04k_review.md` plus a committed CSV of every changed bar, aggregated per symbol and
-per date. **Re-measure the five buckets above after the clean snapshots exist** and say which ones
+per date, **and the worst `incomplete_hourly_day` dates with their symbol counts** (§1) so the
+feed-wide events are on the record. **Re-measure the five buckets above after the clean snapshots exist** and say which ones
 moved: A1 and A2 should empty, D should shrink to the wicks the clip did not touch, and B should be
 unchanged — if B moved, something cut more than D-398 allows. Compare the before/after distribution of the daily range, and state how many symbols were
 touched at all — if the clean snapshot differs from the raw one for only a small minority, say so
@@ -168,6 +230,12 @@ plainly, because that is the argument for making it the default reference.
 ## Acceptance
 - Both checks are implemented, configured from YAML, and each has tests on a fixture with a planted
   bad print, a planted extended-hours extreme and a genuinely volatile bar that must **not** flag.
+- **A short hourly day changes nothing** (§1): a fixture whose hourly side holds 1 bar of 7 and
+  whose daily high lies outside it leaves the bar **untouched**, is **not** reported clean, and
+  appears in the quality report with its bar count. A second fixture where the short day's hourly
+  range happens to *contain* the daily range is also left untouched and is **not** marked clean.
+- Every row of the changed-bar log carries its arm and that arm's evidence; a test asserts no row
+  has an empty arm or empty evidence.
 - **D-398:** a fixture symbol with a padded stretch, one with a leading pad and one with a re-use
   boundary each produce the right clean series; the frozen bars are gone, the boundary is in the
   metadata, and a symbol whose trimmed history is too short **fails the split** rather than being

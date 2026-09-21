@@ -101,6 +101,25 @@ class SnapshotStore:
         d = self.snapshot_dir(source, symbol, timeframe)
         return d / f"{snapshot_hash}.parquet", d / f"{snapshot_hash}.meta.json"
 
+    def quarantine(
+        self, source: str, symbol: str, timeframe: str, snapshot_hash: str, dest: Path
+    ) -> list[Path]:
+        """**Move** a snapshot's files under ``dest``, keeping their relative layout (D-702).
+
+        Never a deletion: the bytes are kept and the move is reversible. Only the catalog decides
+        what may be quarantined (:meth:`Catalog.retire`); this only moves files. Returns the new
+        paths.
+        """
+        moved: list[Path] = []
+        for path in self.paths(source, symbol, timeframe, snapshot_hash):
+            if not path.exists():
+                continue
+            target = dest / path.relative_to(self.root)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            path.replace(target)
+            moved.append(target)
+        return moved
+
     def write_snapshot(self, df: pl.DataFrame, meta: SeriesMetadata) -> SeriesMetadata:
         """Validate, hash and store ``df``; returns ``meta`` with the store fields filled.
 

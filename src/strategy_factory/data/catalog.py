@@ -285,6 +285,53 @@ class Catalog:
         _atomic_write_parquet(cat, self.path)
         self._log("quality", key.symbol, key.timeframe, key.snapshot_hash, None, note or status)
 
+    def retire(self, hashes: list[str], note: str) -> pl.DataFrame:
+        """Remove **derived, never-referenced** snapshots from the catalog; return their rows.
+
+        The one exception to D-392 that D-702 allows: a clean-layer snapshot written by an earlier
+        pass of T04k, whose stored metadata is stale. Refused -- nothing changes -- if any hash is
+        a raw snapshot (``derived_from`` empty), is a reference now, or **was ever** a reference
+        (a ``set_reference`` event names it). One ``retire`` event per snapshot, one atomic
+        rewrite. The snapshot files themselves are the store's business
+        (:meth:`SnapshotStore.quarantine`).
+        """
+        wanted = set(hashes)
+        cat = self.table()
+        rows = cat.filter(pl.col("snapshot_hash").is_in(sorted(wanted)))
+        problems: list[str] = []
+        if rows.height != len(wanted):
+            problems.append(f"{len(wanted) - rows.height} hash(es) not in the catalog")
+        if rows.filter(pl.col("derived_from").is_null()).height:
+            problems.append("raw snapshots (derived_from empty) are never retired")
+        if rows.filter(pl.col("is_reference")).height:
+            problems.append("a current reference cannot be retired")
+        ever = self.events().filter(
+            (pl.col("event") == "set_reference") & pl.col("snapshot_hash").is_in(sorted(wanted))
+        )
+        if ever.height:
+            problems.append(f"{ever['snapshot_hash'].n_unique()} hash(es) were once a reference")
+        if problems:
+            raise DataError("retire refused: " + "; ".join(problems), stage="catalog")
+        _atomic_write_parquet(cat.filter(~pl.col("snapshot_hash").is_in(sorted(wanted))), self.path)
+        now = dt.datetime.now(dt.UTC)
+        events = pl.DataFrame(
+            [
+                {
+                    "ts": now,
+                    "event": "retire",
+                    "symbol": r["symbol"],
+                    "timeframe": r["timeframe"],
+                    "snapshot_hash": r["snapshot_hash"],
+                    "previous_reference": None,
+                    "note": note,
+                }
+                for r in rows.iter_rows(named=True)
+            ],
+            schema=EVENTS_SCHEMA,
+        )
+        _atomic_write_parquet(pl.concat([self.events(), events]), self.events_path)
+        return rows
+
     def has_reference(self, symbol: str, timeframe: str) -> bool:
         try:
             self.get_reference(symbol, timeframe)
