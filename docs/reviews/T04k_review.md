@@ -3,11 +3,12 @@
 **Task:** `docs/tasks/T04k_clean_daily_snapshot.md` · **Branch:** `b/T04k-clean-daily` from `main` (T04g merged, PR #24; rebased onto `b5a0bb4`, PR #25)
 **Features:** F-0.1.6 (quality checks and report), F-0.1.8 (immutable and derived snapshots), F-0.1.2 (frozen stretches, re-use boundary), F-0.1.9 groundwork
 **Decisions used:** D-008, D-023, D-033, D-383, D-384, D-392, D-395, D-396, D-397, D-398, D-399, **D-700** (new, supervisor — amends D-399)
-**Open for the supervisor:** **P-75** (six implementation rules, all conservative), **P-76** (the official close counted as unsupported)
+**Open for the supervisor:** **P-75** (six implementation rules, all conservative), **P-76** (the official close counted as unsupported), **P-77** (stale metadata on most clean snapshots), **P-78** (one-pass wick clip)
 **Status:** complete and **waiting for "Approved"**. As instructed, every pass ran **without `--set-reference`**: all 6,707 references are still the raw snapshots.
 
-The acceptance reviewer ran twice. The first round found three real defects (§7) and the fixes
-exposed a fourth, which I found on the full pass (§7.4). Every number below is from the final pass.
+The acceptance reviewer ran **three** times. The rounds found real defects (§7), one more turned
+up on a full pass (§7.4), and the last round's findings are fixed or raised as P-77 and P-78. Every
+number below is from the final pass and is reproduced by `scripts/analysis/T04k_report.py`.
 
 ## 1. What was built
 
@@ -24,7 +25,8 @@ exposed a fourth, which I found on the full pass (§7.4). Every number below is 
 | `docs/reviews/T04k_changes_per_symbol.csv`, `…_per_date.csv` | changed bars by arm |
 | `docs/reviews/T04k_short_hourly_dates.csv` | every short or missing hourly day, per date |
 | `docs/reviews/T04k_split_after_trim.csv`, `T04k_suspects.csv` | D-008 after trimming; T04i's 29 suspects |
-| tests | **69 new** across `test_F_0_1_6_clean_daily.py`, `test_F_0_1_8_clean_pass.py`, `test_F_0_1_9_crosscheck.py`, `test_F_0_1_2_name_evidence.py`; plus the check-set update in `test_F_0_1_6_quality.py` |
+| `docs/reviews/T04k_residual_breaches.csv` | every correctable breach day the clean series still has (P-76) |
+| tests | **71 new** across `test_F_0_1_6_clean_daily.py`, `test_F_0_1_8_clean_pass.py`, `test_F_0_1_9_crosscheck.py`, `test_F_0_1_2_name_evidence.py`; plus the check-set update in `test_F_0_1_6_quality.py` |
 
 In the store: `<SFAC_DATA_ROOT>/_clean/<symbol>/<clean hash>.csv` (every changed bar: old, new,
 arm, evidence) and `.json` (provenance: config hash, arms, boundary, verdicts), one pair per clean
@@ -192,6 +194,18 @@ lies above their high — and the engine checks stops against that high.
    start date from config (V5); `EXCLUDE` recorded, never silent (S5); logs and provenance keyed by
    the clean hash (S6); every short day written, not only the breaching ones (S8); P-75 for the rules
    no decision states (V6).
+6. **Round 3** confirmed V1, V2, §7.4, V3, S2 and S3 in the code and the store, and found:
+   - **Stale metadata** (V-1): where a clean series is byte-identical to one an earlier pass wrote,
+     the store returns the first writer's notes — **3,180 of 3,250** current clean snapshots lack the
+     config hash and **46** name a different arm than their log (`AENT`: `frozen_cut 278` stored,
+     `boundary_trim 278` now — the same bars, re-attributed to the leading-pad rule). The pass now
+     **detects** it (`metadata_stale` in the summary); correcting it is a D-392 question, **P-77**.
+   - My "86 on hourly symbols" was wrong (V-2): 26 hourly, 60 non-hourly (§9).
+   - `wick_clip` is one pass and does not reach a fixed point (V-3): **P-78**, §12.
+   - The §7.4 wiring had no end-to-end test (S-a): one now drives the pass with real hourly raw
+     files, and **fails when the bug is re-introduced**; aggregates the script did not compute (S-b)
+     now come from it; `input_rows` keeps one raw snapshot per symbol after a refresh (S-c); two
+     duplicated literals removed (S-d).
 
 ## 8. A short hourly day is not evidence
 
@@ -231,16 +245,18 @@ T04g raw reports:
 
 The 632 are **not cleaning making series worse**; T04g's reports never ran these two checks:
 
-- **572** fail `daily_extreme_unsupported` on a **residual the cap cannot remove**. Over the 825 hourly
-  symbols, **8,750 of 15,563** correctable breach days remain (43.8 % resolved), on 753 symbols. In a
-  150-symbol sample **every** residual (1,495 of 1,495) is on the **close**, 99.3 % `extended_hours`,
-  median **2.8 bps**, 75 % under 5 bps. The official daily close is the **16:00 closing-auction
-  print**, which the hourly feed files in the 16:00 bar — the bar D-023's 09:00–15:00 window drops —
-  so the close sits a few bps outside the RTH range. The cap correctly stops at the body, and the
-  check then reports a traded price as unsupported. **P-76** asks whether an extreme equal to the open
-  or the close should ever be flagged.
-- **86** fail `daily_wick_outlier` on hourly symbols, whose wicks the hourly evidence keeps. D-396 asks
-  for that check on every symbol, so it reports them.
+- **572** (all hourly) fail `daily_extreme_unsupported` on a **residual the cap cannot remove**. Over
+  the 825 hourly symbols, **8,750 of 15,550** correctable breach days remain (43.7 % resolved), on
+  753 symbols. **Every one of the 8,750** (the full population, `T04k_residual_breaches.csv`) is on
+  the **close**; 99.5 % are `extended_hours`; median **2.7 bps**, p75 5.1, p90 10.8, p99 98.9. The
+  official daily close is the **16:00 closing-auction print**, which the hourly feed files in the
+  16:00 bar — the bar D-023's 09:00–15:00 window drops — so the close sits a few bps outside the RTH
+  range (the round-3 reviewer found the close inside the raw 16:00 bar's range on 642 of 644 sampled
+  days). The cap correctly stops at the body, and the check then reports a traded price as
+  unsupported. **P-76** asks whether an extreme equal to the open or the close should ever be flagged.
+- **86** fail `daily_wick_outlier`: **26** hourly symbols, whose wicks the hourly evidence keeps (D-396
+  asks for the check on every symbol), and **60** non-hourly symbols that were clipped and still fail
+  — the one-pass limit in §12 and **P-78**.
 
 ## 10. Every changed bar says which arm changed it and why
 
@@ -255,7 +271,7 @@ the log.
 | criterion | proof | result |
 |---|---|---|
 | both checks from YAML; a bad print, an extended-hours extreme, a volatile bar that must not flag | `test_F_0_1_6_D_396_*` | pass |
-| a short hourly day changes nothing, is not reported clean, appears with its bar count | `…_a_short_hourly_day_*`, `…_never_counts_a_short_hourly_day_as_a_defect`, `…_a_short_day_that_does_not_breach_is_still_stated`, `…_no_hourly_bar_is_stated_too` | pass |
+| a short hourly day changes nothing, is not reported clean, appears with its bar count | `…_a_short_hourly_day_*`, `…_never_counts_a_short_hourly_day_as_a_defect`, `…_a_short_day_that_does_not_breach_is_still_stated`, `…_no_hourly_bar_is_stated_too`, `…_the_pass_judges_the_clean_series_with_real_hourly_files` (end to end) | pass |
 | every log row carries its arm and evidence | `…_every_log_row_names_its_arm_and_its_evidence`; store: 0 empty of 226,215 | pass |
 | D-398: padded stretch, leading pad, re-use boundary; boundary in the metadata; too short fails the split | `…_frozen_stretch_is_cut…`, `…_a_leading_pad_is_trimmed_without_any_name_evidence`, `…_a_re_use_by_name_trims…`, `…_each_clean_snapshot_has_its_own_log_and_provenance` (notes and JSON), `…_too_short_fails_the_split…` | pass |
 | D-399 as amended by D-700: an ambiguous signature never trims | `test_F_0_1_9_*`, `test_F_0_1_2_name_evidence.py`, `…_one_name_keeps_the_history…` | pass |
@@ -276,18 +292,23 @@ the log.
 3. **82 superseded clean snapshots** from the passes that ran before the fixes remain in the store and
    the catalog (immutable, rule 10); none is a reference. The first-layout flat logs
    `_clean/<symbol>.csv` remain beside them; the report reads only the current layout.
-4. **Some clean snapshots' metadata predates the provenance notes.** Where a clean series is
-   byte-identical to one an earlier pass wrote, the store returns the stored metadata (D-392: no
-   correction path), so its notes lack the config hash. Every current clean snapshot has the full
-   provenance in its `_clean/<symbol>/<hash>.json`, written by the final pass.
-5. `short_hourly_days.csv` counts per **raw** daily session, including padded days later cut; the
+4. **3,180 of the 3,250 current clean snapshots carry stale catalog metadata, and 46 of those name a
+   different arm than their log** (§7.6). The store returns the first writer's metadata for identical
+   content and D-392 allows no correction. The pass detects it (`metadata_stale`), and every current
+   clean snapshot has the correct provenance in `_clean/<symbol>/<hash>.json`. Whether to accept that
+   or to re-derive the never-referenced T04k snapshots once is **P-77** — I recommend re-deriving
+   before they become references.
+5. **`wick_clip` is one pass.** Clipping lowers ATR(14), so a wick the first bad print masked can then
+   clear `k1_atr`: **230 of the 5,882** non-hourly clean series still fail `daily_wick_outlier` (267
+   bars). **P-78**.
+6. `short_hourly_days.csv` counts per **raw** daily session, including padded days later cut; the
    quality reports count per clean session.
-6. The full `NAME_CHANGE` feed is used, not only `configs/universe/symbol_changes.csv` (§5).
+7. The full `NAME_CHANGE` feed is used, not only `configs/universe/symbol_changes.csv` (§5).
 
 ## 13. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                            1317 passed, 1 failed (below)
+uv run pytest -m "not slow"                            1320 passed, 1 failed (below)
 uv run pytest tests/parity tests/leakage tests/oracle    283 passed
 uv run pytest -m db                                       21 passed, 0 skipped
 uv run ruff check . / ruff format --check .             clean
@@ -304,6 +325,9 @@ changed; `SFAC_RAW_ROOT` was only read.
 - **Approve T04k**, and with it `--set-reference`.
 - **P-75**: confirm the six implementation rules, all conservative.
 - **P-76**: the closing-auction residual behind 572 `warning`s.
+- **P-77**: stale metadata on 3,180 clean snapshots — accept, or re-derive once before they become
+  references (my recommendation).
+- **P-78**: whether `wick_clip` should iterate to a fixed point.
 - **221 of the 280 stay spliced** (minus padding), four of the five named Moneta targets among them.
   The next evidence would be **CUSIPs** — the `NAME_CHANGE` feed carries `old_cusip`/`new_cusip`,
   which identify the security rather than its name — but that is a new discriminator and yours to
