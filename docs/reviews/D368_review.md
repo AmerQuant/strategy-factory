@@ -1,6 +1,6 @@
 # D-368 — the metrics fixture, and the CI gap that hid it — review
 
-Branch `a/D368-hypothesis-ci`, off `main` at `0615538`. Stream A. Features: F-0.5.1 (the
+Branch `a/D368-hypothesis-ci`, rebased onto `main` at `d2ebc6a` (after stream B's #28–#30). Stream A. Features: F-0.5.1 (the
 metrics property), F-X.9 (the Hypothesis setup). Decision: **D-368** (the answer to P-44).
 
 ## 1. The fixture (D-368, part 1)
@@ -140,7 +140,7 @@ granted.
 ## 6. Acceptance
 
 ```
-uv run pytest -m "not slow"                                       1368 passed, 0 skipped
+uv run pytest -m "not slow"                                       1459 passed, 0 skipped
 HYPOTHESIS_PROFILE=ci uv run pytest tests/parity tests/leakage tests/oracle tests/property
                                                                    359 passed
 uv run pytest -m db                                                21 passed, 0 skipped
