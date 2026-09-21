@@ -55,7 +55,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** branch **`b/T04k-clean-daily`**, pushed; **PR open, stopped for "Approved.
+**Current position:** branch **`b/T04k-clean-daily`**, pushed; **PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28) open, stopped for "Approved.
 Merge"**. P-80 answered as **D-706** (supervisor: `k1_atr` 9 on the body-range ATR keeps the old
 rule's reach; 6.66 rejected). The approved sequence has run:
 1. **D-702 quarantine** — `<store>/_quarantine/T04k_D-702_20260921T132719Z/` (3,262 snapshots) and
