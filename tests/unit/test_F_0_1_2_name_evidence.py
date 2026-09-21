@@ -112,3 +112,31 @@ def test_F_0_1_2_D_700_a_rename_into_the_ticker_is_recorded_but_does_not_decide(
     assert "arrived from COG" in got.evidence
     alone = settle_by_name("FB", BREAK, BOUNDARY, ASSETS, [_chg("COG", "FB", BOUNDARY)], WINDOW)
     assert alone.verdict == ONE_NAME
+
+
+def test_F_0_1_2_D_700_a_destination_renamed_again_is_not_evidence() -> None:
+    """`PTN`: Palatin went PTN -> PTNT and came back PTNT -> PTN; an ETF then took PTNT.
+
+    Comparing PTN's name with PTNT's *current* name calls Palatin a re-use of itself. The
+    destination changed hands after the rename, so its name no longer identifies who left.
+    """
+    assets = {
+        "PTN": "Palatin Technologies, Inc. Common Stock",
+        "PTNT": "Corgi IP Licensing & Royalties ETF",
+    }
+    away = _chg("PTN", "PTNT", dt.date(2022, 6, 9))
+    back = _chg("PTNT", "PTN", dt.date(2025, 11, 12))
+    index = {"PTN": [away, back], "PTNT": [away, back]}
+    got = settle_by_name("PTN", BREAK, BOUNDARY, assets, [away, back], WINDOW, index)
+    assert got.verdict == AMBIGUOUS and not got.may_trim
+    assert "renamed again" in got.evidence
+    # without the index the same evidence would have trimmed -- which is the bug this prevents
+    naive = settle_by_name("PTN", BREAK, BOUNDARY, assets, [away, back], WINDOW)
+    assert naive.verdict == RE_USE
+
+
+def test_F_0_1_2_D_700_a_destination_that_stayed_put_is_still_evidence() -> None:
+    away = _chg("FB", "META", dt.date(2022, 6, 9))
+    index = {"FB": [away], "META": [away]}
+    got = settle_by_name("FB", BREAK, BOUNDARY, ASSETS, [away], WINDOW, index)
+    assert got.verdict == RE_USE

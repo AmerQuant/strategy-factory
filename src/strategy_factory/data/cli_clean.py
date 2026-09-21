@@ -288,6 +288,7 @@ def _clean_symbol(
                     names.assets,
                     names.changes.get(symbol, []),
                     names.window_days,
+                    names.changes,
                 )
                 out["name_verdict"] = named.verdict
                 out["name_evidence"] = named.evidence

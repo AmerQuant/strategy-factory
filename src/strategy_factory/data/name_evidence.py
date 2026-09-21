@@ -24,7 +24,16 @@ that held the ticker **before** the break exists only when that company **rename
     a rename away exists but outside the window: the name evidence and the frozen-stretch boundary
     tell different stories. Keep the full history and list the symbol (D-700 (2)).
 ``ambiguous``
-    more than one rename away inside the window. Keep the full history and list the symbol.
+    more than one rename away inside the window, **or** the rename's destination was itself renamed
+    away **afterwards**. Keep the full history and list the symbol.
+
+The second case was found on the data, not assumed. The assets file names a ticker's holder
+**today**, so the destination's name identifies the company that left only if the destination has
+not changed hands since. ``PTN`` is the counter-example: Palatin went ``PTN -> PTNT`` on 2025-05-08
+and came **back** ``PTNT -> PTN`` on 2025-11-12, after which an ETF took ``PTNT``. Comparing
+``PTN``'s name with ``PTNT``'s current name called Palatin a re-use of itself and would have
+deleted 2,264 bars of its real history. A destination with a later rename away is therefore not
+evidence, in the conservative direction D-399 (4) requires.
 
 **Matching is exact identity** (D-700 (4)): only surrounding whitespace is stripped. The question
 is whether the feed calls it a different company, not how alike two names look. Exact identity
@@ -94,13 +103,16 @@ def settle_by_name(
     assets: Mapping[str, str],
     changes: Iterable[NameChange],
     window_days: int,
+    destination_changes: Mapping[str, Iterable[NameChange]] | None = None,
 ) -> NameVerdict:
     """Classify one boundary by the names the assets file gives either side of it.
 
     ``break_start`` is where the break begins in the series (the last real bar before a gap, or
     the first padded bar of a frozen stretch); ``boundary`` is the first bar of the new holder. A
     rename **away** from ``symbol`` agrees with the boundary when its ``process_date`` lies in
-    ``[break_start - window_days, boundary]``.
+    ``[break_start - window_days, boundary]``. ``destination_changes`` is the feed indexed by
+    symbol; with it, a destination that was renamed away again afterwards makes the case
+    ``ambiguous`` instead of trusting its current name.
     """
     rows = list(changes)
     arrived = [c for c in rows if c.new_symbol == symbol and c.old_symbol != symbol]
@@ -133,6 +145,21 @@ def settle_by_name(
             name_after=after,
         )
     change = inside[0]
+    later = [
+        c
+        for c in (destination_changes or {}).get(change.new_symbol, [])
+        if c.old_symbol == change.new_symbol and c.process_date > change.process_date
+    ]
+    if later:
+        moves = ", ".join(f"{c.old_symbol}->{c.new_symbol} {c.process_date}" for c in later)
+        return NameVerdict(
+            symbol,
+            AMBIGUOUS,
+            f"{symbol}->{change.new_symbol} {change.process_date}, but {change.new_symbol} was "
+            f"renamed again ({moves}); its current name does not identify the company that "
+            f"left {symbol}" + arrival_note,
+            name_after=after,
+        )
     before = assets.get(change.new_symbol, "").strip()
     if not after or not before:
         missing = symbol if not after else change.new_symbol
