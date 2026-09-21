@@ -48,10 +48,38 @@ shorter than `relisting.frozen_min_sessions`. If the review finds bucket B is do
 5–9 sessions, that is an argument for lowering the threshold, and it is a **supervisor decision**,
 not a task-level one.
 
-The delisted tail is inside bucket A: its `missing_pct` has a median of 0 but a p90 of **8.4 %** and
-a maximum of **94 %** (`MDA`, 135 real bars spread over 2017-10-05 … 2026-09-18), while every other
-bucket has a p90 of **0 %**. Trimming and padding-removal is what closes that gap; no other bucket
-has a missing-bar problem at all.
+### The delisted tail, measured separately
+
+The supervisor asked how many of the 2,705 warnings are the **delisted-tail family** — a company
+that stopped trading years ago while the feed still returns a bar near the end of the window, so the
+snapshot spans eleven years and holds a few hundred real bars. Defined as **span > 3 years and
+fewer than 75 % of that span's sessions traded** (`row_count / (span_years × 252)`), measured
+against the catalog's own `first_ts` / `last_ts` / `row_count`:
+
+| | snapshots | share of the 2,705 | `missing_pct` median | p90 | max |
+|---|---|---|---|---|---|
+| **delisted tail** | **76** | **2.8 %** | **60.7 %** | 84.3 % | 94.0 % |
+| **everything else** | **2,629** | 97.2 % | 0.0 % | 0.0 % | 39.3 % |
+
+It is a **small, sharply separated** family, not the bulk of the warnings — worth saying plainly,
+because the T04g review's "twenty worst `missing_pct`" table makes it look larger than it is. The
+two groups do not overlap at all on the metric that matters: the tail's median is 60.7 % missing,
+the rest's p90 is 0 %.
+
+- **55 of the 76** also carry a D-398 finding, so §1b/§1c already reach them; the other 21 are
+  sparse without a padding signature and **T04k changes nothing about them**.
+- The tail's density runs p10 **0.16** to p90 **0.67**, median **714** real bars over a median span
+  of **10.7 years**. The worst: `MDA` 135 bars over 2017-10-05 … 2026-09-18 (94.0 % missing), `POM`
+  294 (89.1 %), `NPT` 295, `XE` 273, `CAM` 302, `MOBI` 314.
+- **All 76 are `warning`; none is `ok`** — no `ok` snapshot in the whole store is tail-shaped, so
+  the quality status already separates them cleanly.
+- Of the **187** warning snapshots failing `missing_bars`, **76 are the tail** and **111 are
+  ordinary gappy series** (density 0.83–0.97, a few per cent missing) that need nothing.
+
+**What this means for T04k's scope.** The wick-outlier arm (931 spike-only snapshots) and the
+D-398 padding/re-use arm (797) are each **an order of magnitude larger** than the delisted tail.
+T04k should not be designed around the tail; it is a by-product that §1b's padding removal and
+§1c's boundary rule already cover for 55 of its 76 members.
 
 ## Scope
 
