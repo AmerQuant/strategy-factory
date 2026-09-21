@@ -64,7 +64,7 @@ this stream from scratch.
 | §3 costs (`costs/parity.py`) | **done** — from the `pine` block alone (D-362) |
 | §3 strategy mapping | **done for MR** (`mr_rsi2_below_10`); TF maps to `tf_donchian20_breakout` |
 | §4 comparison (`selftest/parity_compare.py`) | **MR done and passing**; TF blocked, see below |
-| §5 `to_verify` | **ledger written**, evidence per item: D-336 confirmed (2 of 462 entries at an exit bar, all matched); ATR warm-up confirmed (first entry bar 14 on both sides); D-335 pending TF (MR has no target, so no tie can arise); **D-327, D-349 (a) and D-349 (h) cannot be settled by any TradingView reference** → **P-45** |
+| §5 `to_verify` | **closed except one (D-371)**. Still open: **D-335** only, waiting on TF (it needs a bar where a stop and a target are both touched). Confirmed: D-336 (2 of 462 entries at an exit bar, all matched) and the ATR warm-up (first entry bar 14 on both sides). **Confirmed by construction, no export can ever test them:** D-327, D-349 (a), D-349 (h) — and they no longer appear as `to_verify`, in the kernel docstring or the review, with a drift test holding the two together |
 | §6 report (`selftest/parity_report.py`) | **done** — both net-profit figures and the small-profit flag (D-364), the D-011 verdict |
 | review `docs/reviews/T11_review.md` | **drafted**, marked *not finished*: the MR results, the option table, the §5 ledger and the deviations are in; the TF rows are *pending*. Finished when the TF exports land, then stop for "Approved" |
 
@@ -117,8 +117,10 @@ first. The file now has 34 tests.
 
 ### Next actions, in order
 
-0. **PR #23** (`a/fix-removed-rows-test`) — CI green, waiting on "Approved. Merge". It is the
-   only failing test on this branch; rebase `a/T11-parity` onto `main` once it lands.
+0. **#23 merged**; `a/T11-parity` rebased onto `main` (48ba1ac). Stream B's PR **#24** is
+   open and clean. Stream B asks for a **D-700 … D-799** range in `ownership.yaml` (their
+   D-380 … D-399 is exhausted) — **waiting on the supervisor to confirm the grant**, since a
+   range is the supervisor's to give. Stream B is holding all new decisions until it lands.
 1. TF exports arrive → fixtures, manifest note (D-600 supersedes the two-sided export), map
    the TF strategy in `configs/parity/xauusd_tf_1h.yaml`, then both one-sided comparisons.
    The gate picks TF up automatically once the config has a strategy block.
@@ -130,5 +132,5 @@ first. The file now has 34 tests.
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-370** used (next free **D-371**); pending **P-40 … P-45** used
+Stream A decisions **D-360 … D-371** used (next free **D-372**); pending **P-40 … P-45** used (**all answered**)
 (next free **P-46**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
