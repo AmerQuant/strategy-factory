@@ -7,6 +7,7 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
+from fixtures.hypothesis_budget import examples
 from fixtures.t05 import fx_bars, fx_meta
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -27,7 +28,7 @@ FULL = {
 }
 
 
-@settings(max_examples=40, deadline=None)
+@settings(max_examples=examples(40), deadline=None)
 @given(
     cut=st.integers(min_value=30, max_value=SOURCE.height - 1),
     tf=st.sampled_from(["4H", "1D"]),
@@ -44,7 +45,7 @@ def test_F_0_1_7_truncation_invariance(cut: int, tf: str, mode: str) -> None:
             assert joined[col].to_list() == joined[f"{col}_full"].to_list(), col
 
 
-@settings(max_examples=25, deadline=None)
+@settings(max_examples=examples(25), deadline=None)
 @given(
     k=st.integers(min_value=1, max_value=25),  # the 40-day source has ~30 daily bars
     mode=st.sampled_from(["research", "broker_session"]),

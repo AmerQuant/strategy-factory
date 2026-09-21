@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from fixtures.hypothesis_budget import examples
 from fixtures.t05 import MemoryLedger, bars_from_close, fx_hours, fx_meta, random_close
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -398,7 +399,7 @@ def make(spread: float, slip: float, atr: float, rate: float, swap: float) -> Co
 pos = st.floats(min_value=0.0, max_value=1.0, allow_nan=False)
 
 
-@settings(max_examples=200, deadline=None)
+@settings(max_examples=examples(200), deadline=None)
 @given(base=st.tuples(pos, pos, pos, pos, pos), which=st.integers(0, 4), bump=st.floats(1e-6, 1.0))
 def test_F_0_2_4_raising_any_cost_component_never_lowers_total_cost(
     base: tuple[float, ...], which: int, bump: float
@@ -408,7 +409,7 @@ def test_F_0_2_4_raising_any_cost_component_never_lowers_total_cost(
     assert total_cost(make(*raised)) >= total_cost(make(*base)) - 1e-9
 
 
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=examples(50), deadline=None)
 @given(base=st.tuples(pos, pos, pos, pos, pos))
 def test_F_0_2_4_stress_levels_monotone(base: tuple[float, ...]) -> None:
     p = make(*base)

@@ -153,16 +153,28 @@ class RunSpec:
     trades: tuple[tuple[int, int], ...]  # (gap before entry, bars held)
     increments: tuple[float, ...]  # len n: MTM P&L change of each in-position / exit bar
     costs: tuple[float, ...]  # per trade: commission charged at exit
+    #: position size of every trade. The entry price is fixed (1000) and the exit price is
+    #: derived from the gross P&L, so the price move per unit is ``gross / qty``: bounded by
+    #: 13 bars x 3000 / 100 = 390, which keeps every derived price in (610, 1390).
+    qty: float = 100.0
 
     @property
     def n(self) -> int:
         return len(self.increments)
 
     def scaled(self, k: float) -> RunSpec:
+        """The same run with a position ``k`` times the size (D-368).
+
+        P&L and costs scale by ``k`` **because the position does**: ``qty`` scales with them,
+        so every derived price is unchanged. Scaling the P&L at a fixed ``qty`` would move the
+        price level instead -- by ``k`` times -- and a large enough ``k`` drives an exit price
+        to zero or below, which ``TradeLog`` rightly refuses.
+        """
         return replace(
             self,
             increments=tuple(k * x for x in self.increments),
             costs=tuple(k * c for c in self.costs),
+            qty=k * self.qty,
         )
 
     def with_extra_cost(self, trade: int, cost: float) -> RunSpec:
@@ -212,7 +224,7 @@ def build_run(spec: RunSpec) -> RunResult:
                     "entry_ts": ts[entry],
                     "exit_ts": ts[t],
                     "direction": 1 if i % 2 == 0 else -1,
-                    "qty": 100.0,
+                    "qty": spec.qty,
                     "entry_price": 1000.0,
                     "pnl_gross": gross,
                     "cost_commission": cost,

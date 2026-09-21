@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pytest
 from fixtures.engine import Case, random_case, run_engine, run_oracle, to_result
+from fixtures.hypothesis_budget import examples
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -90,7 +91,7 @@ def cases(draw: Any) -> Case:
     return case
 
 
-@settings(max_examples=400, deadline=None)
+@settings(max_examples=examples(400), deadline=None)
 @given(cases())
 def test_F_0_3_1_engine_equals_naive_oracle(case: Case) -> None:
     assert_same(case)

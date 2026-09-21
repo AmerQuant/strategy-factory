@@ -7,8 +7,9 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
-from fixtures.metrics_runs import CAPITAL, STEPS_NS, build_run, run_specs
-from hypothesis import assume, given, settings
+from fixtures.hypothesis_budget import examples
+from fixtures.metrics_runs import CAPITAL, STEPS_NS, RunSpec, build_run, run_specs
+from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 
 from strategy_factory.metrics.batch import core_metrics_batch
@@ -21,7 +22,37 @@ from strategy_factory.metrics.standard import (
 from strategy_factory.metrics.tables import monthly_table, yearly_table
 
 # Numba compiles on first use; no per-example deadline.
-PROPS = settings(deadline=None, max_examples=150)
+PROPS = settings(deadline=None, max_examples=examples(150))
+
+# -- pinned falsifying examples (D-368) --------------------------------------------------------
+# The per-PR CI profile is derandomized and `.hypothesis/` is git-ignored, so an example found
+# on a laptop never reaches CI by itself. Every example that has ever falsified a property here
+# is therefore pinned with `@example` next to the property, where it runs under ANY profile.
+# Keep them: they are regression tests for a bug that CI could not otherwise see.
+
+#: Found by Hypothesis on 2026-09-21 and shrunk (P-44). Trade 11 is a short whose gross P&L is
+#: +10,000 at qty 100; when `scaled` multiplied the P&L but not the position, k = 10 moved the
+#: derived exit price from 900 to exactly 0 and `TradeLog` refused the run.
+FOUND_P44 = RunSpec(
+    start=np.datetime64("2018-05-11", "ns"),
+    steps=("1d",) * 226,
+    trades=((1, 0),) * 5
+    + ((1, 5), (1, 6), (1, 8), (4, 12), (13, 12), (15, 4), (15, 4))
+    + ((1, 0),) * 6,
+    increments=(0.0,) * 102 + (1362.0, 0.0, 2638.0, 3000.0, 3000.0) + (0.0,) * 120,
+    costs=(0.0,) * 18,
+)
+#: The same boundary, small enough to check by hand: one long trade losing 10,000 at qty 100
+#: moves the price from 1000 to 900; scaling the loss by 10 at a fixed qty would reach 0.
+BOUNDARY_P44 = RunSpec(
+    start=np.datetime64("2020-01-01", "ns"),
+    steps=("1d",) * 5,
+    trades=((1, 4),),
+    increments=(0.0, -2500.0, -2500.0, -2500.0, -2500.0, 0.0),
+    costs=(0.0,),
+)
+#: every pinned example, for the count the review reports and for the fixture test below
+PINNED_EXAMPLES = ((FOUND_P44, 10.0), (BOUNDARY_P44, 10.0))
 
 
 @PROPS
@@ -58,6 +89,8 @@ def test_F_0_5_1_drawdowns_non_negative_and_ystart_le_peak(spec) -> None:
 
 @PROPS
 @given(run_specs(), st.sampled_from([0.25, 0.5, 2.0, 3.0, 10.0]))
+@example(FOUND_P44, 10.0)
+@example(BOUNDARY_P44, 10.0)
 def test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio(spec, k: float) -> None:
     base = core_metrics(build_run(spec).equity)
     scaled_run = build_run(spec.scaled(k))
@@ -164,3 +197,19 @@ def test_F_0_5_1_core_matches_plain_python_reference(spec) -> None:
     assert got.avg_annual_profit_usd == pytest.approx(profit, rel=1e-9, abs=1e-6)
     assert got.avg_annual_dd_ystart_usd == pytest.approx(dd, rel=1e-9, abs=1e-6)
     assert got.exposure == pytest.approx(exposure, rel=1e-12)
+
+
+@pytest.mark.parametrize(("spec", "k"), PINNED_EXAMPLES, ids=["found_p44", "boundary_p44"])
+def test_F_0_5_1_scaling_grows_the_position_not_the_price_level(spec: RunSpec, k: float) -> None:
+    """D-368: `RunSpec.scaled(k)` is a k-times larger position. Every price is unchanged, and
+    quantity, P&L and costs are k times the original -- so the scaling property tests what it
+    says (a bigger position scales profit and drawdown), not a move in the price level."""
+    base = build_run(spec).trades
+    big = build_run(spec.scaled(k)).trades
+    assert base.qty.size == big.qty.size > 0
+    np.testing.assert_array_equal(big.entry_price, base.entry_price)
+    np.testing.assert_allclose(big.exit_price, base.exit_price, rtol=1e-12)
+    np.testing.assert_allclose(big.qty, k * base.qty, rtol=1e-12)
+    np.testing.assert_allclose(big.pnl_gross, k * base.pnl_gross, rtol=1e-12)
+    np.testing.assert_allclose(big.cost_commission, k * base.cost_commission, rtol=1e-12)
+    assert (big.exit_price > 0).all()

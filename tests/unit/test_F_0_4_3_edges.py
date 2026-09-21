@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from fixtures.hypothesis_budget import examples
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -123,7 +124,7 @@ def reflect(b: Bars) -> Bars:
     return Bars(k - b.open, k - b.low, k - b.high, k - b.close)
 
 
-@settings(max_examples=25, deadline=None)  # deadline off: first call may JIT-compile
+@settings(max_examples=examples(25), deadline=None)  # deadline off: first call may JIT-compile
 @given(
     seed=st.integers(0, 2**32 - 1),
     n=st.integers(60, 260),
