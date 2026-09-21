@@ -47,8 +47,11 @@ def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert rules.supervisor is not None
     assert rules.supervisor.decisions == ((355, 359), (600, 699))
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
-    assert rules.streams["A"].decisions == (360, 379) and rules.streams["A"].pending == (40, 59)
-    assert rules.streams["B"].decisions == (380, 399) and rules.streams["B"].pending == (60, 79)
+    assert rules.streams["A"].decisions == ((360, 379),)
+    assert rules.streams["A"].pending == (40, 59)
+    # D-372: stream B's first range is used up, so it holds two
+    assert rules.streams["B"].decisions == ((380, 399), (700, 799))
+    assert rules.streams["B"].pending == (60, 79)
     assert rules.append_only == (
         "docs/decisions/decisions_log.md",
         "docs/decisions/pending.md",
@@ -527,3 +530,106 @@ def test_F_X_9_d369_removed_rows_reads_real_git_output(
     # and the guard reads that as an amendment plus a new row, not as two duplicates
     rules = load_ownership(REPO / DEFAULT_OWNERSHIP)
     assert check_ids("A", added, ["| D-357 | old text |"], rules, removed) == []
+
+
+# -- D-372: a stream's own second decision range ---------------------------------------------
+def written(folder: Path, spec: dict[str, Any]) -> Ownership:
+    """An ownership file built from ``spec``, loaded the way the guard loads the real one."""
+    path = folder / "ownership.yaml"
+    path.write_text(yaml.safe_dump(spec), encoding="utf-8")
+    return load_ownership(path)
+
+
+def test_F_X_9_d372_stream_b_may_use_its_second_range(rules: Ownership) -> None:
+    existing = ["| D-399 | the last of the first range |"]
+    for number in (700, 750, 799):
+        assert check_ids("B", [f"| D-{number} | stream B |"], existing, rules) == [], number
+    # and the first range still works
+    assert check_ids("B", ["| D-385 | still fine |"], existing, rules) == []
+
+
+def test_F_X_9_d372_the_second_range_is_still_stream_bs_own(rules: Ownership) -> None:
+    """The point of D-372: a second range is not a second *supervisor* range."""
+    for number in (700, 750, 799):
+        problems = check_ids("A", [f"| D-{number} | stream A reaching |"], [], rules)
+        assert len(problems) == 1, number
+        assert "outside stream A's range" in problems[0]
+        # the message names every range stream A holds, and the supervisor's for contrast
+        assert "D-360 … D-379" in problems[0]
+        assert "D-600 … D-699" in problems[0]
+    # ... while a supervisor number is still accepted from either stream
+    for stream in ("A", "B"):
+        assert check_ids(stream, ["| D-650 | supervisor |"], [], rules) == []
+
+
+def test_F_X_9_d372_the_message_names_every_range_a_stream_holds(rules: Ownership) -> None:
+    problems = check_ids("B", ["| D-500 | neither range |"], [], rules)
+    assert len(problems) == 1
+    assert "outside stream B's range D-380 … D-399 and D-700 … D-799" in problems[0]
+
+
+def test_F_X_9_d372_pending_ranges_are_unchanged(rules: Ownership) -> None:
+    """A `P-` number always belongs to the stream that raised the question, so P-700 is not one."""
+    for stream in ("A", "B"):
+        problems = check_ids(stream, ["| P-700 | not a pending number |"], [], rules)
+        assert len(problems) == 1, stream
+        assert "outside stream" in problems[0] and "P-" in problems[0]
+    assert check_ids("B", ["| P-65 | stream B |"], [], rules) == []
+    assert check_ids("A", ["| P-45 | stream A |"], [], rules) == []
+
+
+def test_F_X_9_d372_duplicates_are_still_rejected_in_the_new_range(rules: Ownership) -> None:
+    existing = ["| D-700 | already taken |"]
+    dup = check_ids("B", ["| D-700 | again |"], existing, rules)
+    assert any("duplicate id" in problem for problem in dup)
+    twice = check_ids("B", ["| D-701 | a |", "| D-701 | b |"], [], rules)
+    assert any("duplicate id" in problem for problem in twice)
+    # an amendment in the second range still behaves like one (D-369)
+    assert check_ids("B", ["| D-700 | amended |"], existing, rules, existing) == []
+    assert any(
+        "may not amend" in problem
+        for problem in check_ids(None, ["| D-700 | amended |"], existing, rules, existing)
+    )
+
+
+def test_F_X_9_d372_one_pair_is_still_a_valid_range(tmp_path: Path) -> None:
+    """Every ownership file written before D-372 keeps working: a bare `[lo, hi]` is one range."""
+    rules = written(
+        tmp_path,
+        {
+            "supervisor": {"decisions": [355, 359]},  # a single pair, the pre-D-600 form
+            "streams": {
+                "A": {
+                    "name": "a",
+                    "branch_prefix": "a/",
+                    "decisions": [360, 379],
+                    "pending": [40, 59],
+                },
+            },
+            "owners": {},
+        },
+    )
+    assert rules.supervisor is not None
+    assert rules.supervisor.decisions == ((355, 359),)
+    assert rules.streams["A"].decisions == ((360, 379),)
+    assert check_ids("A", ["| D-365 | fine |"], [], rules) == []
+    assert check_ids("A", ["| D-700 | not granted here |"], [], rules) != []
+
+
+def test_F_X_9_d372_an_inverted_or_empty_range_is_refused(tmp_path: Path) -> None:
+    def spec(decisions: Any) -> dict[str, Any]:
+        return {
+            "streams": {
+                "A": {
+                    "name": "a",
+                    "branch_prefix": "a/",
+                    "decisions": decisions,
+                    "pending": [40, 59],
+                }
+            },
+            "owners": {},
+        }
+
+    for bad in ([[700, 690]], [[380, 399], [799, 700]], []):
+        with pytest.raises(ConfigError):
+            written(tmp_path, spec(bad))

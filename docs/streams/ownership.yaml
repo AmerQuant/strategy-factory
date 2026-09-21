@@ -27,7 +27,9 @@ streams:
     name: stream B (worktree, StrategyFactory_B)
     branch_prefix: "b/"
     folder: StrategyFactory_B        # D-357 (1)
-    decisions: [380, 399]        # D-380 … D-399
+    # D-372: D-380 … D-399 is used up (D-399 was the last), so the supervisor granted
+    # D-700 … D-799 next to it. Decisions only; pending stays P-60 … P-79.
+    decisions: [[380, 399], [700, 799]]
     pending: [60, 79]            # P-60 … P-79
 
 owners:

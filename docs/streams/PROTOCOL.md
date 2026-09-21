@@ -9,13 +9,20 @@ with your own status file, `docs/streams/A.md` or `docs/streams/B.md`.
 | folder | `D:\AmerAndish\Projects\Trade\StrategyFactory` | `D:\AmerAndish\Projects\Trade\StrategyFactory_B` (a git worktree) |
 | work | the batch-2b merges (done), then **T11 parity** | **data** (batch 3-data), then T12 |
 | branch prefix | `a/` | `b/` |
-| decisions | **D-360 … D-379** | **D-380 … D-399** |
+| decisions | **D-360 … D-379** | **D-380 … D-399** (used up) **and D-700 … D-799** |
 | pending | **P-40 … P-59** | **P-60 … P-79** |
 | test database | `sfac` | `sfac_b` (same Postgres server, port 5433, D-305) |
 | `SFAC_DATA_ROOT` | reads only | **the only writer** |
 | `SFAC_RAW_ROOT` | read-only | read-only |
 
 The supervisor keeps **D-355 … D-359** (used up) and **D-600 … D-699**, decisions only.
+
+A range gets used up, so a stream can hold more than one: stream B's `D-380 … D-399` ran
+out at D-399 and the supervisor granted `D-700 … D-799` next to it (**D-372**). A second
+range is **still that stream's own** — the other stream is refused from it, exactly as
+from the first. Only the supervisor's ranges are open to either stream. Pending ranges are
+unchanged and stay single: a `P-` number always belongs to the stream that raised the
+question, so `P-700` is refused from both.
 
 ## 1. One worktree, one session (D-357 (1), amended 2026-09-21)
 
