@@ -473,24 +473,57 @@ def test_F_X_9_d369_a_supervisor_row_may_be_amended_by_either_stream(rules: Owne
 
 
 def test_F_X_9_d369_removed_rows_reads_real_git_output(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`git diff -U0` opens each file with `--- a/<path>`; that is a header, not a removed row."""
+    """`git diff -U0` opens each file with `--- a/<path>`; that is a header, not a removed row.
+
+    Built on a throw-away repository rather than on this one's history, so the test says the
+    same thing whatever branch it runs on.
+    """
     from strategy_factory.core.cli_streams import added_rows, removed_rows
 
-    monkeypatch.chdir(REPO)
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    def write(*rows: str) -> None:
+        table.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    folder = tmp_path / "docs" / "decisions"
+    folder.mkdir(parents=True)
+    table = folder / "decisions_log.md"
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    write("| ID | Decision |", "| D-357 | old text |", "| D-358 | untouched |")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    git("branch", "base")
+    # one amended row, one new row, one row left alone
+    write(
+        "| ID | Decision |",
+        "| D-357 | amended text |",
+        "| D-358 | untouched |",
+        "| D-369 | new |",
+    )
+    git("add", "-A")
+    git("commit", "-qm", "amend D-357, add D-369")
+
+    monkeypatch.chdir(tmp_path)
     files = ("docs/decisions/decisions_log.md",)
     raw = subprocess.run(
-        ["git", "diff", "-U0", "HEAD~1..HEAD", "--", *files],
+        ["git", "diff", "-U0", "base..HEAD", "--", *files],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         check=True,
-        cwd=REPO,
     ).stdout
     assert any(line.startswith("--- ") for line in raw.splitlines()), "no file header to ignore"
-    removed = removed_rows("HEAD~1", files)
-    assert not any(line.startswith("-") for line in removed), removed  # no `--- a/...` leaked
-    assert not any(line.startswith("+") for line in added_rows("HEAD~1", files))
-    # and the parsed ids of a real diff are table rows, not diff noise
-    for kind, number in parse_ids(removed) + parse_ids(added_rows("HEAD~1", files)):
-        assert kind in ("D", "P") and number > 0
+    assert any(line.startswith("+++ ") for line in raw.splitlines())
+
+    removed, added = removed_rows("base", files), added_rows("base", files)
+    assert not any(line.startswith(("-", "+")) for line in removed + added)  # no header leaked
+    assert parse_ids(removed) == [("D", 357)]
+    assert parse_ids(added) == [("D", 357), ("D", 369)]
+    # and the guard reads that as an amendment plus a new row, not as two duplicates
+    rules = load_ownership(REPO / DEFAULT_OWNERSHIP)
+    assert check_ids("A", added, ["| D-357 | old text |"], rules, removed) == []
