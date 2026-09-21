@@ -56,17 +56,33 @@ on its test, next to the property, where it runs under **any** profile:
 | when | cron `0 4 * * 0` (Sunday 04:00 UTC), or by hand (`workflow_dispatch`); **never on a pull request**, so it gates no merge |
 | what | every test file with a `@given` (11 files: property, oracle, leakage, unit), `-m "not slow and not db"` |
 | how | profile **`weekly`**: randomized (`derandomize=False`), no example database, `print_blob=True` so a failure prints a `@reproduce_failure` blob |
-| budget | `HYPOTHESIS_BUDGET_MULTIPLIER` = **BUDGET**, applied to every test (see below) |
+| budget | `HYPOTHESIS_BUDGET_MULTIPLIER` = **40**, applied to every test (see below) |
 | report | a failing run is red, and a job-summary step lists each falsifying example and blob with the instruction to pin it; no `continue-on-error`, which would hide the report |
 
 **Why a budget multiplier and not just a profile.** A test's own `@settings(max_examples=...)`
 overrides the active profile, and eleven tests set one — so a weekly profile alone would have
 run those tests at their per-PR budgets, only randomized. Every budget now goes through
-`fixtures.hypothesis_budget.examples(n)`, which is `n` per PR and on a laptop and `n × BUDGET`
+`fixtures.hypothesis_budget.examples(n)`, which is `n` per PR and on a laptop and `n × 40`
 in the weekly job; the `weekly` profile multiplies the default budget too. A guard test fails if
 any test sets a literal `max_examples`, so a new suite cannot quietly escape it.
 
 `nightly-slow` is narrowed to its own cron, so the two schedules do not start each other's jobs.
+
+**Measured on a GitHub runner before merge**, by dispatching the workflow on this branch (it ran
+the job from the branch; nothing was merged):
+
+| multiplier | tests | test time | job time | result |
+|---|---|---|---|---|
+| 10× | 126 passed | 9 min 33 s | 9 min 50 s | pass |
+| **40×** (committed) | 126 passed | **29 min 53 s** | 30 min 13 s | pass |
+
+The log of each run confirms the job ran the `weekly` profile with the stated multiplier. 40×
+uses about a sixth of the job's 180-minute timeout, so the suite can grow before it matters.
+
+**Cost, for the account holder.** The job adds about 30 runner-minutes a week, ~120–150 a month,
+on top of the ~4 minutes each push already costs. GitHub Actions is free for public repositories;
+a private one draws on the account's monthly minutes (Settings → Billing and plans). Setting the
+multiplier back to 10 cuts the job to ~10 minutes a week — one line in `ci.yml`.
 
 ## 3. The sweep (D-368, part 3)
 
@@ -82,13 +98,16 @@ quantities can leave their domain:
 | engine long/short mirror | `p → K − p`, `K = 2·max(high) + 10` | safe by construction |
 | engine costs-monotonic | bumps ≤ 0.5 on prices ≈ 100; checks `SimResult`, not `TradeLog` | safe |
 | indicator edges mirror | `p → K − p`, `K = 4·max(high)` | safe by construction |
-| indicator edges `random_bars` low | `min(o, c) · (1 − |N(0, vol/2)|)`, `vol ≤ 0.03` | **safe in practice, not by construction** — negative needs a draw beyond ~66σ. Noted, not changed. |
+| indicator edges `random_bars` low | min(o, c) · (1 − \|N(0, vol/2)\|), `vol ≤ 0.03` | **safe in practice, not by construction** — negative needs a draw beyond ~66σ. Noted, not changed. |
 | naive indicators `ohlc()` | prices ≥ 1, extension ≤ 5 % | safe by construction |
 | resample leakage | log-normal; later bars × U(0.5, 1.5) | safe by construction |
 | costs / moneta / split | cost parameters, dates — no derived prices | not applicable |
 
 Nothing else is in scope to fix and nothing needs raising. The empirical check agrees: the
-weekly profile at BUDGET× over all eleven files — RUNTIME locally — finds no failure.
+weekly profile run randomized over all eleven files — at 5× locally, and at 10× and 40× on a
+GitHub runner (§2) — finds no failure in any property. (The 5× local trial did fail two tests:
+both were the new guard tests themselves — the literal-budget guard caught its own docstring,
+and the workflow still carried a placeholder multiplier. Both fixed before the runner runs.)
 
 ## 4. Files
 
@@ -120,4 +139,12 @@ granted.
 
 ## 6. Acceptance
 
-ACCEPTANCE
+```
+uv run pytest -m "not slow"                                       1368 passed, 0 skipped
+HYPOTHESIS_PROFILE=ci uv run pytest tests/parity tests/leakage tests/oracle tests/property
+                                                                   359 passed
+uv run pytest -m db                                                21 passed, 0 skipped
+uv run ruff check . / ruff format --check . / mypy src             clean
+uv run sfac streams check --base origin/main                       all three guards ok
+weekly-hypothesis on a GitHub runner, 40x                          126 passed in 29 min 53 s
+```

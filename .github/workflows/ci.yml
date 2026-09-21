@@ -101,7 +101,7 @@ jobs:
     env:
       HYPOTHESIS_PROFILE: weekly
       # 40x every per-PR budget. Measured on a GitHub runner before merge (D-368 review):
-      # 10x ran 126 tests in 9 min 33 s, so 40x is ~40 min -- a quarter of the timeout.
+      # 10x ran 126 tests in 9 min 33 s, 40x in 29 min 53 s -- a sixth of the timeout.
       HYPOTHESIS_BUDGET_MULTIPLIER: "40"
     steps:
       - uses: actions/checkout@v4
