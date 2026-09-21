@@ -238,6 +238,81 @@ def check_dst(df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig) -> Che
     )
 
 
+def check_daily_wick_outlier(
+    df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig
+) -> CheckResult:
+    """D-396: a daily high or low beyond the body by **both** k1 x ATR(14) and k2 % (T04k).
+
+    Runs for **every** daily symbol, hourly data or not -- it is the arm that works on all 6,707.
+    Counts are reported per symbol (the count itself) and per date (the sample), because T04i
+    showed the date-wide clusters that point at the feed rather than at an instrument.
+    """
+    from strategy_factory.data.clean_daily import wick_outliers
+
+    if meta.timeframe != "1D":
+        return _skip("daily_wick_outlier", "not a daily series")
+    if df.height == 0:
+        return _skip("daily_wick_outlier", "empty series")
+    flagged = wick_outliers(df, cfg.daily_wick_outlier)
+    hits = flagged.filter(pl.col("flag_high") | pl.col("flag_low"))
+    if hits.height == 0:
+        return _pass("daily_wick_outlier", bars=df.height)
+    return _fail(
+        "daily_wick_outlier",
+        cfg.daily_wick_outlier.severity,
+        hits.height,
+        f"{hits.height} bar(s) with a wick beyond the body by both "
+        f"{cfg.daily_wick_outlier.k1_atr} x ATR(14) and {cfg.daily_wick_outlier.k2_pct} %",
+        dates=[str(d) for d in hits["session_date"].to_list()[:_SAMPLE]],
+        high_side=int(hits["flag_high"].sum()),
+        low_side=int(hits["flag_low"].sum()),
+    )
+
+
+def check_daily_extreme_unsupported(
+    df: pl.DataFrame,
+    meta: SeriesMetadata,
+    cfg: QualityConfig,
+    breaches: pl.DataFrame | None,
+) -> CheckResult:
+    """D-396: a daily extreme the hourly feed does not support, where hourly data exists (T04k).
+
+    **A short or missing hourly day is not evidence** (supervisor, 2026-09-21): a day classified
+    ``incomplete_hourly_day`` or ``no_raw_hours`` is never counted as a defect **and never counted
+    as clean** -- it is reported separately, with the bar count it saw against the calendar's
+    expectation, so a silent pass can never be mistaken for a check that ran.
+    """
+    from strategy_factory.data.clean_daily import CORRECTABLE, NOT_EVIDENCE
+
+    if meta.timeframe != "1D":
+        return _skip("daily_extreme_unsupported", "not a daily series")
+    if breaches is None:
+        return _skip("daily_extreme_unsupported", "no hourly series for this symbol")
+    if breaches.height == 0:
+        return _pass("daily_extreme_unsupported", breach_days=0)
+    eps = cfg.daily_extreme_unsupported.eps_bps
+    real = breaches.filter(
+        pl.col("breach_class").is_in(sorted(CORRECTABLE)) & (pl.col("breach_bps") > eps)
+    )
+    unchecked = breaches.filter(pl.col("breach_class").is_in(sorted(NOT_EVIDENCE)))
+    details: dict[str, Any] = {
+        "not_evidence_days": unchecked.height,
+        "not_evidence_dates": [str(d) for d in unchecked["session_date"].to_list()[:_SAMPLE]],
+    }
+    if real.height == 0:
+        return _pass("daily_extreme_unsupported", breach_days=0, **details)
+    per_class = dict(real.group_by("breach_class").len().rows())
+    return _fail(
+        "daily_extreme_unsupported",
+        cfg.daily_extreme_unsupported.severity,
+        real.height,
+        f"{real.height} day(s) whose daily extreme the hourly feed does not support "
+        f"({', '.join(f'{k} {v}' for k, v in sorted(per_class.items()))})",
+        dates=[str(d) for d in real["session_date"].to_list()[:_SAMPLE]],
+        **details,
+    )
+
+
 def schedule_checks(
     df: pl.DataFrame, meta: SeriesMetadata, cfg: QualityConfig, sessions_file: Path | None
 ) -> tuple[CheckResult, CheckResult, dict[str, Any]]:
@@ -290,6 +365,7 @@ def run_quality(
     meta: SeriesMetadata,
     cfg: QualityConfig,
     sessions_file: Path | None = None,
+    breaches: pl.DataFrame | None = None,
 ) -> QualityReport:
     """All checks on one stored snapshot."""
     df = df.sort("ts")
@@ -302,6 +378,8 @@ def run_quality(
         check_stale(df, cfg),
         check_zero_volume(df, meta, cfg),
         check_dst(df, meta, cfg),
+        check_daily_wick_outlier(df, meta, cfg),
+        check_daily_extreme_unsupported(df, meta, cfg, breaches),
     ]
     worst = max((_RANK[c.severity] for c in checks if c.severity is not None), default=0)
     levels: dict[int, QualityStatus] = {0: "ok", 1: "warning", 2: "critical"}
@@ -362,11 +440,12 @@ def check_snapshot(
     catalog: Catalog,
     cfg: QualityConfig,
     sessions_file: Path | None = None,
+    breaches: pl.DataFrame | None = None,
 ) -> QualityReport:
     """Run the checks on a registered snapshot, write the report, record the status."""
     key = meta.key()
     df = store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
-    rep = run_quality(df, meta, cfg, sessions_file)
+    rep = run_quality(df, meta, cfg, sessions_file, breaches)
     write_report(rep, store.root)
     failed = ", ".join(f"{c.code}:{c.severity}" for c in rep.failed())
     catalog.set_quality_status(key, rep.status, note=failed or "all checks passed")

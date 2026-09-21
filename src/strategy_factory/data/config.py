@@ -341,6 +341,32 @@ class SessionViolationConfig(_Frozen):
     severity: Severity = "warning"
 
 
+class DailyWickOutlierConfig(_Frozen):
+    """A wick beyond the body by **both** ``k1_atr`` x ATR(14) and ``k2_pct`` % (D-396).
+
+    Both conditions, never one: a wide-but-real day exceeds the percentage and not the ATR
+    multiple, a bad print exceeds both. T04g measured 931 daily snapshots whose only failing check
+    is ``price_spikes``, which is the population this check is aimed at.
+    """
+
+    k1_atr: float = Field(default=3.0, gt=0)
+    k2_pct: float = Field(default=10.0, gt=0)
+    severity: Severity = "warning"
+
+
+class DailyExtremeUnsupportedConfig(_Frozen):
+    """A daily extreme the hourly feed does not support (D-396), where hourly data exists.
+
+    ``eps_bps`` is the same noise floor the T04i breach analysis uses: below it the difference
+    between the two feeds is rounding, not a price level. A day whose hourly side is short
+    (``incomplete_hourly_day``) or absent (``no_raw_hours``) is **never** flagged and never
+    corrected -- the hourly series is not evidence there (supervisor, 2026-09-21).
+    """
+
+    eps_bps: float = Field(default=0.05, gt=0)
+    severity: Severity = "warning"
+
+
 class QualityConfig(_Frozen):
     weekly_window: WeeklyWindowConfig = Field(default_factory=WeeklyWindowConfig)
     break_detection: BreakDetectionConfig = Field(default_factory=BreakDetectionConfig)
@@ -351,6 +377,10 @@ class QualityConfig(_Frozen):
     zero_volume: ZeroVolumeConfig = Field(default_factory=ZeroVolumeConfig)
     dst: DstCheckConfig = Field(default_factory=DstCheckConfig)
     session_violations: SessionViolationConfig = Field(default_factory=SessionViolationConfig)
+    daily_wick_outlier: DailyWickOutlierConfig = Field(default_factory=DailyWickOutlierConfig)
+    daily_extreme_unsupported: DailyExtremeUnsupportedConfig = Field(
+        default_factory=DailyExtremeUnsupportedConfig
+    )
     sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
     us_equity_timezone: str = "America/New_York"
     us_equity_first_bar: str = "09:00"

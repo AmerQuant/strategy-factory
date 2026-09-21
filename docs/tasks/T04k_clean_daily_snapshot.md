@@ -89,7 +89,26 @@ T04k should not be designed around the tail; it is a by-product that §1b's padd
 low lies outside the **full raw hourly range** (extended hours included) of that session date by
 more than a configured epsilon. Reuse `strategy_factory.data.daily_session` from T04i, which
 already computes this and distinguishes `extended_hours`, `unexplained`, `incomplete_hourly_day`
-and `no_raw_hours`. A day whose hourly side is incomplete is **never** flagged as a defect.
+and `no_raw_hours`.
+
+### A short hourly day is not evidence, in either direction (supervisor, 2026-09-21)
+
+T04i predicted that completing the hourly download would empty the `incomplete_hourly_day` class.
+**It did not**: with every symbol-year present the class grew, 2,896 → **3,017**, median still
+**1 hourly bar against 7 expected**, over **665 symbols and 784 dates**. So these are **gaps in
+Alpaca's SIP hourly feed**, not an artefact of an unfinished download, and they are permanent. Two
+rules follow and both are acceptance criteria:
+
+1. **Never cap a daily high or low from a short hourly day**, and **never mark the day clean
+   because the hourly range "agrees"** — agreement with one surviving bar is not agreement. On a
+   day classified `incomplete_hourly_day` (or `no_raw_hours`) the daily bar is **left untouched**
+   and the quality report **states it**, with the bar count it saw against the calendar's
+   expectation. A silent pass is the failure mode to avoid: it would read as "checked and clean"
+   when nothing was checked.
+2. **The clustering is the signal.** `incomplete_hourly_day` clusters by **date**, not by symbol —
+   2021-04-19 (438 symbols), 2021-10-25 (401), 2022-03-08 (347), 2022-01-24 (279), 2018-05-02
+   (194) — which points at feed-wide events rather than at any instrument. The **T04k review lists
+   the worst such dates** with their symbol counts, so a later reader can recognise the shape.
 
 **`daily_wick_outlier`** — for **every** symbol, hourly data or not. A day is flagged when a high or
 low lies beyond the bar's **body** (max/min of open and close) by more than **both**
@@ -167,8 +186,12 @@ A **new** snapshot per symbol, never an overwrite (rule 10):
 - **D-398** additionally **removes bars**: the frozen stretches and everything before the
   boundary. Removal is logged bar for bar like a cap, and the metadata carries `boundary_date`,
   `dropped_bars` and `frozen_bars_cut` so the shorter series is self-explaining;
-- a **changed-bar log** beside the snapshot lists every touched bar with the old and the new value
-  and which rule applied. Without it the transformation is not auditable and must not ship;
+- a **changed-bar log** beside the snapshot lists every touched bar with the old and the new
+  value, **which arm changed it** (`extreme_cap`, `wick_clip`, `frozen_cut`, `boundary_trim`)
+  **and the evidence that arm acted on** — for `extreme_cap` the hourly range and its bar count
+  against the calendar; for `wick_clip` the ATR(14) multiple and the percentage; for
+  `frozen_cut`/`boundary_trim` the stretch or gap and the D-398/D-399 verdict. Without it the
+  transformation is not auditable and must not ship;
 - the metadata says what was applied: the rule, the config hash of the thresholds, and the counts.
   The material-metadata guard (D-384/D-392) means this must be right at the first write.
 - **The clean snapshot becomes the research reference** for `(symbol, 1D)`; the raw snapshot stays
@@ -181,7 +204,8 @@ one pass over the symbol and one derived snapshot, not two.
 ### 3. Report
 
 `docs/reviews/T04k_review.md` plus a committed CSV of every changed bar, aggregated per symbol and
-per date. **Re-measure the five buckets above after the clean snapshots exist** and say which ones
+per date, **and the worst `incomplete_hourly_day` dates with their symbol counts** (§1) so the
+feed-wide events are on the record. **Re-measure the five buckets above after the clean snapshots exist** and say which ones
 moved: A1 and A2 should empty, D should shrink to the wicks the clip did not touch, and B should be
 unchanged — if B moved, something cut more than D-398 allows. Compare the before/after distribution of the daily range, and state how many symbols were
 touched at all — if the clean snapshot differs from the raw one for only a small minority, say so
@@ -196,6 +220,12 @@ plainly, because that is the argument for making it the default reference.
 ## Acceptance
 - Both checks are implemented, configured from YAML, and each has tests on a fixture with a planted
   bad print, a planted extended-hours extreme and a genuinely volatile bar that must **not** flag.
+- **A short hourly day changes nothing** (§1): a fixture whose hourly side holds 1 bar of 7 and
+  whose daily high lies outside it leaves the bar **untouched**, is **not** reported clean, and
+  appears in the quality report with its bar count. A second fixture where the short day's hourly
+  range happens to *contain* the daily range is also left untouched and is **not** marked clean.
+- Every row of the changed-bar log carries its arm and that arm's evidence; a test asserts no row
+  has an empty arm or empty evidence.
 - **D-398:** a fixture symbol with a padded stretch, one with a leading pad and one with a re-use
   boundary each produce the right clean series; the frozen bars are gone, the boundary is in the
   metadata, and a symbol whose trimmed history is too short **fails the split** rather than being

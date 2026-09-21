@@ -30,3 +30,11 @@ session_violations:
 sessions_file: configs/calendars/nyse_sessions.csv   # us_equity schedule (Alpaca calendar, T04e)
 us_equity_timezone: America/New_York
 us_equity_first_bar: "09:00"   # RTH_hour_aligned: the 09:00 bar includes 09:30-10:00
+
+daily_wick_outlier:            # D-396: a wick beyond the body that no real move explains (T04k)
+  k1_atr: 3.0                  # ... beyond the body by more than k1 x ATR(14) ...
+  k2_pct: 10.0                 # ... AND by more than k2 % of the close. Both, never one.
+  severity: warning
+daily_extreme_unsupported:     # D-396: a daily extreme the hourly feed does not support (T04k)
+  eps_bps: 0.05                # noise floor, as in the T04i breach analysis
+  severity: warning
