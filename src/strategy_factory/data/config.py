@@ -98,6 +98,33 @@ class RelistingConfig(_Frozen):
     )
 
 
+GatedTimeframe = Literal["1D", "1H"]
+
+
+def _hourly_only() -> list[GatedTimeframe]:
+    return ["1H"]
+
+
+class CoverageConfig(_Frozen):
+    """The raw coverage gate in front of an ingest (T04h, D-386, P-62: no ``--allow-gaps``)."""
+
+    #: Timeframes whose ingest refuses to run on a gap. 1D was ingested by T04g without a gate;
+    #: **1H is always gated** -- a config without it is refused, so the gate cannot be switched off.
+    gate_timeframes: list[GatedTimeframe] = Field(default_factory=_hourly_only)
+    #: Where a symbol's required years start. ``history_start`` (default): every year from
+    #: ``history_start`` -- the downloader writes an empty file for a year before a listing, so a
+    #: later listing still has its files. ``first_data_year`` starts at the first year with a bar;
+    #: it cannot see a missing *leading* year and is only for a source that writes no empty files.
+    require_from: Literal["history_start", "first_data_year"] = "history_start"
+
+    @field_validator("gate_timeframes")
+    @classmethod
+    def _hourly_gated(cls, value: list[GatedTimeframe]) -> list[GatedTimeframe]:
+        if "1H" not in value:
+            raise ValueError("coverage.gate_timeframes must include 1H (D-386, P-62)")
+        return value
+
+
 class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
@@ -109,6 +136,7 @@ class AlpacaConfig(_Frozen):
     hourly_session: HourlySessionConfig = Field(default_factory=HourlySessionConfig)
     split_check: SplitCheckConfig = Field(default_factory=SplitCheckConfig)
     relisting: RelistingConfig = Field(default_factory=RelistingConfig)
+    coverage: CoverageConfig = Field(default_factory=CoverageConfig)
 
     @field_validator("batch_size")
     @classmethod

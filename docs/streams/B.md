@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-707**, **P-81**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-707**, **P-83**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -52,20 +52,29 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 `docs/tasks/RUNBOOK_batch3-data.md` and `T04f`, `T04h`, `T04i`, `T04g`, `T04k`; decisions
 **D-380 … D-398** (section I of the log); **P-60 … P-67, P-71 … P-73 closed**, **P-68 … P-70** and
 **P-74** open. Task branches use the `b/` prefix (D-357). Order (D-358, D-396):
-**T04f ✅ → T04i ✅ → T04g ✅ → T04k ✅ → T04h ⏳ → T04l**. T04h stays blocked until the 1H download is complete
+**T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04k merged** (PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28),
-`5babc6e`, 2026-09-21): 3,239 clean daily snapshots are the references, 3,469 symbols keep their raw
-one. The D-702 quarantine folders (`<store>/_quarantine/T04k_D-702_*`) are **left for the supervisor
-and the user to empty**.
+**Current position:** **T04h done, PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30) open, stopped for "Approved. Merge"** — branch
+`b/T04h-alpaca-hourly-ingest`. Coverage gate passed (806 × 11 years, 0 missing); **805 1H references**
+ingested (`CCE` `no_data`), 371 MB, hours 09–15 only, 0 bars outside the session, quality ok 381 /
+warning 424 / critical 0, `summary_alpaca_1D.md` byte-identical, idempotent. Review:
+`docs/reviews/T04h_review.md`.
 
-**Open PR:** `b/T04k-provenance-names` — the supervisor's follow-up: `CLEAN_DECISIONS` names D-701,
-D-703, D-704 and D-706 in every later clean snapshot's notes and provenance; `metadata_stale`
-compares what was done, not the label. Waiting for "Approved. Merge".
+**T04k merged** (PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28), `5babc6e`): 3,239
+clean daily snapshots are the references. The D-702 quarantine folders
+(`<store>/_quarantine/T04k_D-702_*`) are **left for the supervisor and the user to empty**.
 
-**Next:** **T04h** (1H ingest; the download is complete and verified), then **T04l** (CUSIP) before
-T12. Each stops where its task file says.
+**Merged:** PR [#29](https://github.com/AmerQuant/strategy-factory/pull/29) (`d0dd2b9`) — `CLEAN_DECISIONS`
+names D-701/D-703/D-704/D-706 in later clean provenance.
+
+**Open for the supervisor:** **P-81** (does 1H need its own cleaning pass — measured: no frozen
+stretches in the hourly feed, bad prints rare, re-use boundaries matter → recommend T04l applies its
+boundaries to 1H too), **P-82** (found in T04h: the re-use sweep needs a > 40 % price break, so 87 daily
+and 4 hourly references still splice two companies across a long gap — `PCL`, `Q`, `CSRA`, … →
+recommend T04l takes every long gap as a candidate).
+
+**Next:** **T04l** (CUSIP) after T04h merges, before T12 — its scope depends on P-81 and P-82.
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -90,13 +99,14 @@ T12. Each stops where its task file says.
 | T04f | **done**, PR [#19](https://github.com/AmerQuant/strategy-factory/pull/19) — calendar (2,765 sessions, 0 differences vs the YAML, which is deleted), symbol changes with the D-383 exclusion rule, hourly universe 827 → 806, material-metadata guard. Review: `docs/reviews/T04f_review.md`. P-68 … P-70 remain open but do not block |
 | Alpaca **1D** raw | **complete**: 6,711 symbols × 11 years (2016–2026); 3 symbols returned no bars (`BHGE`, `FBHS`, `JEC`) |
 | Alpaca **1H** raw | ✅ **complete** (verified 2026-09-21). All **806** hourly universe symbols have a file for every year 2016 … 2026 — **0 missing symbol-years of 8,866** — and the final pass without `--end` covers 2026. `CCE` has **0 bars in all eleven years** → `no_data` in T04h. **D-386's coverage gate is satisfied; T04h is unblocked.** |
-| Alpaca 1D / 1H ingest | **1D done** (T04g, see below). T04h still waits on the 1H download (D-386) |
+| Alpaca 1D / 1H ingest | **1D done** (T04g); **1H done** (T04h, 805 references, PR open) |
 | NYSE calendar (D-025) | **done in T04f** (PR #19): `configs/calendars/nyse_sessions.csv`, 2,765 sessions, 0 differences against the deleted `nyse_early_closes.yaml` (D-393); `configs/universe/symbol_changes.csv` written from the 42-row `NAME_CHANGE` feed |
 | T04e phase-B pilot | **hourly part closed by T04i** (D-395). The Yahoo part (first/last dates, `^TNX` scale) and the Dukascopy v1→v2 re-hash stay open — see the runbook's "Deferred" |
 | snapshot store | **6,710 snapshots**: 6,707 Alpaca 1D (`hash_version = 2`, `session = exchange`, all read-only, one reference each) + the 3 Dukascopy Q1-2024 pilots, which are still `hash_version = 1` (the T04e v1→v2 re-hash is deferred to T04j) |
 | T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
-| T04k | ✅ **merged** — PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28). 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
+| T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
+| T04h | ⏸ **done, PR open** — `b/T04h-alpaca-hourly-ingest`. 805 1H references, gate and verification in `docs/reviews/T04h_review.md`; P-81, P-82 open |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)

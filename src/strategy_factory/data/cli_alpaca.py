@@ -7,11 +7,13 @@ import datetime as dt
 from pathlib import Path
 from typing import Annotated
 
+import polars as pl
 import typer
 
 from strategy_factory.core.errors import ConfigError, SfacError
 from strategy_factory.data.catalog import Catalog
-from strategy_factory.data.config import load_alpaca_config
+from strategy_factory.data.config import AlpacaConfig, load_alpaca_config
+from strategy_factory.data.coverage import coverage_frame, coverage_gaps, describe_gaps
 from strategy_factory.data.download.alpaca import load_credentials, make_client, run_download
 from strategy_factory.data.download.alpaca_reference import (
     build_sessions_csv,
@@ -34,6 +36,9 @@ from strategy_factory.data.universe import (
 
 download_app = typer.Typer(help="Download raw data into SFAC_RAW_ROOT.", no_args_is_help=True)
 ingest_app = typer.Typer(help="Build canonical snapshots from raw files.", no_args_is_help=True)
+coverage_app = typer.Typer(
+    help="Raw coverage per symbol and year, the gate in front of an ingest.", no_args_is_help=True
+)
 reference_app = typer.Typer(
     help="Reference data (calendar, symbol changes) into SFAC_RAW_ROOT + configs.",
     no_args_is_help=True,
@@ -150,6 +155,15 @@ def ingest_alpaca(
         drop = _excluded_symbols(excluded)
         skipped = [s for s in syms if s in drop]
         syms = [s for s in syms if s not in drop]
+        # D-386 / P-62: a gapped raw set is not ingested at all -- refuse before writing anything.
+        if timeframe in cfg.coverage.gate_timeframes:
+            gaps = coverage_gaps(_coverage(root, timeframe, syms, cfg))
+            if gaps:
+                raise _fail(
+                    f"{timeframe} raw coverage has gaps, nothing ingested (D-386, no "
+                    f"--allow-gaps): {describe_gaps(gaps)}. "
+                    f"See `sfac data coverage alpaca --timeframe {timeframe}`."
+                )
         store, catalog = SnapshotStore(), Catalog()
         pit_map = pit_symbols_of(Path("configs") / "universe" / "us_equity_hourly.csv")
         results: list[IngestResult] = []
@@ -191,6 +205,65 @@ def ingest_alpaca(
         typer.echo("excluded: " + ", ".join(sorted(skipped)))
     if failed:
         raise typer.Exit(code=2)
+
+
+COVERAGE_REPORT = "alpaca_coverage_{timeframe}.csv"
+
+
+def _coverage(root: Path, timeframe: str, syms: list[str], cfg: AlpacaConfig) -> pl.DataFrame:
+    today = dt.datetime.now(dt.UTC).date()
+    return coverage_frame(root, timeframe, syms, cfg.history_start, cfg.coverage, today)
+
+
+@coverage_app.command("alpaca")
+def coverage_alpaca(
+    timeframe: Annotated[str, typer.Option(help="1D or 1H.")],
+    universe: Annotated[
+        Path | None, typer.Option(help="Universe CSV with a `symbol` column (default: all raw).")
+    ] = None,
+    symbols: Annotated[str | None, typer.Option(help="Comma-separated symbols.")] = None,
+    config: ConfigOpt = None,
+) -> None:
+    """Years present and missing per symbol -> SFAC_RAW_ROOT/_reports/; exit 1 on a gap."""
+    try:
+        cfg = load_alpaca_config(config)
+        root = raw_root()
+        if symbols or universe is not None:
+            syms = _symbols_from(universe, symbols)
+        else:
+            syms = raw_symbols(root, timeframe)
+        frame = _coverage(root, timeframe, syms, cfg)
+    except SfacError as exc:
+        raise _fail(str(exc)) from exc
+    out = root / "_reports" / COVERAGE_REPORT.format(timeframe=timeframe)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    frame.write_csv(out)
+    per_year = (
+        frame.group_by("year")
+        .agg(
+            pl.col("file").is_not_null().sum().alias("files"),
+            pl.col("missing").sum().alias("missing"),
+            pl.col("incomplete").sum().alias("incomplete"),
+            (pl.col("file").is_not_null() & (pl.col("row_count") == 0)).sum().alias("empty"),
+            pl.col("row_count").fill_null(0).sum().alias("bars"),
+        )
+        .sort("year")
+    )
+    typer.echo(f"{len(syms)} symbols, {timeframe}; report: {out}")
+    for year, files, missing, incomplete, empty, bars in per_year.rows():
+        typer.echo(
+            f"  {year}  files {files:>5}  missing {missing:>5}  incomplete {incomplete:>5}"
+            f"  empty {empty:>5}  bars {bars}"
+        )
+    no_bars = frame.group_by("symbol").agg(pl.col("row_count").fill_null(0).sum().alias("n"))
+    none = sorted(no_bars.filter(pl.col("n") == 0)["symbol"].to_list())
+    if none:
+        typer.echo(f"symbols with no bar in any year: {len(none)} ({', '.join(none[:20])})")
+    gaps = coverage_gaps(frame)
+    if gaps:
+        typer.echo(f"GAPS: {describe_gaps(gaps)}")
+        raise typer.Exit(code=1)
+    typer.echo("coverage gate: passed (no required year missing or incomplete)")
 
 
 def _excluded_symbols(path: Path | None) -> set[str]:

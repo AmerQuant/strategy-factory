@@ -1,7 +1,7 @@
 # T04h — Alpaca 1H ingest: raw → snapshots, catalog and quality reports
 
 **Features:** F-0.1.2 (Alpaca adapter), F-0.1.6 (quality report per symbol), F-0.1.8 (immutable snapshots, catalog) · **Priority:** MVP · **Depends on:** **T04f**, **T04g** (D-358: T04h is now last) · **Blocks:** nothing
-**Branch:** `b/T04h-alpaca-hourly-ingest` from `b/T04g-alpaca-daily-ingest`.
+**Branch:** `b/T04h-alpaca-hourly-ingest` from `main` (T04g and T04k merged; T04g's branch no longer exists).
 
 Read first: `CLAUDE.md`, decisions **D-010**, **D-022**, **D-023**, **D-024**, **D-025**, **D-028**, **D-029**, and `docs/reviews/T04a_review.md`, `docs/reviews/T05_review.md`.
 
@@ -36,6 +36,34 @@ would corrupt every later split (D-008 holdout is the last 20 % of the span) and
 with its own coverage report; if any year inside `[history_start, today)` is still missing for any
 symbol of the universe, it **stops and reports** rather than writing snapshots that would have to be
 superseded. T04f is not blocked by this and runs as soon as the plan is approved.
+
+## Update 2026-09-21 — the input is complete, and what T04k does not cover
+
+**Input state now (supersedes the table above).** The user confirmed the 1H download complete, and it
+was re-verified: all **806** symbols of the post-T04f hourly universe have a file for every year
+2016 … 2026, **0 missing symbol-years of 8,866**. `CCE` has **0 bars in all eleven years** and is
+expected to end as `no_data`. D-386's gate is expected to pass; the gate is still built and run first
+as §1 says, and the task still stops if it fails.
+
+**The hourly snapshots are not cleaned by T04k.** T04k (D-396, D-398, D-700 … D-706) derives only
+**daily** snapshots; it reads the raw hourly files as evidence and writes nothing hourly. 1H is a
+research timeframe in its own right (D-104; D-150 gives it its own walk-forward windows), so the daily
+clean reference is **not** enough for how hourly data is used: a strategy on 1H bars reads the hourly
+series directly. What that means per defect, measured on the raw 1H set (**P-81**):
+
+| defect (T04k arm) | on the hourly series | what T04h does |
+|---|---|---|
+| frozen stretches (`frozen_cut`) | **absent**: on the 11,180 days T04k cut from the daily series of 20 hourly symbols, the hourly feed has 4 RTH bars (`STI`). A halt is missing hours, not flat bars | nothing; `missing_bars` reports the hours |
+| re-use boundaries (`boundary_trim`) | 22 hourly symbols are T04k re-use candidates; D-700 kept **all 22**, so there is no boundary to carry over today | nothing; P-81 proposes T04l applies its boundaries to 1H too |
+| extremes outside RTH (`extreme_cap`) | **not applicable**: the hourly series *is* the RTH hours (D-023) | nothing |
+| bad prints (`wick_clip`) | the D-703/D-706 rule flags **156** RTH bars on 105 symbols (first measured as 184, a double count of refreshed year files) | reported per symbol in the review; no clipping (P-81) |
+
+**T04h ingests the raw hourly series as the `(symbol, 1H)` reference and builds no cleaning.** Whether
+a later task derives clean hourly snapshots is **P-81**, raised rather than built in.
+
+The daily-only quality checks `daily_wick_outlier` and `daily_extreme_unsupported` report `skipped`
+("not a daily series") on 1H. They are not schedule checks; the "no schedule check is `skipped`"
+criterion below applies to `missing_bars` and `session_violations`.
 
 ## Scope
 

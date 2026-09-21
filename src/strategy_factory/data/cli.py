@@ -94,6 +94,7 @@ def _register_subcommands() -> None:
         cli_yahoo,
     )
     from strategy_factory.data.cli_alpaca import (
+        coverage_app,
         download_app,
         ingest_app,
         reference_app,
@@ -102,6 +103,7 @@ def _register_subcommands() -> None:
 
     data_app.add_typer(download_app, name="download")
     data_app.add_typer(ingest_app, name="ingest")
+    data_app.add_typer(coverage_app, name="coverage")
     data_app.add_typer(universe_app, name="universe")
     data_app.add_typer(reference_app, name="reference")
 
