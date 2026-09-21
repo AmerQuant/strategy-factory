@@ -117,10 +117,12 @@ first. The file now has 34 tests.
 
 ### Next actions, in order
 
-0. **#23 merged**; `a/T11-parity` rebased onto `main` (48ba1ac). Stream B's PR **#24** is
-   open and clean. Stream B asks for a **D-700 … D-799** range in `ownership.yaml` (their
-   D-380 … D-399 is exhausted) — **waiting on the supervisor to confirm the grant**, since a
-   range is the supervisor's to give. Stream B is holding all new decisions until it lands.
+0. **PR #25** (`a/stream-b-decision-range`, D-372) — grant confirmed by the supervisor;
+   stream B's `D-700 … D-799` added as its **own** second range, CI green, waiting on
+   "Approved. Merge". Stream B holds all new decisions until it lands. One reading is flagged
+   in the PR body: the instruction's "same shape as the supervisor's D-600 range" was read as
+   the *test* template, not as making D-700 … D-799 open to either stream. Stream B's #24
+   (T04g) is merged.
 1. TF exports arrive → fixtures, manifest note (D-600 supersedes the two-sided export), map
    the TF strategy in `configs/parity/xauusd_tf_1h.yaml`, then both one-sided comparisons.
    The gate picks TF up automatically once the config has a strategy block.
@@ -132,5 +134,5 @@ first. The file now has 34 tests.
 
 ### ID ranges used so far
 
-Stream A decisions **D-360 … D-371** used (next free **D-372**); pending **P-40 … P-45** used (**all answered**)
+Stream A decisions **D-360 … D-371** used, plus **D-372** on `a/stream-b-decision-range` (next free **D-373**); pending **P-40 … P-45** used (**all answered**)
 (next free **P-46**). The supervisor keeps D-355 … D-359 (used up) and D-600 … D-699.
