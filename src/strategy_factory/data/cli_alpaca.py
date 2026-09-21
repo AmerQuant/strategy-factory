@@ -243,15 +243,17 @@ def coverage_alpaca(
         .agg(
             pl.col("file").is_not_null().sum().alias("files"),
             pl.col("missing").sum().alias("missing"),
-            (pl.col("row_count").fill_null(0) == 0).sum().alias("empty_or_absent"),
+            pl.col("incomplete").sum().alias("incomplete"),
+            (pl.col("file").is_not_null() & (pl.col("row_count") == 0)).sum().alias("empty"),
             pl.col("row_count").fill_null(0).sum().alias("bars"),
         )
         .sort("year")
     )
     typer.echo(f"{len(syms)} symbols, {timeframe}; report: {out}")
-    for year, files, missing, empty, bars in per_year.rows():
+    for year, files, missing, incomplete, empty, bars in per_year.rows():
         typer.echo(
-            f"  {year}  files {files:>5}  missing {missing:>5}  empty {empty:>5}  bars {bars}"
+            f"  {year}  files {files:>5}  missing {missing:>5}  incomplete {incomplete:>5}"
+            f"  empty {empty:>5}  bars {bars}"
         )
     no_bars = frame.group_by("symbol").agg(pl.col("row_count").fill_null(0).sum().alias("n"))
     none = sorted(no_bars.filter(pl.col("n") == 0)["symbol"].to_list())
@@ -261,7 +263,7 @@ def coverage_alpaca(
     if gaps:
         typer.echo(f"GAPS: {describe_gaps(gaps)}")
         raise typer.Exit(code=1)
-    typer.echo("coverage gate: passed (no required year missing)")
+    typer.echo("coverage gate: passed (no required year missing or incomplete)")
 
 
 def _excluded_symbols(path: Path | None) -> set[str]:

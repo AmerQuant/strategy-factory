@@ -1,14 +1,14 @@
 """F-0.1.2 (T04h, D-386): the raw coverage report and the gate in front of an ingest.
 
 A raw Alpaca series is one immutable parquet per calendar year (``<YEAR>.parquet``, refreshed
-versions ``<YEAR>.vN.parquet``). A **gap** is a year inside the required span with **no file**; a
-file that holds zero bars is present (the download asked and the feed had nothing), and says so in
-its manifest ``row_count``.
+versions ``<YEAR>.vN.parquet``). A **gap** is a year inside the required span with **no file**, or
+whose latest file's manifest says ``complete: false`` (a year downloaded while it was still running
+and never refreshed). A file that holds zero bars is present -- the download asked and the feed had
+nothing (a year before a listing or after a delisting) -- and says so in its ``row_count``.
 
 The required span per symbol is ``[start, last complete year]``: ``start`` is ``history_start``'s
-year or, with ``require_from = first_data_year``, the symbol's first year that holds a bar -- a
-symbol listed in 2019 has no 2016 bars and must not trip the gate. The current year is partial and
-never a gap. A symbol with no file at all misses every year of the span.
+year (default) or, with ``require_from = first_data_year``, the symbol's first year that holds a
+bar. The current year is partial and never required. A symbol with no file misses every year.
 
 Pure apart from reading the raw files; nothing here writes into ``SFAC_RAW_ROOT``.
 """
@@ -25,7 +25,16 @@ from strategy_factory.data.config import CoverageConfig
 from strategy_factory.data.download.alpaca import latest_chunks
 from strategy_factory.data.download.rawfiles import MANIFEST_SUFFIX
 
-COVERAGE_COLUMNS = ["symbol", "year", "file", "row_count", "complete", "required", "missing"]
+COVERAGE_COLUMNS = [
+    "symbol",
+    "year",
+    "file",
+    "row_count",
+    "complete",
+    "required",
+    "missing",
+    "incomplete",
+]
 
 
 def _row_count(path: Path) -> int:
@@ -68,15 +77,17 @@ def coverage_frame(
         for year in range(first, today.year + 1):
             path = files.get(year)
             required = start <= year <= last_complete
+            complete = _complete(path) if path else None
             rows.append(
                 {
                     "symbol": symbol,
                     "year": year,
                     "file": path.name if path else None,
                     "row_count": counts.get(year),
-                    "complete": _complete(path) if path else None,
+                    "complete": complete,
                     "required": required,
                     "missing": required and path is None,
+                    "incomplete": required and path is not None and complete is False,
                 }
             )
     schema = {
@@ -87,13 +98,16 @@ def coverage_frame(
         "complete": pl.Boolean,
         "required": pl.Boolean,
         "missing": pl.Boolean,
+        "incomplete": pl.Boolean,
     }
     return pl.DataFrame(rows, schema=schema).select(COVERAGE_COLUMNS)
 
 
 def coverage_gaps(frame: pl.DataFrame) -> dict[str, list[int]]:
-    """``{symbol: [missing years]}`` for every symbol with a gap (empty when the gate passes)."""
-    missing = frame.filter(pl.col("missing")).group_by("symbol").agg(pl.col("year").sort())
+    """``{symbol: [years]}`` for every symbol with a gap -- a required year with no file or with
+    an incomplete one (empty when the gate passes)."""
+    gap = pl.col("missing") | pl.col("incomplete")
+    missing = frame.filter(gap).group_by("symbol").agg(pl.col("year").sort())
     return {s: list(y) for s, y in sorted(missing.rows())}
 
 
@@ -102,4 +116,6 @@ def describe_gaps(gaps: dict[str, list[int]], limit: int = 20) -> str:
     parts = [f"{s} {','.join(str(y) for y in ys)}" for s, ys in list(gaps.items())[:limit]]
     more = f" ... and {len(gaps) - limit} more" if len(gaps) > limit else ""
     total = sum(len(v) for v in gaps.values())
-    return f"{len(gaps)} symbol(s), {total} missing year(s): " + "; ".join(parts) + more
+    return (
+        f"{len(gaps)} symbol(s), {total} missing or incomplete year(s): " + "; ".join(parts) + more
+    )

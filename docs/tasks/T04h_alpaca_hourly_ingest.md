@@ -56,7 +56,7 @@ series directly. What that means per defect, measured on the raw 1H set (**P-81*
 | frozen stretches (`frozen_cut`) | **absent**: on the 11,180 days T04k cut from the daily series of 20 hourly symbols, the hourly feed has 4 RTH bars (`STI`). A halt is missing hours, not flat bars | nothing; `missing_bars` reports the hours |
 | re-use boundaries (`boundary_trim`) | 22 hourly symbols are T04k re-use candidates; D-700 kept **all 22**, so there is no boundary to carry over today | nothing; P-81 proposes T04l applies its boundaries to 1H too |
 | extremes outside RTH (`extreme_cap`) | **not applicable**: the hourly series *is* the RTH hours (D-023) | nothing |
-| bad prints (`wick_clip`) | the D-703/D-706 rule flags **184 of 16.1 M** RTH bars on 105 symbols | reported per symbol in the review; no clipping (P-81) |
+| bad prints (`wick_clip`) | the D-703/D-706 rule flags **156** RTH bars on 105 symbols (first measured as 184, a double count of refreshed year files) | reported per symbol in the review; no clipping (P-81) |
 
 **T04h ingests the raw hourly series as the `(symbol, 1H)` reference and builds no cleaning.** Whether
 a later task derives clean hourly snapshots is **P-81**, raised rather than built in.

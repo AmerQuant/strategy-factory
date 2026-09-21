@@ -7,7 +7,9 @@ changes nothing in the store::
 
 * the New-York hours kept (must be exactly 09..15, D-023);
 * bars per session against `configs/calendars/nyse_sessions.csv` (7 regular, 4 on a 13:00 close)
-  and **every** session with fewer bars than its calendar implies -> `T04h_short_sessions.csv`;
+  and **every** calendar session inside a snapshot's span with fewer bars than its calendar implies
+  -- **including sessions with no bar at all** -- -> `T04h_short_sessions.csv`; zero-bar sessions
+  are grouped into holes (consecutive sessions) so a relisting span is told from a missing day;
 * bars outside the session (before 09:00 or ending after the close);
 * every universe symbol has a 1H reference, `hash_version = 2`; no snapshot for a dropped old
   ticker (T04f); `META` records `FB`;
@@ -83,10 +85,19 @@ def main() -> None:
             )
         )
         outside += late.height
+        # every calendar session inside the snapshot's span, with 0 where the feed has no bar
+        counts = ny.group_by("session_date").len("bars")
+        span = expected.filter(
+            pl.col("session_date").is_between(
+                counts["session_date"].min(), counts["session_date"].max()
+            )
+        ).select("session_date")
         per_day.append(
-            ny.group_by("session_date")
-            .len("bars")
-            .with_columns(pl.lit(r["symbol"]).alias("symbol"))
+            span.join(counts, on="session_date", how="left")
+            .with_columns(
+                pl.col("bars").fill_null(0).cast(pl.UInt32), pl.lit(r["symbol"]).alias("symbol")
+            )
+            .sort("session_date")
         )
         w = wick_outliers(
             bars.select("ts", "open", "high", "low", "close"), quality.daily_wick_outlier
@@ -102,6 +113,28 @@ def main() -> None:
         OUT / "T04h_short_sessions.csv"
     )
     extra = days.filter(pl.col("bars") > pl.col("expected_bars")).height
+    # zero-bar sessions grouped into holes: consecutive calendar sessions of one symbol
+    zero = (
+        days.sort("symbol", "session_date")
+        .with_columns(pl.col("bars").eq(0).alias("z"))
+        .with_columns(
+            (pl.col("z") != pl.col("z").shift().over("symbol"))
+            .fill_null(True)
+            .cum_sum()
+            .alias("run")
+        )
+        .filter(pl.col("z"))
+        .group_by("symbol", "run")
+        .agg(pl.len().alias("sessions"), pl.col("session_date").min().alias("from"))
+    )
+    holes = zero.with_columns(
+        pl.when(pl.col("sessions") <= 5)
+        .then(pl.lit("1-5"))
+        .when(pl.col("sessions") <= 60)
+        .then(pl.lit("6-60"))
+        .otherwise(pl.lit(">60"))
+        .alias("length")
+    )
     wicks = pl.DataFrame(
         wick_rows, schema={"symbol": pl.Utf8, "bars": pl.Int64, "flagged": pl.Int64}
     ).sort("flagged", descending=True)
@@ -125,6 +158,19 @@ def main() -> None:
     print("bars per session (expected -> actual, sessions):")
     print(dist)
     print(f"sessions short of the calendar: {short.height} on {short['symbol'].n_unique()} symbols")
+    zs = short.filter(pl.col("bars") == 0)
+    print(f"  of which with no bar at all: {zs.height} on {zs['symbol'].n_unique()} symbols")
+    print(
+        "  zero-bar holes by length:",
+        holes.group_by("length")
+        .agg(
+            pl.len().alias("holes"),
+            pl.col("sessions").sum().alias("sessions"),
+            pl.col("symbol").n_unique().alias("symbols"),
+        )
+        .sort("length")
+        .rows(),
+    )
     print(
         f"sessions with more bars than the calendar: {extra}; bars outside the session: {outside}"
     )

@@ -10,15 +10,15 @@
 
 | File | What |
 |---|---|
-| `src/strategy_factory/data/coverage.py` | the raw coverage table per symbol and year (latest file version, manifest `row_count`, `required`, `missing`) and the gap list |
+| `src/strategy_factory/data/coverage.py` | the raw coverage table per symbol and year (latest file version, manifest `row_count` and `complete`, `required`, `missing`, `incomplete`) and the gap list |
 | `src/strategy_factory/data/cli_alpaca.py` | `sfac data coverage alpaca --timeframe …` → `SFAC_RAW_ROOT/_reports/alpaca_coverage_<tf>.csv`, exit 1 on a gap; `sfac data ingest alpaca` **refuses** a gapped set for `coverage.gate_timeframes` and writes nothing. No `--allow-gaps` (P-62) |
-| `src/strategy_factory/data/config.py`, `configs/data/alpaca.yaml` | `coverage.gate_timeframes: [1H]`, `coverage.require_from: first_data_year` (rule 1) |
+| `src/strategy_factory/data/config.py`, `configs/data/alpaca.yaml` | `coverage.gate_timeframes: [1H]` (a config without `1H` is refused), `coverage.require_from: history_start` (rule 1) |
 | `scripts/ingest/T04h_ingest_hourly.py` | runs the coverage gate, then one `sfac data ingest alpaca --timeframe 1H --set-reference` per chunk of 100 (D-385), logged to `<store>/_logs/T04h_ingest_1H.log` |
 | `scripts/analysis/T04h_verify.py` | every figure in §3–§6, read from the **written snapshots** |
-| `docs/reviews/T04h_short_sessions.csv` | every session with fewer bars than the calendar implies (13,520 rows) |
+| `docs/reviews/T04h_short_sessions.csv` | every calendar session inside a snapshot's span with fewer bars than the calendar implies, **zero-bar sessions included** (42,965 rows) |
 | `docs/reviews/T04h_hourly_wick_flags.csv` | hourly bars the D-703/D-706 wick rule flags, per symbol (P-81 (c), report only) |
 | `docs/reviews/T04h_long_gaps.csv` | every gap ≥ `gap_days` in every current 1D and 1H reference, with its price move (P-82) |
-| tests | `tests/unit/test_F_0_1_2_coverage.py`, 8 new |
+| tests | `tests/unit/test_F_0_1_2_coverage.py`, 10 new |
 
 Nothing is cleaned: **the hourly snapshots are the raw hourly series** (task, "Update 2026-09-21").
 
@@ -27,6 +27,9 @@ Nothing is cleaned: **the hourly snapshots are the raw hourly series** (task, "U
 ```
 uv run sfac data coverage alpaca --timeframe 1H --universe configs/universe/us_equity_hourly.csv
 ```
+
+Every required year (2016–2025) of every symbol has a file whose manifest says `complete: true`;
+2026 is `complete: false` and not required.
 
 | year | files | missing | empty files | bars |
 |---|---|---|---|---|
@@ -42,8 +45,14 @@ uv run sfac data coverage alpaca --timeframe 1H --universe configs/universe/us_e
 | 2025 | 806 | 0 | 92 | 1,906,138 |
 | 2026 (partial, never required) | 806 | 0 | 98 | 1,424,458 |
 
-**Gate passed: 0 required years missing.** An "empty" file is present — the download asked and the
-feed had nothing (a symbol before its listing or after its delisting). `CCE` has **no bar in any
+**Gate passed: 0 required years missing, 0 incomplete.** A required year is every year from
+`history_start` to the last complete year; the downloader writes an empty file for a year before a
+listing, so a later listing does not trip it, while an interrupted download that never wrote a
+leading year does. An "empty" file is present — the download asked and the feed had nothing.
+**85 of the empty files (on 23 symbols) lie inside a symbol's own data span** (`SMCI` 2019, `DO`
+2021, `MNK` 2021, `BBBY` 2024, `INFO` 2023, `ADT` 2017, …): delist/relist periods, which the gate by
+its definition cannot tell from a download that returned nothing; they appear as zero-bar
+sessions in §4 and as `missing_bars` in §5. `CCE` has **no bar in any
 year** and ends as `no_data`. The full table is `SFAC_RAW_ROOT/_reports/alpaca_coverage_1H.csv`.
 
 ## 3. The ingest (§2)
@@ -74,14 +83,19 @@ parquet files were **identical before and after**.
 
 - **New-York hours kept: exactly 09, 10, 11, 12, 13, 14, 15** (1.91–1.93 M bars each).
 - **Bars outside the session: 0**; sessions with **more** bars than the calendar: **0**.
-- Bars per session against `nyse_sessions.csv`:
+- Bars per session against `nyse_sessions.csv`, over every calendar session inside each snapshot's
+  span:
 
-  | calendar | 1 bar | 2 | 3 | 4 | 5 | 6 | 7 |
-  |---|---|---|---|---|---|---|---|
-  | early close (4 expected) | 13 | 12 | 28 | **14,997** | — | — | — |
-  | regular (7 expected) | 2,611 | 1,402 | 1,123 | 1,420 | 2,276 | 4,635 | **1,903,885** |
+  | calendar | 0 bars | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+  |---|---|---|---|---|---|---|---|---|
+  | early close (4 expected) | 245 | 13 | 12 | 28 | **14,997** | — | — | — |
+  | regular (7 expected) | 29,200 | 2,611 | 1,402 | 1,123 | 1,420 | 2,276 | 4,635 | **1,903,885** |
 
-- **13,520 short sessions on 689 symbols**, every one in `T04h_short_sessions.csv`. The worst dates are
+- **42,965 short sessions on 691 symbols**, every one in `T04h_short_sessions.csv`; **29,445 of them
+  have no bar at all** (119 symbols). Grouped into holes of consecutive sessions: **596 holes of 1–5
+  sessions (889 sessions, 101 symbols)** — ordinary missing days; 23 holes of 6–60 (313, 6 symbols);
+  **29 holes over 60 sessions (28,243, 28 symbols)** — the relisting spans of §6 (`PCL`, `POM`, …).
+  Among the partial days the worst dates are
   the feed defects T04i and T04k already named: 2021-04-19 (446 symbols), 2021-10-25 (405),
   2022-03-08 (363), 2022-01-24 (346), 2018-05-03 (197), 2018-05-02 (196). **AAPL 2018-05-02 and
   2018-05-03 have 1 bar each**, as the task predicted. They are data, not a bug: they appear in the
@@ -119,7 +133,8 @@ uv run sfac data quality --all --timeframe 1H
 Measured on the hourly data (task, "Update 2026-09-21"): **frozen stretches do not exist in the hourly
 feed** (4 RTH bars on the 11,180 days T04k cut from 20 hourly symbols' daily series); the **RTH-extreme
 cap does not apply** (the hourly series *is* RTH); **bad prints are rare** — the D-703/D-706 rule flags
-**156 bars on 105 of the 805 references** (`PARA` 17, `STI` 6, `LLL` 5, …); **re-use boundaries do
+**156 bars on 105 of the 805 references** (`PARA` 17, `STI` 6, `LLL` 5, …; the first
+measurement's 184 counted refreshed year files twice and is corrected in P-81); **re-use boundaries do
 matter**. T04h builds no cleaning; P-81 recommends no general hourly pass, and that T04l applies its
 boundaries to 1H too.
 
@@ -146,13 +161,13 @@ letting the CUSIP decide. **Nothing was changed** — it is a rule of the merged
 | criterion | proof | result |
 |---|---|---|
 | the coverage report exists and is in the review | §2; `_reports/alpaca_coverage_1H.csv` | pass |
-| gate passed or stopped with nothing written; no `--allow-gaps` | §2 (passed); `test_F_0_1_2_T04h_the_1h_ingest_refuses_a_gapped_set_and_writes_nothing` (refusal, no snapshot, no such option), `…_a_missing_year_is_a_gap`, `…_an_empty_file_is_present_not_a_gap`, `…_a_later_listing_does_not_trip_the_gate`, `…_a_symbol_without_any_file_misses_every_year`, `…_the_partial_year_is_not_required`, `…_the_latest_version_of_a_year_is_read`, `…_the_coverage_command_writes_the_report…` | pass |
+| gate passed or stopped with nothing written; no `--allow-gaps` | §2 (passed); `test_F_0_1_2_T04h_the_1h_ingest_refuses_a_gapped_set_and_writes_nothing` (refusal, no snapshot, no such option), `…_the_1h_gate_cannot_be_switched_off_in_config`, `…_a_missing_year_is_a_gap`, `…_an_incomplete_required_year_is_a_gap`, `…_missing_leading_years_are_a_gap_by_default`, `…_an_empty_file_is_present_not_a_gap`, `…_a_later_listing_has_empty_files_and_passes`, `…_a_symbol_without_any_file_misses_every_year`, `…_the_partial_year_is_not_required`, `…_the_latest_version_of_a_year_is_read`, `…_the_coverage_command_writes_the_report…` | pass |
 | every universe symbol has a snapshot, is the reference, `hash_version = 2` | §3: 805 of 806 (`CCE` `no_data`, no bar in any year), all references, all v2 | pass |
-| hours exactly 09–15; bars per session match the calendar with every exception listed | §4 | pass |
+| hours exactly 09–15; bars per session match the calendar with every exception listed | §4, zero-bar sessions included | pass |
 | no snapshot for a dropped old ticker; `FB` none; `META` records `FB` | §3 | pass |
 | every 1H snapshot has a report and `quality_status`; no schedule check `skipped` | §5 | pass |
-| a re-run of a chunk writes nothing and changes no catalog row | §3, two chunks, byte-identical catalog and events | pass |
-| gates green | §9 | pass |
+| a re-run of a chunk writes nothing and changes no catalog row | §3, two chunks, byte-identical catalog and events (store evidence; see §8.3) | pass |
+| gates green | §9 — one failure, stream A's, also on `main` | pass for this branch |
 
 ## 8. Deviations
 
@@ -164,17 +179,29 @@ letting the CUSIP decide. **Nothing was changed** — it is a rule of the merged
    T04a's, unchanged.
 4. `sfac data quality --all --timeframe 1H` also re-ran the three Dukascopy 1H pilots; their summary is
    byte-identical.
+5. The `sfac data ingest` gate checks the symbols of its own call; the chunk script runs the gate over
+   the whole universe first, so a chunk cannot be ingested while another universe symbol has a gap.
+
+**Acceptance review** (one round): no blocker; five should-fix, all fixed — `require_from` defaults
+to `history_start` (V-1: `first_data_year` could not see missing leading years); a config without
+`1H` in `gate_timeframes` is refused (V-2: it would switch the gate off); an `incomplete` required
+year is a gap (V-3); zero-bar sessions are counted and listed (V-4: 29,445 were missing from the
+list); the hourly wick count is 156 everywhere (V-5). The real gate still passes after all three rule
+changes.
 
 ## 9. Acceptance commands
 
 ```
-uv run pytest -m "not slow"                            see PR
-uv run pytest tests/parity tests/leakage tests/oracle  see PR
-uv run pytest -m db                                     see PR
+uv run pytest -m "not slow"                            1450 passed, 1 failed (below)
+uv run pytest tests/parity tests/leakage tests/oracle  327 passed
+uv run pytest -m db                                     21 passed, 0 skipped
 uv run ruff check . / ruff format --check .            clean
 uv run mypy src                                        clean
 uv run sfac streams check --base origin/main           ok (P-81, P-82 in range)
 ```
+
+The one failure is stream A's `test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio` (D-368),
+untouched and failing on `main` too.
 
 No new dependency. Nothing under `configs/costs/` or `configs/universe.yaml`; `SFAC_RAW_ROOT` read,
 plus the one report under `_reports/`.

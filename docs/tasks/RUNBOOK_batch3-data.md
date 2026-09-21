@@ -137,6 +137,7 @@ raw as-is; T04k corrects it without editing raw and without overwriting a snapsh
 provenance asserted, references set (3,239 clean snapshots). PR open, waiting for "Approved. Merge".
 
 ### Step 5 — T04h (1H ingest) — **blocked until the download is complete**
+**Status 2026-09-21:** download complete and verified; coverage gate passed; 805 1H references ingested and verified (`docs/reviews/T04h_review.md`). PR open, waiting for "Approved. Merge". P-81 and P-82 shape T04l.
 **P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
 (2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
 years) and the user is refilling the missing years 2020–2023. T04h starts only after the user

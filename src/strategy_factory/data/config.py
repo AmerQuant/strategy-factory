@@ -108,11 +108,21 @@ def _hourly_only() -> list[GatedTimeframe]:
 class CoverageConfig(_Frozen):
     """The raw coverage gate in front of an ingest (T04h, D-386, P-62: no ``--allow-gaps``)."""
 
-    #: Timeframes whose ingest refuses to run on a gap. 1D was ingested by T04g without a gate.
+    #: Timeframes whose ingest refuses to run on a gap. 1D was ingested by T04g without a gate;
+    #: **1H is always gated** -- a config without it is refused, so the gate cannot be switched off.
     gate_timeframes: list[GatedTimeframe] = Field(default_factory=_hourly_only)
-    #: Where a symbol's required years start: ``history_start``'s year, or the symbol's first
-    #: year that holds a bar (a symbol listed in 2019 has no 2016 bars).
-    require_from: Literal["history_start", "first_data_year"] = "first_data_year"
+    #: Where a symbol's required years start. ``history_start`` (default): every year from
+    #: ``history_start`` -- the downloader writes an empty file for a year before a listing, so a
+    #: later listing still has its files. ``first_data_year`` starts at the first year with a bar;
+    #: it cannot see a missing *leading* year and is only for a source that writes no empty files.
+    require_from: Literal["history_start", "first_data_year"] = "history_start"
+
+    @field_validator("gate_timeframes")
+    @classmethod
+    def _hourly_gated(cls, value: list[GatedTimeframe]) -> list[GatedTimeframe]:
+        if "1H" not in value:
+            raise ValueError("coverage.gate_timeframes must include 1H (D-386, P-62)")
+        return value
 
 
 class AlpacaConfig(_Frozen):
