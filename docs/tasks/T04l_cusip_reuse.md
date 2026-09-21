@@ -97,6 +97,81 @@ Per §1 and §2: the coverage is measured and **thin** (15 of 317 rows can be de
 for the supervisor to confirm the rule with this coverage (**P-83**) and to decide on more evidence
 (**P-84**). No rule is implemented and no reference moves before that.
 
+## Update 2026-09-21 (2) — D-709 (the rule) and D-710 (more evidence)
+
+### Order of work
+
+1. **Evidence (D-710)** — the user runs `scripts/pilots/T04l_corporate_actions.ps1`: every
+   corporate-action type the endpoint offers except `name_change`, 2016 → today, immutable under
+   `SFAC_RAW_ROOT/reference/alpaca/corporate_actions/` with manifests. New code: the fetch
+   `fetch_corporate_actions` (download layer, beside T04f's `fetch_name_changes`, run only by the user),
+   the command `sfac data reference alpaca-corporate-actions`; tests with a fake client, no network.
+2. **Re-measure (D-710)** — `T04l_coverage.py` extended to every action type; the coverage over the
+   317 candidate rows is reported **per action type** (how many each settles) — **stop and report**.
+3. Only then **implement D-709**, re-derive the affected symbols, set the markers, move the references.
+
+### How each action type speaks to identity
+
+| type | CUSIP field(s) | what it proves |
+|---|---|---|
+| `cash_merger`, `stock_merger`, `stock_and_cash_merger` | `acquiree_cusip` (+ acquirer) | the acquiree **ceased** on that date |
+| `worthless_removal`, `redemption` | `cusip` | the security **ceased** |
+| `cash_dividend`, `stock_dividend`, `forward_split`, `reverse_split` (`old/new_cusip`), `spin_off` (`source_cusip`), `rights_distribution` (`source_cusip`), `unit_split` (`old/new/alternate`) | the security's CUSIP | **which security held the ticker on that date** — evidence for a side of the break |
+| `name_change` (T04f) | `old_cusip`, `new_cusip` | as before |
+
+A side of the break gets a CUSIP from any of them dated on that side; a **cessation** of the
+before-side CUSIP before the series resumes is evidence that the old security is gone. Whether a
+cessation alone (no after-side CUSIP) may trim is **not** in D-709 — it will be brought back with the
+measured counts as its own question, not assumed.
+
+### The rule (D-709)
+
+- **Different issuer** across the break → **trim** at the boundary in **1D and 1H**.
+- **Same CUSIP or same issuer** → keep — but each **same-issuer** case is first settled with the
+  known-split cross-check that settled AVGO (D-397/D-399: the MS-US-1D ratio at the break against the
+  ingested series); the verdict is recorded per symbol in `T04l_same_issuer.csv`. An **unadjusted
+  split** takes the **D-397 path**: the symbol's references leave the store's research set, it is listed,
+  and the `--refresh` download command is printed for the user — it is **not** "kept".
+- **One-sided, missing, or CUSIP and D-700 names disagree** → **keep and list** (D-399 (4)), **with the
+  splice marker below**.
+
+### The splice marker (D-709 change 2)
+
+**Why not in the snapshot's own metadata.** A snapshot is content-addressed and its metadata is
+immutable: identical bars return the metadata of whoever wrote them first (D-392; T04k §7.6 and D-702
+showed it on 3,180 snapshots). A kept series does not change its bars, so a marker written into
+`.meta.json` would be silently dropped for exactly the series that need it.
+
+**Representation.** The marker attaches to the **snapshot key** in the store, the way `quality_status`
+does (F-0.1.6):
+
+- a catalog column **`splices`** (CATALOG_ONLY, like `is_reference` and `quality_status`): a JSON list,
+  one entry per unsettled boundary — `{"boundary": "YYYY-MM-DD", "break_start": "YYYY-MM-DD",
+  "reason": "<why unsettled>", "evidence": "<what was found>", "decision": "D-709"}`; `reason` is one of
+  `cusip_none`, `cusip_before_only`, `cusip_after_only`, `cusip_disagrees_with_name`,
+  `same_issuer_split_unsettled`; empty for every other snapshot;
+- every change goes through `Catalog.mark_splices(key, splices, note)`, which appends a **`splice`
+  event** to `catalog_events` (the audit trail, as `quality` events are);
+- a quality check **`known_splice`** (severity `warning`, in `configs/data/quality.yaml`) writes the
+  marker into the snapshot's `_quality/<hash>.json|.md` and so into `quality_status`, next to the bars.
+
+**Reading it.** `Catalog.splices(key) -> list[Splice]` (typed, frozen); `DataAccess.splices(symbol,
+timeframe)` gives stage 1 the marker of the reference it reads, beside `bars()` and `split()`;
+`sfac data show SYMBOL TIMEFRAME` prints it. Stage 1 decides what to do with it (T12); T04l only
+guarantees it is there. `DataAccess` lives in `data/split.py`, next to the split manager (a D-402
+critical component): the change is one **read-only** method and touches no split or holdout logic.
+
+**Which snapshots.** Every **current reference** (1D and 1H) of a candidate the evidence does not
+settle. "Cannot settle" includes "cannot tell a halt from a re-use": the marker says which, so the
+series is never silently treated as one company. A trimmed series carries no marker (its boundary is
+applied); the previous reference keeps whatever it had.
+
+### References (D-709)
+
+Moving a reference affects **only future runs**: a run pins the snapshot hashes it read
+(`core/config.py` resolves references when the run starts and records them), which is why the previous
+snapshot is kept (rule 10) and every move is listed (`T04l_references_moved.csv`, `docs/streams/B.md`).
+
 ## Scope
 
 1. **Measure first.** For each of the 221 kept candidates (`docs/reviews/T04k_boundaries.csv`,

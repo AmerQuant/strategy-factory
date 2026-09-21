@@ -159,6 +159,92 @@ def fetch_name_changes(creds: Credentials, start: dt.date, end: dt.date, raw_roo
     )
 
 
+#: T04l (D-710): every corporate-action type the endpoint offers except ``name_change`` (fetched
+#: by T04f). Each carries a CUSIP: the mergers, redemptions and worthless removals show a security
+#: ceasing to exist; dividends, splits, spin-offs and rights show which security held a ticker on a
+#: date. They are identity evidence for re-used tickers, not price data (D-030 does not apply).
+EVIDENCE_ACTION_TYPES = (
+    "cash_merger",
+    "stock_merger",
+    "stock_and_cash_merger",
+    "redemption",
+    "worthless_removal",
+    "spin_off",
+    "unit_split",
+    "reverse_split",
+    "forward_split",
+    "cash_dividend",
+    "stock_dividend",
+    "rights_distribution",
+)
+
+
+def fetch_corporate_actions(
+    creds: Credentials,
+    types: Iterable[str],
+    start: dt.date,
+    end: dt.date,
+    raw_root: Path,
+    client: Any = None,
+) -> list[Path]:
+    """Corporate actions of ``types`` in [start, end], fetched year by year and written as one
+    immutable JSON per answer key (``<key>_<YYYYMMDD>.json``, e.g. ``cash_mergers_20260921.json``)
+    with a manifest. ``client`` is injectable for tests; by default the alpaca-py client."""
+    from alpaca.data.enums import CorporateActionsType
+    from alpaca.data.requests import CorporateActionsRequest
+
+    wanted = list(types)
+    try:
+        enums = [CorporateActionsType(t) for t in wanted]
+    except ValueError as exc:
+        known = ", ".join(t.value for t in CorporateActionsType)
+        raise ConfigError(f"unknown corporate-action type ({exc}); known: {known}") from exc
+    if client is None:
+        from alpaca.data.historical.corporate_actions import CorporateActionsClient
+
+        client = CorporateActionsClient(creds.key, creds.secret, raw_data=True)
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for year in range(start.year, end.year + 1):
+        lo = max(start, dt.date(year, 1, 1))
+        hi = min(end, dt.date(year, 12, 31))
+        req = CorporateActionsRequest(types=enums, start=lo, end=hi)
+        try:
+            raw = client.get_corporate_actions(req)
+        except TLSVerificationError:
+            raise
+        except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            if status is not None:
+                raise PermanentError(f"corporate actions: HTTP {status}") from exc
+            raise _wrap_network(exc, "corporate actions") from exc
+        for key, rows in dict(raw).items():
+            if isinstance(rows, list):
+                by_key.setdefault(key, []).extend(rows)
+    out_dir = raw_root.joinpath(*REF_DIR, "corporate_actions")
+    stamp = f"{dt.date.today():%Y%m%d}"
+    written: list[Path] = []
+    for key in sorted(by_key):
+        rows = by_key[key]
+        payload = json.dumps(rows, indent=1, sort_keys=True, default=str).encode("utf-8")
+        target = next_version_path(out_dir, f"{key}_{stamp}", ".json")
+        written.append(
+            write_immutable(
+                target,
+                payload,
+                {
+                    "source": "alpaca market data API /v1/corporate-actions, types="
+                    + ",".join(wanted),
+                    "answer_key": key,
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                    "rows": len(rows),
+                    "downloaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+                },
+            )
+        )
+    return written
+
+
 def read_changes_csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []

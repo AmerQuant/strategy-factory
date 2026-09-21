@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -16,13 +17,15 @@ from strategy_factory.data.config import AlpacaConfig, load_alpaca_config
 from strategy_factory.data.coverage import coverage_frame, coverage_gaps, describe_gaps
 from strategy_factory.data.download.alpaca import load_credentials, make_client, run_download
 from strategy_factory.data.download.alpaca_reference import (
+    EVIDENCE_ACTION_TYPES,
     build_sessions_csv,
     build_symbol_changes,
     fetch_calendar,
+    fetch_corporate_actions,
     fetch_name_changes,
 )
 from strategy_factory.data.download.ratelimit import PermanentError, TLSVerificationError
-from strategy_factory.data.download.rawfiles import raw_root
+from strategy_factory.data.download.rawfiles import manifest_path, raw_root
 from strategy_factory.data.ingest import IngestResult, ingest_alpaca_symbol, raw_symbols
 from strategy_factory.data.store import SnapshotStore
 from strategy_factory.data.universe import (
@@ -369,6 +372,32 @@ def reference_alpaca_symbol_changes(
     except (SfacError, PermanentError) as exc:
         raise _fail(str(exc)) from exc
     typer.echo(f"symbol changes: {n} rows for {len(tickers)} PIT tickers -> {out} (raw {raw})")
+
+
+@reference_app.command("alpaca-corporate-actions")
+def reference_alpaca_corporate_actions(
+    start: Annotated[str, typer.Option(help="First date YYYY-MM-DD.")] = "2016-01-01",
+    end: Annotated[str | None, typer.Option(help="Last date (default: today).")] = None,
+    types: Annotated[
+        str | None,
+        typer.Option(help="Comma-separated action types (default: every type but name_change)."),
+    ] = None,
+) -> None:
+    """Fetch Alpaca corporate actions (identity evidence for T04l, D-710) into the raw store."""
+    try:
+        root = raw_root()
+        d0 = dt.date.fromisoformat(start)
+        d1 = dt.date.fromisoformat(end) if end else dt.date.today()
+        wanted = [t.strip() for t in types.split(",")] if types else list(EVIDENCE_ACTION_TYPES)
+        paths = fetch_corporate_actions(load_credentials(), wanted, d0, d1, root)
+    except TLSVerificationError as exc:
+        raise _fail(f"STOP: {exc}. Certificate verification is never disabled.") from exc
+    except (SfacError, PermanentError) as exc:
+        raise _fail(str(exc)) from exc
+    typer.echo(f"corporate actions {d0}..{d1}, types {','.join(wanted)}: {len(paths)} file(s)")
+    for p in paths:
+        manifest = json.loads(manifest_path(p).read_text(encoding="utf-8"))
+        typer.echo(f"  {p.name:<45} rows {manifest['rows']}")
 
 
 def latest_pit_csv(root: Path) -> Path:

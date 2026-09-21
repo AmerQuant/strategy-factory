@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-709**, **P-85**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-711**, **P-85**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -67,9 +67,13 @@ holder renamed; the CUSIP can decide **15 of 317** candidate rows (7 re-uses: `A
 `HYAC`, `SVAC`, `CTRA`, `GRAF`; 7 same issuer). D-708's long gaps: 6 of 92 daily settled, 0 of 4 hourly.
 Nothing implemented, **no reference moved**.
 
-**Blocked on the supervisor:** **P-83** (confirm the rule on this coverage) and **P-84** (fetch the other
-Alpaca corporate-action types — a user network run — so "the old security ceased before the break" can
-be evidence).
+**Answered:** P-83 → **D-709** (rule accepted; same-issuer cases settled by the known-split
+cross-check, an unadjusted split goes the D-397 path; every unsettled splice carries a marker in the
+store — catalog column `splices` + `splice` events + a `known_splice` quality check; moving a
+reference affects only future runs). P-84 → **D-710** (fetch the other corporate-action types).
+
+**Blocked on the user (network, D-031):** run `scripts/pilots/T04l_corporate_actions.ps1`. Then the
+coverage is re-measured per action type and reported — stop — before D-709 is implemented.
 
 **For stream A:** when T04l runs, the 1D and 1H references of the trimmed symbols move to new derived
 snapshots; each move will be listed in `docs/reviews/T04l_references_moved.csv` and here. Nothing is
@@ -106,7 +110,7 @@ computed from them yet (registry `sfac_b` empty; T12 not started).
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
-| T04l | ⏸ **stopped at §1** — `b/T04l-cusip-reuse`; coverage measured (15 of 317 decidable); P-83, P-84 open |
+| T04l | ⏸ **waiting for the user's corporate-actions run** — `b/T04l-cusip-reuse`; coverage 15 of 317 on the rename feed; D-709, D-710 |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
