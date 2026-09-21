@@ -18,9 +18,9 @@ feed is not point-in-time (about 5 % of rows sit under a ticker the security too
    rename.)
 2. **The arriving holder:** a rename into the ticker, any ``id`` row dated within ``window_days``
    before the resumption (never earlier than the break's start, when known), and any row of a
-   CUSIP that renames into the ticker count on the **after** side; a rename away and a cessation
-   stay on the before side up to and
-   including the resumption date (a merger dated on that day ends the old security).
+   CUSIP that renames into the ticker **at this break** count on the **after** side; a rename
+   away and a cessation stay on the before side up to and including the resumption date (a
+   merger dated on that day ends the old security).
 
 **Relation** of the CUSIPs across the break, by issuer (the first six characters): the same issuers
 on both sides -> ``same_cusip`` / ``same_issuer``; no issuer in common -> ``different_issuer``;
@@ -154,11 +154,14 @@ def classify(
     if break_start is not None:
         start = max(start, break_start)
     arriving = start.isoformat()
-    arrived: dict[str, str] = {}
+    arrived: dict[str, str] = {}  # CUSIP -> the earliest date a row of it is evidence
+    arriving_here: set[str] = set()  # CUSIPs that rename into the ticker AT this break
     for e in events:
         if e.role == "into":
             first = (dt.date.fromisoformat(e.date) - window).isoformat()
             arrived[e.cusip] = min(arrived.get(e.cusip, first), first)
+            if e.date >= arriving:
+                arriving_here.add(e.cusip)
     before: dict[str, set[str]] = defaultdict(set)
     after: dict[str, set[str]] = defaultdict(set)
     ceased: set[str] = set()
@@ -170,7 +173,7 @@ def classify(
         if e.role in ("into", "id"):
             # D-712 rule 2: the arriving holder -- inside the window before the resumption, or a
             # row of a CUSIP that renames into the ticker (rule 1 already dropped its older rows)
-            side = after if e.date >= arriving or e.cusip in arrived else before
+            side = after if e.date >= arriving or e.cusip in arriving_here else before
         elif e.role == "id_before":
             side = before if e.date <= r else after
         else:  # away, ceased: the old holder leaving -- up to and including the resumption

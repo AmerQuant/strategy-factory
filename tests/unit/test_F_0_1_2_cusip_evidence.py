@@ -146,3 +146,16 @@ def test_F_0_1_2_D_712_the_arriving_window_never_reaches_before_the_break() -> N
     assert classify(events, resumes, W).coverage == "after_only"  # without the break start
     ev = classify(events, resumes, W, break_start=start)
     assert ev.before == ("33333C103",) and ev.relation == DIFFERENT_ISSUER
+
+
+def test_F_0_1_2_D_712_a_holder_that_arrived_at_an_earlier_break_stays_before() -> None:
+    """AACI: the old SPAC's shares renamed INTO the ticker in 2024 (a unit split); at the 2025
+    break it is the old holder, not the arriving one."""
+    events = [
+        Event("unit_splits", "into", "04208V103", "2024-08-16"),
+        Event("name_changes", "away", "04208V103", "2024-08-16"),
+        Event("name_changes", "away", "G0R38G104", "2025-10-30"),
+    ]
+    ev = classify(events, dt.date(2025, 6, 24), W)
+    assert ev.before == ("04208V103",) and ev.after == ("G0R38G104",)
+    assert ev.relation == DIFFERENT_ISSUER

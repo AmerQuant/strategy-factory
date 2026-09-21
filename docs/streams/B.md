@@ -62,15 +62,16 @@ no evidence before 2020 by construction), **D-713** (P-85: a derived snapshot fr
 boundary becomes the reference — not a read-side rule; the 169 1D series too short after it were never
 usable).
 
-Result on the store: 317 boundaries on 304 symbols — **45 trims, 17 kept** (no unadjusted split),
-**255 unsettled**; derived 287 1D (45 trim, 242 research window) and 27 1H (4 trim, 23 window); bases
-marked `full_history`, windows `research_window`; **no reference moved**.
+Result on the store (after the acceptance review's fixes): 317 boundaries on 304 symbols — **46 trims,
+2 kept, 269 unsettled** (no unadjusted split; 11 same-issuer jumps no recorded split explains are
+unsettled, never kept); derived 302 1D (46 trim, 256 research window) and 27 1H (4 trim, 23 window);
+182 of the 302 1D windows fall below D-008 — never usable, not a loss (D-713). **No reference moved.**
 
-**Blocked on the supervisor:** approval of T04l, and **P-86** — three derived snapshots (`CA` 1H,
-`PCL` 1D/1H) carry first-run notes after the hourly-date fix; recommendation: retire and quarantine
-them (plus the superseded `CA` 1D) with the D-702 tools, re-run, then `--set-reference`.
+**Blocked on the supervisor:** approval of T04l, and **P-86** — retire and quarantine all 366 T04l
+snapshots (none ever a reference; 280 current ones carry an earlier run's notes, 37 superseded), re-run,
+assert 0 stale, then `--set-reference`.
 
-**For stream A:** when T04l's references move (after approval), 314 references (287 1D, 27 1H) change
+**For stream A:** when T04l's references move (after approval), 329 references (302 1D, 27 1H) change
 to derived snapshots, listed in `docs/reviews/T04l_references_moved.csv`; stage 1 can read the marker
 through `DataAccess.splices()` (a read-only method added to `data/split.py`). Nothing is computed from
 them yet.
@@ -106,7 +107,7 @@ them yet.
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
-| T04l | ⏸ **stopped for the review** — `b/T04l-cusip-reuse`; run without `--set-reference`: 45 trims, 255 unsettled (research windows), 17 kept; P-86 open |
+| T04l | ⏸ **stopped for the review** — `b/T04l-cusip-reuse`; acceptance review fixed; run without `--set-reference`: 46 trims, 269 unsettled (research windows), 2 kept; P-86 open |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)

@@ -1,1 +1,1 @@
-symbol,timeframe,kind,start,base_hash,base_bars,new_hash,new_bars,removed_bars,unsettled,split_ok,metadata_stale,reference_moved,note
+symbol,timeframe,kind,start,base_hash,base_bars,new_hash,derived_from,new_bars,removed_bars,marked,split_ok,metadata_stale,reference_moved,note
