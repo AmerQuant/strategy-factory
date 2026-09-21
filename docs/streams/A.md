@@ -21,7 +21,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 |---|---|---|
 | supervisor | D-355 … D-359 (used up) and D-600 … D-699 | — |
 | **stream A (this one)** | **D-360 … D-379** | **P-40 … P-59** |
-| stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 |
+| stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
 Next free here: **D-376**, **P-51**.
 
@@ -93,6 +93,11 @@ takes the target). **The user does not export until the supervisor has seen the 
 - **D-368** (P-44) — its own task after T11.
 
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
+
+- **P-80 … P-99 is stream B's own second pending range** (D-376, PR on `a/stream-b-pending-range`),
+  granted because `P-60 … P-79` ran out and stream B's branch was red on the ID guard. Closed
+  to stream A; `ownership.yaml`'s `streams.B.pending` is now a list of ranges
+  (`((60, 79), (80, 99))`), exactly as `decisions` became under D-372.
 
 - **D-700 … D-799 is stream B's own second decision range** (#25, D-372, on `main` at
   `b5a0bb4`). It is closed to stream A; only the supervisor's ranges are open to both.

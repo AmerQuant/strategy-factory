@@ -28,9 +28,10 @@ streams:
     branch_prefix: "b/"
     folder: StrategyFactory_B        # D-357 (1)
     # D-372: D-380 … D-399 is used up (D-399 was the last), so the supervisor granted
-    # D-700 … D-799 next to it. Decisions only; pending stays P-60 … P-79.
+    # D-700 … D-799 next to it.
     decisions: [[380, 399], [700, 799]]
-    pending: [60, 79]            # P-60 … P-79
+    # D-376: P-60 … P-79 is used up too, so the supervisor granted P-80 … P-99 next to it.
+    pending: [[60, 79], [80, 99]]
 
 owners:
   # -- stream A only; a stream-B need for any of these is a P- question (D-357 (2)) ----------
