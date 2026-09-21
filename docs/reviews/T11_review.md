@@ -1,6 +1,11 @@
 # T11 — TradingView parity (F-0.3.8) — review
 
-**Critical task (D-402): stops here for "Approved".** Branch `a/T11-parity`.
+**Critical task (D-402).** Branch `a/T11-parity`. The supervisor has read this review and
+answered P-46 … P-49 (D-373 … D-375); this version applies D-373 and D-374 and records D-375.
+
+> **T11 merges with the `to_verify` ledger at 3 of 5.** D-335 (the stop-first branch and the
+> exact tie) and D-336 stay `to_verify` and are **tracked in T11b** (D-375). **The merge of T11
+> does not close them.**
 
 Every number below is pinned by a test unless it is explicitly marked *measured*. The
 acceptance reviewer checked the first version of this review claim by claim; what it found,
@@ -8,27 +13,37 @@ and what changed because of it, is in §7.
 
 ## 1. D-011 result per reference
 
-| reference | bars | TradingView trades | matched | net profit (engine / TV) | difference | D-011 |
+| reference | bars | TradingView trades | matched (D-373: over the union) | net profit (engine / TV) | difference | D-011 |
 |---|---|---|---|---|---|---|
-| **MR — `BATS:SPY` 1D** | 8,467 (1993-01-29 … 2026-09-18) | 462 | **457 = 98.92 %** (5 differ in quantity by one share) | 185,784.36 / 185,810.06 | **−25.70 USD** = 0.0138 % of \|TV\|, 0.0257 % of capital | **PASS** |
-| **TF long — `OANDA:XAUUSD` 1H** | 21,986 (2023-01-02 … 2026-09-18) | 519 (+1 still open, excluded on both sides) | **519 = 100.00 %** | 20,637.93 / 20,637.96 | **−0.03 USD** = 0.0001 % of \|TV\|, 0.0000 % of capital | **PASS** |
-| **TF short — `OANDA:XAUUSD` 1H** | 21,986 (2023-01-02 … 2026-09-18) | 400 | **400 = 100.00 %** | −43,610.26 / −43,610.28 | **+0.02 USD** = 0.0000 % of \|TV\|, 0.0000 % of capital | **PASS** |
+| **MR — `BATS:SPY` 1D** | 8,467 (1993-01-29 … 2026-09-18) | 462 | **462 / 462 = 100.00 %** | 185,783.40 / 185,810.06 | **−26.66 USD** = 0.0143 % of \|TV\|, 0.0267 % of capital | **PASS** |
+| **TF long — `OANDA:XAUUSD` 1H** | 21,986 (2023-01-02 … 2026-09-18) | 519 (+1 still open, excluded on both sides) | **519 / 519 = 100.00 %** | 20,637.93 / 20,637.96 | **−0.03 USD** = 0.0001 % of \|TV\|, 0.0000 % of capital | **PASS** |
+| **TF short — `OANDA:XAUUSD` 1H** | 21,986 (2023-01-02 … 2026-09-18) | 400 | **400 / 400 = 100.00 %** | −43,610.26 / −43,610.28 | **+0.02 USD** = 0.0000 % of \|TV\|, 0.0000 % of capital | **PASS** |
 
-Reason tables (`test_F_0_3_8_d011_the_reason_table_is_the_reviewed_one`): MR
-`{match: 457, quantity: 5}`, TF long `{match: 519}`, TF short `{match: 400}`. Engine net
-profits are pinned to the cent (`…the_engine_net_profit_is_the_reviewed_one`), TradingView's
-by the loader tests. No reference has an extra or a missing trade: the engine enters on
-exactly the bars TradingView does.
+Reason tables (`test_F_0_3_8_d011_the_reason_table_is_the_reviewed_one`): all `match` — MR
+462, TF long 519, TF short 400. Engine net profits are pinned to the cent
+(`…the_engine_net_profit_is_the_reviewed_one`), TradingView's by the loader tests. No reference
+has an extra or a missing trade, and every quantity equals TradingView's
+(`test_F_0_3_8_d374_parity_quantity_is_tradingviews_on_every_trade`).
 
-**MR was reported as 462/462 before this review, and that was overstated.** The comparison
-did not check quantity, so five trades one share off were called matches. It does now, and MR
-is **98.92 %** — a pass with **4 trades of headroom**. The cause is understood and is **P-48**
-(§7.2): TradingView sizes on the close rounded to the tick.
+**How MR got here.** It was first reported as 462/462 without quantities being compared; with
+them it was 457/462 (five trades one share off); with **D-374** — sizing on the signal close
+rounded to the mintick, as TradingView does — it is 462/462 again, now on every field.
 
-Both net-profit figures are reported per **D-364**. No TradingView profit is small against
-capital, so no reference is flagged. The relative basis is tight on TF, as the supervisor
-expected: flipping the one D-335 bar (§4) moves TF long to ~5.2 % of \|TV\| (*measured* by
-mutating the engine, not a committed test).
+**MR's remaining −26.66 USD is fill rounding (P-50, open).** TradingView fills at the open
+**rounded to the mintick**: on early SPY bars quoted in 1/16 and 1/32 it fills an open of
+44.4375 at 44.44. Modelling every fill that way, with commission on the rounded price,
+reproduces TradingView's P&L **to the cent on all 462 trades**; exact fills leave 134 trades off
+by more than a cent and the whole −26.66
+(`test_F_0_3_8_p50_tradingview_fills_at_the_tick_rounded_open`). The comparison does not flag
+it — it compares prices at the export's two decimals — but the P&L carries it. The gate is not
+at risk (0.014 % of \|TV\|); the engine is unchanged pending the supervisor. **This corrects
+an earlier claim of mine**: I had attributed −18.09 of MR's difference to the five quantity
+trades. A one-share difference is worth well under a dollar; their gap was fill rounding, which
+is also why D-374 made every quantity right without shrinking the net difference.
+
+Both net-profit figures are reported per **D-364**; no reference is flagged. The relative
+basis is tight on TF, as the supervisor expected: flipping the one D-335 bar (§4) moves TF long
+to ~5.2 % of \|TV\| (*measured* by mutating the engine, not a committed test).
 
 The gate is `tests/parity/test_F_0_3_8_d011_gate.py`. It runs on the **committed fixtures**
 (D-359) and therefore in CI, is never skipped (rule 9), takes both thresholds from the parity
@@ -36,35 +51,34 @@ config (rule 1), and fails a test of its own if a mapped reference is not gated.
 
 ## 2. What makes the references match
 
-Two engine options, both **parity-only** and unreachable from a research run:
+Three engine behaviours, all **parity-only** and unreachable from a research run:
 
 | decision | option |
 |---|---|
 | **D-366** | `parity_tick_size` — stop and target distances rounded to whole ticks, half away from zero, measured from the fill, as `math.round(k * ATR / syminfo.mintick)` does |
 | **D-367** | `entry_requires_flat_at_signal` — the entry is gated on being flat at the **signal close**, as `flat = strategy.position_size == 0` does in both scripts; default **off** = D-336 |
+| **D-374** | parity sizing on the signal close **rounded to the D-366 mintick** — so switching the mintick off (the "D-367 only" row) removes both D-366 and D-374 |
 
-Switching each one off (`test_F_0_3_8_d366_d367_the_option_table`, 12 runs):
+Switching each one off (`test_F_0_3_8_d366_d367_the_option_table`, 12 runs; matched trades
+and the share over the union, D-373):
 
 | configuration | MR | TF long | TF short |
 |---|---|---|---|
-| neither | 446, +7,031.33 — FAIL | 519, −1,080.13 — **FAIL** | 399, −426.29 — PASS |
-| D-366 only | 450, +7,030.75 — FAIL | 519, −1,080.29 — **FAIL** | 400, −426.60 — PASS |
-| D-367 only | **453 (98.05 %)**, −18.81 — PASS | 519, +0.12 — PASS | 399, +0.33 — PASS |
-| **both** | **457 (98.92 %), −25.70** | **519, −0.03** | **400, +0.02** |
+| neither | 446 (92.92 %), +7,031.33 — FAIL | 519 (99.62 %), −1,080.13 — **FAIL** | 399 (99.50 %), −426.29 — PASS |
+| D-366 (+ D-374) only | 455 (94.79 %), +7,029.79 — FAIL | 519 (99.62 %), −1,080.29 — **FAIL** | 400 (99.75 %), −426.60 — PASS |
+| D-367 only | **453 (98.05 %)**, −18.81 — PASS | 519, +0.12 — PASS | 399 (99.75 %), +0.33 — PASS |
+| **all** | **462 (100 %), −26.66** | **519 (100 %), −0.03** | **400 (100 %), +0.02** |
 
 With D-367 off, the difference report says *why*: MR has **17 `same_open_reentry`**, 1 other
 extra and 7 knock-on misses; TF long 2 and TF short 1 `same_open_reentry`. That is D-336's
-re-entry at the exit open, which the scripts' `flat` gate forbids.
+re-entry at the exit open, which the scripts' `flat` gate forbids. Under D-373 those extras
+now also lower the trade share (TF long 99.62 % where the old definition said 100 %).
 
 - **D-367 is load-bearing.** Without it MR fails on both legs and TF long on net profit.
-- **D-366 is not carried by the gate on any reference** — every configuration with D-367 on
-  passes without it — but on MR it is **one trade** from carrying it (98.05 % against the 98 %
-  line). Its case is the result: MR 98.05 % → 98.92 %, TF short 99.75 % → 100 %, and the
-  net-profit differences from tenths of a dollar to cents. If D-366 is questioned, this
-  table is the argument, not the green check.
-- **TF long matches 519/519 while failing** with D-367 off: the 2 extra trades cannot lower a
-  trade share defined as `matched / TradingView trades`. Only the net-profit leg caught them.
-  That is **P-47**.
+- **The mintick (D-366, and with it D-374) is not carried by the gate on any reference** —
+  every configuration with D-367 on passes without it — but on MR it is **one trade** from
+  carrying it (98.05 % against the 98 % line). Its case is the result: MR 98.05 % → 100 %, TF
+  short 99.75 % → 100 %. If it is questioned, this table is the argument, not the green check.
 
 ## 3. The `to_verify` ledger (§5, D-338 rule 1, D-349, D-371)
 
@@ -75,8 +89,8 @@ that cannot exist.
 
 | # | item | outcome | evidence |
 |---|---|---|---|
-| 1 | O→H→L→C path and its tie (**D-335**) | **partly confirmed — still `to_verify`, P-46** | Over TF's 919 trades exactly **one** bar touched both levels: target first by the path rule, and the engine and TradingView both took the target. The **stop-first branch never occurs**, and there is **no exact tie** (§4). |
-| 2 | Exit + re-entry at one open (**D-336**) | **not verified by any reference — still `to_verify`, P-49** | Neither reference exercises it, and neither can: both scripts gate entries on being flat at the signal close (D-367), which rules a re-entry at the exit's open out. `test_F_0_3_8_d336_is_never_exercised_under_the_flat_gate` pins 0 such events per reference. **The first version of this review said D-336 was confirmed against MR. That was wrong** (§7.3), and D-371 repeats it — hence P-49. |
+| 1 | O→H→L→C path and its tie (**D-335**) | **target-first confirmed; stop-first and tie still `to_verify` — tracked in T11b (D-375)** | Over TF's 919 trades exactly **one** bar touched both levels: target first by the path rule, and the engine and TradingView both took the target. The **stop-first branch never occurs**, and there is **no exact tie** (§4). |
+| 2 | Exit + re-entry at one open (**D-336**) | **not verified by any reference — still `to_verify`, tracked in T11b (D-375)** | Neither reference exercises it, and neither can: both scripts gate entries on being flat at the signal close (D-367), which rules a re-entry at the exit's open out. `test_F_0_3_8_d336_is_never_exercised_under_the_flat_gate` pins 0 such events per reference. **The first version of this review said D-336 was confirmed against MR. That was wrong** (§7.3); D-371 is amended accordingly (D-375). |
 | 3 | No swap on an intrabar exit in a rollover bar (**D-327**) | **confirmed by construction** (D-371) — not `to_verify` | TradingView models no swap at all, and a parity cost array carries none (D-362). |
 | 4 | The trailing level moving only at the bar close (**D-349 (a)**) | **confirmed by construction** (D-371) — not `to_verify` | Neither reference script trails; no further reference is commissioned. |
 | 5 | The parity conversion rate, the signal bar's `fx_close` (**D-349 (h)**) | **confirmed by construction** (D-371) — not `to_verify` | Both references are USD-quoted, so no conversion is performed. |
@@ -86,10 +100,10 @@ The kernel docstring says the same things in the same words, and
 fails if either calls D-336 confirmed.
 
 **The acceptance criterion "every one of the five `to_verify` items is either confirmed or
-replaced by a recorded decision" is not met: three of five are.** D-335 is confirmed in one
-of its three cases (P-46) and D-336 in none (P-49). Both are *testable* by TradingView with a
-different script — unlike items 3–5 — so whether to close them by construction or by a
-targeted reference is the supervisor's call.
+replaced by a recorded decision" is not met: three of five are.** D-375 decides how T11 treats
+that: D-335's missing cases and D-336 are testable, so they are **not** closed by construction;
+T11 merges at 3 of 5 and both are **tracked in T11b**, a targeted reference with no `flat` gate
+(`docs/tasks/T11b_parity_tie_reentry.md`). The merge of T11 does not close them.
 
 The ATR warm-up note (HANDOFF §8.1): no TradingView trade enters before the engine's ATR is
 usable on any reference — the `atr_warm_up` reason can now fire and never does. (In the first
@@ -173,10 +187,9 @@ stop (D-130) sits behind the 2-ATR stop and can never fire first.
    this found five trades one share off. **TradingView sizes on
    `floor(notional / round(close[j−1], mintick))`**, which reproduces its quantity on all 462
    MR trades; the engine sizes on the exact close (D-347), and the five misses are early SPY
-   closes in 1/32 (44.09375, 46.0625, …) finer than the tick. They carry −18.09 of MR's
-   −25.70 USD (`test_F_0_3_8_p48_tradingview_sizes_on_the_tick_rounded_close`). TF is
-   unaffected. The fix belongs in the parity branch, like D-366 — but the supervisor's rule was
-   to change it only if the gate fails, and it does not: **the engine is unchanged; P-48.**
+   closes in 1/32 (44.09375, 46.0625, …) finer than the tick. I also claimed they carried
+   −18.09 of MR's −25.70 USD — **wrong**, see item 17. Raised as P-48; the supervisor answered
+   with **D-374** (item 16), and every quantity now matches.
 
 **Found by the acceptance reviewer, each verified before it was fixed:**
 
@@ -184,7 +197,8 @@ stop (D-130) sits behind the 2-ATR stop and can never fire first.
    the two it found exit on **their own** entry bar (same-bar disaster stops). There are no
    re-entries at an exit's open in any reference, and the `flat` gate means there cannot be.
    Corrected in the ledger, the kernel docstring and the drift test; D-371 repeats the wrong
-   claim, so it goes back to the supervisor as **P-49**.
+   claim, so it went back to the supervisor as P-49 — answered by **D-375**, which amends
+   D-371 and tracks D-336 in T11b.
 4. **D-364 was decided, not flagged.** When the TradingView profit was small, the verdict
    switched to the capital figure and passed on it; D-364 says the figure is *flagged* and the
    supervisor rules. The net-profit leg now has a third state, **`flagged`**, which does not
@@ -215,7 +229,23 @@ stop (D-130) sits behind the 2-ATR stop and can never fire first.
 8. **Two gate assertions could never fail** (`by_reason()["match"] == matched`, and a repeat of
    `trades_ok`). Replaced with checks that the verdict's thresholds are the config's.
 9. **Numbers stated but not tested.** The option table, the engine net profits, the 859/845/14
-   fill counts, the P-48 sizing evidence and the component-equals-Pine claim are now tests.
+   fill counts, the sizing evidence and the component-equals-Pine claim are now tests.
+
+**After the supervisor's answers (D-373 … D-375):**
+
+15. **D-373** — the trade share is `matched / (TradingView trades + extra engine trades)`, so an
+    extra engine trade alone can fail the gate (`test_F_0_3_8_compare_an_extra_trade`: one
+    extra in ten trades gives 90 %). No reference result changed.
+16. **D-374** — parity sizing on the signal close rounded to the mintick, in the parity branch
+    only (it uses the D-366 tick, which reaches the engine only in `tradingview` mode). The
+    naive oracle implements it from the decision text; a hand case (close 44.09375 → 2268
+    shares, 2267 without the tick) and an unreachability test pin it; removing it fails the
+    unit test, the oracle and the gate's pins. MR: 457 → **462 / 462**.
+17. **A wrong number of mine, corrected.** D-374's decision cited my attribution of −18.09 of
+    MR's −25.70 USD to the quantity trades. It was wrong: with D-374 every quantity is right and
+    the difference is −26.66. The difference is **fill rounding** — TradingView fills at the
+    open rounded to the mintick, which reproduces its P&L to the cent on all 462 trades. D-374's
+    row carries the correction; fill rounding is **P-50**, open, engine unchanged.
 
 **Deviations and judgement calls:**
 
@@ -251,7 +281,9 @@ stop (D-130) sits behind the 2-ATR stop and can never fire first.
 | Leakage: the parity exit signal sees no future bar (rule 3) | `tests/leakage/test_F_0_3_8_parity_exit_signal.py` | pass |
 | D-600: one-sided references; superseded files never read; duplicate not a fixture | `…d600_*` | pass |
 | Reproducibility (F-X.7, partial per D-365) | `test_F_X_7_the_gate_run_is_reproducible` × 3 | pass |
-| **Every one of the five `to_verify` items confirmed or replaced by a decision** | the ledger (§3), `…d371_the_to_verify_ledger_does_not_drift`, `…d336_…`, `…d335_…` | **not met — 3 of 5; D-335 and D-336 wait on P-46 / P-49** |
+| D-373: the trade share over the union | `test_F_0_3_8_compare_an_extra_trade`, the option table | pass |
+| D-374: parity sizing on the tick-rounded close; parity only; equal to the oracle | `…d374_parity_sizing_rounds_the_signal_close_to_the_tick`, `…d374_is_unreachable_outside_tradingview_mode`, `…d374_parity_quantity_is_tradingviews_on_every_trade`, `tests/oracle` | pass |
+| **Every one of the five `to_verify` items confirmed or replaced by a decision** | the ledger (§3), `…d371_the_to_verify_ledger_does_not_drift`, `…d336_…`, `…d335_…` | **not met — 3 of 5; D-335 and D-336 tracked in T11b (D-375); T11's merge does not close them** |
 
 ## 9. Files
 
@@ -276,15 +308,15 @@ Dependencies: none added.
 
 ## 10. Open questions
 
-- **P-46** — D-335 is confirmed only in its target-first case; the stop-first branch and the
-  exact tie never occur in these references. By construction, or a targeted reference?
-- **P-47** — D-011's trade share is `matched / TradingView trades`, so extra engine trades
-  never lower it. No current result changes. Define it over the union?
-- **P-48** — TradingView sizes on the tick-rounded close; the engine's parity sizing (D-347)
-  uses the exact close. MR passes at 98.92 %. Round in the parity branch, as D-366 did?
-- **P-49** — **D-371 says D-336 is confirmed against MR; it is not**, and my evidence for it
-  was wrong. Amend the clause, and decide D-336 with P-46.
-- **D-368** stays queued as its own task **after** T11.
+- **P-50** — TradingView fills at the open rounded to the mintick; the engine fills at the exact
+  open. It is MR's whole −26.66 USD. Round the fill base in the parity branch, like D-366 and
+  D-374? Engine unchanged until the supervisor decides.
+- **T11b** (D-375) — D-335's stop-first branch and exact tie, and D-336: one targeted
+  reference, planned in `docs/tasks/T11b_parity_tie_reentry.md`, waiting on the supervisor to
+  see the script before the user exports.
+- **D-368** stays queued as its own task after T11.
+
+Answered since the first version: P-46, P-49 → D-375; P-47 → D-373; P-48 → D-374.
 
 ## 11. Acceptance
 

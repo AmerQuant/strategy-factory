@@ -17,11 +17,11 @@ D-326 ... D-338):
   stop; ``tradingview`` (mode 0) goes O->H->L->C when the high is nearer the open, else
   O->L->H->C, and a tie takes the stop (D-335, to_verify -- the TF references exercise the
   target-first branch on exactly one bar, which agrees; the stop-first branch and an exact
-  tie never occur in them, so they are not verified by TradingView: P-46).
+  tie never occur in them -- tracked in T11b, D-375).
 * **Bar j, close:** signal exit (priority) or time exit is scheduled for ``j+1``; an entry is
   scheduled when flat or when an exit is scheduled (D-336, to_verify -- neither reference
   exercises it: both Pine scripts gate entries on being flat at the signal close, D-367,
-  which rules it out; P-49), if ``j < n-1`` and
+  which rules it out -- tracked in T11b, D-375), if ``j < n-1`` and
   ``atr[j] > 0`` (warm-up); swap for a position held at the close of a rollover bar on the
   mark-to-market notional ``|qty| x close[j] x point_value x fx_close[j]``, x3 on the
   triple day (D-312). The trailing stop moves to ``extreme since entry -/+ trail x ATR``.
@@ -33,16 +33,19 @@ D-326 ... D-338):
 * Sizing: mode 0 research (D-313, D-315, D-328): ``lots = floor(notional /
   (open[j] x fx_open[j] x contract_size) / step) x step``, ``qty = lots x contract_size``;
   below ``min_volume`` the entry is skipped and counted. Mode 1 futures: ``qty = contracts``
-  (D-329). Mode 2 parity (D-337, D-347): ``qty = floor(notional / (close[j-1] x
-  fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard;
+  (D-329). Mode 2 parity (D-337, D-347, D-374): ``qty = floor(notional / (close[j-1] x
+  fx_close[j-1]) / parity_qty_step) x parity_qty_step``, with the same float guard, where
+  ``close[j-1]`` is first rounded to the mintick when one is given (D-374, as TradingView);
   ``parity_qty_step`` is required per run (BATS:SPY 1, OANDA:XAUUSD 0.01) and the broker step
   and minimum volume are never applied. ``qty = 0`` is a skip.
 * Parity choices after T11 (D-338 rule 1, D-349, **D-371**). Still **to_verify**: the
   O->H->L->C path and its tie (D-335) -- in part: its target-first branch is confirmed on
   the one TF bar that touched both levels, its stop-first branch and the exact tie are not
-  exercised by any reference (P-46); and exit + re-entry at one open (D-336), which neither
+  exercised by any reference; and exit + re-entry at one open (D-336), which neither
   reference exercises -- both scripts gate entries on being flat at the signal close (D-367),
-  so no gated run can contain one (P-49; an earlier claim that MR confirmed it was wrong).
+  so no gated run can contain one (an earlier claim that MR confirmed it was wrong). Both are
+  **tracked in T11b** (D-375), a targeted reference with no `flat` gate; **T11's merge does
+  not close them**.
   **Confirmed by construction** -- no
   TradingView export can ever test these, so they are not to_verify and nobody should look
   for one (D-371): no swap on an intrabar exit in a rollover bar (D-327; TradingView models
@@ -50,7 +53,8 @@ D-326 ... D-338):
   trails), and the parity conversion rate (D-349 (h); both references are USD-quoted). Their
   evidence is the hand fixtures plus ``tests/oracle``. The parity sizing basis (D-337, D-347)
   matches TradingView on every TF trade; on MR TradingView sizes on the close rounded to the
-  tick, which the engine does not (P-48). The remaining choices of D-349 ((b)-(g), (i)) are
+  tick, which the engine now does too (D-374); it fills at the open rounded to the tick,
+  which the engine does not (P-50). The remaining choices of D-349 ((b)-(g), (i)) are
   confirmed as implemented.
 * Money (USD): ``pnl_gross = dir x qty x (exit_base - entry_base) x point_value x
   fx_close[exit]``; spread and slippage cost ``qty x amount x point_value x fx_close`` of the
@@ -222,7 +226,10 @@ def _core(
             elif sizing_mode == SIZE_CONTRACTS:
                 q = contracts
             else:  # D-347: TradingView sizes at the signal close and floors to its step
-                steps = notional / (close[s] * fx_close[s]) / parity_qty_step
+                # D-374: on the close rounded to the mintick, half away from zero -- the
+                # D-366 tick, so it only happens where a mintick reaches the engine (parity)
+                px = _ticks(close[s], parity_tick) if parity_tick > 0.0 else close[s]
+                steps = notional / (px * fx_close[s]) / parity_qty_step
                 q = math.floor(steps * (1.0 + step_tol)) * parity_qty_step
             if skip or not q > 0.0:
                 n_skipped += 1

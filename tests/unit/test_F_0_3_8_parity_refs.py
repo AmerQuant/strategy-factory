@@ -819,3 +819,57 @@ def test_F_0_3_8_d600_a_byte_identical_raw_copy_is_not_a_fixture() -> None:
     for copy, original in copies.items():
         assert not (fixture_dir() / copy).exists()
         assert original in data["files"]
+
+
+# -- D-374: parity sizing on the signal close rounded to the mintick -------------------------
+def _sizing_case(parity_tick: float | None, mode: str = "tradingview") -> Any:
+    """One long trade whose signal close, 44.09375, is finer than a 0.01 tick -- the first MR
+    trade's close. floor(100000 / 44.09375) = 2267, floor(100000 / 44.09) = 2268."""
+    from fixtures.engine import Case, flags, ohlc
+
+    bars = ohlc(
+        o=[44.0, 44.4375, 44.5, 44.6, 44.7],
+        h=[44.2, 44.6, 44.7, 44.8, 44.9],
+        lo=[43.9, 44.3, 44.4, 44.5, 44.6],
+        c=[44.09375, 44.5, 44.6, 44.7, 44.8],
+    )
+    return Case(
+        **bars,
+        atr=np.full(5, 1.0),
+        entry=flags(5, 0),
+        exit_=flags(5, 2),
+        sizing="parity",
+        parity_qty_step=1.0,
+        notional=100_000.0,
+        mode=mode,
+        parity_tick=parity_tick,
+    )
+
+
+def test_F_0_3_8_d374_parity_sizing_rounds_the_signal_close_to_the_tick() -> None:
+    from fixtures.engine import run_engine, run_oracle
+
+    rounded = run_engine(_sizing_case(0.01))
+    exact = run_engine(_sizing_case(None))
+    assert float(rounded.qty[0]) == 2268.0  # floor(100000 / 44.09)
+    assert float(exact.qty[0]) == 2267.0  # floor(100000 / 44.09375): no tick, no rounding
+    # the oracle, written from D-374's text, agrees on both
+    assert run_oracle(_sizing_case(0.01)).trades[0].qty == 2268.0
+    assert run_oracle(_sizing_case(None)).trades[0].qty == 2267.0
+
+
+def test_F_0_3_8_d374_is_unreachable_outside_tradingview_mode() -> None:
+    """The rounding needs the D-366 mintick AND parity sizing; the pipeline hands the engine
+    neither outside `tradingview` mode, so research and futures sizing never change."""
+    from strategy_factory.costs.parity import parity_cost_arrays
+    from strategy_factory.engine import kernel as kern
+    from strategy_factory.pipeline.backtest import parity_inputs, sizing_inputs
+
+    cfg = EngineConfig(
+        parity_qty_step=1.0, parity_tick_size=0.01, entry_requires_flat_at_signal=True
+    )
+    costs = parity_cost_arrays(PineSettings.model_validate(PINE), 5)
+    assert parity_inputs(cfg, "pessimistic").tick_size is None
+    assert sizing_inputs(costs, cfg, "pessimistic", None).mode == kern.SIZE_RESEARCH
+    assert parity_inputs(cfg, "tradingview").tick_size == 0.01
+    assert sizing_inputs(costs, cfg, "tradingview", None).mode == kern.SIZE_PARITY

@@ -116,8 +116,11 @@ def test_F_0_3_8_compare_an_extra_trade(tf: ParityRun) -> None:
     assert c.by_reason() == {"match": N - 1, "extra_in_engine": 1}
     (diff,) = c.differences()
     assert diff.tv_index is None and diff.engine_index is not None
-    # P-47: an extra engine trade does not lower D-011's trade share as it is defined today
-    assert c.matched_share == 1.0
+    # D-373: the share is over the union, so the extra counts -- 9 of 10 -- and an extra
+    # trade alone fails the 98 % gate
+    assert c.extra == 1
+    assert c.matched_share == pytest.approx((N - 1) / N)
+    assert c.matched_share < tf.config.min_matched_share
 
 
 def test_F_0_3_8_compare_a_one_bar_entry_shift(tf: ParityRun) -> None:

@@ -100,9 +100,21 @@ class Comparison:
         return sum(1 for p in self.pairs if p.matched)
 
     @property
+    def extra(self) -> int:
+        """Engine trades in the covered range with no TradingView counterpart (D-373)."""
+        return sum(1 for p in self.pairs if p.tv_index is None and p.engine_index is not None)
+
+    @property
     def matched_share(self) -> float:
-        """Matched trades over the TradingView trade count -- D-011's "share of trades"."""
-        return self.matched / self.tv_trades if self.tv_trades else 0.0
+        """D-011's "share of trades", over the **union** (D-373):
+        ``matched / (TradingView trades + extra engine trades)``.
+
+        An engine trade TradingView did not take counts against the gate exactly as a missing
+        one does, so an extra trade alone can fail it. (It once divided by the TradingView
+        count only, which no number of extra engine trades could lower -- P-47.)
+        """
+        union = self.tv_trades + self.extra
+        return self.matched / union if union else 0.0
 
     def by_reason(self) -> dict[str, int]:
         out: dict[str, int] = {}
@@ -384,8 +396,10 @@ LEVEL_EXITS = frozenset({k.STOP_LOSS, k.TAKE_PROFIT, k.DISASTER_STOP, k.TRAILING
 def difference_table(comparison: Comparison, limit: int = 20) -> list[str]:
     """The difference report of F-0.3.8: a reason per mismatch."""
     lines = [
-        f"matched {comparison.matched}/{comparison.tv_trades} "
-        f"({comparison.matched_share:.2%}); engine trades in range: {comparison.engine_trades}",
+        f"matched {comparison.matched}/{comparison.tv_trades + comparison.extra} "
+        f"({comparison.matched_share:.2%}; {comparison.tv_trades} TradingView trades + "
+        f"{comparison.extra} extra engine trades, D-373); "
+        f"engine trades in range: {comparison.engine_trades}",
         "reasons: " + ", ".join(f"{k} {v}" for k, v in comparison.by_reason().items()),
     ]
     if comparison.excluded_open_tv:

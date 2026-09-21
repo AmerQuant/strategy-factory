@@ -177,7 +177,11 @@ def run(
                 qty, ok = contracts, True
             else:  # parity (D-347): floor to the TradingView quantity step of the symbol
                 assert parity_qty_step and parity_qty_step > 0, "parity needs parity_qty_step"
-                raw = notional / (c[s] * fxc[s])
+                # D-374: TradingView sizes on the signal close rounded to the mintick
+                close_s = c[s]
+                if parity_tick:
+                    close_s = math.floor(close_s / parity_tick + 0.5) * parity_tick
+                raw = notional / (close_s * fxc[s])
                 qty = math.floor(raw / parity_qty_step * (1 + step_tol)) * parity_qty_step
                 ok = qty > 0  # the broker step and minimum volume never apply here
             if not ok:

@@ -183,10 +183,12 @@ def test_F_0_3_8_d371_the_to_verify_ledger_does_not_drift() -> None:
     doc = flat(kernel.__doc__ or "")
     review = (REPO / "docs" / "reviews" / "T11_review.md").read_text(encoding="utf-8")
 
-    # still open: D-335 in part (P-46) and D-336 (P-49) -- and nothing calls D-336 confirmed
+    # still open: D-335 in part and D-336, both tracked in T11b (D-375) -- and nothing calls
+    # D-336 confirmed, nor reads T11's merge as closing either
     assert "Still **to_verify**: the O->H->L->C path and its tie (D-335)" in doc
     assert "and exit + re-entry at one open (D-336), which neither reference exercises" in doc
-    assert "P-46" in doc and "P-49" in doc
+    assert "T11b" in doc and "D-375" in doc and "does not close them" in doc
+    assert "T11b" in review and "does not close" in review
     assert "D-336, **confirmed" not in doc and "Confirmed against the MR reference" not in doc
     assert review.count("still `to_verify`") == 2  # D-335 and D-336, in the ledger table
     assert "not verified by any reference" in review
@@ -269,10 +271,10 @@ def test_F_0_3_8_d335_the_intrabar_path_on_every_bar_that_touched_both_levels() 
 
 
 #: The reason table each reference produces -- the numbers the T11 review quotes. Pinned so a
-#: change is deliberate: if P-48 is answered by sizing on the tick-rounded close, MR becomes
-#: {"match": 462} and this line changes with the decision, not silently.
+#: change is deliberate: MR was {"match": 457, "quantity": 5} until D-374 sized on the
+#: tick-rounded close.
 REASONS = {
-    "spy_mr_1d": {"match": 457, "quantity": 5},
+    "spy_mr_1d": {"match": 462},
     "xauusd_tf_1h_long": {"match": 519},
     "xauusd_tf_1h_short": {"match": 400},
 }
@@ -287,7 +289,7 @@ def test_F_0_3_8_d011_the_reason_table_is_the_reviewed_one(run: ParityRun) -> No
 #: engine net profit per reference, to the cent (the TradingView side is pinned by the loader
 #: tests in tests/unit/test_F_0_3_8_parity_refs.py)
 ENGINE_NET = {
-    "spy_mr_1d": 185_784.36,
+    "spy_mr_1d": 185_783.40,
     "xauusd_tf_1h_long": 20_637.93,
     "xauusd_tf_1h_short": -43_610.26,
 }
@@ -301,6 +303,7 @@ def test_F_0_3_8_d011_the_engine_net_profit_is_the_reviewed_one(run: ParityRun) 
 #: (matched, D-011 passed, engine - TV net profit, reason table). This is the argument for
 #: D-366 and D-367 -- the gate alone passes without D-366 -- so it is pinned, not quoted.
 OPTION_TABLE = {
+    # D-374 sizes on the D-366 mintick, so "D-367 only" (tick unset) has neither fix
     ("spy_mr_1d", "neither"): (
         446,
         False,
@@ -315,16 +318,10 @@ OPTION_TABLE = {
         },
     ),
     ("spy_mr_1d", "d366_only"): (
-        450,
+        455,
         False,
-        7030.75,
-        {
-            "match": 450,
-            "same_open_reentry": 17,
-            "missing_in_engine": 7,
-            "quantity": 5,
-            "extra_in_engine": 1,
-        },
+        7029.79,
+        {"match": 455, "same_open_reentry": 17, "missing_in_engine": 7, "extra_in_engine": 1},
     ),
     ("spy_mr_1d", "d367_only"): (
         453,
@@ -332,7 +329,7 @@ OPTION_TABLE = {
         -18.81,
         {"match": 453, "quantity": 5, "sub_tick_level": 4},
     ),
-    ("spy_mr_1d", "both"): (457, True, -25.70, {"match": 457, "quantity": 5}),
+    ("spy_mr_1d", "both"): (462, True, -26.66, {"match": 462}),
     ("xauusd_tf_1h_long", "neither"): (
         519,
         False,
@@ -394,30 +391,51 @@ def test_F_0_3_8_d336_is_never_exercised_under_the_flat_gate(run: ParityRun) -> 
     assert "same_open_reentry" not in run.comparison.by_reason()
 
 
-def test_F_0_3_8_p48_tradingview_sizes_on_the_tick_rounded_close() -> None:
-    """P-48 evidence: `floor(notional / round(close[j-1], mintick))` is TradingView's quantity
-    on every MR trade; the engine's exact-close sizing (D-347) is one share off on five, and
-    those five carry -18.09 of MR's -25.70 USD."""
-    import math
+def test_F_0_3_8_d374_parity_quantity_is_tradingviews_on_every_trade() -> None:
+    """D-374: sizing on the signal close rounded to the mintick gives TradingView's quantity on
+    every trade of every reference. MR's five one-share differences -- early closes in 1/32,
+    finer than the 0.01 tick -- are gone."""
+    for name in GATED:
+        run = run_reference(config_of(name))
+        tv, t = run.tv.trades(), run.result.trades
+        pairs = [p for p in run.comparison.pairs if p.tv_index is not None]
+        assert pairs and all(p.engine_index is not None for p in pairs), name
+        for p in pairs:
+            assert p.tv_index is not None and p.engine_index is not None
+            assert float(t.qty[p.engine_index]) == pytest.approx(
+                tv[p.tv_index][0].quantity, abs=1e-9
+            ), (name, p.tv_index)
 
+
+def test_F_0_3_8_p50_tradingview_fills_at_the_tick_rounded_open() -> None:
+    """P-50 evidence (open question, engine unchanged): TradingView fills at the open rounded to
+    the mintick. Modelling each MR fill that way, with commission on the rounded price,
+    reproduces TradingView's P&L to the cent on every trade; the engine's exact fills leave
+    MR's whole net-profit difference, -26.66 USD. The pin moves when P-50 is decided."""
     from strategy_factory.selftest.parity_compare import round_like_tradingview
 
     run = run_reference(config_of("spy_mr_1d"))
     tv, t, chart = run.tv.trades(), run.result.trades, run.chart
-    notional, decimals = run.config.engine.notional, 2  # BATS:SPY mintick 0.01
-    rounded_ok, qty_gap = 0, 0.0
-    compared = [
-        p for p in run.comparison.pairs if p.tv_index is not None and p.engine_index is not None
-    ]
-    for p in compared:
-        assert p.tv_index is not None and p.engine_index is not None
-        signal = int(t.entry_idx[p.engine_index]) - 1
-        close = round_like_tradingview(float(chart.close[signal]), decimals)
-        rounded_ok += math.floor(notional / close) == tv[p.tv_index][0].quantity
-        if p.reason == "quantity":
-            qty_gap += float(t.pnl_net[p.engine_index]) - (tv[p.tv_index][1].pnl or 0.0)
-    assert rounded_ok == len(compared) == 462
-    assert qty_gap == pytest.approx(-18.09, abs=0.005)
+    rate = run.config.pine.commission_value / 100.0
+
+    def pnl(i: int, rounded: bool) -> float:
+        qty = float(t.qty[i])
+        entry, exit_ = float(chart.open[int(t.entry_idx[i])]), float(t.exit_price[i])
+        if rounded:
+            entry, exit_ = round_like_tradingview(entry, 2), round_like_tradingview(exit_, 2)
+        return qty * (exit_ - entry) - rate * qty * (entry + exit_)
+
+    pairs = [p for p in run.comparison.pairs if p.matched]
+    assert len(pairs) == 462
+    for rounded, total, off in ((False, -26.66, 134), (True, 0.0, 0)):
+        gaps = []
+        for p in pairs:
+            assert p.engine_index is not None and p.tv_index is not None
+            gaps.append(pnl(p.engine_index, rounded) - (tv[p.tv_index][1].pnl or 0.0))
+        assert sum(gaps) == pytest.approx(total, abs=0.005), rounded
+        assert sum(1 for g in gaps if abs(g) > 0.011) == off, rounded
+    # and the engine's own net profit is the exact-fill model
+    assert run.verdict.diff.absolute == pytest.approx(-26.66, abs=0.005)
 
 
 @pytest.mark.parametrize("side", [1, -1])

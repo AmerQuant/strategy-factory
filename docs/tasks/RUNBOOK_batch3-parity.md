@@ -6,7 +6,8 @@ One task, and it is **critical (D-402)**.
 
 | Task | Branch | Base | Critical |
 |---|---|---|---|
-| T11 | `feat/T11-tradingview-parity` | `main` | **yes** — stop after the review, wait for "Approved" |
+| T11 | `feat/T11-tradingview-parity` (worked as `a/T11-parity`, D-357) | `main` | **yes** — stop after the review, wait for "Approved" |
+| T11b | `a/T11b-parity-tie` | `main` after T11 | **yes** — D-375; **the exports do not start until the supervisor has seen the script** (`docs/tasks/T11b_parity_tie_reentry.md`) |
 
 The plan itself lives on `docs/batch3-parity`.
 
