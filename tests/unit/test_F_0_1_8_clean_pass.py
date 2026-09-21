@@ -13,11 +13,14 @@ import json
 from pathlib import Path
 
 import polars as pl
+import pytest
 from fixtures.alpaca_helpers import make_config
 from fixtures.bars import make_meta
 
+from strategy_factory.data import cli_clean
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.cli_clean import (
+    CLEAN_DECISIONS,
     CLEAN_DIR,
     CleanContext,
     NameSources,
@@ -361,3 +364,37 @@ def test_F_0_1_8_T04k_one_raw_snapshot_per_symbol_after_a_refresh(tmp_path: Path
     rows = input_rows(ctx.catalog)
     assert rows.height == 1
     assert rows["snapshot_hash"][0] != old["snapshot_hash"]
+
+
+# ------------------------------------------------------- the decisions named in the provenance
+
+
+def test_F_0_1_8_T04k_notes_and_provenance_name_every_decision_of_the_pass(
+    tmp_path: Path,
+) -> None:
+    """A reader asking why a bar changed gets the decisions, not only a hash to resolve."""
+    ctx = _ctx(tmp_path)
+    out = _run(ctx, _register(ctx, "IPO", _pad(40, 5.0) + _real(60, 30.0)))
+    prov_file = ctx.out_dir / "IPO" / f"{out['snapshot_hash']}.json"
+    prov = json.loads(prov_file.read_text(encoding="utf-8"))
+    assert prov["decisions"] == list(CLEAN_DECISIONS)
+    assert {"D-701", "D-703", "D-706"} <= set(prov["decisions"])
+    derived = ctx.catalog.table().filter(pl.col("derived_from").is_not_null()).row(0, named=True)
+    assert f"T04k clean daily ({'/'.join(CLEAN_DECISIONS)}), config " in derived["notes"]
+
+
+def test_F_0_1_8_T04k_a_longer_decision_label_alone_is_not_stale_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Identical content written under the old label keeps its notes (D-392); only a different
+    record -- config hash, arms, raw snapshot, boundary -- is flagged ``metadata_stale``."""
+    ctx = _ctx(tmp_path)
+    row = _register(ctx, "IPO", _pad(40, 5.0) + _real(60, 30.0))
+    monkeypatch.setattr(cli_clean, "CLEAN_DECISIONS", ("D-396", "D-398", "D-399", "D-700"))
+    first = _run(ctx, row)
+    monkeypatch.undo()
+    again = _run(ctx, row)
+    assert again["snapshot_hash"] == first["snapshot_hash"]
+    assert again["metadata_stale"] is False
+    other = CleanContext(**{**ctx.__dict__, "fingerprint": "e" * 64})
+    assert _run(other, row)["metadata_stale"] is True
