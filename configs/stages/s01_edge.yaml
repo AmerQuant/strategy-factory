@@ -1,0 +1,60 @@
+# Stage 1 -- edge discovery (T12; F-1.1 ... F-1.9). Every constant of the stage lives here
+# (CLAUDE.md rule 1); the gate thresholds live in configs/gates/default.yaml (s01_probe,
+# s01_edge). Loaded and validated by strategy_factory.stages.config.
+
+# Edge types run by the stage, their applicable groups (D-233: a type with fewer than
+# min_applicable_groups applicable groups is not run for a symbol) and the fixed probe exits
+# (D-101, D-614). `exit_signal` names a rule in strategy_factory.components.exits.probe:
+#   prev_extreme -- MR: long exits when close > high[i-1], short when close < low[i-1];
+#   reverse      -- TF: the same probe's opposite-direction entry signal.
+# The 3-ATR disaster stop applies to every probe (D-130); its multiple is the engine config's.
+min_applicable_groups: 4
+edge_types:
+  MR:
+    applicable_groups: [oscillator, band_channel, sequence, momentum]
+    exit_signal: prev_extreme
+    time_exit_bars: 5
+  TF:
+    applicable_groups: [ma, channel_breakout, volatility_trailing, ichimoku, momentum]
+    exit_signal: reverse
+    time_exit_bars: 50
+
+# The probe battery (F-1.1, F-1.2): the registered entry components with a group, at their
+# default (fixed) parameters. `warmup_bars` is the first bar index at which the probe can
+# signal (its indicators are defined); the baseline draws signal bars only from there on
+# (D-615). Measured on random walks and pinned by test_F_1_4_probe_warmups.
+probes:
+  mr_rsi2_below_10: {warmup_bars: 2}
+  mr_rsi5_below_30: {warmup_bars: 5}
+  mr_ibs_below_0_2: {warmup_bars: 0}
+  mr_close_below_bb_lower: {warmup_bars: 19}
+  mr_donchian20_new_low: {warmup_bars: 20}
+  mr_zscore_below_minus_2: {warmup_bars: 19}
+  mr_lowest_close_7: {warmup_bars: 6}
+  mr_three_down_closes: {warmup_bars: 3}
+  mr_macd_hist_trough_5: {warmup_bars: 37}
+  tf_ma50_slope_up: {warmup_bars: 51}
+  tf_sma_cross_20_100: {warmup_bars: 100}
+  tf_donchian20_breakout: {warmup_bars: 20}
+  tf_donchian55_breakout: {warmup_bars: 55}
+  tf_bb_upper_cross: {warmup_bars: 20}
+  tf_supertrend_flip: {warmup_bars: 10}
+  tf_ichimoku_cloud: {warmup_bars: 76}
+  tf_roc20_cross_zero: {warmup_bars: 21}
+
+# Random baseline (F-1.4, D-102, D-615): simulations per probe x direction. The empirical p
+# is floored at 1 / (simulations + 1) (D-606: 1/1001).
+baseline:
+  simulations: 1000
+
+# Edge strength score (F-1.6, D-606, D-613). Provisional until T15 calibrates it, with the
+# ESS >= 50 threshold; every artifact records the config hash that produced it.
+ess:
+  weights: {breadth: 30, magnitude: 30, significance: 20, consistency: 20}
+  magnitude_target_atr: 0.10          # excess return per trade (ATR) that scores full
+  significance_full_log10p: 2.0       # median -log10(p) that scores full (p = 0.01)
+  consistency_min_trades_per_year: 5  # D-613: a year with fewer probe trades is excluded
+
+# D-601: the median ATR return is reported beside the mean; a gap larger than this (in ATR)
+# is a warning in the artifact, never a gate criterion. Provisional (D-601 names no value).
+mean_median_divergence_warn_atr: 0.25
