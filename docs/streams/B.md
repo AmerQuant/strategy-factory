@@ -60,7 +60,7 @@ T12 is stream A's (D-611). Waiting for the supervisor.
 Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
 and `T04l_D-714_20260922T080918Z`.
 
-### State of the data at the handover into T12 (measured 2026-09-22 on `SFAC_DATA_ROOT`)
+### State of the data at the handover into T12 (measured 2026-09-22 on `SFAC_DATA_ROOT`; full note with the supervisor's answers: `docs/streams/B_data_state.md`)
 
 | | 1D | 1H |
 |---|---|---|
