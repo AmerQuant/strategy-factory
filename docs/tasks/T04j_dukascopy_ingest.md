@@ -1,0 +1,153 @@
+# T04j — Dukascopy h1 full ingest: 29 FX / metal / energy / index CFD series, 1H and D-032 daily
+
+**Features:** F-0.1.3 (Dukascopy adapter, mid + spread), F-0.1.6 (quality per snapshot), F-0.1.7
+(resampling, D-010 / D-032), F-0.1.8 (immutable snapshots, catalog, references)
+**Priority:** before FX/metals can enter any candidate universe (supervisor, 2026-09-22) ·
+**Depends on:** T04e (the adapter, the pilots), T05 (the resampler) · **Branch:** `b/T04j-dukascopy-ingest`
+from `main`.
+
+Read first: `CLAUDE.md` (rules 3, 7, 10, 11), D-010, D-020, D-026, D-028, D-031, D-032, D-323, D-350,
+D-386, D-523, D-707, D-708, D-714; `docs/reviews/T04e_review.md`, `T05_review.md`, `T06b_review.md`,
+`T04h_review.md` (the coverage gate this task copies).
+
+## Why
+
+No FX, metal, energy or index symbol can be researched today. The three Dukascopy references in the
+store are the T04e **Q1-2024 pilots** (EURUSD, XAUUSD, USA500IDXUSD 1H, hash version 1). And every
+one of the 29 broker profiles for these symbols is `broker_scaled` (D-523): its hourly spread is
+resolved from the `spread` column of the symbol's **1H reference** (`costs/cli.py:70`,
+`costs/arrays.py:266`). So until this task ingests the 1H series, none of the 29 has a usable cost,
+and none can run (rule 4).
+
+## Measured input state (2026-09-22) — `scripts/analysis/T04j_coverage.py` → `docs/reviews/T04j_raw_coverage.csv`
+
+Raw layout: `SFAC_RAW_ROOT/fx_metals_cfd/dukascopy/h1/<SYMBOL>/{bid,ask}/<YYYY-MM>.csv.gz`, one
+immutable file per month and side, with a manifest (`row_count`, tool `dukascopy-node 1.50.0`, UTC
+offset 0). Expected months: 2010-01 (`h1_start`) … 2026-08 (the last complete month); later for an
+instrument that listed later (the index and energy CFDs: 2010-12 … 2018-08, per
+`configs/universe/dukascopy.csv`).
+
+| state | instruments |
+|---|---|
+| no file at all | **14**: USDCHF, AUDUSD, USDCAD, GBPJPY, EURGBP, EURCHF, USA30IDXUSD, USATECHIDXUSD, DEUIDXEUR, GBRIDXGBP, JPNIDXJPY, FRAIDXEUR, AUSIDXAUD, HKGIDXHKD |
+| started, far from complete | USDJPY (to 2018-01), NZDUSD (from 2015-10), EURJPY (to 2022-12), AUDJPY (18 months), EURAUD (from 2018-01), LIGHTCMDUSD (1 month), BRENTCMDUSD (2), USA500IDXUSD (39), USSC2000IDXUSD (30, bid only) |
+| near complete | EURUSD (14 months missing on one side), GBPUSD (16), GBPCHF (11), CADJPY (15), XAUUSD (6), XAGUSD (12) |
+
+**0 of 29 instruments are complete. The download is still running**: the newest file was written
+2026-09-22 11:39 UTC (USSC2000IDXUSD). The near-complete ones still miss months **on one side**, and
+the adapter refuses a series with more than `max_one_sided_share` (0.1 %) of its bars on one side
+only. So **today no instrument can be ingested**. The downloader is resumable (stored months are
+skipped), so a re-run fills the holes.
+
+## D-010 and D-032 — how they are applied and tested
+
+Both already exist in the T05 resampler (`data/resample.py`) and are applied, not rebuilt:
+
+- **D-010:** research mode, day boundary 00:00 UTC; the Saturday and Sunday bars of the 24x5 markets
+  (`fx`, `metal`, `energy_cfd`, `index_cfd`) belong to **Monday**; no daily bar is ever stamped on a
+  weekend. Tests: `test_F_0_1_7_sunday_merged_into_monday` (Sunday 22:00 and 23:00 open Monday; OHLC
+  first/max/min/last, volume summed), `…_saturday_bars_also_go_to_monday`.
+- **D-032:** the 1D series is **built from the ingested 1H snapshot**, never downloaded:
+  `sfac data resample` writes a derived snapshot (`derived_from` the 1H key) with `spread` = the last
+  hour's, drops the partial edge periods, and flags a day built from fewer than `min_source_fraction`
+  of its expected bars (`_resample/<hash>.flags.csv`).
+- **Measured on the six near-complete instruments, in memory:** FX has ≈ 2,150 Sunday bars (metals
+  ≈ 1,360) and **0 Saturday bars**; after the merge **0 daily bars fall on a weekend**, and 17–23 thin
+  days are flagged per instrument (holidays and the raw holes).
+- **New in T04j, tested:** an end-to-end test that ingests fixture months of both sides, resamples to 1D
+  and asserts `derived_from` the 1H reference, the Sunday bars inside Monday, no weekend stamp, and
+  `spread` = the last hour's; and a test that the 1D reference moves only when the 1H one does.
+
+## Do the T04k / T04l defect families apply? — `scripts/analysis/T04j_defects.py` → `docs/reviews/T04j_defects.csv`
+
+Measured on the same six instruments (EURUSD, GBPUSD, GBPCHF, CADJPY, XAUUSD, XAGUSD; the months
+present on both sides; ≈ 96,000 1H bars each), the way T04h/D-707 measured the Alpaca hourly set:
+
+| family (the Alpaca arm) | Dukascopy h1 |
+|---|---|
+| frozen stretches (`frozen_cut`, D-398 (1)) | **0** on all six |
+| re-use boundaries (`boundary_trim`, D-708: a gap ≥ 200 days) | **0**. The longest gap is 28–122 days, and each is a raw month still missing. An FX pair or a metal has no ticker to re-use |
+| bad prints (`wick_clip`, the D-703/D-706 rule on the hourly mid) | **0** |
+| extremes outside a session (`extreme_cap`) | not applicable: the feed is the market itself, 24x5 |
+| spread | **spikes**: hours with a spread above 10× its 500-bar rolling median: EURUSD 1,145, GBPUSD 830, CADJPY 679, GBPCHF 590, XAUUSD 67, XAGUSD 32 (rollover and the Sunday open). Zero spread on 1 bar each of EURUSD and XAGUSD. **Negative: 0** (the adapter refuses them) |
+| missing weekday hours | FX 70–97 per instrument; metals ≈ 1,800 — the metals' **daily 1-hour break**, a session feature the quality check learns (`learn_break`), not a defect |
+
+**Proposal:** no cleaning pass for Dukascopy, as D-707 decided for Alpaca 1H. The script re-runs on the
+full set once the download is complete, and any family that appears there is raised before ingest,
+never absorbed. The spread spikes matter only through D-523's hourly shape, which is a **median** per
+UTC hour (`broker_scaled_table`), so they barely move it. That is reported in the review, with no
+action proposed.
+
+## The broker universe (T06b, D-323)
+
+- `configs/costs/moneta/dukascopy_map.csv` maps **all 29** research symbols to a Moneta CFD (e.g.
+  EURUSD → `EURUSD+`, LIGHTCMDUSD → `USOUSD`, USA500IDXUSD → `SP500.r`, JPNIDXJPY → `Nikkei225`).
+- `configs/costs/moneta/assignments.yaml` assigns each its own profile; all 29 are **`verified`,
+  spread `broker_scaled`**.
+- A profile resolves only against the 1H reference's `spread` column (above). T04j is therefore the
+  prerequisite for the 29 cost profiles, not only for the bars. Stream A's `configs/costs/` is not
+  touched.
+
+## D-008 — how many would enter the candidate universe
+
+- **Measured:** all six near-complete instruments split in **1H and 1D** (≈ 96,000 hourly, ≈ 4,000–4,200
+  daily bars from 2010).
+- **Projected for a complete download:** every one of the 29. The shortest history is USSC2000IDXUSD's
+  (from 2018-08, ≈ 8 years ≈ 2,000 daily bars), well above the 18-month holdout plus embargo.
+- **Today: 0**, because no instrument passes the coverage gate.
+- The count is re-measured after the ingest, per timeframe, and reported like `B_data_state.md`.
+
+## Scope
+
+0. **The user completes the download** (D-031): the same resumable command, all instruments,
+   `sfac data download dukascopy --series h1`, until the coverage report shows every expected month on
+   **both** sides. Claude Code writes `scripts/pilots/T04j_dukascopy_download.ps1` if the user wants it.
+1. **Coverage gate (D-386 copied):**
+   - `sfac data coverage dukascopy` writes `SFAC_RAW_ROOT/_reports/dukascopy_coverage_h1.csv` and exits 1
+     on a gap. A gap is an expected month missing on either side, or a month one side holds that the
+     other does not.
+   - `sfac data ingest dukascopy` refuses to run on a gap; there is no `--allow-gaps`.
+   - The per-instrument start comes from a new column `h1_from` in `configs/universe/dukascopy.csv`
+     (stream B's), taken from the dates already written in its `notes`.
+   - The check reads every file's rows, not a manifest field (D-711). Tests.
+2. **Re-measure the defect families** on the complete set (`T04j_defects.py`, all 29). Stop and raise if a
+   family appears.
+3. **Ingest 1H** for all 29 with `--set-reference`; the three pilots with `--rehash` (hash version
+   1 → 2, reference moved, event note `rehash v1→v2`; T04e §1). Chunked and idempotent (D-385); a re-run
+   writes nothing (test + store evidence, as T04h).
+4. **Build 1D** (D-032) from each 1H reference with `sfac data resample --target 1D --mode research`,
+   `--set-reference`. Per D-714, the derived layer is retired and re-derived once before the first
+   reference moves, if it was written more than once.
+5. **Quality reports** for all 58 snapshots (`missing_bars` and `session_violations` executed, not
+   skipped; the daily-only checks skip on 1H, as for Alpaca).
+6. **Costs:** `sfac costs show <symbol>` resolves for all 29 against the 1H development segment; the
+   review lists each profile's scale factor and filled hours (D-350).
+7. **Report:** references per timeframe, quality, D-008 splittable per timeframe, and the update of
+   `docs/streams/B_data_state.md`.
+
+## Out of scope
+
+- m1 data (D-026: spread detail and intrabar resolution later, F-0.3.5).
+- Yahoo auxiliary series (next task).
+- Stage-1 inclusion of these symbols: stream A's T12, and **P-88** (D-020).
+- Any change to `configs/costs/` (stream A).
+
+## Acceptance
+
+- The coverage report (§1) is in the review, and the gate passed on the complete set; otherwise the task
+  stopped with nothing written.
+- All 29 have a 1H reference (hash version 2) and a 1D reference `derived_from` it; the pilots are
+  re-hashed and their old snapshots stay in the store.
+- D-010 / D-032 tests as above; no daily bar on a weekend in the store (store evidence).
+- The defect-family table re-measured on all 29 is in the review.
+- Every snapshot has a quality report; no schedule check is `skipped`.
+- `sfac costs show` resolves for all 29.
+- A re-run of a chunk writes nothing.
+- Gates green; `sfac streams check` clean.
+
+## Open questions
+
+- **P-87**: the spread a **daily** FX run's cost is resolved from. The costs have to use the 1H shape;
+  the 1D snapshot's `spread` is the last hour's.
+- **P-88**: D-020 puts FX, metals and index/energy CFDs in **P1**, not the MVP. Does bringing them into
+  the candidate universe now amend D-020?
