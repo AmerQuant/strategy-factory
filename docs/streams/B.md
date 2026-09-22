@@ -12,11 +12,9 @@ folds it into `HANDOFF.md` at merges.
    - generate the **NYSE session calendar** `configs/calendars/nyse_sessions.csv` from the
      Alpaca calendar fetch (**D-025**);
    - the **T04e phase-B pilot** analysis, which was waiting for the hourly download.
-2. Then **T12 — stages 1–3**, whose acceptance carries **D-354**: stage code takes the engine
-   settings only from `PipelineConfig.engine` (`DEFAULT_ENGINE_CONFIG` forbidden in stage code,
-   grep test); a stage passes its stage id from its own constant (grep test: the literal
-   `"s06_robust"` only in `data/split.py` and the stage-6 module); F-0.7.4 stays partial until
-   the bit-identical rerun through `RunContext` is proven.
+2. ~~T12 — stages 1–3~~ — **moved to stream A by D-611** (P-51, 2026-09-22): stream A implements T12
+   and owns its paths (`configs/gates/`, `src/strategy_factory/metrics/`, `stages/`, `baseline/`,
+   `components/`). Stream B's data layer is what T12 reads; its state at the handover is below.
 
 ## ID ranges (D-355)
 
@@ -55,33 +53,30 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04l complete, PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34) open, stopped for "Approved. Merge"** — branch
-`b/T04l-cusip-reuse`. Review: `docs/reviews/T04l_review.md`. Decisions: D-705 … **D-714** (P-86 →
-D-714: the T04l layer retired and re-derived once; the general rule "retire and re-run before the first
-reference of any derivation pass" is in the runbook).
-
-Result: 317 boundaries on 304 symbols — **46 trims, 2 kept, 269 unsettled** (no unadjusted split);
-**the 329 derived snapshots are the references** (302 1D: 46 trim + 256 research window; 27 1H: 4 + 23);
-0 stale; the bases keep the full history and a `full_history` marker. **182 of the 302 daily series fall
-below D-008 once cut — never usable, not to be recovered (D-713).**
+**Current position:** **T04l merged** (PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34),
+`99d2912`, 2026-09-22) — the data layer is complete for the MVP. **Stream B has no assigned task**;
+T12 is stream A's (D-611). Waiting for the supervisor.
 
 Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
-and `T04l_D-714_20260922T080918Z` (366 snapshots, 2,196 files).
+and `T04l_D-714_20260922T080918Z`.
 
-**For stream A:** 329 references moved (302 1D, 27 1H) — `docs/reviews/T04l_references_moved.csv`.
-Stage 1 sees the marker through `DataAccess.splices()` (one read-only method in `data/split.py`) and
-`sfac data show`. A latent weakness in T04k's `scripts/analysis/T04k_assert_provenance.py` (hash-only
-index; harmless today, 0 hashes shared across symbols) is recorded in the T04l review §6.1.4.
+### State of the data at the handover into T12 (measured 2026-09-22 on `SFAC_DATA_ROOT`)
 
-**For stream A — `sfac streams check` breaks on Windows since #32.** `core/cli_streams.py:_git` runs
-`git` with `text=True` and no `encoding`, so on Windows it decodes with cp1252; `main`'s
-`decisions_log.md` now holds "log₁₀" (`E2 82 81`) and cp1252 cannot decode `0x81` → `UnicodeDecodeError`
-in the reader thread, `_git` returns `None`, `base_rows` crashes (`'NoneType' object has no attribute
-'splitlines'`). Two tests in `tests/unit/test_F_X_9_stream_guards.py` fail the same way locally. CI
-(Ubuntu) is unaffected. Likely fix (yours): `encoding="utf-8"` in `subprocess.run`. Stream B works
-around nothing; it verified its branch with `PYTHONUTF8=1`.
+| | 1D | 1H |
+|---|---|---|
+| alpaca references (one per symbol) | **6,708** | **805** |
+| … raw / T04k clean / T04l trim / T04l research window | 3,430 / 2,976 / 46 / 256 | 778 / — / 4 / 23 |
+| quality `ok` / `warning` / `critical` | 4,217 / 2,491 / **0** | 392 / 413 / **0** |
+| references carrying a splice marker (`research_window`) | 256 | 23 |
+| pass D-008 (a split is possible) | **5,470** | **770** |
+| … of which a T04l research window / warning | 108 / 1,967 | 11 / 400 |
 
-**Next:** T12, after the merge.
+Plus 3 Dukascopy 1H pilot references (hash v1, T04j). 752 of the 806 hourly-universe symbols pass
+D-008 in both timeframes. Warnings are mostly `price_spikes` (1D 2,099, 1H 401), then `zero_volume`,
+`stale_prices`, `missing_bars`; 38 daily `daily_wick_outlier` (hourly symbols, D-396).
+
+**For stream A — `sfac streams check` on Windows:** fixed by your #33; stream B's next branch rebases
+onto it.
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -114,8 +109,8 @@ around nothing; it verified its branch with `PYTHONUTF8=1`.
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
 | T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
-| T04l | ⏸ **PR open** — `b/T04l-cusip-reuse`; 46 trims, 269 unsettled (research windows), 2 kept; 329 references moved; D-714 |
-| T12 | not started |
+| T04l | ✅ **merged** — PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34). 46 trims, 269 unsettled (research windows), 2 kept; 329 references moved; D-705 … D-714 |
+| T12 | **stream A's** (D-611, PR #33) |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
 
