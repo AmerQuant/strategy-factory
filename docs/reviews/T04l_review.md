@@ -2,9 +2,11 @@
 
 **Task:** `docs/tasks/T04l_cusip_reuse.md` · **Branch:** `b/T04l-cusip-reuse` from `main` (`d2ebc6a`)
 **Features:** F-0.1.2 (re-use boundary, evidence fetch), F-0.1.6 (quality: `known_splice`), F-0.1.8 (derived snapshots, catalog marker)
-**Decisions used:** D-008, D-392, D-397, D-398, D-399 (4), D-700, D-702, D-704, **D-705 … D-713**
-**Open for the supervisor:** **P-86** (retire and re-derive the 366 never-referenced T04l snapshots before the references move)
-**Status:** implemented; acceptance review run and every finding fixed; the pass has run on the store **without `--set-reference`** — **no reference has moved**. Stopped for the review.
+**Decisions used:** D-008, D-392, D-397, D-398, D-399 (4), D-700, D-702, D-704, **D-705 … D-714**
+**Open for the supervisor:** none (P-86 answered as **D-714**).
+**Status:** complete. The T04l layer was retired and re-derived once (D-714), asserted clean (0 stale),
+and **the 329 derived snapshots are the references** (302 1D, 27 1H). PR open, waiting for
+**"Approved. Merge"**.
 
 ## 1. What was built
 
@@ -22,6 +24,7 @@
 | `src/strategy_factory/data/config.py`, `configs/data/alpaca.yaml` | `reuse.corporate_actions_dir`; `KnownSpliceConfig` |
 | `scripts/pilots/T04l_corporate_actions.ps1` | the user's download (D-031); the verdict is the tested command's |
 | `scripts/analysis/T04l_feed_scope.py`, `T04l_coverage.py`, `T04l_report.py` | scope check, per-type coverage, the aggregates below |
+| `scripts/ingest/T04l_rederive_quarantine.py`, `scripts/analysis/T04l_assert.py` | D-714: retire and quarantine the T04l layer (moved, never deleted, a manifest); assert 0 stale, one config hash, every base and marker |
 | tests | `test_F_0_1_2_corporate_actions.py` (14), `test_F_0_1_2_cusip_evidence.py` (12), `test_F_0_1_8_reuse.py` (16), `test_F_0_1_8_splices.py` (6); check-set update in `test_F_0_1_6_quality.py` |
 
 ## 2. The evidence (D-710, D-711, D-712)
@@ -83,17 +86,33 @@ CUSIP); `PCL`, `Q`, `DOW`, `EMC`, `CIVI` unsettled (after only).
 - **Markers:** the base carries `full_history` (its unsettled boundaries, with `break_start`); the derived
   snapshot carries `research_window` naming only the boundary it starts at; the base's quality report
   fails `known_splice` at `warning`; `sfac data show` and `DataAccess.splices()` show it.
+  In the store: 512 1D and 46 1H catalog rows carry a marker — one base and one window for each of
+  the 256 + 23 research windows.
 
-**The cost, and why it is not a loss (D-713).** Of the 302 derived 1D snapshots, **120 can be split and
-182 fall below D-008's minimum** once they start at their boundary (202,726 of 407,621 bars kept). **Those
-182 were never usable:** their history joined two companies — or may have, and cannot be shown not to —
-and we only believed otherwise. A later reader must not try to "recover" them from the full-history
-snapshot; its marker says why.
+### D-008: 182 of the 302 daily series fall below the minimum once cut — they were never usable
 
-**References: none has moved.** On approval (and P-86), `sfac data reuse --set-reference` makes the
-derived snapshots the references. Moving a reference affects only future runs — a run pins the snapshot
-hashes it read (D-709); nothing has been run on these (registry `sfac_b` empty, T12 not started). New
-evidence that settles a break later puts the base back as the reference and clears its marker (test).
+**182 of the 302 derived daily series are too short for a development / embargo / holdout split
+(D-008) once they start at their boundary; 120 can still be split.** They keep 202,726 of their
+407,621 bars. `SplitManager` rejects the 182 with `HistoryTooShortError`, so they leave the research
+set by the ordinary D-008 path — nobody excludes them by hand.
+
+**This is not a loss (D-713).** Each of those 182 histories runs across a break where the ticker may
+belong to two different companies — for 46 of all 302 it is proven, for the rest it cannot be shown
+not to be. The long history they appeared to have was never a history of one security; we only
+believed it was. **Do not "recover" them** by reading the full-history snapshot, lowering D-008's
+minimum for them, or re-joining the halves: the full-history snapshot carries a `full_history` marker
+precisely so that a reader of the store sees why it must not be used. If new identity evidence later
+proves a break to be one company, `sfac data reuse` restores the full history itself (test) — that is
+the only way back.
+
+### References
+
+**All 329 derived snapshots are the references now** (302 1D, 27 1H; `reference_moved` in
+`T04l_references_moved.csv`; 329 `set_reference` events noted "T04l re-use"). Every alpaca
+`(symbol, timeframe)` still has exactly one reference (6,708 1D, 805 1H). The bases — the full-history
+T04k clean or raw snapshots — stay in the store and the catalog (rule 10). Moving a reference affects
+only future runs: a run pins the snapshot hashes it read (D-709). Nothing had been run on the old
+references (registry `sfac_b` empty, T12 not started).
 
 ## 5. Acceptance criteria (task file)
 
@@ -135,18 +154,33 @@ decisions now differ exactly where the fixes intend: 11 same-issuer keep → uns
 
 ### 6.1 Other deviations
 
-1. **P-86 — 280 current derived snapshots carry an earlier run's notes, 37 more are superseded.** The pass
-   ran four times as the fixes landed; identical bars return the first writer's notes (D-392). The pass now
-   refuses to make such a snapshot a reference. None of the 366 T04l snapshots has ever been a reference.
-   Recommendation: retire and quarantine all 366 with the D-702 tools, re-run, assert 0 stale, then
-   `--set-reference`.
+1. **D-714 (P-86) — the T04l layer was retired and re-derived once.** The pass ran four times while
+   the fixes landed; identical bars keep the first writer's notes (D-392), so 280 current snapshots
+   carried an earlier run's notes and 37 were superseded. All **366** T04l snapshots (339 1D, 27 1H;
+   none a reference, now or ever) were retired and moved to
+   `<store>/_quarantine/T04l_D-714_20260922T080918Z/` (**2,196 files**, `manifest.csv`, nothing deleted;
+   left for the supervisor and the user to empty). One re-run; `T04l_assert.py`: **0 stale**, one config
+   hash (`eabc6a72917ff7db`), the layer is exactly the 329 snapshots this run wrote, every base and marker
+   in place; then `--set-reference`. The general rule — retire and re-run before the first reference of
+   **any** derivation pass — is in `RUNBOOK_batch3-data.md`, "Derivation passes".
 2. **An hourly gap is dated as the daily break it overlaps** (`PCL`: 1D 2025-08-01, 1H 2025-09-12 — judged
    at the later date the new holder's first rows fell on the before side). Test.
 3. **A base is found by its full key** (identical bars share a hash across symbols; found in testing).
-   `scripts/analysis/T04k_assert_provenance.py` indexes by hash alone — correct on today's store (0 hashes
-   shared across symbols), latent otherwise.
-4. The pass re-runs quality on what it touches, so a re-run appends `quality` events (as T04k's does).
-5. `PAGE_SIZE` (1,000) and `ISSUER_LEN` (6) are constants: properties of the endpoint and of the CUSIP
+4. **Latent weakness in merged T04k code — written finding, not changed.**
+   `scripts/analysis/T04k_assert_provenance.py:68` builds `by_hash = {snapshot_hash: row}` over every
+   alpaca 1D catalog row and looks rows up by hash alone (lines 80, 106, 116). The store is
+   content-addressed per symbol, so **two symbols with identical bars share a hash** — two share classes
+   or tickers of one fund with the same prices, or two series that are pure padding. **Evidence today:
+   no hash is shared across symbols** — 0 of the 11,084 catalog rows (checked 2026-09-22, after T04l),
+   so every result the assertion gave was about the right symbol. **What would break if one ever did:**
+   the dict keeps whichever row came last, so the assertion would check symbol A's clean snapshot against
+   symbol B's catalog row — its notes, `derived_from` and config hash. That can **fail falsely** (B's notes
+   lack A's config hash or arms) or, worse, **pass falsely** (B's row happens to satisfy the checks while
+   A's own row is stale). The same shape broke T04l's first `_base` lookup in a test (fixed there by the
+   full key). The fix, when that script is next touched, is to key by `(source, symbol, timeframe,
+   snapshot_hash)`.
+5. The pass re-runs quality on what it touches, so a re-run appends `quality` events (as T04k's does).
+6. `PAGE_SIZE` (1,000) and `ISSUER_LEN` (6) are constants: properties of the endpoint and of the CUSIP
    format, not thresholds (rule 1).
 
 ## 7. Acceptance commands
@@ -165,6 +199,6 @@ The fast suite's one failure is stream A's `test_F_0_5_1_scaling_pnl_scales_prof
 
 ## 8. For the supervisor
 
-- **Approve** T04l as run, and **P-86** (retire the 366 never-referenced T04l snapshots, re-run, assert 0
-  stale).
-- Then `sfac data reuse --set-reference`, the PR, and T12.
+- **"Approved. Merge"** for this PR.
+- The quarantine folder `T04l_D-714_20260922T080918Z` to empty when you choose.
+- Then T12.

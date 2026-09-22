@@ -181,3 +181,18 @@ the review with its reason, per `CLAUDE.md`.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
    merge order `docs/batch3-data` → T04f → T04i → T04g → T04k → T04h.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).
+
+## Derivation passes — retire and re-run before the first reference (D-714)
+
+Every pass that derives snapshots from others (T04k `sfac data clean`, T04l `sfac data reuse`, and any
+later one) is content-addressed: identical bars keep the metadata of whoever stored them first (D-392).
+A pass re-run while its rules are still changing therefore leaves a layer of **stale notes** behind.
+Before the first `--set-reference` of any such pass:
+
+1. run the pass without `--set-reference` until its rules are settled and reviewed;
+2. retire and quarantine every snapshot of that layer that is not and never was a reference
+   (`Catalog.retire` + `SnapshotStore.quarantine`; moved, never deleted; a manifest) — D-702, D-714;
+3. re-run the pass once and assert **0 `metadata_stale`** and that every derived snapshot carries this
+   run's config hash;
+4. only then `--set-reference`. The quarantine folders are emptied by the supervisor and the user.
+
