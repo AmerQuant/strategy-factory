@@ -76,6 +76,28 @@ jobs:
           sys.exit(1 if skipped else 0)
           EOF
 
+  # D-800 (P-54): the work happens on Windows (cp1252 locale, spawn-only
+  # processes), CI on Ubuntu with UTF-8 -- so a class of failures is invisible to `checks`
+  # (D-377's rationale; #33 and P-52 would both have failed here). Narrow by decision: the fast
+  # suite only, on every pull request. No database (no Postgres service on Windows runners),
+  # no parity/oracle/leakage (they are platform-independent numerics and run in `checks`), no
+  # benchmarks, no lint/type/guards (platform-independent, already in `checks`).
+  windows-fast:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync
+      - name: Tests (fast suite; no db, parity, oracle, leakage)
+        run: >-
+          uv run pytest -m "not slow and not db" -p no:cacheprovider
+          --ignore=tests/parity --ignore=tests/oracle --ignore=tests/leakage
+
   nightly-slow:
     if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
