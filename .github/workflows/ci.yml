@@ -1,7 +1,11 @@
 name: CI
 
 on:
+  # D-801: a push to a PR branch also fires `pull_request`, so running on every push ran
+  # `checks` twice per PR update. Push runs are kept for `main` only (the post-merge state);
+  # every other branch is checked through its pull request.
   push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: "0 2 * * *" # nightly 02:00 UTC: slow self-tests
