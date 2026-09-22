@@ -9,7 +9,9 @@ the IM edge type (addendum §5, D-235, D-240). **Depends on:** T04c (downloader,
 T04f (NYSE calendar). **Branch:** `b/T04m-yahoo-aux` from `main`. **Independent of T04j**, which
 is paused on its download.
 
-Read first: `CLAUDE.md` rules 2, 3, 7, 8, 10, 11; D-014, D-020, D-027, D-235, D-240, D-306, D-316,
+**Status:** plan approved 2026-09-22 with D-718 … D-721 (P-89 … P-92).
+
+Read first: `CLAUDE.md` rules 2, 3, 7, 8, 10, 11; D-014, D-020, D-027, D-718, D-719, D-720, D-721, D-235, D-240, D-306, D-316,
 D-392; spec §5.2 (filter families); addendum §5.1–5.3 (the aux series and the timing rule, "critical
 for leakage"); `docs/tasks/T04c_yahoo_aux.md`, `docs/reviews/T04c_review.md`.
 
@@ -79,9 +81,19 @@ checked against the 6,711 daily, 806 hourly and 29 Dukascopy symbols).
   stored as a column:
   - verified: the session date at `value_final_time_local` in `value_final_tz` (DST-aware; VIX
     16:15 New York);
-  - `to_verify`: that instant **+ `unverified_extra_lag_days`** (D-014). Where no close time is
-    recorded (DXY, TNX, SPX, NDX, RUT, DJI today), the base instant is **24:00 of the session date
-    in the series' own zone** — **P-89**.
+  - `to_verify`: that instant **+ `unverified_extra_lag_days`** (D-014). Where no close time can be
+    verified, the base instant is **24:00 of the session date in the series' own zone** (D-718).
+- **Close times (D-718),** each verified from the provider's own published schedule, with the source
+  and the date checked recorded in `aux_yahoo.csv`:
+
+  | series | final instant | status | source |
+  |---|---|---|---|
+  | VIX | 16:15 New York | verified | Cboe VIX FAQ (2026-09-19) |
+  | DXY | 19:15 New York | verified | ICE FX Indexes Methodology v3.0 §4.1 (2026-09-22) |
+  | NDX | 17:15 New York | verified | Nasdaq-100 Index Methodology 2026 (2026-09-22) |
+  | SPX, DJI | 24:00 New York + 1 day | to_verify | S&P DJI methodology not readable from the session (403) |
+  | RUT | 24:00 New York + 1 day | to_verify | FTSE Russell defines "final" by status, not by a clock time |
+  | TNX | 24:00 Chicago + 1 day | to_verify | no Cboe document gives its calculation hours |
 - On early-close days the regular close time is used, which is later than the true one. That is
   conservative: a value is never usable earlier than it really was.
 
@@ -101,9 +113,13 @@ instant**, and nothing newer. Addendum §5.3's examples follow from it:
 - A US equity at the close of day d (16:00 New York) sees **VIX of d−1**: VIX d is final at 16:15.
 - An FX daily bar of day d (decision at 24:00 UTC) sees **VIX of d**.
 
-**Holidays:** the latest final value carries forward, up to `max_staleness_days` (config, **5**,
-addendum §5.3). Beyond that, bar i gets no value, which the consumer must treat as an invalid
-signal (**P-90**).
+**Holidays (D-719):** the latest final value carries forward for up to `max_stale_sessions` (config,
+default **5**, addendum §5.3). The count is in **traded sessions of the consuming symbol**. A value
+becomes usable in the first session of the consumer's calendar that ends after its final instant
+(NYSE sessions for US equities; weekdays for the 24x5 markets). A traded bar more than
+`max_stale_sessions` sessions after that session gets `idx = -1`, and the filter refuses to act.
+Counting on the calendar, not on the bars read, keeps the count independent of where a window
+starts.
 
 **API, in `data/aux.py` (pure alignment) and `data/split.py` (access):**
 
@@ -144,10 +160,15 @@ class AuxView:
    - Refuse an aux symbol that is a tradeable universe symbol.
    - Record the TNX unit (percent) in the snapshot notes.
    - Idempotent: a re-run writes nothing (test and store evidence).
-2. **Quality reports** for the seven: the generic checks (OHLC consistency, duplicates,
-   non-positive values, gaps). Schedule checks are **skipped for `aux` with that reason written**.
-   Different holiday calendars are normal for these series, and the join's staleness cap handles
-   them. The table above goes into the review (**P-91**).
+2. **Quality reports** for the seven, with **the same checks as any series (D-720)**. Schedule checks
+   run against each series' own calendar (`calendar` in `aux_yahoo.csv`, carried into the notes as
+   `aux_calendar=`):
+   - `nyse`: VIX, SPX, NDX, RUT, DJI;
+   - `nyse_bond`: NYSE minus `configs/calendars/us_bond_market_closures.csv`, for TNX;
+   - `weekdays`: DXY.
+
+   The measured differences therefore show up as findings: VIX's two 2026 holiday rows, TNX's
+   placeholder rows on bond closures, DXY's two missing weekdays.
 3. **`data/aux.py`:** decision instants, final instants, the as-of index, the staleness cap;
    `max_staleness_days` in `configs/data/aux_series.yaml` (rule 1).
 4. **Access:** `DataAccess.aux`, `aux=` on the stage-6 holdout method, and the guard that refuses
@@ -172,11 +193,7 @@ class AuxView:
 - **The filters and probes themselves:** stage 5 and `components/` are stream A's (D-611). IM is
   after the MVP (D-240).
 - **Hourly VIX or DXY:** Yahoo has no long hourly history (addendum §5.8).
-- **Verifying the close times** of the six `to_verify` series. That needs the index providers'
-  documents and a supervisor decision (**P-89**).
-- **The reference index per symbol** (addendum §5.1: "defined in the universe metadata"). It is
-  metadata stage 5 will need, but it is a universe-schema change stream A regenerates from:
-  **P-92**, proposed and not built unless approved.
+- **The reference index per symbol** (addendum §5.1): stage 5's task (D-721).
 - New downloads.
 
 ## Acceptance
@@ -191,19 +208,6 @@ class AuxView:
 - The gates pass: the fast suite, parity, leakage, db (0 skipped), ruff, format, mypy;
   `sfac streams check` is clean.
 
-## Open questions (in `docs/decisions/pending.md`)
+## Open questions
 
-- **P-89:** the six `to_verify` series have no recorded close time. Keep D-014 as it is, with the
-  final instant at 24:00 of the session date plus one day? The cost is that a US equity at the
-  close of d sees SPX/NDX/RUT/DJI of **d−2**, not d−1. Or should the supervisor verify their close
-  times?
-- **P-90:** what "forward-fill capped at 5 days" (addendum §5.3) measures: calendar days from the
-  value's final instant to the traded bar's decision instant (proposed); and whether a stale bar is
-  `-1` (proposed) rather than an error.
-- **P-91:** schedule checks for `aux`: skipped with a written reason (proposed), or checked against
-  the NYSE calendar and reported as warnings?
-- **P-92:** the reference index per symbol (addendum §5.1). Proposed: US equity → SPX; FX and
-  metals → DXY; the US index CFDs → their own index (USA500 → SPX, USATECH → NDX, USA30 → DJI,
-  USSC2000 → RUT); others none. Stored as a column in `configs/universe/` (stream B) and a
-  `reference_index` field on the universe entry, which stream A regenerates (D-394). Build it here,
-  or in stage 5's task?
+None open. P-89 → D-718, P-90 → D-719, P-91 → D-720, P-92 → D-721.
