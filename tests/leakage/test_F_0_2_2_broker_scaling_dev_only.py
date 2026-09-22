@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 from fixtures.t05 import MemoryLedger, bars_from_close, fx_hours, fx_meta, random_close
 
-from strategy_factory.costs.arrays import resolve_from_data
+from strategy_factory.costs.arrays import resolve_from_data, week_open_mask
 from strategy_factory.costs.profile import load_profiles
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.config import SplitConfig
@@ -55,7 +55,13 @@ def test_F_0_2_2_broker_scaling_never_sees_the_holdout(tmp_path: Path) -> None:
 
     resolved, table = resolve_from_data(profile, dev)
     assert np.array_equal(table.full_spread, clean_table.full_spread)  # factor and shape unchanged
+    assert table.week_open == clean_table.week_open is not None  # the week-open key too (D-716)
     assert resolved.source_note == clean.source_note  # it records the fitted factor
     hourly = np.asarray(resolved.spread.model_dump()["hourly"])
-    dev_hours = (np.asarray(dev["ts"], dtype=np.int64) // 3_600_000_000) % 24
-    assert abs(float(np.mean(hourly[dev_hours])) / broker - 1.0) < 1e-12
+    dev_ts = np.asarray(dev["ts"], dtype=np.int64)
+    dev_hours = (dev_ts // 3_600_000_000) % 24
+    # what each development bar is charged: its UTC hour, or the week-open key (D-716)
+    charged = np.where(
+        week_open_mask(dev_ts, "1H"), resolved.spread.model_dump()["week_open"], hourly[dev_hours]
+    )
+    assert abs(float(np.mean(charged)) / broker - 1.0) < 1e-12

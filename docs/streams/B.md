@@ -53,15 +53,15 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04j approved (D-715, D-716, D-717); waiting for the download** — branch
-`b/T04j-dukascopy-ingest`. The coverage gate is built and tested (`sfac data coverage dukascopy`;
-`sfac data ingest dukascopy` refuses a gapped set before writing anything). On 2026-09-22 it reports
-**0 of 29 complete, 3,890 required months missing**, so **nothing is ingested**. The user runs
-`powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1` (resumable;
-it ends with the remaining gaps) until it prints `coverage gate: passed`; then the defect families
-are re-measured on all 29 (stop if any appears, D-717) before the ingest. P-87 → D-716 (the daily
-cost read is T12's, stream A, from the measurement in the T04j task file); P-88 → D-715 (T04j does
-not block T12).
+**Current position:** **T04j paused** on `b/T04j-dukascopy-ingest` (pushed, no PR): the download
+needs several more days. Built and tested: the coverage gate (`sfac data coverage dukascopy`; the
+ingest refuses a gapped set, 0 of 29 complete on 2026-09-22) and **the week-open spread key (D-716)**
+in `costs/`: the Sunday open (= Monday's daily open, 4.0–5.4× the median for FX) is its own key in
+the cost table, and `build_cost_arrays` charges it. **Stream A:** `SpreadHourly` gains an optional
+`week_open` (omitted from the dump when empty, so profile hashes are unchanged); the leakage gate
+`test_F_0_2_2_broker_scaling_dev_only` now charges week-open bars their own key in its D-523 check.
+Resume T04j with `scripts\pilots\T04j_dukascopy_download.ps1` until `coverage gate: passed`.
+Next: **the Yahoo auxiliary series plan** (VIX, index series; D-403).
 
 **Note — transient `OSError: [Errno 22]` from `sfac` after #41 (2026-09-22).** Right after `uv sync` on
 `main` (`15ab01a`, #41's UTF-8 entry point), `uv run sfac --help | head -5` printed a traceback ending

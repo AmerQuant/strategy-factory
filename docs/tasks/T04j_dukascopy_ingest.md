@@ -15,8 +15,9 @@ from `main`.
 > runs on US equities and ETFs now; FX, metals and index / energy CFDs join the candidate universe
 > when T04j completes.
 
-**Status:** plan approved 2026-09-22 (D-715, D-716, D-717). **No ingest until the coverage gate
-passes** — the download is incomplete (below).
+**Status:** plan approved 2026-09-22 (D-715, D-716, D-717). The coverage gate and the week-open
+spread key are built. **Paused:** the download needs several more days, and nothing is ingested
+until the coverage gate passes.
 
 Read first: `CLAUDE.md` (rules 3, 7, 10, 11), D-010, D-020, D-026, D-028, D-031, D-032, D-323, D-350,
 D-386, D-523, D-707, D-708, D-714, D-715, D-716, D-717; `docs/reviews/T04e_review.md`, `T05_review.md`, `T06b_review.md`,
@@ -98,40 +99,57 @@ review**: they matter only through D-523's hourly shape, which is a **median** p
 - A profile resolves only against the 1H reference's `spread` column (top of this file). Stream A's
   `configs/costs/` is not touched.
 
-## Costs of a daily run — what a daily cost consumer reads (D-716; implemented by stream A in T12)
+## Costs of a daily run — the week open (D-716; T12 in stream A reads it)
 
-The 1D snapshot's `spread` is the **last hour's** (T05 resampler, D-032): 23:00 UTC stands for the
-whole day. **A daily cost consumer never reads it.** Measured on the six near-complete instruments
-(`scripts/analysis/T04j_spread_hours.py` → `docs/reviews/T04j_spread_by_hour.csv`, the median spread
-per UTC hour ÷ the overall median; the Sunday open measured on the first bar of each week):
+**Every daily FX entry on a Monday lands on the widest spread of the week.** The bar that opens the
+trading week (the Sunday open) is **4.0–5.4×** the median spread for FX and **1.3×** for metals, and
+under D-010 it is the open of Monday's daily bar, the fill of every daily next-open entry signalled on
+a Friday.
 
-| UTC hour | FX (EURUSD, GBPUSD, GBPCHF, CADJPY) | metals (XAUUSD, XAGUSD) |
+**Built in T04j** (`costs/arrays.py`, `costs/profile.py`; tests
+`tests/unit/test_F_0_2_2_week_open_spread.py`):
+- `week_open_mask(ts, timeframe)`: the first bar of each trading week (keyed from Saturday 00:00 UTC)
+  that starts on a **Sunday**; at `1D`, the **Monday** bar.
+- The spread table (`hourly_spread_table`, `broker_scaled_table`) takes those bars **out of their UTC
+  hour** and keeps them as a separate key, `week_open` (median; scaled with the rest under D-523 and
+  weighted by its bars, so the bar-weighted mean is still the broker spread).
+- `SpreadHourly.week_open` carries it into the resolved profile; `build_cost_arrays` charges it to the
+  week-open bar at 1H and to Monday's bar at 1D.
+- A market without Sunday hours (US equities) gets no key and nothing changes. A profile without the
+  key serialises exactly as before, so its content hash is unchanged (tested).
+- The mandatory leakage gate `tests/leakage/test_F_0_2_2_broker_scaling_dev_only.py` still proves
+  that the holdout never reaches the table. Its closing check (the bar-weighted mean of what each
+  development bar is charged equals the broker spread, D-523) now charges the week-open bars their own
+  key instead of their UTC hour. It also asserts that the week-open value is unchanged by the
+  poisoned holdout. The invariant is the same, and it is checked on more.
+
+**Measured with the table itself** (`scripts/analysis/T04j_spread_hours.py` →
+`docs/reviews/T04j_spread_by_hour.csv`: each key ÷ the instrument's median spread; six instruments,
+≈ 800 week opens each):
+
+| key | FX (EURUSD, GBPUSD, GBPCHF, CADJPY) | metals (XAUUSD, XAGUSD) |
 |---|---|---|
-| 01–06 | 1.0–1.1× | 0.98–1.03× |
-| 07–19 | 0.75–1.0× | 0.75–1.0× |
+| 00–06 | 1.0–1.1× | 0.98–1.03× |
+| 07–19 | 0.75–1.0× | 0.93–1.0× |
 | 20 | 2.3–2.5× | 1.5–1.7× |
-| 21 | 3.0–3.7× | 1.7–1.9× |
-| 22 | 1.7–1.9× | 1.4× |
-| 23 (the 1D snapshot's `spread`) | 1.00–1.22× | 1.00–1.22× |
-| 00 | 1.00–1.10× | 1.00–1.10× |
-| Tue–Fri 00:00 bar (a daily bar's first hour) | 1.00–1.10× | 1.00–1.03× |
-| **Sunday open** (Monday's daily bar's first hour) | **4.0–5.4×** at 21:00 / 22:00 | **1.3×** at 22:00 / 23:00 |
+| 21 | 3.0–3.44× | 1.7–1.9× |
+| 22 | 1.5–1.85× | 1.3–1.4× |
+| 23 (the 1D snapshot's `spread`) | 1.0–1.22× | 1.0–1.06× |
+| **week_open** (the Sunday open = Monday's daily open) | **4.0–5.39×** | **1.27–1.31×** |
 
-**Correction to the premise:** the last UTC hour is not the widest. The widest are 20–22 UTC and the
-Sunday open.
+Taking the week opens out barely moves hour 21 (it was 3.0–3.7× with them). That bucket is a median,
+and weekday 21:00, the rollover, is itself about 3×. The Sunday open never showed in it: before this
+key, the 4–5× value existed nowhere in the table.
 
-What the consumer reads instead:
-
-1. **The table:** D-523's `broker_scaled` hourly table, 24 UTC hours, resolved from the symbol's **1H
-   development segment** (as `sfac costs show` does, `SPREAD_TIMEFRAME = "1H"`), not from the 1D bars.
-2. **A fill at a daily bar's open** (the next-open fills): the table value at the **UTC hour of that
-   daily bar's first source hour** — hour 0 Tuesday to Friday; on **Monday** the hour of the Sunday
-   open (the first 1H bar of that week: 21 or 22 for FX, 22 or 23 for metals, per D-010).
-3. **A fill inside a daily bar** (SL / TP / disaster stop; the hour is unknown on a daily bar): the
-   table's **mean over its 24 hours**, which equals the Moneta reference spread by construction
-   (D-523).
-4. **Known limit, recorded and not ruled on:** the table's hour-21 bucket (≈ 3× for FX) averages the
-   Sunday open with weekday 21:00s, so it **understates** the Monday-open spread (4.0–5.4× measured).
+**What a daily cost consumer does (T12, stream A):**
+1. Resolve the table from the symbol's **1H development segment** (as `sfac costs show` does,
+   `SPREAD_TIMEFRAME = "1H"`), never from 1D bars. The 1D snapshot's `spread` is the 23:00 hour's,
+   and the last hour is **not** the widest: the week open and 20–22 UTC are.
+2. **Fill at a daily bar's open:** `build_cost_arrays(..., timeframe="1D")` already charges hour 0
+   Tuesday to Friday and `week_open` on Monday.
+3. **Fill inside a daily bar** (SL / TP / disaster stop; the hour is unknown): the profile's **broker
+   spread**, which equals the table's bar-weighted mean by construction (D-523,
+   `HourlySpread.bar_weighted_mean`). It is not the plain mean of the 24 hours.
 
 ## D-008 — how many would enter the candidate universe
 
@@ -181,7 +199,8 @@ What the consumer reads instead:
 - m1 data (D-026: spread detail and intrabar resolution later, F-0.3.5).
 - Yahoo auxiliary series (next task).
 - Stage-1 inclusion of these symbols: stream A's T12; they join when T04j completes (D-715).
-- The daily cost read: stream A's T12 implements it from the measurement above (D-716).
+- Wiring the daily cost read into stage 1: stream A's T12 (D-716); the table and the per-bar
+  charge are built here.
 - Any change to `configs/costs/` (stream A).
 
 ## Acceptance
