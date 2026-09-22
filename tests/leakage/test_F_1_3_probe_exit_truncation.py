@@ -35,12 +35,15 @@ def test_F_1_3_probe_exits_are_truncation_invariant(rule: str, probe_name: str) 
 
 
 def test_F_1_3_a_look_ahead_rule_fails_the_truncation_check() -> None:
-    """Non-vacuity: a one-bar look-ahead (``close > high[i+1]``) is caught by the same check."""
+    """Non-vacuity: a one-bar look-ahead (``close[i+1] > close[i]``) is caught by the same check.
+
+    (``close > high[i+1]`` would not do: these walks open at the previous close, so it never fires.)
+    """
     full = Bars(*random_ohlc(9, 300))
 
     def peek(b: Bars) -> np.ndarray:
         out = np.zeros(len(b), dtype=np.bool_)
-        out[:-1] = b.close[:-1] > b.high[1:]
+        out[:-1] = b.close[1:] > b.close[:-1]
         return out
 
     whole = peek(full)
