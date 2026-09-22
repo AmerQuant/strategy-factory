@@ -19,7 +19,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 | branch | head | state | waiting on |
 |---|---|---|---|
 | `b/T04m-yahoo-aux` | `7dd6eb3` | **merged** 2026-09-22: [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45), `main` = `4cf6aaf` | nobody |
-| `b/docs-P93-aux-collision` | `7d1a28e`, [PR #46](https://github.com/AmerQuant/strategy-factory/pull/46), CI green | this file plus **P-93** (below), from `main` `4cf6aaf` | the supervisor's "Approved. Merge" |
+| `b/docs-P93-aux-collision` | `7d1a28e` | **merged** 2026-09-22: [PR #46](https://github.com/AmerQuant/strategy-factory/pull/46), `main` = `caf62fe` (P-93 on the record, docs only) | nobody |
 | `b/T04j-dukascopy-ingest` | `3f324f4`, pushed, **no PR** | **paused** mid-task: plan approved, coverage gate and the week-open spread key built; nothing ingested | **the user**: the Dukascopy h1 download (several more days) |
 
 ### T04m — Yahoo aux series (merged, PR #45)
@@ -66,7 +66,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
   `powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1`
   (from this worktree, **on the T04j branch**).
 - **When the user reports the gate passed, resume the task file's scope 2–7:**
-  1. Rebase T04j onto `main`, which by then holds T04m. Conflicts are expected in `B.md`,
+  1. Rebase T04j onto `main`, which by then holds T04m and P-93 (#46). Conflicts are expected in `B.md`,
      `decisions_log.md` and `pending.md`: keep every row, in ID order.
   2. Re-run `scripts/analysis/T04j_defects.py` on all 29. **Stop and raise if any defect family
      appears** (D-717).
@@ -81,7 +81,6 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 
 - **Supervisor:**
   - the next task for stream B (none is assigned beyond T04j);
-  - "Approved. Merge" for **PR #46** (P-93 on the record; docs only);
   - whoever takes **P-93**.
 - **User:**
   - the Dukascopy download (the script above);
@@ -112,7 +111,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 ### IDs
 
 Next free: **D-722**, **P-94**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
-merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/docs-P93-aux-collision` (PR #46).
+merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `main` too (#46).
 
 ## Scope
 
