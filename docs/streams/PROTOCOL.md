@@ -7,7 +7,7 @@ with your own status file, `docs/streams/A.md` or `docs/streams/B.md`.
 | | stream A | stream B |
 |---|---|---|
 | folder | `D:\AmerAndish\Projects\Trade\StrategyFactory` | `D:\AmerAndish\Projects\Trade\StrategyFactory_B` (a git worktree) |
-| work | the batch-2b merges (done), then **T11 parity** | **data** (batch 3-data), then T12 |
+| work | the batch-2b merges and T11 parity (done), then **T11b**, then **T12** (D-611) | **data** (batch 3-data) |
 | branch prefix | `a/` | `b/` |
 | decisions | **D-360 … D-379** | **D-380 … D-399** (used up) **and D-700 … D-799** |
 | pending | **P-40 … P-59** | **P-60 … P-79** (used up) **and P-80 … P-99** |
@@ -55,7 +55,9 @@ The machine-readable list is `docs/streams/ownership.yaml`; the CI guard enforce
 
 **Stream A only** — a stream-B need for any of these is a **P- question**, not an edit:
 `HANDOFF.md`, `CLAUDE.md`, `docs/STANDING_PROMPT.md`, `.github/`, `pyproject.toml`, `uv.lock`,
-the Alembic migrations, and (until T11 is merged) `src/strategy_factory/components/`.
+the Alembic migrations, and the stage-1 paths of **D-611**: `src/strategy_factory/components/`
+(kept past T11's merge, no longer lapsing), `src/strategy_factory/stages/`,
+`src/strategy_factory/baseline/`, `src/strategy_factory/metrics/` and `configs/gates/`.
 Changing any of them also needs a **notice to the supervisor** in the PR body.
 
 **Split ownership:**
