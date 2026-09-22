@@ -46,8 +46,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
 Stream A has used **D-360 … D-379**, **D-800 … D-803**, **P-40 … P-59** and **P-100 … P-102**.
-**Next free here: D-804, P-103.** Supervisor rows written by stream A: D-601 … D-617; next free
-supervisor id **D-618**. (D-803 and D-613 … D-617 are on `a/T12-edge-discovery`, not yet on `main`.)
+**Next free here: D-804, P-103.** Supervisor rows written by stream A: D-601 … D-620; next free
+supervisor id **D-621**. (D-803 and D-613 … D-620 are on `a/T12-edge-discovery`, not yet on `main`.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -93,17 +93,20 @@ before step 9, as the supervisor required: branch `a/T12-edge-discovery` (pushed
   criterion, the probe exits, the matched baseline, the stage framework (no split manager in
   `RunContext`), `s01_edge`, `sfac run`, the random-walk control, and their tests
   (fast 1,737, parity/leakage/oracle 396, db 22 with 0 skipped; ruff, format, mypy clean).
-- **Pilot (step 8):** `docs/reviews/T12_pilot.md`. 10 symbols; reproduced exactly on a second
-  run; the projected full run with controls is about 1.6 h. **Found a bias in the D-615
-  baseline**: a second disaster stop in the baseline inflates TF long probes under drift (the
-  permuted 1H control passes 2 of 40, both TF long). This is raised as **P-100** with an
-  amendment. P-101 (TF probes below the trade minimum, the §11 trigger) and P-102 (two
-  uninformative warnings) are also open.
+- **Pilot (step 8), then D-618 and a re-run:** `docs/reviews/T12_pilot.md`, whose §7–§11
+  supersede §1–§6. The first pilot found the D-615 baseline bias (P-100). **D-618** (the
+  baseline holds exactly its drawn periods, with no stop; why D-615 was wrong is recorded),
+  **D-619** (P-101) and **D-620** (P-102) are applied and tested. The re-run: both random-walk
+  controls pass **0 of 40** (was 0 and 2); real 1H passes fell from 3 to 0 (they were drift);
+  1D keeps AAPL MR long (ESS 60.8); reproduced exactly; ≈ 3.4 h projected for step 9 with
+  controls. Findings for T15: TF on 1D is near-unpassable (4 probes limited by the exits, 2 by
+  signal frequency); the TF disaster-stop hit rate is about 30 % (the median over all probes is
+  8 %, against D-130's 2 %); magnitude dominates ESS; the permuted control is conservative
+  (percentiles average about 38).
 
 ### Open, and on whom
 
-- **P-100 … P-102** — on the supervisor. P-100 blocks step 9: the pilot is re-run after it.
-- **Step 9 (the full run)** — only after the supervisor has seen the pilot (and P-100).
+- **Step 9 (the full run)** — on the supervisor's word, after the re-run pilot.
 - **T11b, P-50** — parked (D-802); resumes when the user exports.
 - **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** —
   deleting needs the supervisor (the plan branch is folded into `a/T12-edge-discovery`).
@@ -127,9 +130,8 @@ before step 9, as the supervisor required: branch `a/T12-edge-discovery` (pushed
 
 ### Next actions, in order
 
-1. The supervisor answers P-100 … P-102.
-2. Apply the P-100 answer, add the drifted TF uniformity case, re-run the pilot, report again.
-3. Step 9 on the supervisor's word: the full MVP scope on 1D and 1H plus the random-walk
-   control (`configs/pipeline/s01_broker_{1d,1h}[_control].yaml`); then the review, the
-   acceptance reviewer, the PR, and the stop for "Approved" (D-402).
-4. T11b when the user exports (D-802).
+1. Step 9 on the supervisor's word: the full MVP scope on 1D and 1H plus the random-walk
+   control (`configs/pipeline/s01_broker_{1d,1h}[_control].yaml`, ≈ 3.4 h); then the review
+   (including D-619's conclusion and D-620's distribution), the acceptance reviewer, the PR,
+   and the stop for "Approved" (D-402).
+2. T11b when the user exports (D-802).

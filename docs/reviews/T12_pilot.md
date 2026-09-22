@@ -1,6 +1,6 @@
 # T12 — stage-1 pilot (runbook step 8)
 
-**Stopped before step 9, as instructed.** The full run is not started. The pilot also found
+**Stopped before step 9, as instructed.** *(Sections 1-6 are the first pilot; sections 7-11 below are the re-run after D-618, and supersede its numbers.)* The full run is not started. The pilot also found
 **a bias in the random baseline as D-615 defines it**. It inflates trend-following long
 probes under drift, and it is raised as **P-100**, with a proposed amendment to D-615. Until
 it is answered, the pilot's ESS numbers below are **not** a sound basis for calibration.
@@ -205,3 +205,177 @@ periods that are drawn. After that:
 - **P-100:** amend D-615 so the baseline has no second disaster stop, then re-run the pilot before step 9.
 - **P-101:** TF probes on 1D, and `tf_sma_cross_20_100` on 1H, are systematically below the trade minimum. Run the full scope as it is and report the per-probe counts, or change something first?
 - **P-102:** both near-universal warnings. Proposed: keep the numbers in the artifact and drop the warnings, or make them relative; the supervisor decides.
+
+---
+
+# After D-618: the pilot re-run (2026-09-22)
+
+This re-run follows the supervisor's answers:
+- **P-100 → D-618**: baseline trades hold exactly their drawn periods, with no stop of their own.
+- **P-101 → D-619**: run as is and state the conclusion.
+- **P-102 → D-620**: keep the numbers and drop the two warnings.
+
+The same ten symbols, configs and seed as before. **Stopped again before step 9.**
+
+## 7. Runs
+
+| run | run id | profiles | passed | wall time |
+|---|---|---|---|---|
+| 1D | `77bab6c3…` | 40 | 1 | 37 s |
+| 1D, second run | `eaa65c3e…` | 40 | 1 | 35 s |
+| 1H | `ed995f85…` | 40 | **0** (was 3) | 109 s |
+| 1D random-walk control | `6ee56235…` | 40 | **0** | 37 s |
+| 1H random-walk control | `9b223938…` | 40 | **0** (was 2) | 126 s |
+
+- **Reproduced exactly.** The second 1D run's `summary.json` files are identical to the first
+  (apart from the run id).
+- **The fix did what it should.** Both random-walk controls now pass **0 of 40**. The real-data
+  1H passes (TF long on AAPL, AMZN and AMD) are **gone**: they were the drift D-618 removes, not edges.
+
+**Compute.** Wall time is about twice the first pilot's, and the new stop is **not** the cause:
+the infinitely far stop measured 1.5 s per profile against 2.2 s for the old 3-ATR stop, and
+profile times vary noticeably between runs. At the slower rate the full scope comes to about
+**29 min on 1D and 67 min on 1H, ≈ 3.4 h with both controls**. That is at the edge of "a few
+hours", so no reduction is proposed, but the supervisor should know it.
+
+## 8. The numbers
+
+### ESS distribution
+
+| | min | p25 | median | p75 | max | ESS ≥ 50 | passed |
+|---|---|---|---|---|---|---|---|
+| 1D | 0.3 | 2.1 | 17.4 | 35.0 | 60.8 | 1 | 1 |
+| 1H | 0.0 | 1.2 | 8.6 | 30.5 | 61.8 | 2 | 0 |
+| 1D control | 0.2 | 0.9 | 2.1 | 11.3 | 40.7 | 0 | 0 |
+| 1H control | 0.2 | 0.8 | 2.2 | 13.4 | 37.1 | 0 | 0 |
+
+ESS histogram, profiles per band of 10 points, from 0–10 up to 90–100:
+
+| | 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1D | 17 | 3 | 5 | 9 | 5 | 0 | 1 | 0 | 0 | 0 |
+| 1H | 22 | 4 | 3 | 5 | 4 | 1 | 1 | 0 | 0 | 0 |
+
+Mean points per component:
+
+| | breadth /30 | magnitude /30 | significance /20 | consistency /20 |
+|---|---|---|---|---|
+| 1D | 0.6 | 13.0 | 3.9 | 2.7 |
+| 1H | 0.5 | 9.4 | 4.1 | 2.1 |
+
+Median ESS by edge type and direction. **The TF-long outlier is gone:**
+
+| | MR long | MR short | TF long | TF short |
+|---|---|---|---|---|
+| 1D, first pilot | 18.9 | 17.2 | **37.8** | 1.3 |
+| 1D, after D-618 | 17.4 | 17.7 | 18.0 | 18.2 |
+| 1H, after D-618 | 1.5 | 10.3 | 12.2 | 19.9 |
+
+**The one pass:** 1D AAPL MR long, ESS 60.8, groups momentum, oscillator and sequence, quality `ok`.
+
+**Why profiles fail.** On 1D the profile gate fails on `accepted_probe_groups` 39 times and on
+`ess` 39 times; on 1H, 40 and 38 times. 3 of 340 probes are accepted on each timeframe.
+
+| probe-gate criterion (1D) | failures |
+|---|---|
+| `probe_q_value` | 336 |
+| `probe_percentile` | 311 |
+| `profit_factor` | 235 |
+| `n_trades` | 93 |
+
+**Magnitude dominates ESS** (13 of 30 points on 1D against 3.9 of 20 for significance). It even
+gives the controls 4–6 points. Since the numbers are now clean, this is what §11's "ESS constants
+badly placed?" should look at. I report it and change nothing. It explains why many
+non-significant profiles sit at ESS 30–40, and 0.10 ATR as the full-magnitude target is the
+constant to question in T15.
+
+### Probe percentiles by edge type and direction
+
+Mean percentile / share at or above 90:
+
+| | MR long | MR short | TF long | TF short |
+|---|---|---|---|---|
+| 1D | 51.4 / 11 % | 57.1 / 14 % | 47.4 / 5 % | 48.4 / 3 % |
+| 1H | 39.6 / 14 % | 46.3 / 11 % | 55.1 / 13 % | 57.2 / **21 %** |
+| 1D control | 40.0 / 0 % | 34.5 / 3 % | 37.2 / 1 % | 39.4 / 0 % |
+| 1H control | 41.7 / 3 % | 40.4 / 7 % | 35.7 / 3 % | 38.9 / 5 % |
+
+**Two residuals, reported and not explained away:**
+1. **The permuted-returns control is conservative.** Its percentiles average 38–42, with 0–7 %
+   at or above 90, where a clean null gives about 50 and 10 %. Its 0 passes are therefore a
+   **lower** bound on the false-positive rate. The calibrated null is the synthetic one: after
+   D-618 a drifted geometric random walk gives TF long a mean percentile of 50–53 with about 10 %
+   at or above 90, and that is pinned in the uniformity test.
+2. **TF short sits a little high** (1H 57.2 with 21 % at or above 90; synthetic 55–58 with
+   14–17 % under drift). **MR short sits low** on synthetic data (about 35, even without drift).
+   Both are far smaller than the D-615 bias. They are to be checked on the full-scope control
+   before any threshold is read.
+
+### Quality split
+
+Too small to judge at 40 profiles. On 1D the one pass is `ok` (1 of 28 `ok`, 0 of 12
+`warning`); on 1H there are no passes.
+
+## 9. P-101 → D-619: TF on 1D, stated plainly
+
+**Finding: under D-101's fixed TF exits and the 30-trade minimum, TF on 1D is close to
+unpassable. The two causes need different remedies.**
+
+The 1D development window is about 7.6 years (median). Per probe, out of 20 profiles:
+
+| TF probe | entry signals (median) | closed trades (median) | profiles below 30 | limited by |
+|---|---|---|---|---|
+| `tf_sma_cross_20_100` | 13 | 12 | 20 of 20 | **signal frequency** (1.7 per year) |
+| `tf_supertrend_flip` | 28 | 28 | 13 of 20 | **signal frequency** (3.7 per year) |
+| `tf_donchian55_breakout` | 52 | 15 | 20 of 20 | **the exit** |
+| `tf_bb_upper_cross` | 55 | 26 | 16 of 20 | **the exit** |
+| `tf_ichimoku_cloud` | 490 | 28 | 12 of 20 | **the exit** |
+| `tf_donchian20_breakout` | 108 | 29 | 10 of 20 | **the exit** |
+| `tf_ma50_slope_up` | 48 | 48 | 2 of 20 | — |
+| `tf_roc20_cross_zero` | 83 | 82 | 0 of 20 | — |
+
+"The exit" means the reverse-signal exit with its 50-bar cap holds each position so long that
+most signals arrive while the probe is already in a trade, and are ignored.
+
+- **What that leaves.** A median TF profile on 1D has **3 probes** with enough trades. In
+  **7 of 20** TF profiles, fewer than 3 groups have any probe with enough trades, so
+  `accepted_probe_groups ≥ 3` cannot be met whatever the data say.
+- **What T15 must know.**
+  - **For four probes it is the exits**: shortening the TF hold would multiply their trades
+    (donchian20 already fires 108 times).
+  - **For two it is the threshold or the battery**: no exit can give `sma_cross_20_100` 30
+    trades in 7.6 years, because it fires 13 times.
+  - **So the answer is not one or the other.** TF on 1D needs a shorter exit or a lower
+    minimum for the first group, and a different probe or no 1D use for the second.
+- **On 1H the problem mostly goes away.** Only `tf_sma_cross_20_100` (16 of 20 below 100) and
+  `tf_donchian55_breakout` (4 of 20) fall short, and every TF profile has all 5 groups with at
+  least one eligible probe.
+- **MR is unaffected** on both timeframes: 0 of 20 below the minimum for every probe.
+
+## 10. P-102 → D-620: the disaster-stop hit rate is itself a finding
+
+The warnings are gone; the numbers stay in every probe result. The distribution of each
+probe's share of trades exiting on the 3-ATR disaster stop:
+
+| | p10 | p25 | median | p75 | p90 | share of probes above 2 % |
+|---|---|---|---|---|---|---|
+| 1D, all probes | 3.1 % | 5.1 % | **8.0 %** | 27.3 % | 42.9 % | 97 % |
+| 1D, MR | | | 6.0 % | | | 98 % |
+| 1D, **TF** | | | **28.6 %** | | | 97 % |
+| 1H, all probes | 5.3 % | 6.1 % | 7.9 % | 35.3 % | 44.3 % | 100 % |
+| 1H, MR | | | 6.4 % | | | 100 % |
+| 1H, **TF** | | | **36.1 %** | | | 100 % |
+
+**D-130's 2 % was written for an optimised strategy's exit (stage 4), not for a raw probe.
+Stage 1 measures far above it, and the missing warning is not agreement with 2 %.**
+
+For **TF the disaster stop is effectively a primary exit**, closing about a third of all
+trades. The 3-ATR stop, set from the signal bar's ATR, is usually reached before the reverse
+signal or the 50-bar cap. That is part of what D-101's TF exits measure, and it belongs next to
+§9 when T15 revisits the TF exits.
+
+## 11. Stop
+
+Step 9 is not started. The full-run configs are ready
+(`configs/pipeline/s01_broker_{1d,1h}.yaml` and `_control` variants), with a projected ≈ 3.4 h
+in total. Step 9 waits for the supervisor.
