@@ -19,7 +19,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 | branch | head | state | waiting on |
 |---|---|---|---|
 | `b/T04m-yahoo-aux` | `7dd6eb3` | **merged** 2026-09-22: [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45), `main` = `4cf6aaf` | nobody |
-| `b/docs-P93-aux-collision` | pushed, **no PR** | this file plus **P-93** (below), from `main` `4cf6aaf` | a docs PR when the supervisor wants it merged |
+| `b/docs-P93-aux-collision` | `7d1a28e`, [PR #46](https://github.com/AmerQuant/strategy-factory/pull/46), CI green | this file plus **P-93** (below), from `main` `4cf6aaf` | the supervisor's "Approved. Merge" |
 | `b/T04j-dukascopy-ingest` | `3f324f4`, pushed, **no PR** | **paused** mid-task: plan approved, coverage gate and the week-open spread key built; nothing ingested | **the user**: the Dukascopy h1 download (several more days) |
 
 ### T04m — Yahoo aux series (merged, PR #45)
@@ -81,6 +81,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 
 - **Supervisor:**
   - the next task for stream B (none is assigned beyond T04j);
+  - "Approved. Merge" for **PR #46** (P-93 on the record; docs only);
   - whoever takes **P-93**.
 - **User:**
   - the Dukascopy download (the script above);
@@ -111,7 +112,7 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 ### IDs
 
 Next free: **D-722**, **P-94**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
-merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/docs-P93-aux-collision`.
+merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/docs-P93-aux-collision` (PR #46).
 
 ## Scope
 
