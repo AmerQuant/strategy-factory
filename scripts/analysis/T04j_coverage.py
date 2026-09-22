@@ -59,7 +59,7 @@ def main() -> None:
     expected = _months(cfg.h1_start, last_complete)
     universe = pl.read_csv(UNIVERSE)
     rows = []
-    for inst, sym, cls in universe.select("instrument_id", "symbol", "asset_class").rows():
+    for _inst, sym, cls in universe.select("instrument_id", "symbol", "asset_class").rows():
         bid, ask = _side(root / sym / "bid"), _side(root / sym / "ask")
         both = sorted(set(bid) & set(ask))
         written = [m.get("written_at", "") for side in (bid, ask) for m in side.values()]
