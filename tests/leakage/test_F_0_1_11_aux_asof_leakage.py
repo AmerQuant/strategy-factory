@@ -5,8 +5,8 @@ Two properties, on random aux calendars, close times, lags and traded bars (US e
 hourly, FX daily and hourly):
 
 * every value read is final **strictly before** the reading bar's decision instant;
-* **data truncation:** cutting the aux series after any instant T -- and cutting the traded bars
-  after any bar -- changes nothing for a bar whose decision instant is at or before T.
+* **data truncation:** cutting the aux series after any instant T (drawn anywhere in the window)
+  and the traded bars after the last one decided by T changes nothing for those bars.
 
 Mandatory leakage gate: never skipped, weakened or deleted (CLAUDE.md rule 9).
 """
@@ -125,16 +125,18 @@ def test_F_0_1_11_no_bar_reads_a_value_not_yet_final(c: dict[str, Any]) -> None:
 @settings(max_examples=examples(150), deadline=None)
 @given(cases())
 def test_F_0_1_11_truncating_the_future_changes_nothing(c: dict[str, Any]) -> None:
-    """Cut the aux series after T and the traded bars after bar k: every bar decided by T reads
-    the same aux value (the same date) as with the full data."""
+    """Cut the aux series after an arbitrary instant T (every value final at or after T removed)
+    and the traded bars after the last one decided by T: each remaining bar reads the same aux
+    value (the same date) as with the full data."""
     meta = aux_meta(c["close"], c["zone"])
     ts = traded_ts(c["kind"], c["traded_days"])
     full = view(meta, c["aux_days"], c["kind"], ts, c["lag"], c["stale"])
-    k = max(1, int(c["cut"] * ts.size))
-    t_cut = int(full.decision_us[k - 1])  # T = the decision instant of bar k-1
-    known = [d for d, f in zip(c["aux_days"], _finals(meta, c["aux_days"], c["lag"]), strict=True)
-             if f < t_cut]  # fmt: skip
-    if not known:
+    lo, hi = int(full.decision_us.min()), int(full.decision_us.max())
+    t_cut = lo + int(c["cut"] * (hi - lo))  # any instant in the window, not only a decision
+    k = int((full.decision_us <= t_cut).sum())
+    finals = _finals(meta, c["aux_days"], c["lag"])
+    known = [d for d, f in zip(c["aux_days"], finals, strict=True) if f < t_cut]
+    if not known or k == 0:
         return
     cut = view(meta, known, c["kind"], ts[:k], c["lag"], c["stale"])
     a = full.at_bars(full.close)[:k]

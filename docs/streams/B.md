@@ -24,7 +24,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-718**, **P-93** (D-715 … D-717 and P-87, P-88 are on the T04j branch). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-722**, **P-93** (D-715 … D-717 and P-87, P-88 are on the T04j branch). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -53,11 +53,21 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04m planned, stopped for "Plan approved"** — branch `b/T04m-yahoo-aux`,
-task file `docs/tasks/T04m_yahoo_aux.md`: ingest the seven Yahoo aux series (never ingested) and
-build the as-of join F-0.1.11 a stage-5 filter reads; open P-89 … P-92. **T04j is paused** on
-`b/T04j-dukascopy-ingest` (pushed): the Dukascopy download needs several more days; its status is on
-that branch's copy of this file.
+**Current position:** **T04m done, review written, stopped** — branch `b/T04m-yahoo-aux` (pushed,
+no PR): the seven Yahoo aux series are ingested (7 references, `asset_class aux`) and joined as-of
+(F-0.1.11, D-718 … D-721). **T04j is paused** on `b/T04j-dukascopy-ingest` (pushed): the Dukascopy
+download needs several more days; its status is on that branch's copy of this file.
+
+**For stream A (T04m):**
+- **Regenerate `configs/universe.yaml`** (D-394): the aux calendars now come from the `calendar`
+  column of `configs/universe/aux_yahoo.csv` (D-720), so TNX, SPX, NDX, RUT, DJI change from
+  `24x5` to `nyse`. Nothing else in the generated universe changes (checked).
+- A stage-5 filter reads an aux series with `DataAccess.aux(aux, traded, timeframe)` (an
+  `AuxView`: compute on the aux bars, read at `idx`, `-1` = none or stale). At stage 6 it uses
+  `SplitManager.open_holdout_with_inputs(candidate, symbol, tf, pairs=..., aux=...)`, which spends
+  one access. Record `AuxView.key` with the run (rule 8).
+- `asset_class aux` is refused as a traded symbol by `DataAccess` and `SplitManager`: stage 1 must
+  leave the seven out of its candidate list, or it will get a `DataError`.
 
 Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
 and `T04l_D-714_20260922T080918Z`.

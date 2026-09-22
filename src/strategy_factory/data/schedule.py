@@ -28,7 +28,7 @@ from typing import Literal
 
 import polars as pl
 
-from strategy_factory.core.errors import ConfigError
+from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.data.config import (
     BreakDetectionConfig,
     BrokerSessionConfig,
@@ -307,8 +307,11 @@ def expected_aux(
     from strategy_factory.data.auxiliary import aux_calendar_of
 
     kind = aux_calendar_of(notes)
-    if kind is None:
-        return ExpectedSchedule(None, "aux series without an aux_calendar note (D-720)")
+    if kind is None:  # never a silent skip: that is the exemption D-720 forbids
+        raise DataError(
+            "aux series without an aux_calendar note: its schedule cannot be checked (D-720); "
+            "re-ingest it from configs/universe/aux_yahoo.csv"
+        )
     if kind == "weekdays":
         days = pl.date_range(first.date(), last.date(), "1d", eager=True)
         days = days.filter(days.dt.weekday() <= 5)

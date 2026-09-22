@@ -9,7 +9,12 @@ the IM edge type (addendum §5, D-235, D-240). **Depends on:** T04c (downloader,
 T04f (NYSE calendar). **Branch:** `b/T04m-yahoo-aux` from `main`. **Independent of T04j**, which
 is paused on its download.
 
-**Status:** plan approved 2026-09-22 with D-718 … D-721 (P-89 … P-92).
+**Status:** plan approved 2026-09-22 with D-718 … D-721 (P-89 … P-92); implemented (review
+`docs/reviews/T04m_review.md`). **As built, where it differs from the plan text below:** the
+module is `data/auxiliary.py` (`aux.*` is a reserved device name on Windows); the stage-6
+read is the new `SplitManager.open_holdout_with_inputs(..., pairs=, aux=)` (the old
+`open_holdout_with_conversion` delegates to it); the staleness cap is `max_stale_sessions`
+in traded sessions (D-719), not `max_staleness_days`.
 
 Read first: `CLAUDE.md` rules 2, 3, 7, 8, 10, 11; D-014, D-020, D-027, D-718, D-719, D-720, D-721, D-235, D-240, D-306, D-316,
 D-392; spec §5.2 (filter families); addendum §5.1–5.3 (the aux series and the timing rule, "critical

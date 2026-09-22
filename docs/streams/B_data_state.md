@@ -22,6 +22,11 @@ ingest or derivation pass.
 
 - 752 of the 806 hourly-universe symbols pass D-008 in **both** timeframes.
 - Plus 3 Dukascopy 1H pilot references (`EURUSD`, `XAUUSD`, `USA500IDXUSD`, hash version 1; T04j).
+- Plus **7 Yahoo aux references** (T04m, 2026-09-22): VIX, SPX, NDX, RUT, DJI, TNX, DXY, `1D`,
+  `asset_class aux`, hash version 2. They are **never candidates** (the data layer refuses them as
+  a traded symbol; no split, no holdout) and are read only through `DataAccess.aux` (below). Quality:
+  NDX and RUT `ok`; VIX, SPX, DJI, TNX and DXY `warning`, all with schedule checks run on their own
+  calendars (D-720).
 - No reference is `critical`, so `ensure_usable` blocks none.
 - Warning checks on the references: 1D `price_spikes` 2,099, `zero_volume` 936, `stale_prices` 899,
   `missing_bars` 382, `daily_wick_outlier` 38 (hourly symbols, D-396); 1H `price_spikes` 401,
@@ -53,9 +58,15 @@ ingest or derivation pass.
    - **P-68:** the rejected-rename rule.
    - **P-69:** `PX → RPC` inherits Praxair's index membership.
    - **P-70:** five rename destinations have no 1H raw data (`BFH`, `DINO`, `FBIN`, `GAP`, `TNL`).
-6. **Not ingested yet:**
-   - **Yahoo auxiliary series** (VIX, indices, `^TNX`, DXY; F-0.1.4 / F-0.1.11).
-   - **Full Dukascopy h1** (T04j).
+6. **Aux series (T04m, done 2026-09-22) and the full Dukascopy h1 (T04j, paused).**
+   - The seven Yahoo series are ingested and joined as-of (F-0.1.11). A stage-5 filter reads
+     `DataAccess.aux(aux, traded, timeframe)` -> `AuxView`, computes its indicator on the aux bars
+     and reads it at `idx` (`-1` = none or stale). At stage 6 it reads them inside the candidate's
+     one access: `SplitManager.open_holdout_with_inputs(..., aux=(...))`. The run records
+     `AuxView.key` (rule 8).
+   - Timing: an equity at the close of d reads VIX, NDX, DXY of d-1 and the unverified SPX, RUT,
+     DJI, TNX of d-2 (D-718); an FX bar reads VIX of d once 16:15 New York has passed.
+   - The full Dukascopy h1 (T04j) waits for the user's download.
 
    Neither is needed for stage 1; both are for P1 filters. This is stream B's likely next work, in an
    order the supervisor sets.
@@ -68,6 +79,6 @@ ingest or derivation pass.
 ## Where the evidence lives
 
 `docs/reviews/T04g_review.md` (1D ingest), `T04h_review.md` (1H ingest), `T04k_review.md` (clean daily),
-`T04l_review.md` (re-used tickers), and their CSVs under `docs/reviews/`; per-snapshot logs and
+`T04l_review.md` (re-used tickers), `T04m_review.md` (aux series), and their CSVs under `docs/reviews/`; per-snapshot logs and
 provenance under `<store>/_clean/` and `<store>/_reuse/`; the decisions D-380 … D-399 and D-700 …
-D-714 in `docs/decisions/decisions_log.md`.
+D-721 in `docs/decisions/decisions_log.md`.

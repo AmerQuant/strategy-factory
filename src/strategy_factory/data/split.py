@@ -394,27 +394,31 @@ class SplitManager:
         its aux series (T04m, F-0.1.11) over the same window, in **one** access.
 
         Neither the pairs' nor the aux series' own holdouts are consumed or recorded. The stage
-        is checked first (D-306) and every input is validated before the one-shot access is
-        spent, so a refused caller reads nothing and spends nothing.
+        is checked first (D-306), and **every input is built before the one-shot access is
+        spent** -- the conversion windows and the aux views over the holdout's bar starts (the
+        timestamps the split itself is computed from; no price is read) -- so a caller whose
+        inputs fail reads no holdout bar and keeps its access (T04m review B1).
         """
         self._check_stage(stage)
-        split = self.registered(self.reference(symbol, timeframe))
-        for pair in pairs:  # validate before the one-shot access is spent
-            self._conversion_arrays(
-                pair, symbol, timeframe, split.holdout_start, split.holdout_start
-            )
-        for name in aux:
-            self._aux_reference(name, symbol)
-        bars = self.open_holdout(candidate_id, symbol, timeframe, stage=stage)
+        traded = self.reference(symbol, timeframe)
+        split = self.registered(traded)
         conv = {
             pair: self._conversion_arrays(
                 pair, symbol, timeframe, split.holdout_start, split.holdout_end
             )
             for pair in pairs
         }
-        traded = self.reference(symbol, timeframe)
-        ts = bars["ts"].dt.epoch("us").to_numpy()
+        starts = self._ts(traded.key())
+        starts = starts.filter(starts >= split.holdout_start)
+        ts = starts.dt.epoch("us").to_numpy()
         views = {name: self._aux_view(name, traded, ts) for name in aux}
+        bars = self.open_holdout(candidate_id, symbol, timeframe, stage=stage)
+        if not np.array_equal(bars["ts"].dt.epoch("us").to_numpy(), ts):
+            raise DataError(  # the reference moved in between: never return misaligned views
+                f"holdout bars of {symbol} {timeframe} changed while being read",
+                stage="split",
+                symbol=symbol,
+            )
         return bars, conv, views
 
     def _aux_reference(self, aux_symbol: str, traded_symbol: str) -> SeriesMetadata:

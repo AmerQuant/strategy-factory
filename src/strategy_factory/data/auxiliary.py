@@ -23,7 +23,8 @@ decision instant. A value stays usable for ``max_stale_sessions`` traded session
 consuming symbol after the session in which it became usable (the first session of the consumer's
 calendar that ends after its final instant); later bars get ``idx = -1`` (D-719). Sessions are
 counted on the calendar, not on the bars read, so the count never depends on where a window
-starts.
+starts. A value final before the consumer calendar's first day has an unknown age and counts as
+stale (the NYSE calendar file starts 2016-01-04).
 
 A filter computes its indicator **on the aux bars** (causal) and reads it at ``idx``.
 """
@@ -41,6 +42,7 @@ import numpy.typing as npt
 
 from strategy_factory.core.errors import DataError
 from strategy_factory.data.download.alpaca_reference import load_sessions
+from strategy_factory.data.schedule import MARKETS_24X5
 from strategy_factory.data.schema import SeriesMetadata, SnapshotKey
 
 I64 = npt.NDArray[np.int64]
@@ -52,7 +54,6 @@ AUX_CALENDAR_NOTE = "aux_calendar="
 US_PER_DAY = 86_400_000_000
 US_PER_HOUR = 3_600_000_000
 NYSE_TZ = "America/New_York"
-_MARKETS_24X5 = frozenset({"fx", "metal", "energy_cfd", "index_cfd"})
 _STEP_US = {
     "1m": 60_000_000,
     "5m": 300_000_000,
@@ -85,21 +86,22 @@ def _day(ts_us: int) -> dt.date:
 def final_instants(ts_us: I64, meta: SeriesMetadata, extra_lag_days: int) -> I64:
     """Final instant (µs UTC) of each aux bar (see the module docstring); ascending."""
     verified = meta.value_final_status == "verified"
-    if verified and meta.value_final_time_local and meta.value_final_tz:
+    if verified:
+        if not (meta.value_final_time_local and meta.value_final_tz):
+            raise DataError(
+                "aux series marked verified without a close time and zone (D-718)",
+                symbol=meta.symbol,
+            )
         tz = zoneinfo.ZoneInfo(meta.value_final_tz)
-        at = dt.time.fromisoformat(meta.value_final_time_local)
-        shift = 0
-    else:
+        at, shift, lag = dt.time.fromisoformat(meta.value_final_time_local), 0, 0
+    else:  # not verified: 24:00 of the session date in the series' zone, + the lag (D-718)
         zone = meta.value_final_tz or meta.original_tz
         if not zone or zone == "unknown":
             raise DataError(
                 "aux series without a final time or a zone: its final instant is undefined",
                 symbol=meta.symbol,
             )
-        tz, at, shift = zoneinfo.ZoneInfo(zone), dt.time(0), 1  # 24:00 = next day 00:00
-        if meta.value_final_time_local:  # to_verify with a proposed time: that time
-            at, shift = dt.time.fromisoformat(meta.value_final_time_local), 0
-    lag = 0 if verified else extra_lag_days
+        tz, at, shift, lag = zoneinfo.ZoneInfo(zone), dt.time(0), 1, extra_lag_days
     out = np.empty(len(ts_us), dtype=np.int64)
     for i, t in enumerate(np.asarray(ts_us, dtype=np.int64)):
         day = _day(int(t)) + dt.timedelta(days=shift + lag)
@@ -156,7 +158,7 @@ def consumer_calendar(
     """The session calendar of a traded symbol of ``asset_class``."""
     if asset_class == "us_equity":
         return nyse_calendar(sessions_file)
-    if asset_class in _MARKETS_24X5:
+    if asset_class in MARKETS_24X5:
         return weekday_calendar(first, last)
     raise DataError(f"no session calendar for an aux join on asset class {asset_class!r}")
 
@@ -261,6 +263,8 @@ def build_view(
     keep = final < int(decision.max())
     final = final[keep]
     usable = np.searchsorted(cal.end_us, final, side="right").astype(np.int64)
+    # a value final before the consumer calendar's first day: its age is unknown -> stale
+    usable[final < cal.days[0] * US_PER_DAY] = -(max_stale_sessions + 1)
     idx = asof_index(decision, final, usable, sessions, max_stale_sessions)
     return AuxView(
         key=aux_meta.key(),

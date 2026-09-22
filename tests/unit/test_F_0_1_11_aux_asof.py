@@ -230,6 +230,13 @@ def test_F_0_1_11_final_instants_in_the_series_zone() -> None:
     assert tnx == us(dt.datetime(2024, 3, 10, 0, 0, tzinfo=chicago))  # 24:00 Fri + 1 day
     with pytest.raises(DataError, match="final instant is undefined"):
         final_instants(ts, aux_meta(**{**SPX, "original_tz": "unknown"}), 1)
+    # an unverified series never uses a proposed time: 24:00 local + lag (D-718)
+    proposed = aux_meta(
+        **{**SPX, "value_final_time_local": "16:00", "value_final_tz": "America/New_York"}
+    )
+    assert final_instants(ts, proposed, 1)[0] == us(dt.datetime(2024, 3, 10, tzinfo=NY))
+    with pytest.raises(DataError, match="verified without a close time"):
+        final_instants(ts, aux_meta(value_final_time_local=None), 1)
 
 
 # -- intraday consumers ---------------------------------------------------------------------
@@ -390,6 +397,7 @@ def test_F_0_1_11_holdout_read_inside_the_one_shot_access(
     last_close = dt.datetime.combine(bars["ts"].max().date(), dt.time(16), tzinfo=NY)
     assert int(v.final_us.max()) < us(last_close)
     assert [k.symbol for k in ledger.splits] == ["AAPL"]
+    assert all(k.symbol != "VIX" for k in ledger.snapshots)  # the aux series is never recorded
     with pytest.raises(HoldoutAccessError):
         mgr.open_holdout_with_inputs("c1", "AAPL", "1D", aux=("VIX",), stage=HOLDOUT_STAGE)
 
@@ -405,8 +413,8 @@ def test_F_0_1_11_aux_schedule_calendars() -> None:
     closures = {midnight(D(2016, 10, 10)), midnight(D(2016, 11, 11))}
     assert set(nyse.to_list()) - set(bond.to_list()) == closures
     assert set(week.to_list()) >= set(nyse.to_list()) and week.len() == 35
-    none = expected_aux(lo, hi, "raw prices", cfg)
-    assert none.starts is None and "D-720" in none.reason
+    with pytest.raises(DataError, match="D-720"):  # never a silent skip
+        expected_aux(lo, hi, "raw prices", cfg)
 
 
 def test_F_0_1_11_bond_closures_follow_the_rule() -> None:
@@ -528,3 +536,33 @@ def test_F_0_1_11_no_aux_value_final_in_the_window() -> None:
     days = sessions_between(D(2024, 1, 3), D(2024, 1, 5))
     v = join(aux_meta(), [D(2024, 1, 12)], EQUITY, [midnight(d) for d in days])
     assert v.close.size == 0 and (v.idx == -1).all()
+
+
+def test_F_0_1_11_a_failing_aux_input_keeps_the_holdout_access(
+    world: tuple[SplitManager, MemoryLedger], tmp_path: Path
+) -> None:
+    """T04m review B1: an aux view that fails after validation (here: holdout bars beyond the
+    NYSE calendar file) must fail **before** the one-shot access is recorded."""
+    mgr, ledger = world
+    short = tmp_path / "short_sessions.csv"
+    lines = SESSIONS.read_text(encoding="utf-8").splitlines()
+    rows = lines[:1] + [r for r in lines[1:] if r < "2023-01-01"]  # header + sessions to 2022
+    short.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    mgr._aux_config = AuxConfig(aux=AuxAsOfConfig(sessions_file=short))
+    with pytest.raises(DataError, match="not a session of the nyse calendar"):
+        mgr.open_holdout_with_inputs("c1", "AAPL", "1D", aux=("VIX",), stage=HOLDOUT_STAGE)
+    assert not ledger.accesses  # nothing spent
+    mgr._aux_config = AuxConfig(aux=AuxAsOfConfig(sessions_file=SESSIONS))
+    bars, _, views = mgr.open_holdout_with_inputs(
+        "c1", "AAPL", "1D", aux=("VIX",), stage=HOLDOUT_STAGE
+    )
+    assert list(ledger.accesses) == ["c1"] and views["VIX"].idx.shape == (bars.height,)
+
+
+def test_F_0_1_11_value_final_before_the_calendar_start_is_stale() -> None:
+    """A value final before the consumer calendar's first day has an unknown age (T04m review
+    N2): the first NYSE session (2016-01-04) does not read VIX of 2015-12-31."""
+    days = [D(2015, 12, 30), D(2015, 12, 31), D(2016, 1, 4), D(2016, 1, 5)]
+    v = join(aux_meta(), days, EQUITY, [midnight(D(2016, 1, 4)), midnight(D(2016, 1, 5))])
+    got = used(v)
+    assert np.isnan(got[0]) and got[1] == 20160104
