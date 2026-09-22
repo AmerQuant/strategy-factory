@@ -299,7 +299,12 @@ def test_F_X_9_repo_migrations_have_one_head() -> None:
 def test_F_X_9_repo_alembic_heads_matches_alembic_itself() -> None:
     """The guard's parser must agree with Alembic (the guard runs without a database)."""
     out = subprocess.run(
-        ["uv", "run", "alembic", "heads"], cwd=REPO, capture_output=True, text=True, timeout=180
+        ["uv", "run", "alembic", "heads"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=180,
     )
     assert out.returncode == 0, out.stderr
     reported = [line.split()[0] for line in out.stdout.splitlines() if line.strip()]
@@ -595,6 +600,7 @@ def test_F_X_9_d369_removed_rows_reads_real_git_output(
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     ).stdout
     assert any(line.startswith("--- ") for line in raw.splitlines()), "no file header to ignore"

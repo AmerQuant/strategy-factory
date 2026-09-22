@@ -179,7 +179,7 @@ def test_F_0_8_2_config_hash_stable_under_key_order(tmp_path: Path) -> None:
     pa, pb = tmp_path / "a.yaml", tmp_path / "b.yaml"
     pa.write_text(yaml.safe_dump(a, sort_keys=False), encoding="utf-8")
     pb.write_text(yaml.safe_dump(b, sort_keys=False), encoding="utf-8")
-    assert pa.read_text() != pb.read_text()
+    assert pa.read_text(encoding="utf-8") != pb.read_text(encoding="utf-8")
     ha, hb = config_hash(load_pipeline_config(pa)), config_hash(load_pipeline_config(pb))
     assert ha == hb
     assert config_hash(load_pipeline_config(pa).model_copy(update={"seed": 8})) != ha

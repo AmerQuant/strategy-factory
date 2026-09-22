@@ -456,7 +456,9 @@ def test_F_0_2_1_import_is_byte_identical_and_records_sha(tmp_path: Path) -> Non
     meta = json.loads((out / SPEC_META).read_text(encoding="utf-8"))
     assert meta["sha256"] == file_sha256(xlsx) and meta["file_date"] == "2026-09-19"
     # a manifest with another SHA-256 is refused, and so is a missing manifest
-    (tmp_path / "spec.xlsx.manifest.json").write_text(json.dumps({"sha256": "0" * 64}))
+    (tmp_path / "spec.xlsx.manifest.json").write_text(
+        json.dumps({"sha256": "0" * 64}), encoding="utf-8"
+    )
     with pytest.raises(DataError, match="does not match"):
         import_spec(xlsx, out, source_label="spec.xlsx", file_date="2026-09-19")
     (tmp_path / "spec.xlsx.manifest.json").unlink()
