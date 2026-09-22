@@ -51,6 +51,7 @@ owners:
   src/strategy_factory/baseline/: A
   src/strategy_factory/metrics/: A
   configs/gates/: A
+  configs/stages/: A                  # D-612: T12 writes configs/stages/s01_edge.yaml
   docs/streams/A.md: A
 
   # -- stream B only -------------------------------------------------------------------------

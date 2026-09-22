@@ -89,6 +89,7 @@ D611_PATHS = (
     "src/strategy_factory/stages/edge.py",
     "src/strategy_factory/baseline/random_entries.py",
     "src/strategy_factory/components/base.py",
+    "configs/stages/s01_edge.yaml",  # D-612
 )
 
 
@@ -111,6 +112,7 @@ def test_F_X_9_d611_the_prefixes_stop_at_the_folder(rules: Ownership) -> None:
         "configs/gates_notes.md",
         "src/strategy_factory/metrics_extra.py",
         "src/strategy_factory/stages_x.py",
+        "configs/stages_notes.md",
         "tests/unit/test_F_0_5_metrics.py",
         "src/strategy_factory/engine/api.py",
     ):
@@ -121,7 +123,14 @@ def test_F_X_9_d611_protocol_and_log_state_it() -> None:
     """Written down where a session reads it, not only in the YAML."""
     protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
     assert "until T11 is merged" not in protocol
-    for folder in ("components/", "stages/", "baseline/", "metrics/", "configs/gates/"):
+    for folder in (
+        "components/",
+        "stages/",
+        "baseline/",
+        "metrics/",
+        "configs/gates/",
+        "configs/stages/",
+    ):
         assert folder in protocol, folder
     log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
     d611 = next(line for line in log.splitlines() if line.startswith("| D-611 |"))
