@@ -1,0 +1,29 @@
+
+AAPL 1D: development 2016-01-04 .. 2023-07-28
+  VIX  bars   1905  with a value   1904  none/stale     1; last bar 2023-07-28 20:00 UTC decision reads VIX of 2023-07-27
+  SPX  bars   1905  with a value   1903  none/stale     2; last bar 2023-07-28 20:00 UTC decision reads SPX of 2023-07-26
+  NDX  bars   1905  with a value   1904  none/stale     1; last bar 2023-07-28 20:00 UTC decision reads NDX of 2023-07-27
+  RUT  bars   1905  with a value   1903  none/stale     2; last bar 2023-07-28 20:00 UTC decision reads RUT of 2023-07-26
+  DJI  bars   1905  with a value   1903  none/stale     2; last bar 2023-07-28 20:00 UTC decision reads DJI of 2023-07-26
+  TNX  bars   1905  with a value   1903  none/stale     2; last bar 2023-07-28 20:00 UTC decision reads TNX of 2023-07-26
+  DXY  bars   1905  with a value   1904  none/stale     1; last bar 2023-07-28 20:00 UTC decision reads DXY of 2023-07-27
+
+AAPL 1H: development 2016-01-04 .. 2024-06-04
+  VIX  bars  14775  with a value  14768  none/stale     7; last bar 2024-06-04 19:00 UTC decision reads VIX of 2024-06-03
+  SPX  bars  14775  with a value  14761  none/stale    14; last bar 2024-06-04 19:00 UTC decision reads SPX of 2024-05-31
+  NDX  bars  14775  with a value  14768  none/stale     7; last bar 2024-06-04 19:00 UTC decision reads NDX of 2024-06-03
+  RUT  bars  14775  with a value  14761  none/stale    14; last bar 2024-06-04 19:00 UTC decision reads RUT of 2024-05-31
+  DJI  bars  14775  with a value  14761  none/stale    14; last bar 2024-06-04 19:00 UTC decision reads DJI of 2024-05-31
+  TNX  bars  14775  with a value  14761  none/stale    14; last bar 2024-06-04 19:00 UTC decision reads TNX of 2024-05-31
+  DXY  bars  14775  with a value  14768  none/stale     7; last bar 2024-06-04 19:00 UTC decision reads DXY of 2024-06-03
+EURUSD 1H: not readable (history too short for a split: 1539 bars, holdout from bar 0, embargo 250 bars (2024-01-01..2024-03-31) [stage=split, symbol=EURUSD])
+
+EURUSD 1H pilot (1539 bars, 2024-01-01 .. 2024-03-31)
+  VIX  bars   1539  none/stale     0
+    bar 2024-01-10 23:00 UTC (decision 2024-01-11 00:00) reads VIX of 2024-01-10
+    bar 2024-03-13 19:00 UTC (decision 2024-03-13 20:00) reads VIX of 2024-03-12
+    bar 2024-03-13 20:00 UTC (decision 2024-03-13 21:00) reads VIX of 2024-03-13
+  DXY  bars   1539  none/stale     0
+    bar 2024-01-10 23:00 UTC (decision 2024-01-11 00:00) reads DXY of 2024-01-09
+    bar 2024-03-13 19:00 UTC (decision 2024-03-13 20:00) reads DXY of 2024-03-12
+    bar 2024-03-13 20:00 UTC (decision 2024-03-13 21:00) reads DXY of 2024-03-12

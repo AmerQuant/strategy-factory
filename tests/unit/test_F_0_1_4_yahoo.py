@@ -222,7 +222,10 @@ def test_F_0_1_11_aux_universe_close_times() -> None:
     for s in series:
         assert s.close_time_status in {"verified", "to_verify"}
         if s.close_time_status == "verified":
-            assert s.close_time_local and s.close_tz and s.notes  # verified needs a cited source
+            # verified needs a cited source and the date it was checked (D-718)
+            assert (
+                s.close_time_local and s.close_tz and s.close_time_source and s.close_time_checked
+            )
         else:
             assert s.close_time_local == ""  # no guessed times
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import Annotated
 
@@ -66,6 +67,17 @@ def download_yahoo(tickers: TickersOpt = None, config: ConfigOpt = None) -> None
         raise typer.Exit(code=2)
 
 
+def tradeable_symbols(universe_dir: Path) -> set[str]:
+    """Every symbol of the tradeable universe lists (Alpaca daily and hourly, Dukascopy)."""
+    out: set[str] = set()
+    for name in ("us_equity_daily.csv", "us_equity_hourly.csv", "dukascopy.csv"):
+        path = universe_dir / name
+        if path.is_file():
+            with path.open(encoding="utf-8", newline="") as fh:
+                out |= {r["symbol"] for r in csv.DictReader(fh)}
+    return out
+
+
 @ingest_app.command("yahoo")
 def ingest_yahoo(
     tickers: TickersOpt = None,
@@ -74,10 +86,17 @@ def ingest_yahoo(
     ] = False,
     config: ConfigOpt = None,
 ) -> None:
-    """Latest raw version per ticker -> daily snapshot + catalog."""
+    """Latest raw version per ticker -> daily aux snapshot + catalog (T04m).
+
+    The reference moves only with ``--set-reference``. An aux symbol that is also a tradeable
+    universe symbol is refused: one (symbol, timeframe) has one reference (T04m).
+    """
     try:
         cfg = load_yahoo_config(config)
         series = _select(tickers, cfg.universe_file)
+        clash = sorted({s.symbol for s in series} & tradeable_symbols(cfg.universe_file.parent))
+        if clash:
+            raise SfacError(f"aux symbols that are tradeable universe symbols: {clash}")
         root, store, catalog, adapter = raw_root(), SnapshotStore(), Catalog(), YahooAdapter()
         failed = 0
         for s in series:
@@ -92,12 +111,24 @@ def ingest_yahoo(
                     close_time_local=s.close_time_local,
                     close_tz=s.close_tz,
                     close_time_status=s.close_time_status,
+                    calendar=s.calendar,
+                    value_unit=s.value_unit,
+                    close_time_checked=s.close_time_checked,
                 )
                 stored = store.write_snapshot(df, meta)
                 catalog.register(stored)
-                ref = set_reference or not catalog.has_reference(s.symbol, "1D")
-                if ref and stored.snapshot_hash:
-                    catalog.set_reference(s.symbol, "1D", stored.snapshot_hash, note="yahoo ingest")
+                ref = False
+                if set_reference and stored.snapshot_hash:
+                    current = (
+                        catalog.get_reference(s.symbol, "1D").snapshot_hash
+                        if catalog.has_reference(s.symbol, "1D")
+                        else None
+                    )
+                    if current != stored.snapshot_hash:
+                        catalog.set_reference(
+                            s.symbol, "1D", stored.snapshot_hash, note="yahoo ingest"
+                        )
+                    ref = True
                 first = stored.first_ts.date() if stored.first_ts else None
                 last = stored.last_ts.date() if stored.last_ts else None
                 typer.echo(

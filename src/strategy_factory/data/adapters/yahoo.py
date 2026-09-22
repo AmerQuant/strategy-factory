@@ -9,6 +9,8 @@
 * When the daily value becomes final is stored in ``value_final_time_local``,
   ``value_final_tz`` and ``value_final_status`` (from ``configs/universe/aux_yahoo.csv``);
   the as-of join (F-0.1.11) needs it to stay leakage-free (spec addendum section 5.3).
+* The notes carry ``aux_calendar=<nyse|nyse_bond|weekdays>`` (D-720), ``unit=`` and the date the
+  close time was checked (D-718).
 """
 
 from __future__ import annotations
@@ -86,6 +88,13 @@ class YahooAdapter:
         notes = "raw prices (auto_adjust=False, actions=False)"
         if manifest.get("client"):
             notes += f"; {manifest['client']}"
+        # D-720: the series' own schedule calendar, read by the quality schedule checks
+        if params.get("calendar"):
+            notes += f"; aux_calendar={params['calendar']}"
+        if params.get("value_unit"):
+            notes += f"; unit={params['value_unit']}"
+        if params.get("close_time_checked"):  # D-718: when the close time was checked
+            notes += f"; close time checked {params['close_time_checked']}"
         meta = SeriesMetadata(
             source="yahoo",
             source_symbol=ticker,

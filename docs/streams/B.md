@@ -5,6 +5,109 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
+## Resume here (2026-09-22) — the state a fresh session starts from
+
+Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The
+protocol is `docs/streams/PROTOCOL.md` (ownership, ID ranges; `uv run sfac streams check` before
+every push). Talk to stream A only through this file and `docs/streams/A.md`, never by message.
+
+### Branches
+
+The worktree is left checked out on **`b/T04j-dukascopy-ingest`**: the user's download script
+exists only on that branch. Both branches carry this same copy of `B.md`.
+
+| branch | head | state | waiting on |
+|---|---|---|---|
+| `b/T04m-yahoo-aux` | pushed (this file's commit is its head) | **done**; [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45) open, body = `docs/reviews/T04m_review.md` | **the supervisor**: reads the review, then "Approved. Merge …" (D-401). Merge only then, with CI green; rebase onto `main` first if it moved |
+| `b/T04j-dukascopy-ingest` | `3f324f4`, pushed, **no PR** | **paused** mid-task: plan approved, coverage gate and the week-open spread key built; nothing ingested | **the user**: the Dukascopy h1 download (several more days) |
+
+### T04m — Yahoo aux series (done, PR #45)
+
+- **Built:** 7 aux references in the store (VIX, SPX, NDX, RUT, DJI, TNX, DXY; `1D`,
+  `asset_class aux`, hash version 2), each with a quality report whose schedule checks run on its
+  own calendar (D-720).
+- **The as-of join, F-0.1.11:**
+  - `data/auxiliary.py` holds the join itself.
+  - `DataAccess.aux` reads over a traded symbol's development window.
+  - `SplitManager.open_holdout_with_inputs(..., aux=)` reads at stage 6, in one access.
+  - A guard refuses an aux series as a traded symbol.
+- **Close times (D-718):** VIX 16:15, NDX 17:15 and DXY 19:15 New York are verified.
+  - SPX, DJI, RUT and TNX stay at the conservative reading (24:00 local + 1 day). **The supervisor
+    said to keep that exactly as it is.** A series moves to `verified` only on a provider document;
+    the user could supply S&P DJI's PDFs, which answer 403 to automated reads.
+- **Staleness (D-719):** `max_stale_sessions: 5`, in traded sessions of the consuming symbol.
+- **Lesson recorded in the review (read it before any stage-6 input path):** every stage-6 input
+  must be fully built **before** `open_holdout` records the one-shot access. The reviewer's
+  blocker B1 had a failing aux input burn the candidate's holdout. It is fixed and tested
+  (`test_F_0_1_11_a_failing_aux_input_keeps_the_holdout_access`).
+- **Decisions D-718 … D-721; P-89 … P-92 answered.** Nothing open.
+
+### T04j — Dukascopy h1 (paused; everything is on its branch, not on `main`)
+
+- **Task file:** `docs/tasks/T04j_dukascopy_ingest.md` (on the T04j branch).
+- **Decisions on that branch only:** D-715 (P-88: no D-020 amendment; T04j does not block T12),
+  D-716 (the week open is its own spread key; a median hides a rare extreme; the leakage-gate
+  change approved), and D-717 (no cleaning pass, on condition of re-measuring).
+- **Built and tested:**
+  - `sfac data coverage dukascopy`, the gate. `sfac data ingest dukascopy` refuses a gapped set
+    before writing anything, with no override. On 2026-09-22: 0 of 29 instruments complete, 3,890
+    months missing.
+  - `scripts/pilots/T04j_dukascopy_download.ps1`: the user's resumable download, which ends by
+    printing the remaining gaps.
+  - The week-open key in `costs/` (`week_open_mask`, `SpreadHourly.week_open`), with its
+    measurement.
+- **The user runs, and re-runs until it prints `coverage gate: passed`:**
+  `powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1`
+  (from this worktree, **on the T04j branch**).
+- **When the user reports the gate passed, resume the task file's scope 2–7:**
+  1. Rebase T04j onto `main`, which by then holds T04m. Conflicts are expected in `B.md`,
+     `decisions_log.md` and `pending.md`: keep every row, in ID order.
+  2. Re-run `scripts/analysis/T04j_defects.py` on all 29. **Stop and raise if any defect family
+     appears** (D-717).
+  3. Ingest 1H with `--set-reference`; the three pilots with `--rehash` (v1 → v2).
+  4. Build 1D (D-032) with `sfac data resample --target 1D --mode research --set-reference`
+     (D-714: retire and re-run once before the first reference, if derived more than once).
+  5. Quality for all 58 snapshots. `sfac costs show` for all 29. Update `B_data_state.md`.
+  6. Write the review and run the acceptance reviewer. Open the PR and stop for "Approved. Merge".
+- **Do not ingest anything before the gate passes** (the supervisor's order).
+
+### Waiting on whom
+
+- **Supervisor:**
+  - the review of PR #45, then "Approved. Merge …";
+  - the next task for stream B once T04m is merged (none is assigned beyond T04j).
+- **User:**
+  - the Dukascopy download (the script above);
+  - optionally, S&P DJI methodology PDFs (SPX, DJI close times);
+  - emptying the quarantine folders `<store>/_quarantine/T04k_D-702_*` and
+    `T04l_D-714_20260922T080918Z` (moved, never deleted, with manifests).
+- **Stream A**, open items from T04m, after #45 merges:
+  1. **Regenerate `configs/universe.yaml`** (D-394). The aux calendars now come from the `calendar`
+     column of `configs/universe/aux_yahoo.csv` (D-720): TNX, SPX, NDX, RUT and DJI change from
+     `24x5` to `nyse`, and nothing else changes (checked).
+  2. **Keep the seven aux series (`asset_class aux`) out of stage 1's candidates.** `DataAccess`
+     and `SplitManager` refuse them with a `DataError`.
+  3. **Record `AuxView.key` with every run that reads an aux series** (rule 8). A stage-5 filter
+     reads `DataAccess.aux(aux, traded, tf)`, computes on the aux bars and reads at `idx` (`-1` =
+     none or stale). At stage 6 it uses `open_holdout_with_inputs(..., aux=...)`.
+- **Stream A, from T04j (D-716), once T04j merges:** the daily FX cost read in T12.
+  - Resolve the spread table from the **1H development segment**.
+  - `build_cost_arrays(..., timeframe="1D")` already charges `week_open` on Monday and hour 0 on
+    Tuesday to Friday.
+  - A fill inside a daily bar uses the broker spread (the table's bar-weighted average).
+
+### Next steps, in order
+
+1. On "Approved. Merge" for #45: check CI is green, rebase if `main` moved, merge, update this file
+   and push.
+2. On the user's "coverage gate: passed": resume T04j as above.
+3. Otherwise stream B has no assigned task: wait for the supervisor.
+
+### IDs
+
+Next free: **D-722**, **P-93**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
+merges; D-718 … D-721 and P-89 … P-92 come with #45.
+
 ## Scope
 
 1. **Data**, in this order:
@@ -24,7 +127,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-715**, **P-87**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-722**, **P-93** (see Resume here). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -53,9 +156,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04l merged** (PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34),
-`99d2912`, 2026-09-22) — the data layer is complete for the MVP. **Stream B has no assigned task**;
-T12 is stream A's (D-611). Waiting for the supervisor.
+**Current position:** see **Resume here** at the top of this file.
 
 Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
 and `T04l_D-714_20260922T080918Z`.
@@ -111,6 +212,8 @@ onto it.
 | T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
 | T04l | ✅ **merged** — PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34). 46 trims, 269 unsettled (research windows), 2 kept; 329 references moved; D-705 … D-714 |
 | T12 | **stream A's** (D-611, PR #33) |
+
+## Earlier notes (history — superseded by "Resume here"; kept for the record)
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)
 
