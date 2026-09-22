@@ -424,3 +424,103 @@ for the controls: **≈ 1.6 h**. That is the original projection, not 3.4 h.
 threads. Stage 1's `simulate` is single-threaded, so 16 of the 20 cores idle. A stage-1 budget
 of about 20 workers × 1 thread would be roughly 4–5× faster, but it would take every core
 while stream B works. That is a D-351 question for later, not something to change inside step 9.
+
+## 13. The user's two leads, measured (2026-09-22, during step 9)
+
+**Answer: environmental, not our code, and not an affinity mask.** This machine has a
+**hybrid CPU**. Windows 11 runs our processes as "system-managed" for power throttling
+(EcoQoS), and when it treats them as background it moves them onto the **four efficiency
+cores**, which run this workload **3–4× slower**. That explains the "doubled" pilot and the
+user's observation of the last four logical cores pinned at 100 %. It is also why step 9's 1D
+control took 32 minutes where 15–22 were projected.
+
+### Lead 1: load on the machine, before and during
+
+- **Before step 9:** the machine was idle, about 3.5 CPU-seconds used in 5 s across 20 logical
+  processors.
+- **During step 9 (1D control, 14:18 UTC):** 31 % total load, with our four workers spread over
+  the performance cores (logical 8 and 10 at 77–87 %).
+- **Later (1H, about 14:40 UTC):** performance-core threads 0–15 at **4–5 %** and efficiency
+  cores 16–19 at **100 %**. That is the run itself, confined by the scheduler.
+- **Other programs:** two unrelated `python.exe` processes (PIDs 23704 and 35808) are a
+  leftover `sfac` started on **2026-09-19**, 73 CPU-seconds in three days. They are idle, not
+  the cause, and are left for the user to close.
+
+### Lead 2: affinity, processor groups, efficiency cores
+
+All measured with `GetProcessAffinityMask`, `GetActiveProcessorGroupCount` and
+`GetSystemCpuSetInformation`; psutil is not a dependency and none was added.
+
+| process | `os.cpu_count()` | allowed CPUs (affinity mask) |
+|---|---|---|
+| this session's parent (`uv run` from Git Bash) | 20 | 20 (`0xfffff`) |
+| an executor worker (spawn) | 20 | 20 (`0xfffff`) |
+| a plain PowerShell `python.exe` | 20 | 20 (`0xfffff`) |
+| the shell ancestry up to the Claude app (`powershell`, `cmd`, `claude.exe`) | — | `FFFFF` |
+
+- **Nothing restricts the affinity, and nothing is inherited.** The environment and our code
+  agree.
+- **Processor groups: 1.** The machine has 20 logical processors, fewer than 64.
+- **Efficiency classes:** class 0, the **efficiency cores**, is logical **16, 17, 18, 19** --
+  exactly the "last four" the user saw. Class 1 is logical 0–15: 8 performance cores with two
+  threads each. That makes **12 physical cores**.
+- **Priority and throttling:** every `python.exe` runs at priority `normal`, with its
+  power-throttling `EXECUTION_SPEED` **system-managed**. Nothing pins our processes; Windows
+  decides where they run.
+
+**The effect, measured by confining a run to four logical processors:**
+
+| run | 4 performance cores (logical 0, 2, 4, 6) | 4 efficiency cores (16–19) | slowdown |
+|---|---|---|---|
+| one symbol, serial (4 profiles) | 6.5 s | 21.1 s | 3.2× |
+| the 1D pilot, parallel (4 workers) | 18 s | 67 s | 3.7× |
+
+The unconfined serial run took about 12 s, between the two: Windows was already putting part of
+it on the efficiency cores.
+
+**The causal test, on step 9 itself.** The run's six processes were marked "explicitly not
+throttled" (`SetProcessInformation`, `ProcessPowerThrottling`: EXECUTION_SPEED controlled,
+off). This changes only a process attribute of processes this session started; it is not a
+system setting, and it cannot change a result (D-607).
+
+| | performance-core threads 0–15 | efficiency cores 16–19 |
+|---|---|---|
+| before | 4 % | **100 %** |
+| 4 s after | 30 % | 22 % |
+| 10 s after | 33 % | 17 % |
+
+For the rest of step 9, a background watcher re-applies the same opt-out every 30 s to any new
+step-9 process, because the 1H control starts fresh ones. This is interim, for this run only;
+the code change is P-103.
+
+### D-334 / D-351: is the budget computed for a machine we do not have?
+
+**No.** The allowed count (20) equals `os.cpu_count()` (20) in the parent and in the workers,
+so `auto` sizes against cores the process may use. There is no affinity bug and nothing to
+change in D-334's rule. What `auto` does not know is that the 20 logical processors are **not
+equal**: 4 of them are efficiency cores, and the other 16 are hyper-threads of 8 cores. That
+matters only together with the scheduling above, and it is raised as part of P-103, not changed.
+
+### Load or placement? One profile, measured both ways (the supervisor's lead 1)
+
+The machine could not be made fully quiet while step 9 was running. So one symbol (AAPL 1D,
+four profiles, serial) was measured under the load at hand, twice in each mode, with the load
+recorded before each run:
+
+| conditions | load while measured | time |
+|---|---|---|
+| step 9 running, **default scheduling** | 26–28 % total (performance threads 30 %, efficiency cores 14–17 %) | **7.25 s, 6.95 s** |
+| step 9 running, **opted out of efficiency mode** | 27–30 % | **6.66 s, 6.72 s** |
+| earlier today, machine near idle, default scheduling | idle | 11.5–13.7 s |
+| confined to 4 performance cores | — | 6.5 s |
+| confined to the 4 efficiency cores | — | 21.1 s |
+
+**Machine load does not explain the slowdown; placement does.** At about 28 % load, which is
+step 9 plus the user's programs, a profile runs as fast as on dedicated performance cores. The
+slow runs were slow **on a quieter machine**, because Windows had placed them partly on the
+efficiency cores. The budget (4 workers × 5 Numba threads) leaves real headroom in stage 1:
+`simulate` is single-threaded, so the run keeps about 5 of the 20 logical processors busy.
+
+**Verdict: environmental.** It is the Windows 11 scheduler placing background processes on
+efficiency cores, not our code, affinity or the budget. Step 9 continues, with the interim
+opt-out on its own processes. Whether `sfac` should opt out by itself is **P-103**.
