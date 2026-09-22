@@ -57,7 +57,8 @@ The machine-readable list is `docs/streams/ownership.yaml`; the CI guard enforce
 `HANDOFF.md`, `CLAUDE.md`, `docs/STANDING_PROMPT.md`, `.github/`, `pyproject.toml`, `uv.lock`,
 the Alembic migrations, and the stage-1 paths of **D-611**: `src/strategy_factory/components/`
 (kept past T11's merge, no longer lapsing), `src/strategy_factory/stages/`,
-`src/strategy_factory/baseline/`, `src/strategy_factory/metrics/` and `configs/gates/`.
+`src/strategy_factory/baseline/`, `src/strategy_factory/metrics/`, `configs/gates/` and
+`configs/stages/` (D-612).
 Changing any of them also needs a **notice to the supervisor** in the PR body.
 
 **Split ownership:**
