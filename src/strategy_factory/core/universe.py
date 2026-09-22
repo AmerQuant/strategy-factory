@@ -154,7 +154,8 @@ def generate_universe(universe_dir: Path = UNIVERSE_DIR, costs_dir: Path | None 
             )
         )
     for r in _rows(universe_dir / "aux_yahoo.csv"):
-        cal: Calendar = "nyse" if r.get("close_tz") == "America/New_York" else "24x5"
+        # D-720: the aux series' own schedule calendar (nyse / nyse_bond -> nyse; weekdays -> 24x5)
+        cal: Calendar = "24x5" if r.get("calendar") == "weekdays" else "nyse"
         entries.append(
             UniverseEntry(
                 symbol=r["symbol"],

@@ -282,9 +282,13 @@ DEFAULT_AUX_CONFIG = Path("configs") / "data" / "aux_series.yaml"
 
 
 class AuxAsOfConfig(_Frozen):
-    """As-of join rules for auxiliary series (used by F-0.1.11)."""
+    """As-of join rules for auxiliary series (F-0.1.11, D-014, D-719)."""
 
     unverified_extra_lag_days: int = Field(default=1, ge=0)
+    # D-719: how many traded sessions of the consuming symbol may pass after an aux value became
+    # usable before it is too stale to use (addendum section 5.3: 5).
+    max_stale_sessions: int = Field(default=5, ge=0)
+    sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
 
 
 class AuxConfig(_Frozen):
@@ -444,6 +448,8 @@ class QualityConfig(_Frozen):
     )
     known_splice: KnownSpliceConfig = Field(default_factory=KnownSpliceConfig)
     sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
+    # D-720: US bond-market closures on NYSE sessions (the `nyse_bond` aux calendar, TNX)
+    bond_closures_file: Path = Path("configs") / "calendars" / "us_bond_market_closures.csv"
     us_equity_timezone: str = "America/New_York"
     us_equity_first_bar: str = "09:00"
 

@@ -2,6 +2,11 @@
 # (File name avoids "aux.*", a reserved device name on Windows.)
 aux:
   # Series whose value_final_status is "to_verify" are joined with this many extra days of
-  # lag; only "verified" series (currently ^VIX, 16:15 America/New_York) use the normal
+  # lag; "verified" series (VIX 16:15, NDX 17:15, DXY 19:15 America/New_York; D-718) use the normal
   # as-of rule (last value final strictly before the bar's decision time). Supervisor decision T04e.
   unverified_extra_lag_days: 1
+  # D-719: an aux value is refused (the filter does not act) once more than this many traded
+  # sessions of the consuming symbol have passed since it became usable (addendum section 5.3).
+  max_stale_sessions: 5
+  # The consuming calendar of US equities (the 24x5 markets use weekdays, D-010).
+  sessions_file: configs/calendars/nyse_sessions.csv

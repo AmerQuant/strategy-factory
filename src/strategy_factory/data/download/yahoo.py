@@ -70,7 +70,14 @@ class AuxSeries:
     close_time_local: str
     close_tz: str
     close_time_status: str
+    calendar: str = ""  # nyse | nyse_bond | weekdays (D-720)
+    value_unit: str = ""
+    close_time_source: str = ""  # D-718: where the close time was verified (or why not)
+    close_time_checked: str = ""  # D-718: the date it was checked
     notes: str = ""
+
+
+AUX_CALENDARS = ("nyse", "nyse_bond", "weekdays")
 
 
 def load_aux_universe(path: Path) -> list[AuxSeries]:
@@ -78,9 +85,15 @@ def load_aux_universe(path: Path) -> list[AuxSeries]:
         raise ConfigError("aux universe file not found", config_path=path)
     with path.open(encoding="utf-8", newline="") as fh:
         rows = list(csv.DictReader(fh))
-    return [
+    series = [
         AuxSeries(**{k: r.get(k, "") or "" for k in AuxSeries.__dataclass_fields__}) for r in rows
     ]
+    bad = [s.ticker for s in series if s.calendar not in AUX_CALENDARS]
+    if bad:
+        raise ConfigError(
+            f"aux series without a valid calendar {AUX_CALENDARS} (D-720): {bad}", config_path=path
+        )
+    return series
 
 
 class HistoryClient(Protocol):

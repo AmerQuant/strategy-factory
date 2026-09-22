@@ -29,6 +29,15 @@ beyond its end: :meth:`DataAccess.conversion_bars` for the development segment, 
 :meth:`SplitManager.open_holdout_with_conversion` together with the traded candidate's
 one-shot holdout access. Only configured conversion pairs (never the traded symbol) can be
 read this way, and neither records nor consumes the conversion pair's own holdout.
+
+Auxiliary series (``asset_class aux``: VIX, the indices, the dollar; T04m) are **never
+candidates**: :meth:`SplitManager.compute`, :meth:`~SplitManager.registered` and
+:meth:`~SplitManager.development_bars` refuse them, so an aux series never gets a split or a
+holdout record. They are read only through the as-of join of
+:mod:`strategy_factory.data.auxiliary` over a **traded** symbol's window:
+:meth:`DataAccess.aux` for the development segment, and
+:meth:`SplitManager.open_holdout_with_inputs` together with the traded candidate's one-shot
+holdout access (the D-316 pattern).
 """
 
 from __future__ import annotations
@@ -44,8 +53,9 @@ from sqlalchemy import Engine
 
 from strategy_factory.core.errors import DataError, HoldoutAccessError
 from strategy_factory.core.logging import get_logger
+from strategy_factory.data.auxiliary import AuxView, build_view
 from strategy_factory.data.catalog import Catalog, Splice
-from strategy_factory.data.config import SplitConfig
+from strategy_factory.data.config import AuxConfig, SplitConfig, load_aux_config
 from strategy_factory.data.conversion import FxConversionConfig
 from strategy_factory.data.quality import ensure_usable
 from strategy_factory.data.schema import SeriesMetadata, SnapshotKey
@@ -134,6 +144,17 @@ def _stored_boundaries(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _refuse_aux(snapshot: SeriesMetadata) -> None:
+    """An aux series is never a candidate: no split, no development read, no holdout (T04m)."""
+    if snapshot.asset_class == "aux":
+        raise DataError(
+            f"{snapshot.symbol} is an auxiliary series (asset class aux): never a candidate; "
+            "read it next to a traded symbol through DataAccess.aux (F-0.1.11)",
+            stage="split",
+            symbol=snapshot.symbol,
+        )
+
+
 def subtract_months(t: dt.datetime, months: int) -> dt.datetime:
     """``t`` minus calendar months (day clipped to the target month's length)."""
     y, m0 = divmod(t.year * 12 + (t.month - 1) - months, 12)
@@ -195,10 +216,12 @@ class SplitManager:
         store: SnapshotStore | None = None,
         catalog: Catalog | None = None,
         fx_config: FxConversionConfig | None = None,
+        aux_config: AuxConfig | None = None,
     ) -> None:
         self.ledger = ledger
         self.cfg = cfg
         self._fx_config = fx_config  # conversion pairs (D-316); loaded on first use
+        self._aux_config = aux_config  # aux as-of rules (F-0.1.11); loaded on first use
         self.store = store if store is not None else SnapshotStore()
         self.catalog = catalog if catalog is not None else Catalog(self.store.root)
 
@@ -216,6 +239,7 @@ class SplitManager:
         trades_per_year: float | None = None,
     ) -> Split:
         """Compute the split of ``snapshot`` and register it (idempotent for equal bounds)."""
+        _refuse_aux(snapshot)
         if snapshot.symbol != symbol or snapshot.timeframe != timeframe:
             raise DataError(
                 f"snapshot {snapshot.symbol} {snapshot.timeframe} does not match "
@@ -248,6 +272,7 @@ class SplitManager:
 
     def registered(self, snapshot: SeriesMetadata) -> Split:
         """The registered split of ``snapshot`` (computed and registered on first use)."""
+        _refuse_aux(snapshot)
         key = snapshot.key()
         existing = self.ledger.get_split(key)
         if existing is None:
@@ -265,6 +290,7 @@ class SplitManager:
         return meta
 
     def development_bars(self, snapshot: SeriesMetadata) -> pl.DataFrame:
+        _refuse_aux(snapshot)
         split = self.registered(snapshot)
         key = snapshot.key()
         df = self.store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
@@ -349,12 +375,36 @@ class SplitManager:
         ``stage`` is checked exactly as in :meth:`open_holdout` (D-306), before anything is
         read: a refused caller neither reads a conversion pair nor spends the one-shot access.
         """
+        bars, conv, _ = self.open_holdout_with_inputs(
+            candidate_id, symbol, timeframe, pairs=pairs, stage=stage
+        )
+        return bars, conv
+
+    def open_holdout_with_inputs(
+        self,
+        candidate_id: str,
+        symbol: str,
+        timeframe: str,
+        *,
+        pairs: tuple[str, ...] = (),
+        aux: tuple[str, ...] = (),
+        stage: str,
+    ) -> tuple[pl.DataFrame, dict[str, dict[str, np.ndarray[Any, Any]]], dict[str, AuxView]]:
+        """Holdout bars of ``symbol`` (one-shot, logged) plus its conversion pairs (D-316) and
+        its aux series (T04m, F-0.1.11) over the same window, in **one** access.
+
+        Neither the pairs' nor the aux series' own holdouts are consumed or recorded. The stage
+        is checked first (D-306) and every input is validated before the one-shot access is
+        spent, so a refused caller reads nothing and spends nothing.
+        """
         self._check_stage(stage)
         split = self.registered(self.reference(symbol, timeframe))
         for pair in pairs:  # validate before the one-shot access is spent
             self._conversion_arrays(
                 pair, symbol, timeframe, split.holdout_start, split.holdout_start
             )
+        for name in aux:
+            self._aux_reference(name, symbol)
         bars = self.open_holdout(candidate_id, symbol, timeframe, stage=stage)
         conv = {
             pair: self._conversion_arrays(
@@ -362,7 +412,55 @@ class SplitManager:
             )
             for pair in pairs
         }
-        return bars, conv
+        traded = self.reference(symbol, timeframe)
+        ts = bars["ts"].dt.epoch("us").to_numpy()
+        views = {name: self._aux_view(name, traded, ts) for name in aux}
+        return bars, conv, views
+
+    def _aux_reference(self, aux_symbol: str, traded_symbol: str) -> SeriesMetadata:
+        if aux_symbol == traded_symbol:
+            raise DataError(
+                f"{aux_symbol!r} cannot be an aux input of itself", stage="split", symbol=aux_symbol
+            )
+        meta = self.reference(aux_symbol, "1D")
+        if meta.asset_class != "aux":
+            raise DataError(
+                f"{aux_symbol!r} is not an auxiliary series (asset class {meta.asset_class})",
+                stage="split",
+                symbol=traded_symbol,
+            )
+        return meta
+
+    def _aux_view(
+        self, aux_symbol: str, traded: SeriesMetadata, traded_ts_us: np.ndarray[Any, Any]
+    ) -> AuxView:
+        """``aux_symbol`` aligned to ``traded``'s bars ``traded_ts_us`` (F-0.1.11); private.
+
+        Callers pass only the traded symbol's own development or holdout bars.
+        """
+        if self._aux_config is None:
+            self._aux_config = load_aux_config()
+        rules = self._aux_config.aux
+        meta = self._aux_reference(aux_symbol, traded.symbol)
+        key = meta.key()
+        df = self.store.read_snapshot(
+            key.source,
+            key.symbol,
+            key.timeframe,
+            key.snapshot_hash,
+            columns=["ts", "open", "high", "low", "close"],
+        ).sort("ts")
+        arrays = {c: df[c].to_numpy() for c in ("open", "high", "low", "close")}
+        arrays["ts"] = df["ts"].dt.epoch("us").to_numpy()
+        return build_view(
+            meta,
+            arrays,
+            traded,
+            np.asarray(traded_ts_us, dtype=np.int64),
+            extra_lag_days=rules.unverified_extra_lag_days,
+            max_stale_sessions=rules.max_stale_sessions,
+            sessions_file=rules.sessions_file,
+        )
 
 
 class DataAccess:
@@ -390,6 +488,16 @@ class DataAccess:
         entry says the series was derived to start at an unsettled boundary. Read-only: no bar,
         split or holdout is touched; the stage decides what to do with it."""
         return self._splits.catalog.splices(self._splits.reference(symbol, timeframe).key())
+
+    def aux(self, aux_symbol: str, traded_symbol: str, timeframe: str) -> AuxView:
+        """``aux_symbol`` aligned to ``traded_symbol``'s **development** bars (F-0.1.11).
+
+        Only aux values final before the last development bar's decision instant are returned;
+        the aux series has no split of its own and none is registered (T04m).
+        """
+        traded = self._splits.reference(traded_symbol, timeframe)
+        ts = self._splits.development_bars(traded)["ts"].dt.epoch("us").to_numpy()
+        return self._splits._aux_view(aux_symbol, traded, ts)
 
     def conversion_bars(
         self, pair: str, traded_symbol: str, timeframe: str

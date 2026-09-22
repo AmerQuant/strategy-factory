@@ -8,6 +8,8 @@
 * **us_equity**: the NYSE sessions of ``configs/calendars/nyse_sessions.csv`` -- daily bars
   at the session date 00:00 UTC; hourly bars from ``us_equity_first_bar`` while the bar
   starts before the session close (``RTH_hour_aligned``).
+* **aux** (T04m, D-720): daily bars on the series' own calendar, from ``aux_calendar=`` in its
+  notes: ``nyse``, ``nyse_bond`` (NYSE minus the US bond-market closures) or ``weekdays``.
 * other asset classes: no expected schedule yet (checks that need one are skipped).
 
 :func:`period_start` maps bar starts to the start of their resampling period (research:
@@ -17,6 +19,7 @@ blocks; broker_session: periods from the configured session start, parity only).
 
 from __future__ import annotations
 
+import csv
 import datetime as dt
 import zoneinfo
 from dataclasses import dataclass
@@ -25,6 +28,7 @@ from typing import Literal
 
 import polars as pl
 
+from strategy_factory.core.errors import ConfigError
 from strategy_factory.data.config import (
     BreakDetectionConfig,
     BrokerSessionConfig,
@@ -278,4 +282,52 @@ def expected_schedule(
         return ExpectedSchedule(
             starts, f"NYSE sessions {lo}..{hi} ({path.as_posix()})", coverage=cover
         )
+    if asset_class == "aux" and timeframe == "1D":
+        return expected_aux(first, last, notes, cfg, sessions_file)
     return ExpectedSchedule(None, f"no expected schedule for {asset_class} {timeframe}")
+
+
+def load_bond_closures(path: Path) -> set[dt.date]:
+    """US bond-market closures on NYSE sessions (``us_bond_market_closures.csv``, D-720)."""
+    if not path.is_file():
+        raise ConfigError("US bond-market closure calendar not found", config_path=path)
+    with path.open(encoding="utf-8", newline="") as fh:
+        return {dt.date.fromisoformat(r["date"]) for r in csv.DictReader(fh)}
+
+
+def expected_aux(
+    first: dt.datetime,
+    last: dt.datetime,
+    notes: str,
+    cfg: QualityConfig,
+    sessions_file: Path | None = None,
+) -> ExpectedSchedule:
+    """Expected daily bars of an aux series, from its own calendar (D-720, never an exemption):
+    ``nyse``; ``nyse_bond`` = NYSE sessions minus the US bond-market closures; ``weekdays``."""
+    from strategy_factory.data.auxiliary import aux_calendar_of
+
+    kind = aux_calendar_of(notes)
+    if kind is None:
+        return ExpectedSchedule(None, "aux series without an aux_calendar note (D-720)")
+    if kind == "weekdays":
+        days = pl.date_range(first.date(), last.date(), "1d", eager=True)
+        days = days.filter(days.dt.weekday() <= 5)
+        starts = days.cast(pl.Datetime("us")).dt.replace_time_zone("UTC").alias("ts")
+        return ExpectedSchedule(starts, "aux calendar weekdays (every weekday)")
+    path = sessions_file or cfg.sessions_file
+    sessions = load_sessions(path)
+    what = f"aux calendar nyse: NYSE sessions ({path.as_posix()})"
+    if kind == "nyse_bond":
+        closed = load_bond_closures(cfg.bond_closures_file)
+        sessions = {d: v for d, v in sessions.items() if d not in closed}
+        what = (
+            f"aux calendar nyse_bond: NYSE sessions minus US bond-market closures "
+            f"({cfg.bond_closures_file.as_posix()})"
+        )
+    lo, hi = min(sessions), max(sessions)
+    cover = (
+        dt.datetime.combine(lo, dt.time(0), tzinfo=dt.UTC),
+        dt.datetime.combine(hi + dt.timedelta(days=1), dt.time(0), tzinfo=dt.UTC),
+    )
+    starts = expected_us_equity("1D", first, last, sessions, cfg)
+    return ExpectedSchedule(starts, f"{what} {lo}..{hi}", coverage=cover)
