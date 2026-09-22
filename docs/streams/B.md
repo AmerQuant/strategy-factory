@@ -53,11 +53,15 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04j planned, stopped for "Plan approved"** — branch
-`b/T04j-dukascopy-ingest`, task file `docs/tasks/T04j_dukascopy_ingest.md`. Measured: the Dukascopy
-download is **incomplete and still running** (0 of 29 complete; 14 with no file; newest write
-2026-09-22 11:39 UTC), so nothing can be ingested yet. Open: **P-87** (the spread a daily FX run's cost
-uses), **P-88** (D-020: FX/metals in the MVP universe?).
+**Current position:** **T04j approved (D-715, D-716, D-717); waiting for the download** — branch
+`b/T04j-dukascopy-ingest`. The coverage gate is built and tested (`sfac data coverage dukascopy`;
+`sfac data ingest dukascopy` refuses a gapped set before writing anything). On 2026-09-22 it reports
+**0 of 29 complete, 3,890 required months missing**, so **nothing is ingested**. The user runs
+`powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1` (resumable;
+it ends with the remaining gaps) until it prints `coverage gate: passed`; then the defect families
+are re-measured on all 29 (stop if any appears, D-717) before the ingest. P-87 → D-716 (the daily
+cost read is T12's, stream A, from the measurement in the T04j task file); P-88 → D-715 (T04j does
+not block T12).
 
 **Note — transient `OSError: [Errno 22]` from `sfac` after #41 (2026-09-22).** Right after `uv sync` on
 `main` (`15ab01a`, #41's UTF-8 entry point), `uv run sfac --help | head -5` printed a traceback ending

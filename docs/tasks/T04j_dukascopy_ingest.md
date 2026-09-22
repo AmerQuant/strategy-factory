@@ -6,18 +6,27 @@
 **Depends on:** T04e (the adapter, the pilots), T05 (the resampler) · **Branch:** `b/T04j-dukascopy-ingest`
 from `main`.
 
+> **T04j unblocks costs, not only data.** All 29 cost profiles for these symbols are
+> `broker_scaled` (D-523): each resolves its hourly spread from the **Dukascopy 1H reference** of its
+> symbol (`costs/cli.py:70`, `costs/arrays.py:266`). Until T04j ingests the 1H series, none of the 29
+> has a usable cost, and none can run (rule 4).
+>
+> **T04j does not block T12 (D-715).** D-020's phasing is the order of work, not a prohibition: stage 1
+> runs on US equities and ETFs now; FX, metals and index / energy CFDs join the candidate universe
+> when T04j completes.
+
+**Status:** plan approved 2026-09-22 (D-715, D-716, D-717). **No ingest until the coverage gate
+passes** — the download is incomplete (below).
+
 Read first: `CLAUDE.md` (rules 3, 7, 10, 11), D-010, D-020, D-026, D-028, D-031, D-032, D-323, D-350,
-D-386, D-523, D-707, D-708, D-714; `docs/reviews/T04e_review.md`, `T05_review.md`, `T06b_review.md`,
+D-386, D-523, D-707, D-708, D-714, D-715, D-716, D-717; `docs/reviews/T04e_review.md`, `T05_review.md`, `T06b_review.md`,
 `T04h_review.md` (the coverage gate this task copies).
 
 ## Why
 
 No FX, metal, energy or index symbol can be researched today. The three Dukascopy references in the
-store are the T04e **Q1-2024 pilots** (EURUSD, XAUUSD, USA500IDXUSD 1H, hash version 1). And every
-one of the 29 broker profiles for these symbols is `broker_scaled` (D-523): its hourly spread is
-resolved from the `spread` column of the symbol's **1H reference** (`costs/cli.py:70`,
-`costs/arrays.py:266`). So until this task ingests the 1H series, none of the 29 has a usable cost,
-and none can run (rule 4).
+store are the T04e **Q1-2024 pilots** (EURUSD, XAUUSD, USA500IDXUSD 1H, hash version 1), and the 29
+cost profiles cannot resolve without the full 1H series (above).
 
 ## Measured input state (2026-09-22) — `scripts/analysis/T04j_coverage.py` → `docs/reviews/T04j_raw_coverage.csv`
 
@@ -72,11 +81,13 @@ present on both sides; ≈ 96,000 1H bars each), the way T04h/D-707 measured the
 | spread | **spikes**: hours with a spread above 10× its 500-bar rolling median: EURUSD 1,145, GBPUSD 830, CADJPY 679, GBPCHF 590, XAUUSD 67, XAGUSD 32 (rollover and the Sunday open). Zero spread on 1 bar each of EURUSD and XAGUSD. **Negative: 0** (the adapter refuses them) |
 | missing weekday hours | FX 70–97 per instrument; metals ≈ 1,800 — the metals' **daily 1-hour break**, a session feature the quality check learns (`learn_break`), not a defect |
 
-**Proposal:** no cleaning pass for Dukascopy, as D-707 decided for Alpaca 1H. The script re-runs on the
-full set once the download is complete, and any family that appears there is raised before ingest,
-never absorbed. The spread spikes matter only through D-523's hourly shape, which is a **median** per
-UTC hour (`broker_scaled_table`), so they barely move it. That is reported in the review, with no
-action proposed.
+**Decided (D-717):** no cleaning pass for Dukascopy, on the same grounds as D-707 — **on condition**
+that `T04j_defects.py` is re-run on the **complete** set of 29 before the ingest, and **T04j stops and
+raises** if any family appears there; nothing is absorbed. The spread spikes get **one line in the
+review**: they matter only through D-523's hourly shape, which is a **median** per UTC hour
+(`broker_scaled_table`), so they barely move it — the evidence is the per-hour median table
+(`docs/reviews/T04j_spread_by_hour.csv`), which stays within 0.75–1.0× the overall median from 07 to
+19 UTC although those hours hold spikes too.
 
 ## The broker universe (T06b, D-323)
 
@@ -84,9 +95,43 @@ action proposed.
   EURUSD → `EURUSD+`, LIGHTCMDUSD → `USOUSD`, USA500IDXUSD → `SP500.r`, JPNIDXJPY → `Nikkei225`).
 - `configs/costs/moneta/assignments.yaml` assigns each its own profile; all 29 are **`verified`,
   spread `broker_scaled`**.
-- A profile resolves only against the 1H reference's `spread` column (above). T04j is therefore the
-  prerequisite for the 29 cost profiles, not only for the bars. Stream A's `configs/costs/` is not
-  touched.
+- A profile resolves only against the 1H reference's `spread` column (top of this file). Stream A's
+  `configs/costs/` is not touched.
+
+## Costs of a daily run — what a daily cost consumer reads (D-716; implemented by stream A in T12)
+
+The 1D snapshot's `spread` is the **last hour's** (T05 resampler, D-032): 23:00 UTC stands for the
+whole day. **A daily cost consumer never reads it.** Measured on the six near-complete instruments
+(`scripts/analysis/T04j_spread_hours.py` → `docs/reviews/T04j_spread_by_hour.csv`, the median spread
+per UTC hour ÷ the overall median; the Sunday open measured on the first bar of each week):
+
+| UTC hour | FX (EURUSD, GBPUSD, GBPCHF, CADJPY) | metals (XAUUSD, XAGUSD) |
+|---|---|---|
+| 01–06 | 1.0–1.1× | 0.98–1.03× |
+| 07–19 | 0.75–1.0× | 0.75–1.0× |
+| 20 | 2.3–2.5× | 1.5–1.7× |
+| 21 | 3.0–3.7× | 1.7–1.9× |
+| 22 | 1.7–1.9× | 1.4× |
+| 23 (the 1D snapshot's `spread`) | 1.00–1.22× | 1.00–1.22× |
+| 00 | 1.00–1.10× | 1.00–1.10× |
+| Tue–Fri 00:00 bar (a daily bar's first hour) | 1.00–1.10× | 1.00–1.03× |
+| **Sunday open** (Monday's daily bar's first hour) | **4.0–5.4×** at 21:00 / 22:00 | **1.3×** at 22:00 / 23:00 |
+
+**Correction to the premise:** the last UTC hour is not the widest. The widest are 20–22 UTC and the
+Sunday open.
+
+What the consumer reads instead:
+
+1. **The table:** D-523's `broker_scaled` hourly table, 24 UTC hours, resolved from the symbol's **1H
+   development segment** (as `sfac costs show` does, `SPREAD_TIMEFRAME = "1H"`), not from the 1D bars.
+2. **A fill at a daily bar's open** (the next-open fills): the table value at the **UTC hour of that
+   daily bar's first source hour** — hour 0 Tuesday to Friday; on **Monday** the hour of the Sunday
+   open (the first 1H bar of that week: 21 or 22 for FX, 22 or 23 for metals, per D-010).
+3. **A fill inside a daily bar** (SL / TP / disaster stop; the hour is unknown on a daily bar): the
+   table's **mean over its 24 hours**, which equals the Moneta reference spread by construction
+   (D-523).
+4. **Known limit, recorded and not ruled on:** the table's hour-21 bucket (≈ 3× for FX) averages the
+   Sunday open with weekday 21:00s, so it **understates** the Monday-open spread (4.0–5.4× measured).
 
 ## D-008 — how many would enter the candidate universe
 
@@ -99,19 +144,25 @@ action proposed.
 
 ## Scope
 
-0. **The user completes the download** (D-031): the same resumable command, all instruments,
-   `sfac data download dukascopy --series h1`, until the coverage report shows every expected month on
-   **both** sides. Claude Code writes `scripts/pilots/T04j_dukascopy_download.ps1` if the user wants it.
-1. **Coverage gate (D-386 copied):**
-   - `sfac data coverage dukascopy` writes `SFAC_RAW_ROOT/_reports/dukascopy_coverage_h1.csv` and exits 1
-     on a gap. A gap is an expected month missing on either side, or a month one side holds that the
-     other does not.
-   - `sfac data ingest dukascopy` refuses to run on a gap; there is no `--allow-gaps`.
-   - The per-instrument start comes from a new column `h1_from` in `configs/universe/dukascopy.csv`
-     (stream B's), taken from the dates already written in its `notes`.
-   - The check reads every file's rows, not a manifest field (D-711). Tests.
-2. **Re-measure the defect families** on the complete set (`T04j_defects.py`, all 29). Stop and raise if a
-   family appears.
+0. **The user completes the download** (D-031) with
+   `powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1`: step 1 is the
+   resumable `sfac data download dukascopy --series h1` (stored months are skipped, so it is safe to
+   re-run after a drop; a TLS error stops it and is reported as-is; failed months still go on to
+   step 2); step 2 is the coverage gate, which prints the remaining gaps. Re-run until it prints
+   `coverage gate: passed`.
+1. **Coverage gate (D-386 copied):** *(built)*
+   - `sfac data coverage dukascopy` writes `SFAC_RAW_ROOT/_reports/dukascopy_coverage_h1.csv` (per
+     instrument and month: bid, ask, rows, required, missing) and exits 1 on a gap. A gap is a
+     required month without a file on **either** side (the latest version of the month counts).
+   - Required: from `h1_start` or the instrument's own start (`instrument_start`, parsed from the
+     `h1 from` date already in `configs/universe/dukascopy.csv`'s notes), whichever is later, to the
+     last complete month. The current month is never required.
+   - `sfac data ingest dukascopy` refuses to run on a gap, before anything is written; there is no
+     `--allow-gaps`.
+   - The verdict rests on the files present, never on a manifest field (D-711); manifest rows are
+     reported only. Tests: `tests/unit/test_F_0_1_3_dukascopy_coverage.py`.
+2. **Re-measure the defect families** on the complete set (`T04j_defects.py`, all 29). **Stop and raise if a
+   family appears** (D-717).
 3. **Ingest 1H** for all 29 with `--set-reference`; the three pilots with `--rehash` (hash version
    1 → 2, reference moved, event note `rehash v1→v2`; T04e §1). Chunked and idempotent (D-385); a re-run
    writes nothing (test + store evidence, as T04h).
@@ -129,7 +180,8 @@ action proposed.
 
 - m1 data (D-026: spread detail and intrabar resolution later, F-0.3.5).
 - Yahoo auxiliary series (next task).
-- Stage-1 inclusion of these symbols: stream A's T12, and **P-88** (D-020).
+- Stage-1 inclusion of these symbols: stream A's T12; they join when T04j completes (D-715).
+- The daily cost read: stream A's T12 implements it from the measurement above (D-716).
 - Any change to `configs/costs/` (stream A).
 
 ## Acceptance
@@ -139,7 +191,8 @@ action proposed.
 - All 29 have a 1H reference (hash version 2) and a 1D reference `derived_from` it; the pilots are
   re-hashed and their old snapshots stay in the store.
 - D-010 / D-032 tests as above; no daily bar on a weekend in the store (store evidence).
-- The defect-family table re-measured on all 29 is in the review.
+- The defect-family table re-measured on all 29 is in the review, with no family present (D-717);
+  one line on the spread spikes and the per-hour median's insensitivity to them.
 - Every snapshot has a quality report; no schedule check is `skipped`.
 - `sfac costs show` resolves for all 29.
 - A re-run of a chunk writes nothing.
@@ -147,7 +200,4 @@ action proposed.
 
 ## Open questions
 
-- **P-87**: the spread a **daily** FX run's cost is resolved from. The costs have to use the 1H shape;
-  the 1D snapshot's `spread` is the last hour's.
-- **P-88**: D-020 puts FX, metals and index/energy CFDs in **P1**, not the MVP. Does bringing them into
-  the candidate universe now amend D-020?
+None open. P-87 → D-716 (the daily cost read, T12's), P-88 → D-715 (no amendment of D-020).
