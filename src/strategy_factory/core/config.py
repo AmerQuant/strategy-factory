@@ -38,12 +38,24 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from strategy_factory.core.errors import ConfigError
 
 IntrabarMode = Literal["tradingview", "pessimistic"]
 UniverseFilter = Literal["broker", "all"]
+#: D-616: ``listed`` runs ``symbols`` as given; ``broker`` expands, at resolution, to every
+#: broker-tradable universe symbol that lists all ``timeframes`` and has their references.
+SymbolScope = Literal["listed", "broker"]
+#: D-615: ``random_walk`` runs the stages on each series' own returns, permuted (the control).
+Control = Literal["none", "random_walk"]
 DEFAULT_ENGINE_CONFIG = Path("configs") / "engine" / "default.yaml"
 
 
@@ -116,7 +128,11 @@ class PipelineConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     universe: Path = Path("configs") / "universe.yaml"
-    symbols: tuple[str, ...] = Field(min_length=1)
+    symbol_scope: SymbolScope = "listed"
+    symbols: tuple[str, ...] = ()
+    # D-616: symbols a `broker` scope left out at resolution, with the reason
+    scope_excluded: dict[str, str] = Field(default_factory=dict)
+    control: Control = "none"
     timeframes: tuple[str, ...] = Field(min_length=1)
     stages: tuple[str, ...] = Field(min_length=1)
     gates: Path = Path("configs") / "gates" / "default.yaml"
@@ -139,6 +155,12 @@ class PipelineConfig(BaseModel):
             raise ValueError(f"duplicate entries in {list(value)}")
         return value
 
+    @model_validator(mode="after")
+    def _symbols_given(self) -> PipelineConfig:
+        if self.symbol_scope == "listed" and not self.symbols:
+            raise ValueError("symbols: at least one symbol (or symbol_scope: broker, D-616)")
+        return self
+
     @field_validator("cost_stress")
     @classmethod
     def _stress(cls, value: tuple[float, ...]) -> tuple[float, ...]:
@@ -148,6 +170,8 @@ class PipelineConfig(BaseModel):
 
     @property
     def is_resolved(self) -> bool:
+        if not self.symbols:
+            return False
         return all(
             tf in self.data_snapshots.get(sym, {}) for sym in self.symbols for tf in self.timeframes
         )
@@ -203,6 +227,8 @@ def validate_config(cfg: PipelineConfig, config_path: Path | None = None) -> Non
     universe = load_universe(cfg.universe).by_symbol()
     gates = load_gate_config(cfg.gates)
     problems: list[str] = []
+    if cfg.symbol_scope == "broker" and cfg.universe_filter != "broker":
+        problems.append("symbol_scope: broker needs universe_filter: broker (D-603, D-616)")
     for sym in cfg.symbols:
         entry = universe.get(sym)
         if entry is None:
@@ -286,15 +312,19 @@ def resolve_config(
     costs_dir: Path | None = None,
     fx_config_path: Path | None = None,
 ) -> PipelineConfig:
-    """``cfg`` with ``data_snapshots`` and ``cost_inputs`` resolved (all of them required)."""
+    """``cfg`` with ``data_snapshots`` and ``cost_inputs`` resolved (all of them required).
+
+    A ``broker`` scope (D-616) is expanded first: see :func:`expand_broker_scope`.
+    """
     from strategy_factory.core.universe import load_universe
     from strategy_factory.costs.profile import moneta_profile_names, moneta_spec_sha256
     from strategy_factory.data.catalog import Catalog
     from strategy_factory.data.quality import ensure_usable
 
+    cat = Catalog(catalog_root)
+    cfg = expand_broker_scope(cfg, cat)
     validate_config(cfg, config_path)
     universe = load_universe(cfg.universe).by_symbol()
-    cat = Catalog(catalog_root)
     snaps: dict[str, dict[str, SnapshotRef]] = {}
     missing: list[str] = []
     for sym in cfg.symbols:
@@ -358,6 +388,44 @@ def resolve_config(
             "cost_inputs": cost_inputs,
         }
     )
+
+
+def expand_broker_scope(cfg: PipelineConfig, catalog: Any) -> PipelineConfig:
+    """D-616: a ``broker`` scope becomes an explicit, sorted symbol list.
+
+    Taken: every tradable universe symbol with a broker symbol (D-524, D-603) that lists all
+    of ``cfg.timeframes`` **and** has a reference of the declared source for each of them.
+    Every other broker symbol is recorded in ``scope_excluded`` with its reason, so the
+    resolved config (and its hash) says exactly what ran and what did not. A ``listed`` scope,
+    or a broker scope already expanded, is returned unchanged. Whether a series is long enough
+    for a split (D-008) is decided by the stage, not here: resolution computes no split.
+    """
+    from strategy_factory.core.universe import load_universe
+
+    if cfg.symbol_scope != "broker" or cfg.symbols:
+        return cfg
+    taken: list[str] = []
+    excluded: dict[str, str] = {}
+    for entry in sorted(load_universe(cfg.universe).symbols, key=lambda e: e.symbol):
+        if not entry.tradable or entry.broker_symbol is None:
+            continue
+        unlisted = [tf for tf in cfg.timeframes if tf not in entry.timeframes]
+        if unlisted:
+            excluded[entry.symbol] = f"timeframe(s) {unlisted} not in the universe entry"
+            continue
+        missing = [
+            tf
+            for tf in cfg.timeframes
+            if not catalog.has_reference(entry.symbol, tf)
+            or catalog.get_reference(entry.symbol, tf).source != entry.reference_source
+        ]
+        if missing:
+            excluded[entry.symbol] = f"no {entry.reference_source} reference for {missing}"
+            continue
+        taken.append(entry.symbol)
+    if not taken:
+        raise ConfigError("symbol_scope: broker resolved to no symbol (D-616)")
+    return cfg.model_copy(update={"symbols": tuple(taken), "scope_excluded": excluded})
 
 
 def check_cost_inputs(
