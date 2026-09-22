@@ -23,6 +23,7 @@ from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager
 from strategy_factory.data.store import SnapshotStore
 from strategy_factory.gates.engine import GateEngine
 from strategy_factory.pipeline.executor import load_executor_config, make_executor
+from strategy_factory.pipeline.qos import opt_out_of_efficiency_mode
 from strategy_factory.registry.engine import make_engine
 from strategy_factory.registry.writer import RegistryWriter, code_version
 from strategy_factory.stages.base import RunContext, StageResult
@@ -57,6 +58,8 @@ def run_stage1(config_path: Path, notes: str = "", executor: Any = None) -> RunR
             f"sfac run executes stage 1 only for now (D-616); the config lists {list(cfg.stages)}",
             config_path=config_path,
         )
+    executor_cfg = load_executor_config()
+    opt_out_of_efficiency_mode(executor_cfg.efficiency_mode_opt_out)  # D-804: the parent too
     store = SnapshotStore()
     catalog = Catalog(store.root)
     cfg = resolve_config(cfg, catalog_root=store.root, config_path=config_path)
@@ -69,7 +72,7 @@ def run_stage1(config_path: Path, notes: str = "", executor: Any = None) -> RunR
         config=cfg,
         data=DataAccess(splits),
         references=ReferenceInfo(catalog),
-        executor=executor if executor is not None else make_executor(load_executor_config()),
+        executor=executor if executor is not None else make_executor(executor_cfg),
         gates=GateEngine.from_file(cfg.gates),
         artifacts_root=artifacts_root(),
         code_version=version,

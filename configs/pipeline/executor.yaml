@@ -12,3 +12,11 @@ numba_threads: auto
 # n_bars x chunk_cols x 8 bytes x 2 (equity and in-position matrices) stays under this budget.
 # Only the metrics of a chunk are kept, never the matrices.
 max_grid_bytes: 536870912      # 512 MiB
+
+# D-804 (P-103): on Windows, `sfac run` and every executor worker mark their own process as
+# "not power-throttled", so Windows 11 does not park them on the efficiency cores of a hybrid
+# CPU (measured 3-4x slower: 6.5 s vs 21.1 s per symbol, 18 s vs 67 s for the 1D pilot). It is
+# a scheduling hint for our own processes only: it changes no system setting, no power plan and
+# no other program, and no result. If it fails it is logged once and the run continues. A no-op
+# on other systems. Set it to false on a laptop on battery to let Windows save power.
+efficiency_mode_opt_out: true
