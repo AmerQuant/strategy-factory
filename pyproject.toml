@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sfac = "strategy_factory.cli:app"
+sfac = "strategy_factory.cli:run"
 
 [dependency-groups]
 dev = [

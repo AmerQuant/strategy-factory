@@ -77,5 +77,26 @@ def info() -> None:
         typer.echo(f"{key:<17}: {shown}{suffix}")
 
 
-if __name__ == "__main__":  # pragma: no cover
+def utf8_output() -> None:
+    """Write the CLI's stdout and stderr as UTF-8, whatever the locale (D-379, P-53).
+
+    Redirected to a file or a pipe -- as the PowerShell scripts log it -- Python writes with
+    the locale codec, cp1252 on Windows, and a message or help text with a character it
+    lacks (``→``, ``≤``, ``₁₀``) crashed the command at its last step. ``replace`` keeps an
+    unencodable character from ever raising. A stream without ``reconfigure`` (a test
+    runner's capture) is left alone.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
+def run() -> None:
+    """The ``sfac`` entry point: set the output encoding once, then run the app."""
+    utf8_output()
     app()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    run()
