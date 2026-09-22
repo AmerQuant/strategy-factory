@@ -70,6 +70,7 @@ uv run sfac --help
 - Type hints everywhere. `mypy --strict` for `core`, `data`, `registry`, `gates`; relaxed for Numba kernels.
 - Numba: `@njit(cache=True)`; parallel grids with `prange`. Keep kernels free of Python objects.
 - Registry: SQLAlchemy Core + psycopg 3; bulk writes via `COPY`; schema changes only through Alembic migrations.
+- **Encodings are explicit (D-377).** Every text-mode `subprocess` call and every text file access (`open`, `Path.open`, `read_text`, `write_text`) passes `encoding=` (UTF-8 unless documented otherwise); Windows defaults to cp1252 while CI is UTF-8, so CI cannot catch a missing one. `tests/unit/test_F_X_9_explicit_encoding.py` enforces it statically.
 - Code, identifiers, comments and commit messages in English. User-facing reports are Persian, RTL, font Vazirmatn.
 
 ## Testing
