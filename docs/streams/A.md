@@ -45,8 +45,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-802** and **P-40 … P-54**. **Next free here:
-D-803, P-55.** Supervisor rows written by stream A: D-601 … D-612; next free supervisor id
+Stream A has used **D-360 … D-379**, **D-800 … D-802** and **P-40 … P-59** (the pending range is used up). **Next free
+here: D-803; no free P- number — a second pending range is needed before the next question.** Supervisor rows written by stream A: D-601 … D-612; next free supervisor id
 **D-613**.
 
 ## Rules that bind this stream (D-355, D-357)
@@ -88,13 +88,16 @@ D-803, P-55.** Supervisor rows written by stream A: D-601 … D-612; next free s
 `windows-fast`; measured on #42's last run, 3 m 30 s and 3 m 37 s, **1.5×** the cost before
 D-800/D-801.
 
-**Open:** the D-802 PR (`a/T11b-deferred`: T11b parked, HANDOFF v7, this file onto `main`).
-**Next:** T12 plan on `a/docs-T12-plan`, stopping for "Plan approved".
+**Open:** **#44**, the D-802 PR (`a/T11b-deferred`: T11b parked, HANDOFF v7, this file onto `main`), CI green.
+**The T12 plan is at its stop for "Plan approved"** (D-403). It is on branch `a/docs-T12-plan` and holds three things:
+the task-file additions §12 and §13, `docs/tasks/RUNBOOK_T12.md`, and **P-55 … P-59**, each with a proposed answer.
+`configs/universe.yaml` was checked and is current, so nothing is owed. The measured compute says the baseline needs **no engine change**.
 
 ### Open, and on whom
 
 - **D-802 PR** — on the supervisor, "Approved. Merge".
-- **T12 plan** — stream A, then the supervisor's "Plan approved".
+- **T12 plan** — on the supervisor: "Plan approved" and answers to P-55 … P-59.
+- **A second pending range for stream A** — on the supervisor; P-59 was the last.
 - **T11b, P-50** — parked (D-802); resumes when the user exports.
 - **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`** — deleting needs the supervisor.
 
