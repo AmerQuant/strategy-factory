@@ -101,6 +101,10 @@ review**: they matter only through D-523's hourly shape, which is a **median** p
 
 ## Costs of a daily run — the week open (D-716; T12 in stream A reads it)
 
+**A median hides a rare extreme completely.** Before D-716 the 4–5× week-open spread appeared
+nowhere in the cost table: the hour bucket's median dropped it rather than averaging it in. An
+extreme that recurs at a known moment needs its own key.
+
 **Every daily FX entry on a Monday lands on the widest spread of the week.** The bar that opens the
 trading week (the Sunday open) is **4.0–5.4×** the median spread for FX and **1.3×** for metals, and
 under D-010 it is the open of Monday's daily bar, the fill of every daily next-open entry signalled on
@@ -121,7 +125,8 @@ a Friday.
   that the holdout never reaches the table. Its closing check (the bar-weighted mean of what each
   development bar is charged equals the broker spread, D-523) now charges the week-open bars their own
   key instead of their UTC hour. It also asserts that the week-open value is unchanged by the
-  poisoned holdout. The invariant is the same, and it is checked on more.
+  poisoned holdout. The invariant is the same, and it is checked on more. **Approved by the supervisor
+  on 2026-09-22, no ADR (recorded in D-716).**
 
 **Measured with the table itself** (`scripts/analysis/T04j_spread_hours.py` →
 `docs/reviews/T04j_spread_by_hour.csv`: each key ÷ the instrument's median spread; six instruments,
