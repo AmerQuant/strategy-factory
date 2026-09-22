@@ -1,0 +1,7 @@
+# T12 step 9: the random-walk control at the same scale (D-615) -- each series' own returns,
+# permuted. The headline number of T12 is how many profiles pass here.
+symbol_scope: broker
+timeframes: [1H]
+stages: [s01_edge]
+seed: 42
+control: random_walk

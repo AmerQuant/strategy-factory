@@ -42,12 +42,12 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | | decisions | pending |
 |---|---|---|
 | supervisor | D-355 … D-359 (used up) and D-600 … D-699 | — |
-| **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** |
+| **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-802** and **P-40 … P-59** (the pending range is used up). **Next free
-here: D-803; no free P- number — a second pending range is needed before the next question.** Supervisor rows written by stream A: D-601 … D-612; next free supervisor id
-**D-613**.
+Stream A has used **D-360 … D-379**, **D-800 … D-803**, **P-40 … P-59** and **P-100 … P-102**.
+**Next free here: D-804, P-103.** Supervisor rows written by stream A: D-601 … D-617; next free
+supervisor id **D-618**. (D-803 and D-613 … D-617 are on `a/T12-edge-discovery`, not yet on `main`.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -83,23 +83,30 @@ here: D-803; no free P- number — a second pending range is needed before the n
 
 ## Status — 2026-09-22
 
-**All stream-A PRs through #43 are merged** (`main` at `0e62999`): #40 (D-378), #41 (D-379),
-#43 (D-801), #42 (D-800), in that order. CI now runs `checks` once per PR update plus
-`windows-fast`; measured on #42's last run, 3 m 30 s and 3 m 37 s, **1.5×** the cost before
-D-800/D-801.
+**#44 (D-802) is merged** (`main` at `44bed56`). **T12 is at its step-8 stop** (the pilot),
+before step 9, as the supervisor required: branch `a/T12-edge-discovery` (pushed, no PR yet).
 
-**Open:** **#44**, the D-802 PR (`a/T11b-deferred`: T11b parked, HANDOFF v7, this file onto `main`), CI green.
-**The T12 plan is at its stop for "Plan approved"** (D-403). It is on branch `a/docs-T12-plan` and holds three things:
-the task-file additions §12 and §13, `docs/tasks/RUNBOOK_T12.md`, and **P-55 … P-59**, each with a proposed answer.
-`configs/universe.yaml` was checked and is current, so nothing is owed. The measured compute says the baseline needs **no engine change**.
+- **Plan approved** with P-55 … P-59 answered: D-613 (amends D-601/D-606), D-614 (probe
+  exits; the parity harness keeps its own copy), D-615 … D-617; stream A's second pending
+  range P-100 … P-149 (D-803, in `ownership.yaml` with tests).
+- **Built (steps 0–7):** stats helpers, the stage config and ESS, the `probe_q_value` gate
+  criterion, the probe exits, the matched baseline, the stage framework (no split manager in
+  `RunContext`), `s01_edge`, `sfac run`, the random-walk control, and their tests
+  (fast 1,737, parity/leakage/oracle 396, db 22 with 0 skipped; ruff, format, mypy clean).
+- **Pilot (step 8):** `docs/reviews/T12_pilot.md`. 10 symbols; reproduced exactly on a second
+  run; the projected full run with controls is about 1.6 h. **Found a bias in the D-615
+  baseline**: a second disaster stop in the baseline inflates TF long probes under drift (the
+  permuted 1H control passes 2 of 40, both TF long). This is raised as **P-100** with an
+  amendment. P-101 (TF probes below the trade minimum, the §11 trigger) and P-102 (two
+  uninformative warnings) are also open.
 
 ### Open, and on whom
 
-- **D-802 PR** — on the supervisor, "Approved. Merge".
-- **T12 plan** — on the supervisor: "Plan approved" and answers to P-55 … P-59.
-- **A second pending range for stream A** — on the supervisor; P-59 was the last.
+- **P-100 … P-102** — on the supervisor. P-100 blocks step 9: the pilot is re-run after it.
+- **Step 9 (the full run)** — only after the supervisor has seen the pilot (and P-100).
 - **T11b, P-50** — parked (D-802); resumes when the user exports.
-- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`** — deleting needs the supervisor.
+- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** —
+  deleting needs the supervisor (the plan branch is folded into `a/T12-edge-discovery`).
 
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
 
@@ -120,7 +127,9 @@ the task-file additions §12 and §13, `docs/tasks/RUNBOOK_T12.md`, and **P-55 �
 
 ### Next actions, in order
 
-1. Merge the D-802 PR on "Approved. Merge".
-2. **T12**: plan (task file additions, universe check, runbook, pending questions), stop for
-   "Plan approved"; then execute; critical, stop for "Approved".
-3. T11b when the user exports (D-802).
+1. The supervisor answers P-100 … P-102.
+2. Apply the P-100 answer, add the drifted TF uniformity case, re-run the pilot, report again.
+3. Step 9 on the supervisor's word: the full MVP scope on 1D and 1H plus the random-walk
+   control (`configs/pipeline/s01_broker_{1d,1h}[_control].yaml`); then the review, the
+   acceptance reviewer, the PR, and the stop for "Approved" (D-402).
+4. T11b when the user exports (D-802).
