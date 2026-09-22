@@ -17,12 +17,24 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import polars as pl
 
 from strategy_factory.data.config import CoverageConfig
 from strategy_factory.data.download.alpaca import latest_chunks
+from strategy_factory.data.download.dukascopy import (
+    SIDES,
+    Instrument,
+    Series,
+    instrument_start,
+    last_complete_month,
+    latest_months,
+    month_start,
+    months,
+)
 from strategy_factory.data.download.rawfiles import MANIFEST_SUFFIX
 
 COVERAGE_COLUMNS = [
@@ -119,3 +131,85 @@ def describe_gaps(gaps: dict[str, list[int]], limit: int = 20) -> str:
     return (
         f"{len(gaps)} symbol(s), {total} missing or incomplete year(s): " + "; ".join(parts) + more
     )
+
+
+# -- Dukascopy (T04j) --------------------------------------------------------------------------
+
+DUKASCOPY_COLUMNS = ["symbol", "month", "bid", "ask", "bid_rows", "ask_rows", "required", "missing"]
+
+
+def dukascopy_coverage_frame(
+    raw_root: Path,
+    series: str,
+    instruments: Sequence[Instrument],
+    first: dt.date,
+    today: dt.date,
+) -> pl.DataFrame:
+    """One row per instrument and month from ``first`` (or the instrument's own start, from its
+    universe notes) to the last complete month: whether a bid and an ask file exist (the latest
+    version of each), their rows (from the manifest, for the report only), and ``missing`` -- a
+    required month without a file on **either** side. The verdict rests on the files present,
+    never on a manifest field (D-711); the adapter refuses one-sided bars, so a month on one side
+    only is a gap too. The current month is never required (the downloader never stores it)."""
+    last = last_complete_month(today)
+    rows: list[dict[str, object]] = []
+    for inst in instruments:
+        start = month_start(first)
+        own = instrument_start(inst.notes, cast(Series, series))
+        if own is not None:
+            start = max(start, month_start(own))
+        sides = {
+            side: {p.name[:7]: p for p in latest_months(raw_root, series, inst.instrument_id, side)}
+            for side in SIDES
+        }
+        for m in months(month_start(first), last):
+            key = f"{m:%Y-%m}"
+            bid, ask = sides["bid"].get(key), sides["ask"].get(key)
+            required = m >= start
+            rows.append(
+                {
+                    "symbol": inst.symbol,
+                    "month": key,
+                    "bid": bid is not None,
+                    "ask": ask is not None,
+                    "bid_rows": _manifest_rows(bid),
+                    "ask_rows": _manifest_rows(ask),
+                    "required": required,
+                    "missing": required and (bid is None or ask is None),
+                }
+            )
+    schema = {
+        "symbol": pl.Utf8,
+        "month": pl.Utf8,
+        "bid": pl.Boolean,
+        "ask": pl.Boolean,
+        "bid_rows": pl.Int64,
+        "ask_rows": pl.Int64,
+        "required": pl.Boolean,
+        "missing": pl.Boolean,
+    }
+    return pl.DataFrame(rows, schema=schema).select(DUKASCOPY_COLUMNS)
+
+
+def dukascopy_gaps(frame: pl.DataFrame) -> dict[str, list[str]]:
+    """``{symbol: [missing months]}`` (empty when the gate passes)."""
+    missing = frame.filter(pl.col("missing")).group_by("symbol").agg(pl.col("month").sort())
+    return {s: list(m) for s, m in sorted(missing.rows())}
+
+
+def describe_month_gaps(gaps: dict[str, list[str]], limit: int = 12) -> str:
+    """Symbols and their missing months, first and last, for the refusal and the report."""
+    parts = [f"{s} {len(ms)} month(s) ({ms[0]}..{ms[-1]})" for s, ms in list(gaps.items())[:limit]]
+    more = f" ... and {len(gaps) - limit} more symbol(s)" if len(gaps) > limit else ""
+    total = sum(len(v) for v in gaps.values())
+    return f"{len(gaps)} symbol(s), {total} missing month(s): " + "; ".join(parts) + more
+
+
+def _manifest_rows(path: Path | None) -> int | None:
+    if path is None:
+        return None
+    manifest = path.with_name(path.name + MANIFEST_SUFFIX)
+    if not manifest.is_file():
+        return None
+    value = json.loads(manifest.read_text(encoding="utf-8")).get("row_count")
+    return int(value) if isinstance(value, int) else None

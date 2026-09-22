@@ -6,13 +6,19 @@ import datetime as dt
 from pathlib import Path
 from typing import Annotated, cast
 
+import polars as pl
 import typer
 
 from strategy_factory.core.errors import SfacError
 from strategy_factory.data.adapters.dukascopy import DukascopyAdapter
 from strategy_factory.data.catalog import Catalog
-from strategy_factory.data.cli_alpaca import download_app, ingest_app
-from strategy_factory.data.config import load_dukascopy_config
+from strategy_factory.data.cli_alpaca import coverage_app, download_app, ingest_app
+from strategy_factory.data.config import DukascopyConfig, load_dukascopy_config
+from strategy_factory.data.coverage import (
+    describe_month_gaps,
+    dukascopy_coverage_frame,
+    dukascopy_gaps,
+)
 from strategy_factory.data.download.dukascopy import (
     Series,
     Tool,
@@ -116,7 +122,16 @@ def ingest_dukascopy(
     try:
         cfg = load_dukascopy_config(config)
         insts = _select(instruments, cfg.universe_file)
-        root, store, catalog = raw_root(), SnapshotStore(), Catalog()
+        root = raw_root()
+        # T04j (D-386 copied, P-62): a gapped raw set is not ingested at all -- refuse before
+        # anything is written; there is no --allow-gaps.
+        gaps = dukascopy_gaps(_coverage(root, series, insts, cfg))
+        if gaps:
+            raise _fail(
+                f"{series} raw coverage has gaps, nothing ingested (no --allow-gaps): "
+                f"{describe_month_gaps(gaps)}. See `sfac data coverage dukascopy`."
+            )
+        store, catalog = SnapshotStore(), Catalog()
         adapter = DukascopyAdapter(cfg)
         failed = 0
         for inst in insts:
@@ -153,3 +168,56 @@ def ingest_dukascopy(
         raise _fail(str(exc)) from exc
     if failed:
         raise typer.Exit(code=2)
+
+
+COVERAGE_REPORT = "dukascopy_coverage_{series}.csv"
+
+
+def _coverage(root: Path, series: str, insts: list, cfg: DukascopyConfig) -> pl.DataFrame:  # type: ignore[type-arg]
+    today = dt.datetime.now(dt.UTC).date()
+    return dukascopy_coverage_frame(root, series, insts, cfg.h1_start, today)
+
+
+@coverage_app.command("dukascopy")
+def coverage_dukascopy(
+    series: Annotated[str, typer.Option(help="Only h1 is gated now.")] = "h1",
+    instruments: Annotated[
+        str | None, typer.Option(help="Comma-separated instrument ids (default: all).")
+    ] = None,
+    config: ConfigOpt = None,
+) -> None:
+    """Months present per instrument and side -> SFAC_RAW_ROOT/_reports/; exit 1 on a gap."""
+    if series != "h1":
+        raise _fail("only --series h1 is gated (T04j)")
+    try:
+        cfg = load_dukascopy_config(config)
+        insts = _select(instruments, cfg.universe_file)
+        root = raw_root()
+        frame = _coverage(root, series, insts, cfg)
+    except SfacError as exc:
+        raise _fail(str(exc)) from exc
+    out = root / "_reports" / COVERAGE_REPORT.format(series=series)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    frame.write_csv(out)
+    per = (
+        frame.filter(pl.col("required"))
+        .group_by("symbol", maintain_order=True)
+        .agg(
+            pl.len().alias("required"),
+            (~pl.col("bid")).sum().alias("no_bid"),
+            (~pl.col("ask")).sum().alias("no_ask"),
+            pl.col("missing").sum().alias("missing"),
+        )
+    )
+    typer.echo(f"{len(insts)} instrument(s), {series}; report: {out}")
+    typer.echo(f"  {'symbol':<16}{'required':>9}{'no bid':>8}{'no ask':>8}{'missing':>9}")
+    for sym, req, nb, na, miss in per.rows():
+        mark = "" if miss == 0 else "  <- gap"
+        typer.echo(f"  {sym:<16}{req:>9}{nb:>8}{na:>8}{miss:>9}{mark}")
+    gaps = dukascopy_gaps(frame)
+    complete = len(insts) - len(gaps)
+    typer.echo(f"complete: {complete} of {len(insts)} instrument(s)")
+    if gaps:
+        typer.echo(f"GAPS: {describe_month_gaps(gaps)}")
+        raise typer.Exit(code=1)
+    typer.echo("coverage gate: passed (every required month on both sides)")
