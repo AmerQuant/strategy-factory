@@ -31,7 +31,11 @@ GUARD_TITLES = {
 
 def _git(*args: str) -> str:
     try:
-        out = subprocess.run(["git", *args], capture_output=True, text=True, timeout=60)
+        # git prints the files' own bytes (UTF-8); the locale codec (cp1252 on Windows) fails on
+        # text like the "log₁₀" of D-606, and CI's UTF-8 locale would never notice.
+        out = subprocess.run(
+            ["git", *args], capture_output=True, text=True, encoding="utf-8", timeout=60
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ConfigError(f"git failed: {exc}") from exc
     if out.returncode != 0:

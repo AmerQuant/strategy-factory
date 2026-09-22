@@ -82,6 +82,52 @@ def test_F_X_9_longest_prefix_wins(rules: Ownership) -> None:
     assert rules.owner_of("configs/costs/moneta/mapping.yaml") is None
 
 
+# -- D-611: stream A implements T12 and owns its paths ---------------------------------------
+D611_PATHS = (
+    "configs/gates/default.yaml",
+    "src/strategy_factory/metrics/names.py",
+    "src/strategy_factory/stages/edge.py",
+    "src/strategy_factory/baseline/random_entries.py",
+    "src/strategy_factory/components/base.py",
+)
+
+
+def test_F_X_9_d611_the_t12_paths_are_stream_as(rules: Ownership) -> None:
+    for path in D611_PATHS:
+        assert rules.owner_of(path) == "A", path
+    assert check_paths("A", list(D611_PATHS), rules) == []
+
+
+def test_F_X_9_d611_a_stream_b_branch_may_not_touch_them(rules: Ownership) -> None:
+    problems = check_paths("B", list(D611_PATHS), rules)
+    assert len(problems) == len(D611_PATHS)
+    assert all("owned by stream A" in problem for problem in problems)
+    assert {problem.split(":")[0] for problem in problems} == set(D611_PATHS)
+
+
+def test_F_X_9_d611_the_prefixes_stop_at_the_folder(rules: Ownership) -> None:
+    """A sibling that only shares the name's start stays shared, and so do their tests."""
+    for shared in (
+        "configs/gates_notes.md",
+        "src/strategy_factory/metrics_extra.py",
+        "src/strategy_factory/stages_x.py",
+        "tests/unit/test_F_0_5_metrics.py",
+        "src/strategy_factory/engine/api.py",
+    ):
+        assert rules.owner_of(shared) is None, shared
+
+
+def test_F_X_9_d611_protocol_and_log_state_it() -> None:
+    """Written down where a session reads it, not only in the YAML."""
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "until T11 is merged" not in protocol
+    for folder in ("components/", "stages/", "baseline/", "metrics/", "configs/gates/"):
+        assert folder in protocol, folder
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    d611 = next(line for line in log.splitlines() if line.startswith("| D-611 |"))
+    assert "Stream A implements T12" in d611 and "past T11" in d611
+
+
 def test_F_X_9_invalid_ownership_files_are_refused(tmp_path: Path) -> None:
     path = tmp_path / "ownership.yaml"
     base: dict[str, Any] = {
@@ -285,6 +331,27 @@ def test_F_X_9_streams_check_cli_fails_on_a_foreign_path(
     )
     assert result.exit_code == 1
     assert "FAIL path ownership" in result.output and "HANDOFF.md" in result.output
+
+
+def test_F_X_9_git_output_is_decoded_as_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
+    """D-606's "log₁₀" broke the guard on Windows: git's output was decoded with cp1252.
+
+    Asserted on the call, so it fails on CI's UTF-8 locale too, not only on Windows.
+    """
+    from strategy_factory.core import cli_streams
+
+    seen: dict[str, Any] = {}
+    real_run = subprocess.run
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        seen.update(kwargs)
+        return real_run(*args, **kwargs)
+
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(cli_streams.subprocess, "run", spy)
+    log = cli_streams._git("show", "HEAD:docs/decisions/decisions_log.md")
+    assert seen.get("encoding") == "utf-8"
+    assert "log₁₀" in log
 
 
 # -- D-357 (1) amended: every session in its own worktree ------------------------------------
