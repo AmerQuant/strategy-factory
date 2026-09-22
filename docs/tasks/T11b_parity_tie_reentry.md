@@ -1,6 +1,10 @@
 # T11b — a targeted parity reference for D-335 and D-336
 
-**Status: planned. The exports do not start until the supervisor has seen the script (D-375).**
+**Status: parked, not cancelled (D-802, 2026-09-22).** The user is not exporting for now. D-335 and D-336 stay
+unverified against TradingView and the `to_verify` ledger stays at **3 of 5**. If T11b later shows an engine difference,
+research results produced in the meantime may need re-running. The plan below stands for when it resumes.
+
+*(Before D-802: planned; the supervisor saw and approved the script, D-375.)*
 Stream A, critical like T11 (D-402). Features: F-0.3.8 (parity), F-X.7 (reproducibility).
 Decisions: D-011, D-335, D-336, D-359, D-360, D-366, D-367, D-371 (as amended), D-373, D-374,
 D-375, D-600; open question P-50 (fill rounding).
