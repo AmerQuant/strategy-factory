@@ -185,17 +185,27 @@ decisions now differ exactly where the fixes intend: 11 same-issuer keep → uns
 
 ## 7. Acceptance commands
 
+Rebased onto `main` `f5522a7` (stream A's #31 D-368 fix and #32 T12 task file).
+
 ```
-uv run pytest -m "not slow"                            1500 passed, 1 failed (below)
+uv run pytest -m "not slow"                            1505 passed, 2 failed (below)
 uv run pytest tests/parity tests/leakage tests/oracle  327 passed
 uv run pytest -m db                                     21 passed, 0 skipped
 uv run ruff check . / ruff format --check .            clean
 uv run mypy src                                        clean
-uv run sfac streams check --base origin/main           ok
+uv run sfac streams check --base origin/main           crashes on Windows (below); with PYTHONUTF8=1: ok, ok, ok
 ```
 
-The fast suite's one failure is stream A's `test_F_0_5_1_scaling_pnl_scales_profit_and_dd_keeps_ratio`
-(D-368), untouched. No new dependency.
+**The two failures are not this branch's, and CI is not affected.** Both are
+`tests/unit/test_F_X_9_stream_guards.py` (`…_streams_check_cli_on_this_branch`,
+`…_streams_check_cli_fails_on_a_foreign_path`), and `sfac streams check` fails the same way: stream A's
+`core/cli_streams.py:_git` reads `git show` output with `text=True` and no encoding, i.e. the Windows
+locale codec (cp1252), and `main`'s own `decisions_log.md` now contains "log₁₀" (D-60x, `₁` = UTF-8
+`E2 82 81`; `0x81` is undefined in cp1252). It fails on a plain checkout of `main` on Windows too. With
+Python's UTF-8 mode (`PYTHONUTF8=1`, an environment setting, no code change) the guard is clean and those
+tests plus `tests/property` pass (79 passed; stream A's D-368 property test now passes). On CI (Ubuntu,
+UTF-8) there is nothing to see. **Reported to stream A** (`docs/streams/B.md`); their file, not touched
+here. No new dependency.
 
 ## 8. For the supervisor
 

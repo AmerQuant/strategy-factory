@@ -73,6 +73,14 @@ Stage 1 sees the marker through `DataAccess.splices()` (one read-only method in 
 `sfac data show`. A latent weakness in T04k's `scripts/analysis/T04k_assert_provenance.py` (hash-only
 index; harmless today, 0 hashes shared across symbols) is recorded in the T04l review §6.1.4.
 
+**For stream A — `sfac streams check` breaks on Windows since #32.** `core/cli_streams.py:_git` runs
+`git` with `text=True` and no `encoding`, so on Windows it decodes with cp1252; `main`'s
+`decisions_log.md` now holds "log₁₀" (`E2 82 81`) and cp1252 cannot decode `0x81` → `UnicodeDecodeError`
+in the reader thread, `_git` returns `None`, `base_rows` crashes (`'NoneType' object has no attribute
+'splitlines'`). Two tests in `tests/unit/test_F_X_9_stream_guards.py` fail the same way locally. CI
+(Ubuntu) is unaffected. Likely fix (yours): `encoding="utf-8"` in `subprocess.run`. Stream B works
+around nothing; it verified its branch with `PYTHONUTF8=1`.
+
 **Next:** T12, after the merge.
 
 **What a fresh session needs to know about T04k:**
