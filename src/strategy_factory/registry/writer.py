@@ -113,7 +113,19 @@ DIRTY_SUFFIX = "-dirty"
 
 def _git(args: list[str], cwd: Path) -> str | None:
     try:
-        out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=10)
+        # P-52: git prints paths as UTF-8 bytes. Decoded with the locale codec (cp1252 on
+        # Windows), a byte it cannot map fails inside subprocess's reader thread, ``stdout``
+        # comes back ``None`` and a dirty checkout reads as clean. ``replace`` keeps a decode
+        # from ever failing: only the path prefix matters here, never the exact name.
+        out = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout if out.returncode == 0 else None

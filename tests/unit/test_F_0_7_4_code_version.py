@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -35,7 +36,9 @@ CONFIG = {
 
 
 def git(*args: str, cwd: Path) -> None:
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, encoding="utf-8"
+    )
 
 
 @pytest.fixture
@@ -172,3 +175,40 @@ def test_F_0_7_4_reproduce_marks_a_dirty_run(
     assert out.exit_code == 0, out.output
     assert "DIRTY checkout" in out.output
     assert "cost_inputs   : NOT RECORDED" in out.output  # this run predates the cost inputs
+
+
+# -- P-52: git output is decoded as UTF-8, not with the locale codec -------------------------
+def test_F_0_7_4_p52_git_output_is_decoded_as_utf8(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Asserted on the call, so it fails on CI's UTF-8 locale too, not only on Windows."""
+    from strategy_factory.registry import writer
+
+    seen: list[dict[str, Any]] = []
+    real_run = subprocess.run
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        seen.append(kwargs)
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(writer.subprocess, "run", spy)
+    git_sha(repo)
+    git_dirty(repo)
+    assert len(seen) == 2
+    for kwargs in seen:
+        assert kwargs.get("encoding") == "utf-8" and kwargs.get("errors") == "replace"
+
+
+def test_F_0_7_4_p52_a_non_ascii_untracked_path_still_marks_the_checkout_dirty(
+    repo: Path,
+) -> None:
+    """The reproduced failure: `core.quotepath=false` and a Persian name under `src/`.
+
+    UTF-8 for ``ف`` is D9 81; cp1252 has no character for 0x81, so on Windows the old
+    decode failed in subprocess's reader thread and ``git_dirty`` returned ``False``.
+    """
+    git("config", "core.quotepath", "false", cwd=repo)
+    (repo / "src").mkdir()
+    (repo / "src" / "ف.py").write_text("x = 1\n", encoding="utf-8")
+    assert git_dirty(repo)
+    assert code_version(repo).endswith(DIRTY_SUFFIX)
