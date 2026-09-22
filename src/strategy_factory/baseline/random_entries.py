@@ -18,8 +18,14 @@ For one probe x direction with ``n`` closed trades holding ``h_1 … h_n`` bars,
 Allowed signal bars run from ``max(warm-up, first bar with a usable ATR)`` to ``n - 2`` (the
 last bar whose next open exists). No bar is masked for data quality (D-615). The engine runs
 each draw with **zero costs** and frictionless sizing, exactly as the probe's own statistic
-is measured (D-602); trades end at their drawn holding period or earlier on the 3-ATR
-disaster stop (D-130).
+is measured (D-602).
+
+**Baseline trades hold exactly their drawn period, with no disaster stop of their own (D-618,
+amending D-615).** The drawn periods are the probe's own ``bars_held``, which already carry the
+effect of the probe's disaster stop; stopping the baseline again double-counts it. It cut TF
+baseline trades to 84 % of the probe's holding, and under drift that shortfall turned market
+drift into apparent edge (T12 pilot, P-100). The engine requires a disaster multiple, so the
+baseline passes ``inf``: the level sits at infinity and never triggers.
 
 Seeds (D-607): one generator per (run seed, symbol, timeframe, probe, direction) -- see
 :func:`baseline_seed` -- drawn sequentially for its simulations, so execution order, chunking
@@ -28,6 +34,7 @@ and the worker count change no number. Baseline simulations are not trials (D-01
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -49,6 +56,8 @@ FloatArray = npt.NDArray[np.float64]
 BoolArray = npt.NDArray[np.bool_]
 
 _US_PER_YEAR_EPOCH = "datetime64[us]"
+#: D-618: the baseline's disaster multiple -- an infinitely far stop, i.e. none.
+NO_STOP = math.inf
 
 
 def baseline_seed(run_seed: int, symbol: str, timeframe: str, probe: str, direction: str) -> int:
@@ -139,6 +148,7 @@ class BaselineResult:
     trades_per_sim: IntArray
     pooled_returns: FloatArray  # every simulated trade's ATR return
     pooled_years: IntArray  # the entry year of each pooled trade
+    pooled_bars_held: IntArray  # the bars each pooled trade actually held
     infeasible: int  # draws whose blocks did not fit
     clamped_holdings: int  # probe trades with 0 bars held, drawn as 1
 
@@ -157,21 +167,21 @@ def run_baseline(
     lo: int,
     hi: int,
     simulations: int,
-    disaster_atr: float,
     rng: np.random.Generator,
     notional: float = 100_000.0,
     initial_capital: float = 100_000.0,
 ) -> BaselineResult:
-    """Run ``simulations`` matched draws through the engine (zero costs, D-602)."""
+    """Run ``simulations`` matched draws through the engine (zero costs, D-602; no stop, D-618)."""
     n = int(market.close.shape[0])
     held_in = np.asarray(holdings, dtype=np.int64)
     costs = frictionless_costs(n)
     sizing = frictionless_sizing(notional, initial_capital)
-    exits = ExitParams(disaster_atr=disaster_atr)
+    exits = ExitParams(disaster_atr=NO_STOP)
     means = np.full(simulations, np.nan)
     counts = np.zeros(simulations, dtype=np.int64)
     rets: list[FloatArray] = []
     years: list[IntArray] = []
+    held_out: list[IntArray] = []
     infeasible = 0
     for i in range(simulations):
         starts, held = draw_placements(rng, held_in, lo, hi)
@@ -186,12 +196,14 @@ def run_baseline(
             means[i] = float(r.mean())
             rets.append(r)
             years.append(trade_years(ts_us, sim.entry_idx))
+            held_out.append(np.asarray(sim.exit_idx - sim.entry_idx, dtype=np.int64))
     return BaselineResult(
         direction=direction,
         sim_means=means,
         trades_per_sim=counts,
         pooled_returns=np.concatenate(rets) if rets else np.zeros(0),
         pooled_years=np.concatenate(years) if years else np.zeros(0, dtype=np.int64),
+        pooled_bars_held=np.concatenate(held_out) if held_out else np.zeros(0, dtype=np.int64),
         infeasible=infeasible,
         clamped_holdings=int(np.count_nonzero(held_in == 0)),
     )

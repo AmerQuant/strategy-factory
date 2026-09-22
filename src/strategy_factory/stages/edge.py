@@ -270,7 +270,6 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
                 lo=lo,
                 hi=hi,
                 simulations=cfg.baseline.simulations,
-                disaster_atr=task.engine.disaster_stop_atr,
                 rng=rng,
                 notional=task.engine.notional,
                 initial_capital=task.engine.initial_capital,
@@ -290,11 +289,9 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
             infeasible, clamped = base.infeasible, base.clamped_holdings
             if infeasible:
                 warnings.append(f"{name}: {infeasible} baseline draw(s) did not fit")
+            # D-620: the disaster-hit share and the mean/median gap are reported as numbers,
+            # never as warnings (both fired on almost every probe and said nothing).
             disaster = float(np.mean(sim0.exit_reason == k.DISASTER_STOP))
-            if disaster > cfg.disaster_warn_share:
-                warnings.append(f"{name}: {disaster:.1%} of trades hit the disaster stop (D-130)")
-            if abs(row["mean_atr"] - row["median_atr"]) > cfg.mean_median_divergence_warn_atr:
-                warnings.append(f"{name}: mean and median ATR return diverge (D-601)")
         else:
             disaster = math.nan
         sim1 = _run(market, entry, exit_, d, exits, task, frictionless=False)

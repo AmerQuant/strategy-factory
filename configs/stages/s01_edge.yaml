@@ -55,10 +55,5 @@ ess:
   significance_full_log10p: 2.0       # median -log10(p) that scores full (p = 0.01)
   consistency_min_trades_per_year: 5  # D-613: a year with fewer probe trades is excluded
 
-# D-601: the median ATR return is reported beside the mean; a gap larger than this (in ATR)
-# is a warning in the artifact, never a gate criterion. Provisional (D-601 names no value).
-mean_median_divergence_warn_atr: 0.25
-
-# D-130: a warning (never a gate) when more than this share of a probe's trades hit the 3-ATR
-# disaster stop.
-disaster_warn_share: 0.02
+# D-620 (P-102): the mean/median gap (D-601) and the disaster-hit share (D-130) are reported in
+# every probe result as numbers and raise no warning -- both fired on almost every probe.
