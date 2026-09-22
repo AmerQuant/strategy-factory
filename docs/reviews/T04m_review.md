@@ -139,9 +139,55 @@ No new dependency.
     - The 2024-03-13 19:00 UTC bar (ends 16:00 EDT) reads VIX of 03-12; the 20:00 bar reads VIX of
       03-13.
 
+## A failing stage-6 input must never burn the holdout (the reviewer's blocker B1)
+
+**Read this before building any stage-6 input path.**
+
+**The failure.** The first version of `SplitManager.open_holdout_with_inputs`:
+1. checked only the cheap things before the access: the stage, and that each aux name is an aux
+   reference;
+2. called `open_holdout`, which **records the candidate's one-shot access** in `holdout_access`;
+3. only then built the aux views.
+
+Anything that failed in step 3 raised **after** the access was spent:
+- a traded bar outside the NYSE calendar file (it ends 2026-12-31);
+- an aux series without a final time or zone;
+- an asset class with no session calendar;
+- an unknown timeframe.
+
+A retry then raised `HoldoutAccessError: holdout already accessed`. The reviewer reproduced it: a
+holdout with bars after 2027-01-01 gave `DataError: … not a session of the nyse calendar`, the
+ledger held the access, and the candidate's holdout was lost for good. **A technical error would
+permanently disqualify a candidate.** That is worse than a wrong number, and it is exactly the
+failure the one-shot holdout design (rule 2, D-306) exists to prevent.
+
+**The fix** (`src/strategy_factory/data/split.py`, `open_holdout_with_inputs`):
+- **Everything is built before the access is recorded:**
+  - the conversion windows (another symbol's bars, never the traded holdout);
+  - the aux views, computed over the holdout's **bar starts** (`_ts(key)` filtered from
+    `holdout_start`). These are the timestamps the split itself is computed from; no price or
+    volume of the holdout is read.
+- Only then does `open_holdout` record the access and read the bars.
+- The bars read are then checked against the starts the views were built on. If the reference
+  moved in between, it raises rather than return misaligned views.
+
+**The test.**
+`tests/unit/test_F_0_1_11_aux_asof.py::test_F_0_1_11_a_failing_aux_input_keeps_the_holdout_access`
+does three things:
+1. It points the aux config at an NYSE calendar cut at 2022, so the aux view must fail on the
+   holdout's 2023–2024 bars.
+2. It asserts the call raises and that **`ledger.accesses` is empty**.
+3. It restores the calendar and asserts that the same candidate can still open its holdout once,
+   with views aligned to the bars.
+
+**The rule for the next stage-6 input** (costs resolved over the holdout, a reference index, a
+second timeframe): every input is **fully built and validated before `open_holdout` is called**.
+Anything computed after the access must be something that cannot fail on data or config. When in
+doubt, build it from the holdout's bar starts first.
+
 ## The acceptance reviewer's findings and what was done
 
-- **B1 (blocker, reproduced by the reviewer): fixed.** An aux view that failed after validation
+- **B1 (blocker, reproduced by the reviewer): fixed** (its own section above). An aux view that failed after validation
   (e.g. holdout bars beyond the NYSE calendar file) raised **after** the one-shot access was
   recorded, so the candidate's holdout was lost.
   - `open_holdout_with_inputs` now builds the conversion windows and the aux views **before** the
