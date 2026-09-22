@@ -58,3 +58,7 @@ ess:
 # D-601: the median ATR return is reported beside the mean; a gap larger than this (in ATR)
 # is a warning in the artifact, never a gate criterion. Provisional (D-601 names no value).
 mean_median_divergence_warn_atr: 0.25
+
+# D-130: a warning (never a gate) when more than this share of a probe's trades hit the 3-ATR
+# disaster stop.
+disaster_warn_share: 0.02

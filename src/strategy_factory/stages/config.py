@@ -61,6 +61,7 @@ class S01EdgeConfig(_Frozen):
     baseline: BaselineSpec
     ess: EssConfig
     mean_median_divergence_warn_atr: float = Field(gt=0)
+    disaster_warn_share: float = Field(ge=0, le=1)
 
     def runnable_edge_types(self) -> tuple[str, ...]:
         """The edge types with enough applicable groups to be run (D-233), sorted."""
