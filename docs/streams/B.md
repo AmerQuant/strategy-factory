@@ -18,10 +18,11 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 
 | branch | head | state | waiting on |
 |---|---|---|---|
-| `b/T04m-yahoo-aux` | pushed (this file's commit is its head) | **done**; [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45) open, body = `docs/reviews/T04m_review.md` | **the supervisor**: reads the review, then "Approved. Merge …" (D-401). Merge only then, with CI green; rebase onto `main` first if it moved |
+| `b/T04m-yahoo-aux` | `7dd6eb3` | **merged** 2026-09-22: [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45), `main` = `4cf6aaf` | nobody |
+| `b/docs-P93-aux-collision` | pushed, **no PR** | this file plus **P-93** (below), from `main` `4cf6aaf` | a docs PR when the supervisor wants it merged |
 | `b/T04j-dukascopy-ingest` | `3f324f4`, pushed, **no PR** | **paused** mid-task: plan approved, coverage gate and the week-open spread key built; nothing ingested | **the user**: the Dukascopy h1 download (several more days) |
 
-### T04m — Yahoo aux series (done, PR #45)
+### T04m — Yahoo aux series (merged, PR #45)
 
 - **Built:** 7 aux references in the store (VIX, SPX, NDX, RUT, DJI, TNX, DXY; `1D`,
   `asset_class aux`, hash version 2), each with a quality report whose schedule checks run on its
@@ -40,7 +41,12 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
   must be fully built **before** `open_holdout` records the one-shot access. The reviewer's
   blocker B1 had a failing aux input burn the candidate's holdout. It is fixed and tested
   (`test_F_0_1_11_a_failing_aux_input_keeps_the_holdout_access`).
-- **Decisions D-718 … D-721; P-89 … P-92 answered.** Nothing open.
+- **Decisions D-718 … D-721; P-89 … P-92 answered.**
+- **Open: P-93** (raised 2026-09-22 on the supervisor's instruction, not to be fixed now). A
+  collision between an aux name and a tradeable name is caught only when something reads it. The
+  case is concrete: the aux `SPX` versus the Moneta share CFD `SPX` (Spirax Group Plc). Options:
+  a guard at every ingest and at `set_reference`; keying references by asset class; or namespaced
+  aux symbols. Stream B leans to the first; it is left for whoever takes it.
 
 ### T04j — Dukascopy h1 (paused; everything is on its branch, not on `main`)
 
@@ -74,14 +80,14 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 ### Waiting on whom
 
 - **Supervisor:**
-  - the review of PR #45, then "Approved. Merge …";
-  - the next task for stream B once T04m is merged (none is assigned beyond T04j).
+  - the next task for stream B (none is assigned beyond T04j);
+  - whoever takes **P-93**.
 - **User:**
   - the Dukascopy download (the script above);
   - optionally, S&P DJI methodology PDFs (SPX, DJI close times);
   - emptying the quarantine folders `<store>/_quarantine/T04k_D-702_*` and
     `T04l_D-714_20260922T080918Z` (moved, never deleted, with manifests).
-- **Stream A**, open items from T04m, after #45 merges:
+- **Stream A**, open items from T04m (#45 is merged, so these are due now):
   1. **Regenerate `configs/universe.yaml`** (D-394). The aux calendars now come from the `calendar`
      column of `configs/universe/aux_yahoo.csv` (D-720): TNX, SPX, NDX, RUT and DJI change from
      `24x5` to `nyse`, and nothing else changes (checked).
@@ -98,15 +104,14 @@ exists only on that branch. Both branches carry this same copy of `B.md`.
 
 ### Next steps, in order
 
-1. On "Approved. Merge" for #45: check CI is green, rebase if `main` moved, merge, update this file
-   and push.
-2. On the user's "coverage gate: passed": resume T04j as above.
-3. Otherwise stream B has no assigned task: wait for the supervisor.
+1. On the user's "coverage gate: passed": resume T04j as above. Its rebase onto `main` now picks
+   up T04m and this file.
+2. Otherwise stream B has no assigned task: wait for the supervisor.
 
 ### IDs
 
-Next free: **D-722**, **P-93**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
-merges; D-718 … D-721 and P-89 … P-92 come with #45.
+Next free: **D-722**, **P-94**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
+merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/docs-P93-aux-collision`.
 
 ## Scope
 
@@ -127,7 +132,7 @@ merges; D-718 … D-721 and P-89 … P-92 come with #45.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-722**, **P-93** (see Resume here). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-722**, **P-94** (see Resume here). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
