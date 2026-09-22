@@ -24,7 +24,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-715**, **P-87**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-718**, **P-93** (D-715 … D-717 and P-87, P-88 are on the T04j branch). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -53,9 +53,11 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04l merged** (PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34),
-`99d2912`, 2026-09-22) — the data layer is complete for the MVP. **Stream B has no assigned task**;
-T12 is stream A's (D-611). Waiting for the supervisor.
+**Current position:** **T04m planned, stopped for "Plan approved"** — branch `b/T04m-yahoo-aux`,
+task file `docs/tasks/T04m_yahoo_aux.md`: ingest the seven Yahoo aux series (never ingested) and
+build the as-of join F-0.1.11 a stage-5 filter reads; open P-89 … P-92. **T04j is paused** on
+`b/T04j-dukascopy-ingest` (pushed): the Dukascopy download needs several more days; its status is on
+that branch's copy of this file.
 
 Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
 and `T04l_D-714_20260922T080918Z`.
