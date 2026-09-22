@@ -1,0 +1,318 @@
+symbol,tf,source,resumes,name_verdict,coverage,relation,cusips_before,cusips_after,types_before,types_after,ceased_before,dropped_rekeyed
+AACI,1D,D-708 long gap,2025-06-24,,both,different_issuer,04208V103,G0R38G104,name_changes|unit_splits,name_changes,"",0
+ACT,1D,D-708 long gap,2021-09-16,,both,different_issuer,00768Y545,29249E109,name_changes,cash_dividends,"",0
+AHL,1D,D-708 long gap,2025-05-08,,after_only,,"",G05384501,"",cash_mergers,"",0
+AHPA,1D,D-708 long gap,2021-09-30,,after_only,,"",G07247102,"",unit_splits,"",1
+AHPAU,1D,D-708 long gap,2021-08-10,,after_only,,"",G07247110,"",unit_splits,"",0
+AMUB,1D,D-708 long gap,2016-11-23,,after_only,,"",90274D374,"",cash_dividends,"",0
+APAC,1D,D-708 long gap,2025-11-21,,both,different_issuer,G85094103,G85096108,name_changes|unit_splits,unit_splits,"",1
+APXT,1D,D-708 long gap,2025-11-17,,both,different_issuer,053604104,G04104108,name_changes,unit_splits,"",0
+ARMH,1D,D-708 long gap,2025-03-14,,after_only,,"",74016W759,"",cash_dividends|forward_splits,"",0
+ARRY,1D,D-708 long gap,2020-10-15,,none,,"","","","","",0
+ATCX,1D,D-708 long gap,2026-01-09,,before_only,,049430101,"",cash_mergers|name_changes,"",cash_mergers,0
+AYA,1D,D-708 long gap,2026-05-04,,none,,"","","","","",0
+BLIN,1D,D-708 long gap,2017-07-25,,none,,"","","","","",0
+BLUW,1D,D-708 long gap,2025-07-31,,both,different_issuer,18271L107,G1368E106,name_changes,unit_splits,"",0
+BNKU,1D,D-708 long gap,2025-02-20,,before_only,,063679823,"",cash_mergers,"",cash_mergers,0
+BPAC,1D,D-708 long gap,2026-01-06,,after_only,,"",G1196A102,"",unit_splits,"",0
+BREZ,1D,D-708 long gap,2026-06-11,,before_only,,106762107,"",name_changes|unit_splits,"","",0
+BRPM,1D,D-708 long gap,2021-04-13,,both,different_issuer,02128L106,05601V103,name_changes,name_changes|unit_splits,"",1
+CBNK,1D,D-708 long gap,2018-09-26,,after_only,,"",139737100,"",cash_dividends|stock_and_cash_mergers,"",0
+CHAC,1D,D-708 long gap,2025-05-19,,after_only,,"",G24979109,"",name_changes|unit_splits,"",0
+CMII,1D,D-708 long gap,2026-02-27,,both,different_issuer,125842104|83444K105,G2296M103,name_changes|unit_splits,name_changes|unit_splits,"",0
+CSRA,1D,D-708 long gap,2026-08-12,,none,,"","","","","",0
+DCT,1D,D-708 long gap,2020-08-14,,after_only,,"",264120106,"",cash_mergers,"",0
+DDMX,1D,D-708 long gap,2021-01-27,,after_only,,"",23318M100|L18268109,"",name_changes|stock_mergers|unit_splits,"",0
+DDMXU,1D,D-708 long gap,2020-12-08,,after_only,,"",23318M209,"",unit_splits,"",0
+DM,1D,D-708 long gap,2020-12-10,,after_only,,"",25058X105|25058X303,"",cash_mergers|name_changes|reverse_splits|stock_and_cash_mergers,"",0
+DOW,1D,D-708 long gap,2019-04-02,,after_only,,"",260557103,"",cash_dividends,"",0
+DSAC,1D,D-708 long gap,2026-01-29,,both,different_issuer,337655104|G28553108,G2616C108,name_changes|unit_splits,unit_splits,"",1
+DTUL,1D,D-708 long gap,2019-05-31,,none,,"","","","","",0
+DTYL,1D,D-708 long gap,2017-10-25,,none,,"","","","","",0
+DULL,1D,D-708 long gap,2023-02-22,,after_only,,"",063679344|063679518,"",reverse_splits,"",0
+DV,1D,D-708 long gap,2021-04-21,,none,,"","","","","",0
+EDR,1D,D-708 long gap,2021-04-29,,after_only,,"",29260Y109,"",cash_dividends|cash_mergers,"",0
+EMC,1D,D-708 long gap,2023-05-15,,after_only,,"",37960A644,"",cash_dividends|stock_mergers,"",0
+EVER,1D,D-708 long gap,2018-06-28,,none,,"","","","","",0
+FACT,1D,D-708 long gap,2024-12-23,,before_only,,G3663X110,"",name_changes,"","",0
+FLAT,1D,D-708 long gap,2020-03-06,,none,,"","","","","",0
+FMAC,1D,D-708 long gap,2026-05-18,,before_only,,33765Y101,"",name_changes|unit_splits,"","",1
+GDEV,1D,D-708 long gap,2023-03-16,,both,same_cusip,G6529J209,G6529J100|G6529J209,name_changes,cash_dividends|reverse_splits,"",0
+GIW,1D,D-708 long gap,2025-10-27,,after_only,,"",G3864J100,"",unit_splits,"",0
+GIX,1D,D-708 long gap,2026-03-19,,both,different_issuer,91532B101,G3865B114,name_changes,unit_splits,"",0
+GPAC,1D,D-708 long gap,2021-03-05,,after_only,,"",G3810N106|G3934P102,"",name_changes|unit_splits,"",0
+GPAC,1D,D-708 long gap,2026-01-23,,both,different_issuer,G3934P102,G3810N106,name_changes|unit_splits,unit_splits,"",0
+GRBIC,1D,D-708 long gap,2019-02-21,,none,,"","","","","",0
+GRSH,1D,D-708 long gap,2018-10-31,,after_only,,"",69290Y109,"",name_changes,"",0
+HAWK,1D,D-708 long gap,2026-05-07,,none,,"","","","","",0
+HCIC,1D,D-708 long gap,2026-03-30,,none,,"","","","","",0
+HCMA,1D,D-708 long gap,2025-09-22,,before_only,,G4365A101,"",name_changes|stock_mergers|unit_splits,"",stock_mergers,0
+HYAC,1D,D-708 long gap,2023-09-15,,both,different_issuer,041242108|42087L101|42087R108,G4375F108,name_changes|stock_mergers|unit_splits,name_changes|unit_splits,stock_mergers,1
+ICON,1D,D-708 long gap,2024-07-12,,both,different_issuer,451055305,Y4001C107|Y4001C206|Y4001C305,cash_mergers,cash_dividends|reverse_splits,cash_mergers,0
+IGAC,1D,D-708 long gap,2025-12-22,,none,,"","","","","",0
+JATT,1D,D-708 long gap,2026-04-17,,before_only,,G9TY5A101,"",name_changes,"","",0
+JCAP,1D,D-708 long gap,2025-06-26,,both,different_issuer,476405105,47248R103,cash_dividends|cash_mergers,cash_dividends,cash_mergers,0
+JSYNU,1D,D-708 long gap,2019-05-24,,none,,"","","","","",0
+LCA,1D,D-708 long gap,2019-06-24,,after_only,,"",38113L107|51477A104,"",cash_mergers|name_changes,"",0
+LEGO,1D,D-708 long gap,2026-03-16,,before_only,,015658107|52473X106,"",name_changes|stock_mergers|unit_splits,"",stock_mergers,0
+LFAC,1D,D-708 long gap,2026-01-26,,before_only,,51509P103,"",name_changes,"","",0
+LFAC,1D,D-708 long gap,2022-01-12,,before_only,,51509P103,"",name_changes,"","",0
+MACQ,1D,D-708 long gap,2021-04-20,,after_only,,"",00739D109|55282T109,"",name_changes|unit_splits,"",0
+MLPB,1D,D-708 long gap,2017-03-09,,after_only,,"",90274D382,"",cash_dividends,"",0
+MMV,1D,D-708 long gap,2021-06-08,,after_only,,"",G6360J102,"",name_changes,"",1
+MUDS,1D,D-708 long gap,2021-01-29,,before_only,,44862P208,"",name_changes,"","",0
+NATL,1D,D-708 long gap,2023-10-17,,after_only,,"",63001N106,"",name_changes|spin_offs,"",0
+NBIS,1D,D-708 long gap,2024-10-21,,before_only,,N97284108,"",name_changes,"","",0
+NHIC,1D,D-708 long gap,2025-04-17,,before_only,,30049H102,"",name_changes,"","",0
+NP,1D,D-708 long gap,2025-10-01,,before_only,,640079109,"",cash_dividends|stock_mergers,"",stock_mergers,0
+OILD,1D,D-708 long gap,2017-03-27,,after_only,,"",06368L205|06368L882,"",reverse_splits,"",0
+OILU,1D,D-708 long gap,2017-03-27,,none,,"","","","","",0
+PAAC,1D,D-708 long gap,2019-06-21,,after_only,,"",74317H105|G7341A103,"",stock_mergers|unit_splits,"",0
+PAAC,1D,D-708 long gap,2026-04-06,,both,different_issuer,74317H105,G7341A103,stock_mergers,unit_splits,stock_mergers,0
+PAY,1D,D-708 long gap,2021-05-26,,none,,"","","","","",0
+PCL,1D,D-708 long gap,2025-08-01,,after_only,,"",69344A735,"",cash_dividends,"",0
+PONO,1D,D-708 long gap,2026-05-05,,both,different_issuer,732450101,G71702107,name_changes|unit_splits,unit_splits,"",1
+PRME,1D,D-708 long gap,2022-10-20,,none,,"","","","","",0
+PS,1D,D-708 long gap,2026-04-29,,both,different_issuer,72941B106,71531U102,cash_mergers,cash_dividends,cash_mergers,0
+Q,1D,D-708 long gap,2025-11-03,,after_only,,"",74743L100,"",cash_dividends|name_changes|spin_offs,"",0
+REED,1D,D-708 long gap,2025-12-05,,both,same_issuer,758338107|758338305,758338404,name_changes|reverse_splits,name_changes,"",0
+ROC,1D,D-708 long gap,2026-02-20,,before_only,,77118V108,"",name_changes|stock_mergers,"",stock_mergers,0
+SAMA,1D,D-708 long gap,2021-11-29,,before_only,,80821R109,"",stock_mergers,"",stock_mergers,0
+SCOR,1D,D-708 long gap,2018-06-01,,after_only,,"",20564W105|20564W204,"",reverse_splits,"",0
+SLNG,1D,D-708 long gap,2021-04-29,,none,,"","","","","",0
+SVAC,1D,D-708 long gap,2025-09-30,,both,different_issuer,23284C102,G8377R101,name_changes,name_changes,"",0
+TACO,1D,D-708 long gap,2025-06-05,,before_only,,245496104,"",cash_dividends|cash_mergers,"",cash_mergers,0
+TDAC,1D,D-708 long gap,2025-02-13,,both,different_issuer,54570M108|89615T106,G9008W105,name_changes|unit_splits,unit_splits,"",0
+TMH,1D,D-708 long gap,2025-03-14,,after_only,,"",74016W783,"",cash_dividends,"",0
+TMTS,1D,D-708 long gap,2026-04-02,,both,different_issuer,65345N106|84677L109,G8303R100,name_changes|stock_mergers|unit_splits,unit_splits,stock_mergers,0
+TSLI,1D,D-708 long gap,2025-09-10,,both,different_issuer,38747R876,74349Y373,cash_dividends|cash_mergers,cash_dividends,cash_mergers,0
+TWLV,1D,D-708 long gap,2021-04-29,,after_only,,"",G9145D101,"",unit_splits,"",0
+TWLV,1D,D-708 long gap,2026-01-09,,after_only,,"",G9145D101,"",unit_splits,"",0
+TWLVU,1D,D-708 long gap,2025-12-12,,after_only,,"",G9145D127,"",unit_splits,"",0
+TWLVU,1D,D-708 long gap,2021-02-26,,after_only,,"",G9145D127,"",unit_splits,"",0
+VG,1D,D-708 long gap,2025-01-24,,both,different_issuer,92886T201,92333F101,cash_mergers,cash_dividends,cash_mergers,0
+CSRA,1H,D-708 long gap,2026-08-12,,none,,"","","","","",0
+DOW,1H,D-708 long gap,2019-04-02,,after_only,,"",260557103,"",cash_dividends,"",0
+EMC,1H,D-708 long gap,2023-05-15,,after_only,,"",37960A644,"",cash_dividends|stock_mergers,"",0
+Q,1H,D-708 long gap,2025-11-03,,after_only,,"",74743L100,"",cash_dividends|name_changes|spin_offs,"",0
+ACI,1D,T04k kept,2020-06-26,one_name,after_only,,"",013091103,"",cash_dividends,"",0
+ADPT,1D,T04k kept,2019-06-27,one_name,none,,"","","","","",0
+ADT,1D,T04k kept,2018-01-19,one_name,after_only,,"",00090Q103,"",cash_dividends,"",0
+AGC,1D,T04k kept,2020-12-01,disagrees,after_only,,"",G0370L108|G4124C109,"",name_changes|stock_mergers|unit_splits,"",0
+AI,1D,T04k kept,2020-12-09,one_name,before_only,,041356205,"",name_changes,"","",0
+AIB,1D,T04k kept,2026-03-17,ambiguous,both,different_issuer,G0R45S109,093919108,name_changes,stock_mergers,"",0
+AIM,1D,T04k kept,2025-06-17,ambiguous,both,same_issuer,00901B105,00901B303,name_changes,cash_dividends|name_changes|rights_distributions|stock_dividends,"",0
+AKTS,1D,T04k kept,2026-01-09,one_name,before_only,,00973N102,"",name_changes,"","",0
+ALF,1D,T04k kept,2024-08-01,one_name,none,,"","","","","",0
+ALPS,1D,T04k kept,2025-10-31,one_name,both,different_issuer,021009105,G0231P108,cash_dividends|name_changes,stock_mergers,"",0
+AMLX,1D,T04k kept,2022-01-07,one_name,none,,"","","","","",0
+ANGI,1D,T04k kept,2017-10-02,one_name,after_only,,"",00183L102|00183L201,"",reverse_splits|spin_offs,"",1
+ANTX,1D,T04k kept,2022-03-25,one_name,none,,"","","","","",0
+APC,1D,T04k kept,2026-02-12,one_name,after_only,,"",04124A100,"",cash_dividends,"",0
+APUS,1D,T04k kept,2026-05-05,one_name,after_only,,"",03771D102|03771D201,"",reverse_splits,"",0
+ARCI,1D,T04k kept,2026-03-16,one_name,after_only,,"",G0453R105,"",unit_splits,"",0
+ASPC,1D,T04k kept,2025-01-03,one_name,both,different_issuer,G0316P130,G0544A103,name_changes|unit_splits,unit_splits,"",1
+ASTC,1D,T04k kept,2017-10-16,one_name,after_only,,"",046484200|046484309,"",reverse_splits,"",0
+ASTI,1D,T04k kept,2022-08-24,one_name,both,same_cusip,043635507|043635606,043635606|043635705|043635804,reverse_splits,reverse_splits,"",0
+AT,1D,T04k kept,2026-09-15,one_name,before_only,,04878Q863,"",cash_mergers,"",cash_mergers,0
+ATAI,1D,T04k kept,2021-06-18,one_name,after_only,,"",04650F101|N0731H103,"",name_changes|stock_and_cash_mergers,"",0
+ATHN,1D,T04k kept,2021-05-07,disagrees,after_only,,"",04687A109|42329E105,"",name_changes|unit_splits,"",0
+AVIR,1D,T04k kept,2020-10-30,one_name,none,,"","","","","",0
+AVX,1D,T04k kept,2021-07-08,one_name,after_only,,"",05353F108|05353F207,"",name_changes|reverse_splits,"",0
+BBBY,1D,T04k kept,2025-08-29,disagrees,both,different_issuer,075896100,690370101,cash_dividends,name_changes|spin_offs|stock_mergers,"",0
+BEAT,1D,T04k kept,2021-11-11,one_name,before_only,,090672106,"",cash_mergers,"",cash_mergers,0
+BEBE,1D,T04k kept,2026-02-06,one_name,before_only,,075571208,"",cash_dividends,"","",0
+BID,1D,T04k kept,2026-07-20,one_name,none,,"","","","","",0
+BIOA,1D,T04k kept,2024-09-26,one_name,none,,"","","","","",0
+BMR,1D,T04k kept,2023-02-28,one_name,none,,"","","","","",0
+BNKD,1D,T04k kept,2025-02-20,one_name,both,same_issuer,063679625|063679781|06367V501,063679336|063679377,cash_mergers|reverse_splits,reverse_splits,cash_mergers,0
+BOLD,1D,T04k kept,2024-03-28,one_name,none,,"","","","","",0
+BRAC,1D,T04k kept,2022-02-23,one_name,none,,"","","","","",0
+BTU,1D,T04k kept,2017-04-04,one_name,after_only,,"",704551100,"",cash_dividends,"",0
+BURU,1D,T04k kept,2026-09-14,disagrees,both,same_issuer,67021W103|67021W301|67021W400,67021W509,name_changes|reverse_splits,name_changes,"",1
+CA,1D,T04k kept,2023-12-15,one_name,after_only,,"",23306X852,"",cash_dividends|cash_mergers,"",0
+CAI,1D,T04k kept,2025-06-18,one_name,before_only,,12477X106,"",cash_dividends|cash_mergers,"",cash_mergers,0
+CAM,1D,T04k kept,2025-10-06,one_name,after_only,,"",00039J772,"",cash_dividends,"",0
+CAMP,1D,T04k kept,2024-10-11,one_name,before_only,,128126109|128126208,"",name_changes|reverse_splits,"","",0
+CAPN,1D,T04k kept,2024-10-24,one_name,after_only,,"",G1993W109,"",unit_splits,"",0
+CART,1D,T04k kept,2023-09-19,one_name,none,,"","","","","",0
+CBK,1D,T04k kept,2025-10-02,one_name,after_only,,"",20112C106,"",cash_dividends,"",0
+CBL,1D,T04k kept,2021-11-02,one_name,after_only,,"",124830878,"",cash_dividends,"",0
+CCXI,1D,T04k kept,2026-02-09,one_name,before_only,,16383L106,"",cash_mergers,"",cash_mergers,0
+CHK,1D,T04k kept,2021-02-10,disagrees,both,same_issuer,165167107|165167743,165167735,reverse_splits,cash_dividends|name_changes|stock_and_cash_mergers|stock_mergers,"",0
+CIVI,1D,T04k kept,2021-11-02,one_name,after_only,,"",17888H103,"",cash_dividends|name_changes|stock_mergers,"",2
+CMD,1D,T04k kept,2016-12-05,one_name,after_only,,"",138098108,"",stock_and_cash_mergers,"",0
+CNL,1D,T04k kept,2024-07-22,one_name,none,,"","","","","",0
+CORZ,1D,T04k kept,2024-01-24,one_name,both,different_issuer,21873J108,21874A106,name_changes,spin_offs|stock_mergers,"",2
+CRC,1D,T04k kept,2020-10-28,one_name,after_only,,"",13057Q305,"",cash_dividends|stock_mergers,"",0
+CTAA,1D,T04k kept,2026-04-16,one_name,before_only,,74913G808,"",cash_dividends,"","",0
+CTRA,1D,T04k kept,2021-10-04,one_name,both,different_issuer,020764106,127097103,name_changes,cash_dividends|name_changes|stock_mergers,"",2
+CTV,1D,T04k kept,2021-12-01,one_name,both,different_issuer,74913G105,457679108,cash_dividends,cash_mergers|name_changes,"",0
+CTW,1D,T04k kept,2025-08-06,one_name,none,,"","","","","",0
+CUB,1D,T04k kept,2024-08-09,one_name,both,different_issuer,229669106,G5501C109,cash_dividends|cash_mergers,unit_splits,cash_mergers,0
+DBD,1D,T04k kept,2023-08-14,one_name,none,,"","","","","",0
+DBGI,1D,T04k kept,2025-08-20,one_name,both,same_cusip,25401N101|25401N309|25401N408|25401N507,25401N507|25401N606,reverse_splits,reverse_splits,"",0
+DCTH,1D,T04k kept,2020-05-01,one_name,none,,"","","","","",0
+DDC,1D,T04k kept,2023-11-17,one_name,after_only,,"",G276AC101|G276AC119,"",reverse_splits,"",0
+DERM,1D,T04k kept,2021-11-12,one_name,none,,"","","","","",0
+DNB,1D,T04k kept,2020-07-01,one_name,after_only,,"",26484T106,"",cash_dividends|cash_mergers,"",0
+DO,1D,T04k kept,2022-03-30,one_name,after_only,,"",25271C201,"",cash_mergers|stock_and_cash_mergers,"",0
+DRVN,1D,T04k kept,2021-01-15,one_name,none,,"","","","","",0
+DWIN,1D,T04k kept,2021-01-29,one_name,after_only,,"",24803C102,"",stock_mergers,"",0
+DXLG,1D,T04k kept,2021-09-08,one_name,none,,"","","","","",0
+DYN,1D,T04k kept,2020-09-17,one_name,none,,"","","","","",0
+EDTX,1D,T04k kept,2021-02-12,one_name,after_only,,"",28139A102,"",cash_mergers,"",0
+EE,1D,T04k kept,2022-04-13,one_name,both,different_issuer,283677854,30069T101,cash_dividends|cash_mergers,cash_dividends,cash_mergers,0
+ELOX,1D,T04k kept,2026-06-09,one_name,both,same_issuer,29014R103|29014R202,29014R301,reverse_splits,name_changes,"",1
+EMCG,1D,T04k kept,2022-09-30,one_name,both,different_issuer,97717W539,G3034H109,cash_dividends,unit_splits,"",0
+ESGL,1D,T04k kept,2023-08-04,disagrees,after_only,,"",G3R95P108,"",name_changes,"",0
+EXE,1D,T04k kept,2021-02-10,one_name,after_only,,"",165167735,"",cash_dividends|name_changes,"",0
+FG,1D,T04k kept,2022-12-01,one_name,both,different_issuer,G3402M102,30190A104,cash_dividends|cash_mergers|stock_mergers,cash_dividends|name_changes|spin_offs,cash_mergers|stock_mergers,0
+FGL,1D,T04k kept,2024-10-23,one_name,after_only,,"",G3662E105|G3662E121|G3662E147,"",reverse_splits,"",0
+FGMC,1D,T04k kept,2025-02-11,one_name,both,different_issuer,30324Y101,30334J102,stock_mergers|unit_splits,stock_mergers,stock_mergers,0
+FIEE,1D,T04k kept,2025-06-02,one_name,after_only,,"",60365W201,"",name_changes,"",0
+FIG,1D,T04k kept,2025-07-31,one_name,before_only,,82889N715,"",cash_dividends,"","",0
+FLY,1D,T04k kept,2025-08-07,one_name,before_only,,34407D109,"",cash_mergers,"",cash_mergers,0
+FRSH,1D,T04k kept,2021-09-22,one_name,none,,"","","","","",0
+FSBC,1D,T04k kept,2021-05-05,one_name,both,different_issuer,30289C102,33830T103,cash_mergers|stock_and_cash_mergers|stock_mergers,cash_dividends,cash_mergers|stock_and_cash_mergers|stock_mergers,0
+FUSE,1D,T04k kept,2025-10-23,one_name,both,different_issuer,36118H105|60938K304,36118R103,name_changes|unit_splits,stock_mergers,"",0
+GDP,1D,T04k kept,2017-04-11,one_name,after_only,,"",382410843,"",cash_mergers,"",0
+GLF,1D,T04k kept,2017-11-16,one_name,none,,"","","","","",0
+GMM,1D,T04k kept,2023-10-10,one_name,after_only,,"",G3937M106|G3937M114|G3937M205,"",reverse_splits,"",0
+GORO,1D,T04k kept,2026-07-20,one_name,both,same_cusip,38068T105,38068T105|38141A602,cash_dividends|spin_offs|stock_mergers,name_changes|stock_mergers,"",0
+GPOR,1D,T04k kept,2021-05-18,one_name,none,,"","","","","",0
+GRAF,1D,T04k kept,2024-08-16,one_name,both,different_issuer,92259F101,G4036C106,name_changes,name_changes,"",0
+GRO,1D,T04k kept,2024-11-27,one_name,none,,"","","","","",0
+GURE,1D,T04k kept,2025-12-05,one_name,before_only,,40251W408|40251W507,"",reverse_splits,"","",0
+GV,1D,T04k kept,2022-05-17,disagrees,both,different_issuer,381370105,92838F101|92838F200,cash_mergers,name_changes|reverse_splits,cash_mergers,0
+HAO,1D,T04k kept,2024-01-26,one_name,after_only,,"",G4290F100|G4290F118|G4290F126|G4290F134,"",reverse_splits,"",0
+HCAC,1D,T04k kept,2026-01-27,ambiguous,both,different_issuer,13803R102,G42386105,name_changes,unit_splits,"",0
+HCP,1D,T04k kept,2021-12-09,ambiguous,both,different_issuer,42250P103,40414L109|418100103,name_changes,cash_mergers|forward_splits,"",0
+HWH,1D,T04k kept,2023-08-25,one_name,after_only,,"",44852G101|44852G309,"",name_changes|reverse_splits|stock_mergers,"",0
+IBO,1D,T04k kept,2024-10-04,one_name,none,,"","","","","",0
+IBTA,1D,T04k kept,2024-04-18,one_name,before_only,,46436E700,"",cash_dividends,"","",0
+IHS,1D,T04k kept,2021-10-14,one_name,none,,"","","","","",0
+INFO,1D,T04k kept,2024-10-10,one_name,both,different_issuer,G47567105,41151J745,cash_dividends|stock_mergers,cash_dividends,stock_mergers,0
+INHD,1D,T04k kept,2026-07-31,one_name,before_only,,4576JP109|4576JP208|4576JP307|4576JP406,"",reverse_splits,"","",0
+INR,1D,T04k kept,2025-01-31,one_name,none,,"","","","","",0
+INST,1D,T04k kept,2021-07-22,one_name,after_only,,"",457790103,"",cash_mergers,"",0
+IOT,1D,T04k kept,2021-12-15,one_name,none,,"","","","","",0
+IPAS,1D,T04k kept,2018-11-23,one_name,none,,"","","","","",0
+IPDN,1D,T04k kept,2020-06-24,one_name,after_only,,"",74312Y202|74312Y301|74312Y400|74312Y509,"",reverse_splits,"",0
+IPW,1D,T04k kept,2021-05-12,one_name,after_only,,"",46265P107|46265P206|46265P305|46265P404,"",reverse_splits,"",0
+ISLE,1D,T04k kept,2021-03-29,one_name,after_only,,"",46468P102,"",unit_splits,"",0
+ITG,1D,T04k kept,2026-07-01,one_name,none,,"","","","","",0
+JAGX,1D,T04k kept,2017-08-16,one_name,after_only,,"",47010C409|47010C607|47010C706|47010C805|47010C854|47010C862|47010C888,"",reverse_splits|spin_offs|stock_mergers,"",0
+JAN,1D,T04k kept,2026-03-20,ambiguous,both,different_issuer,47089W104,471024109,name_changes,cash_dividends,"",0
+JDZG,1D,T04k kept,2026-07-31,one_name,before_only,,G7396L103|G7396L111|G7396L129|G7396L137,"",reverse_splits,"","",0
+JEM,1D,T04k kept,2025-06-09,one_name,after_only,,"",G8071C103|G8071C111|G8071C137,"",reverse_splits,"",0
+JONE,1D,T04k kept,2026-09-03,one_name,none,,"","","","","",0
+KELYB,1D,T04k kept,2020-08-11,one_name,after_only,,"",488152307,"",cash_dividends,"",0
+KOR,1D,T04k kept,2020-08-12,one_name,none,,"","","","","",0
+KTWO,1D,T04k kept,2026-02-25,one_name,none,,"","","","","",0
+LB,1D,T04k kept,2024-06-28,one_name,both,different_issuer,501797104,514952100,cash_dividends,cash_dividends,"",0
+LCA,1D,T04k kept,2021-05-18,one_name,both,different_issuer,38113L107,51477A104,name_changes,cash_mergers,"",0
+LCAHU,1D,T04k kept,2021-03-25,one_name,none,,"","","","","",0
+LGCY,1D,T04k kept,2024-09-26,one_name,none,,"","","","","",0
+LINE,1D,T04k kept,2024-07-25,one_name,after_only,,"",53566V106,"",cash_dividends,"",0
+LINK,1D,T04k kept,2021-03-25,one_name,after_only,,"",458751302,"",forward_splits,"",0
+LLL,1D,T04k kept,2021-10-13,disagrees,after_only,,"",Y46002203|Y46002302,"",name_changes,"",0
+MARA,1D,T04k kept,2017-10-30,one_name,none,,"","","","","",0
+MB,1D,T04k kept,2025-04-10,one_name,none,,"","","","","",0
+MBLY,1D,T04k kept,2022-10-26,one_name,none,,"","","","","",0
+MDA,1D,T04k kept,2026-03-12,one_name,none,,"","","","","",0
+MDXG,1D,T04k kept,2020-11-04,one_name,none,,"","","","","",0
+MGN,1D,T04k kept,2025-09-26,one_name,after_only,,"",G5980E105|G5980E113,"",reverse_splits,"",0
+MNK,1D,T04k kept,2022-10-27,disagrees,after_only,,"",G5890A102,"",name_changes,"",0
+MNTN,1D,T04k kept,2025-05-22,one_name,none,,"","","","","",0
+MOBI,1D,T04k kept,2026-05-08,one_name,none,,"","","","","",0
+MON,1D,T04k kept,2021-03-16,one_name,none,,"","","","","",0
+MR,1D,T04k kept,2019-03-01,one_name,after_only,,"",61179L100,"",stock_mergers,"",0
+MSP,1D,T04k kept,2020-10-21,one_name,after_only,,"",23821D100,"",cash_mergers,"",0
+MWG,1D,T04k kept,2023-04-03,one_name,after_only,,"",G6362F108|G6362F116,"",reverse_splits,"",0
+NCI,1D,T04k kept,2024-04-23,one_name,after_only,,"",G6421C104|G6421C112|G6421C120|G6421C138,"",name_changes|reverse_splits,"",0
+NCT,1D,T04k kept,2025-03-28,one_name,after_only,,"",G48049103|G48049111|G48049129,"",reverse_splits,"",0
+NES,1D,T04k kept,2017-10-12,one_name,after_only,,"",67091K302,"",stock_mergers,"",0
+NFX,1D,T04k kept,2026-07-07,one_name,none,,"","","","","",0
+NINE,1D,T04k kept,2026-03-31,one_name,before_only,,65441V101,"",name_changes,"","",0
+NIQ,1D,T04k kept,2025-07-23,one_name,before_only,,670677103,"",cash_dividends,"","",0
+NPT,1D,T04k kept,2025-10-22,one_name,none,,"","","","","",0
+NRGD,1D,T04k kept,2025-02-20,one_name,both,same_issuer,063679633|063679724|06367V303|06368L106,063679328|063679393,cash_mergers|reverse_splits,reverse_splits,cash_mergers,0
+NRGU,1D,T04k kept,2025-02-20,one_name,before_only,,06367V105,"",cash_mergers|reverse_splits,"",cash_mergers,0
+NRGZ,1D,T04k kept,2020-06-05,one_name,none,,"","","","","",0
+NSR,1D,T04k kept,2021-08-31,one_name,both,same_cusip,65532M606,65532M606,cash_dividends,cash_dividends|stock_mergers,"",0
+NUTR,1D,T04k kept,2025-08-15,one_name,none,,"","","","","",0
+NVX,1D,T04k kept,2022-02-02,one_name,after_only,,"",67010L100|67010L209,"",reverse_splits,"",0
+OBE,1D,T04k kept,2022-01-31,one_name,none,,"","","","","",0
+OIL,1D,T04k kept,2020-07-29,one_name,after_only,,"",06740P221,"",cash_mergers|name_changes,"",0
+OILD,1D,T04k kept,2021-11-09,one_name,after_only,,"",06368L205|06368L882,"",reverse_splits,"",0
+OILU,1D,T04k kept,2021-11-09,one_name,none,,"","","","","",0
+OSIR,1D,T04k kept,2018-08-01,one_name,none,,"","","","","",0
+PAPL,1D,T04k kept,2025-07-22,ambiguous,both,same_issuer,72303K207,72303K405,name_changes,name_changes,"",0
+PARA,1D,T04k kept,2021-02-12,one_name,after_only,,"",06682J605|92556H206,"",cash_dividends|cash_mergers|name_changes|stock_mergers,"",0
+PHH,1D,T04k kept,2024-12-27,disagrees,after_only,,"",G6925R102,"",name_changes,"",0
+PKD,1D,T04k kept,2019-04-03,one_name,none,,"","","","","",0
+PMTS,1D,T04k kept,2021-08-05,one_name,none,,"","","","","",0
+PN,1D,T04k kept,2025-03-04,one_name,after_only,,"",G8221K112|G8221K138,"",reverse_splits,"",0
+POM,1D,T04k kept,2025-10-08,one_name,after_only,,"",73181R108|73181R207,"",reverse_splits,"",0
+PSIX,1D,T04k kept,2024-12-26,one_name,none,,"","","","","",0
+PTN,1D,T04k kept,2025-11-12,ambiguous,both,same_issuer,696077403|696077502,696077601,name_changes|reverse_splits,name_changes,"",0
+PX,1D,T04k kept,2021-10-21,disagrees,after_only,,"",69376K106,"",cash_dividends|name_changes,"",0
+QH,1D,T04k kept,2026-05-29,one_name,both,same_issuer,74841Q100|74841Q209|74841Q308,74841Q407|G73264114,name_changes|reverse_splits,stock_mergers,"",0
+QTI,1D,T04k kept,2026-01-28,ambiguous,both,same_issuer,746962109,746962307,name_changes,name_changes,"",0
+RAIN,1D,T04k kept,2025-01-02,one_name,both,different_issuer,75082Q105,75080J103,stock_and_cash_mergers|stock_mergers,name_changes,stock_and_cash_mergers|stock_mergers,0
+RDUS,1D,T04k kept,2023-09-01,one_name,after_only,,"",806882106,"",cash_dividends|cash_mergers|name_changes,"",0
+REE,1D,T04k kept,2021-07-23,disagrees,after_only,,"",M8287R103|M8287R202,"",name_changes|reverse_splits|unit_splits,"",0
+REED,1D,T04k kept,2025-12-05,ambiguous,both,same_issuer,758338107|758338305,758338404,name_changes|reverse_splits,name_changes,"",0
+RELY,1D,T04k kept,2021-09-23,one_name,none,,"","","","","",0
+RENT,1D,T04k kept,2021-10-27,one_name,after_only,,"",76010Y103|76010Y202,"",reverse_splits|rights_distributions,"",0
+RGC,1D,T04k kept,2021-07-16,one_name,after_only,,"",G7487R100,"",forward_splits,"",0
+RMSG,1D,T04k kept,2024-11-20,one_name,after_only,,"",G7410G106,"",name_changes|stock_mergers,"",0
+RPRX,1D,T04k kept,2020-06-16,one_name,after_only,,"",G7709Q104,"",cash_dividends,"",0
+RSLS,1D,T04k kept,2021-06-16,disagrees,after_only,,"",76090R101|76090R200|76090R309|76090R408,"",name_changes|reverse_splits,"",0
+RTL,1D,T04k kept,2022-02-15,one_name,after_only,,"",02607T109,"",cash_dividends|name_changes|stock_mergers,"",0
+S,1D,T04k kept,2021-06-30,one_name,none,,"","","","","",0
+SAIL,1D,T04k kept,2025-02-13,one_name,before_only,,78781P105,"",cash_mergers,"",cash_mergers,0
+SD,1D,T04k kept,2016-10-04,one_name,after_only,,"",80007P869,"",cash_dividends,"",0
+SE,1D,T04k kept,2017-10-20,one_name,none,,"","","","","",0
+SERV,1D,T04k kept,2024-04-18,one_name,before_only,,81761R109,"",name_changes,"","",0
+SES,1D,T04k kept,2022-02-04,one_name,after_only,,"",78397Q109,"",name_changes,"",0
+SEV,1D,T04k kept,2025-10-16,ambiguous,before_only,,N81409109,"",name_changes,"","",0
+SEZL,1D,T04k kept,2023-09-14,one_name,after_only,,"",78435P105,"",forward_splits,"",0
+SG,1D,T04k kept,2021-11-18,one_name,before_only,,G8196D101,"",cash_mergers|stock_and_cash_mergers|stock_mergers,"",cash_mergers|stock_and_cash_mergers|stock_mergers,0
+SHNY,1D,T04k kept,2023-02-22,one_name,after_only,,"",063679526,"",forward_splits,"",0
+SI,1D,T04k kept,2025-07-31,one_name,none,,"","","","","",0
+SIC,1D,T04k kept,2026-08-17,disagrees,both,different_issuer,816120307,87975E735,cash_mergers,name_changes,cash_mergers,0
+SMCI,1D,T04k kept,2020-01-14,one_name,after_only,,"",86800U104,"",forward_splits,"",0
+SMHD,1D,T04k kept,2026-08-04,one_name,none,,"","","","","",0
+SMRT,1D,T04k kept,2021-02-05,one_name,after_only,,"",83193G107,"",name_changes,"",0
+SN,1D,T04k kept,2023-07-31,one_name,after_only,,"",G8068L108,"",cash_dividends,"",0
+SNOW,1D,T04k kept,2020-09-16,one_name,none,,"","","","","",0
+SPLS,1D,T04k kept,2026-01-16,one_name,after_only,,"",72201R551,"",cash_dividends,"",0
+SPRB,1D,T04k kept,2025-09-15,ambiguous,before_only,,85209E109|85209E208,"",name_changes,"","",0
+STXS,1D,T04k kept,2019-09-06,one_name,none,,"","","","","",0
+SWIN,1D,T04k kept,2023-09-07,disagrees,after_only,,"",G82759104,"",name_changes,"",0
+TBRG,1D,T04k kept,2024-03-04,one_name,after_only,,"",205306103,"",cash_mergers|name_changes,"",0
+TCRX,1D,T04k kept,2021-07-16,one_name,none,,"","","","","",0
+TDW,1D,T04k kept,2017-08-01,one_name,none,,"","","","","",0
+TGEN,1D,T04k kept,2025-05-06,one_name,none,,"","","","","",0
+TIG,1D,T04k kept,2020-07-16,one_name,after_only,,"",89457R101,"",cash_mergers,"",0
+TIL,1D,T04k kept,2021-03-19,one_name,after_only,,"",45783C101|45783C200,"",reverse_splits,"",0
+TLN,1D,T04k kept,2024-07-10,one_name,none,,"","","","","",0
+TNDM,1D,T04k kept,2017-10-10,one_name,none,,"","","","","",0
+TOP,1D,T04k kept,2023-05-30,one_name,after_only,,"",G989A6102|G989A6110,"",reverse_splits,"",0
+TW,1D,T04k kept,2019-04-04,one_name,after_only,,"",892672106,"",cash_dividends,"",0
+UN,1D,T04k kept,2026-07-07,one_name,before_only,,904784709,"",cash_dividends|stock_mergers,"",stock_mergers,0
+VAL,1D,T04k kept,2021-05-03,one_name,none,,"","","","","",0
+VELO,1D,T04k kept,2025-08-19,one_name,none,,"","","","","",0
+VIA,1D,T04k kept,2025-09-12,one_name,before_only,,92556D106|92556D304,"",cash_dividends|cash_mergers|name_changes|reverse_splits,"",cash_mergers,2
+VRM,1D,T04k kept,2025-02-20,one_name,before_only,,92918V109|92918V208,"",name_changes|reverse_splits,"","",0
+WLTH,1D,T04k kept,2025-12-12,one_name,before_only,,66538F249,"",cash_dividends|cash_mergers,"",cash_mergers,0
+WOOF,1D,T04k kept,2021-01-14,one_name,none,,"","","","","",0
+WTID,1D,T04k kept,2023-02-15,one_name,none,,"","","","","",0
+WTIU,1D,T04k kept,2023-02-15,one_name,none,,"","","","","",0
+WW,1D,T04k kept,2025-07-07,one_name,both,same_issuer,98262P101,98262P200,name_changes,name_changes,"",0
+XE,1D,T04k kept,2026-04-24,one_name,none,,"","","","","",0
+XL,1D,T04k kept,2020-12-22,disagrees,after_only,,"",9837FR100|9837FR209,"",name_changes,"",0
+XOG,1D,T04k kept,2021-01-21,one_name,after_only,,"",30227M303,"",stock_mergers,"",0
+ZBIO,1D,T04k kept,2024-09-13,one_name,none,,"","","","","",0

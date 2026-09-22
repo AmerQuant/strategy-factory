@@ -31,13 +31,19 @@ import csv
 import datetime as dt
 import json
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.data.download.alpaca import Credentials
 from strategy_factory.data.download.ratelimit import PermanentError, TLSVerificationError
-from strategy_factory.data.download.rawfiles import next_version_path, write_immutable
+from strategy_factory.data.download.rawfiles import (
+    MANIFEST_SUFFIX,
+    next_version_path,
+    version_of,
+    write_immutable,
+)
 
 REF_DIR = ("reference", "alpaca")
 SESSIONS_COLUMNS = ["date", "open_local", "close_local"]
@@ -132,7 +138,9 @@ def fetch_name_changes(creds: Credentials, start: dt.date, end: dt.date, raw_roo
     for year in range(start.year, end.year + 1):
         lo = max(start, dt.date(year, 1, 1))
         hi = min(end, dt.date(year, 12, 31))
-        req = CorporateActionsRequest(types=[CorporateActionsType.NAME_CHANGE], start=lo, end=hi)
+        req = CorporateActionsRequest(
+            types=[CorporateActionsType.NAME_CHANGE], start=lo, end=hi, limit=None
+        )
         try:
             raw = client.get_corporate_actions(req)
         except APIError as exc:
@@ -157,6 +165,169 @@ def fetch_name_changes(creds: Credentials, start: dt.date, end: dt.date, raw_roo
             "downloaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         },
     )
+
+
+#: T04l (D-710): every corporate-action type the endpoint offers except ``name_change`` (fetched
+#: by T04f). Each carries a CUSIP: the mergers, redemptions and worthless removals show a security
+#: ceasing to exist; dividends, splits, spin-offs and rights show which security held a ticker on a
+#: date. They are identity evidence for re-used tickers, not price data (D-030 does not apply).
+#: The endpoint's page size; a year that returns an exact multiple of it is suspect.
+PAGE_SIZE = 1000
+EVIDENCE_ACTION_TYPES = (
+    "cash_merger",
+    "stock_merger",
+    "stock_and_cash_merger",
+    "redemption",
+    "worthless_removal",
+    "spin_off",
+    "unit_split",
+    "reverse_split",
+    "forward_split",
+    "cash_dividend",
+    "stock_dividend",
+    "rights_distribution",
+)
+
+
+def fetch_corporate_actions(
+    creds: Credentials,
+    types: Iterable[str],
+    start: dt.date,
+    end: dt.date,
+    raw_root: Path,
+    client: Any = None,
+) -> list[Path]:
+    """Corporate actions of ``types`` in [start, end], fetched year by year and written as one
+    immutable JSON per answer key (``<key>_<YYYYMMDD>.json``, e.g. ``cash_mergers_20260921.json``)
+    with a manifest. ``client`` is injectable for tests; by default the alpaca-py client.
+
+    **No row cap.** alpaca-py's ``CorporateActionsRequest.limit`` defaults to 1,000 and is a cap on
+    the **total** rows, not a page size: the first run (2026-09-21) got exactly 1,000 rows per year
+    and lost the rest, alphabetically. The request sets ``limit=None`` so the client follows
+    ``next_page_token`` to the end; the manifest records the rows per year, and a year whose count
+    is a whole multiple of the page size is flagged ``suspect_truncation`` for the reader."""
+    from alpaca.data.enums import CorporateActionsType
+    from alpaca.data.requests import CorporateActionsRequest
+
+    wanted = list(types)
+    try:
+        enums = [CorporateActionsType(t) for t in wanted]
+    except ValueError as exc:
+        known = ", ".join(t.value for t in CorporateActionsType)
+        raise ConfigError(f"unknown corporate-action type ({exc}); known: {known}") from exc
+    if client is None:
+        from alpaca.data.historical.corporate_actions import CorporateActionsClient
+
+        client = CorporateActionsClient(creds.key, creds.secret, raw_data=True)
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    per_year: dict[str, int] = {}
+    for year in range(start.year, end.year + 1):
+        lo = max(start, dt.date(year, 1, 1))
+        hi = min(end, dt.date(year, 12, 31))
+        req = CorporateActionsRequest(types=enums, start=lo, end=hi, limit=None)
+        try:
+            raw = client.get_corporate_actions(req)
+        except TLSVerificationError:
+            raise
+        except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            if status is not None:
+                raise PermanentError(f"corporate actions: HTTP {status}") from exc
+            raise _wrap_network(exc, "corporate actions") from exc
+        got = 0
+        for key, rows in dict(raw).items():
+            if isinstance(rows, list):
+                by_key.setdefault(key, []).extend(rows)
+                got += len(rows)
+        per_year[str(year)] = got
+    out_dir = raw_root.joinpath(*REF_DIR, "corporate_actions")
+    stamp = f"{dt.date.today():%Y%m%d}"
+    written: list[Path] = []
+    for key in sorted(by_key):
+        rows = by_key[key]
+        payload = json.dumps(rows, indent=1, sort_keys=True, default=str).encode("utf-8")
+        target = next_version_path(out_dir, f"{key}_{stamp}", ".json")
+        written.append(
+            write_immutable(
+                target,
+                payload,
+                {
+                    "source": "alpaca market data API /v1/corporate-actions, types="
+                    + ",".join(wanted),
+                    "answer_key": key,
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                    "rows": len(rows),
+                    "rows_per_year_all_types": per_year,
+                    "suspect_truncation": sorted(
+                        y for y, n in per_year.items() if n and n % PAGE_SIZE == 0
+                    ),
+                    "downloaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+                },
+            )
+        )
+    return written
+
+
+#: The date an action row is filed under, by the first field present.
+ACTION_DATE_FIELDS = ("process_date", "ex_date", "effective_date", "payable_date")
+
+
+def latest_action_files(folder: Path) -> dict[str, Path]:
+    """The **latest** download of every corporate-action answer key in ``folder``, name changes
+    included (``{"cash_mergers": .../cash_mergers_20260921.v2.json, ...}``). A re-run writes
+    ``<key>_<YYYYMMDD>[.vN].json``; the newest date, then the highest version, wins -- a reader must
+    never mix a truncated older file into a newer download."""
+    best: dict[str, tuple[str, int, Path]] = {}
+    if not folder.is_dir():
+        return {}
+    for f in folder.glob("*.json"):
+        if f.name.endswith(MANIFEST_SUFFIX):
+            continue
+        base, n = version_of(f, ".json")
+        if "_" not in base:
+            continue
+        key, stamp = base.rsplit("_", 1)
+        if key not in best or (stamp, n) > best[key][:2]:
+            best[key] = (stamp, n, f)
+    return {k: v[2] for k, v in sorted(best.items())}
+
+
+def action_date(row: dict[str, Any]) -> str:
+    for k in ACTION_DATE_FIELDS:
+        if row.get(k):
+            return str(row[k])
+    return ""
+
+
+@dataclass(frozen=True)
+class TruncationCheck:
+    """Rows per year over one download's files, counted **from the data**, and the verdict."""
+
+    files: dict[str, Path]
+    rows_per_year: dict[str, int]
+    suspect_years: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.files) and not self.suspect_years
+
+
+def check_truncation(folder: Path, exclude: Iterable[str] = ("name_changes",)) -> TruncationCheck:
+    """D-710 incident: a year whose total over every action type is a whole number of pages is
+    **suspect** -- the endpoint pages by ``PAGE_SIZE`` and a capped request ends exactly on a page.
+    Counted from the rows themselves (latest version of each key), not from a manifest field, so a
+    renamed field or a stale file cannot make the check silently pass; a download with no file at
+    all is not ``ok`` either."""
+    skip = set(exclude)
+    files = {k: p for k, p in latest_action_files(folder).items() if k not in skip}
+    per_year: dict[str, int] = {}
+    for path in files.values():
+        for row in json.loads(path.read_text(encoding="utf-8")):
+            year = action_date(row)[:4]
+            per_year[year] = per_year.get(year, 0) + 1
+    suspect = sorted(y for y, n in per_year.items() if n and n % PAGE_SIZE == 0)
+    return TruncationCheck(files, dict(sorted(per_year.items())), suspect)
 
 
 def read_changes_csv(path: Path) -> list[dict[str, str]]:

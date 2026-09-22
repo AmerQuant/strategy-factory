@@ -26,7 +26,7 @@ folds it into `HANDOFF.md` at merges.
 | stream A | D-360 … D-379 | P-40 … P-59 |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
-Next free here: **D-707**, **P-83**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
+Next free here: **D-715**, **P-87**. Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into
 `docs/streams/ownership.yaml` (stream A, **D-372**, PR #25) and the guard accepts it; **D-700** is
 the first row (the supervisor's amendment of D-399).
 
@@ -55,26 +55,33 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04h done, PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30) open, stopped for "Approved. Merge"** — branch
-`b/T04h-alpaca-hourly-ingest`. Coverage gate passed (806 × 11 years, 0 missing); **805 1H references**
-ingested (`CCE` `no_data`), 371 MB, hours 09–15 only, 0 bars outside the session, quality ok 381 /
-warning 424 / critical 0, `summary_alpaca_1D.md` byte-identical, idempotent. Review:
-`docs/reviews/T04h_review.md`.
+**Current position:** **T04l complete, PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34) open, stopped for "Approved. Merge"** — branch
+`b/T04l-cusip-reuse`. Review: `docs/reviews/T04l_review.md`. Decisions: D-705 … **D-714** (P-86 →
+D-714: the T04l layer retired and re-derived once; the general rule "retire and re-run before the first
+reference of any derivation pass" is in the runbook).
 
-**T04k merged** (PR [#28](https://github.com/AmerQuant/strategy-factory/pull/28), `5babc6e`): 3,239
-clean daily snapshots are the references. The D-702 quarantine folders
-(`<store>/_quarantine/T04k_D-702_*`) are **left for the supervisor and the user to empty**.
+Result: 317 boundaries on 304 symbols — **46 trims, 2 kept, 269 unsettled** (no unadjusted split);
+**the 329 derived snapshots are the references** (302 1D: 46 trim + 256 research window; 27 1H: 4 + 23);
+0 stale; the bases keep the full history and a `full_history` marker. **182 of the 302 daily series fall
+below D-008 once cut — never usable, not to be recovered (D-713).**
 
-**Merged:** PR [#29](https://github.com/AmerQuant/strategy-factory/pull/29) (`d0dd2b9`) — `CLEAN_DECISIONS`
-names D-701/D-703/D-704/D-706 in later clean provenance.
+Quarantine folders **left for the supervisor and the user to empty**: `<store>/_quarantine/T04k_D-702_*`
+and `T04l_D-714_20260922T080918Z` (366 snapshots, 2,196 files).
 
-**Open for the supervisor:** **P-81** (does 1H need its own cleaning pass — measured: no frozen
-stretches in the hourly feed, bad prints rare, re-use boundaries matter → recommend T04l applies its
-boundaries to 1H too), **P-82** (found in T04h: the re-use sweep needs a > 40 % price break, so 87 daily
-and 4 hourly references still splice two companies across a long gap — `PCL`, `Q`, `CSRA`, … →
-recommend T04l takes every long gap as a candidate).
+**For stream A:** 329 references moved (302 1D, 27 1H) — `docs/reviews/T04l_references_moved.csv`.
+Stage 1 sees the marker through `DataAccess.splices()` (one read-only method in `data/split.py`) and
+`sfac data show`. A latent weakness in T04k's `scripts/analysis/T04k_assert_provenance.py` (hash-only
+index; harmless today, 0 hashes shared across symbols) is recorded in the T04l review §6.1.4.
 
-**Next:** **T04l** (CUSIP) after T04h merges, before T12 — its scope depends on P-81 and P-82.
+**For stream A — `sfac streams check` breaks on Windows since #32.** `core/cli_streams.py:_git` runs
+`git` with `text=True` and no `encoding`, so on Windows it decodes with cp1252; `main`'s
+`decisions_log.md` now holds "log₁₀" (`E2 82 81`) and cp1252 cannot decode `0x81` → `UnicodeDecodeError`
+in the reader thread, `_git` returns `None`, `base_rows` crashes (`'NoneType' object has no attribute
+'splitlines'`). Two tests in `tests/unit/test_F_X_9_stream_guards.py` fail the same way locally. CI
+(Ubuntu) is unaffected. Likely fix (yours): `encoding="utf-8"` in `subprocess.run`. Stream B works
+around nothing; it verified its branch with `PYTHONUTF8=1`.
+
+**Next:** T12, after the merge.
 
 **What a fresh session needs to know about T04k:**
 - **D-700** (supervisor, amends D-399): the re-use discriminator is the **company name** in
@@ -106,7 +113,8 @@ recommend T04l takes every long gap as a candidate).
 | T04i | **merged** — PR [#21](https://github.com/AmerQuant/strategy-factory/pull/21). **D-395** (D-033: `daily_session` stays `exchange`), **D-396** (P-71 → the new task **T04k**), **D-397** (P-72 → `--refresh`), **D-398** (P-73: a frozen stretch is removed whatever caused it; a re-used ticker with an identifiable boundary is **trimmed, not excluded**). Findings: **17,648** unsupported daily extremes classified; **AVGO's 10:1 split of 2024-07-15 unapplied in both timeframes**; the re-swept relisting artefact has **797 symbols — 280 trimmed to a boundary, 517 padding-only, 0 exclusions**, 11 of them Moneta targets, all kept (D-388). **P-74** raised (blocks T04k's trims, not T04g). Review: `docs/reviews/T04i_review.md` |
 | T04k | ⏸ **approved; PR open, stopped for "Approved. Merge"** — `b/T04k-clean-daily`. 3,239 clean snapshots derived **and set as references**; the 280 re-use candidates: 59 trimmed, 221 kept (T04l). Review: `docs/reviews/T04k_review.md`. Decisions D-396, D-398, D-399, **D-700 … D-706**; nothing open (P-80 answered; the guard waits on stream A's P-8x range) |
 | T04g | ✅ **merged** — PR [#24](https://github.com/AmerQuant/strategy-factory/pull/24). **6,707 of 6,711** daily symbols ingested in **16.8 min** (27 chunks of 250, 0.35 GB); `no_data` `BHGE` `FBHS` `JEC`; **`AVGO` not ingested** — D-397 fired on its unadjusted 2024-07-15 split and the run continued; **0 failed**. Quality: 4,002 ok, 2,705 warning, **0 critical**, `missing_bars` and `session_violations` executed for all. Catalog integrity and idempotence verified. Review: `docs/reviews/T04g_review.md` |
-| T04h | ⏸ **done, PR open** — `b/T04h-alpaca-hourly-ingest`. 805 1H references, gate and verification in `docs/reviews/T04h_review.md`; P-81, P-82 open |
+| T04h | ✅ **merged** — PR [#30](https://github.com/AmerQuant/strategy-factory/pull/30). 805 1H references; `docs/reviews/T04h_review.md`; P-81 → D-707, P-82 → D-708 |
+| T04l | ⏸ **PR open** — `b/T04l-cusip-reuse`; 46 trims, 269 unsettled (research windows), 2 kept; 329 references moved; D-714 |
 | T12 | not started |
 
 ## ACTION FOR STREAM A — regenerate `configs/universe.yaml` (D-394)

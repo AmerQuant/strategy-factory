@@ -137,7 +137,7 @@ raw as-is; T04k corrects it without editing raw and without overwriting a snapsh
 provenance asserted, references set (3,239 clean snapshots). PR open, waiting for "Approved. Merge".
 
 ### Step 5 — T04h (1H ingest) — **blocked until the download is complete**
-**Status 2026-09-21:** download complete and verified; coverage gate passed; 805 1H references ingested and verified (`docs/reviews/T04h_review.md`). PR open, waiting for "Approved. Merge". P-81 and P-82 shape T04l.
+**Status 2026-09-21:** download complete and verified; coverage gate passed; 805 1H references ingested and verified (`docs/reviews/T04h_review.md`). Merged (PR #30). P-81 → D-707, P-82 → D-708.
 **P-62 answered 2026-09-21: no `--allow-gaps`.** The 1H raw set was incomplete on 2026-09-20
 (2021 and 2022 missing for all 827 symbols; 2020 for 137; 2023 for 620; no symbol had all eleven
 years) and the user is refilling the missing years 2020–2023. T04h starts only after the user
@@ -181,3 +181,18 @@ the review with its reason, per `CLAUDE.md`.
 3. Print one combined report: status per task, links to the reviews, merged open questions, and the
    merge order `docs/batch3-data` → T04f → T04i → T04g → T04k → T04h.
 4. Merge only after **"Approved. Merge …"** and green CI (D-401).
+
+## Derivation passes — retire and re-run before the first reference (D-714)
+
+Every pass that derives snapshots from others (T04k `sfac data clean`, T04l `sfac data reuse`, and any
+later one) is content-addressed: identical bars keep the metadata of whoever stored them first (D-392).
+A pass re-run while its rules are still changing therefore leaves a layer of **stale notes** behind.
+Before the first `--set-reference` of any such pass:
+
+1. run the pass without `--set-reference` until its rules are settled and reviewed;
+2. retire and quarantine every snapshot of that layer that is not and never was a reference
+   (`Catalog.retire` + `SnapshotStore.quarantine`; moved, never deleted; a manifest) — D-702, D-714;
+3. re-run the pass once and assert **0 `metadata_stale`** and that every derived snapshot carries this
+   run's config hash;
+4. only then `--set-reference`. The quarantine folders are emptied by the supervisor and the user.
+

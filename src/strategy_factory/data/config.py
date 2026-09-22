@@ -125,6 +125,17 @@ class CoverageConfig(_Frozen):
         return value
 
 
+class ReuseConfig(_Frozen):
+    """T04l (D-705, D-708, D-709, D-713): re-used tickers decided by CUSIP.
+
+    The gap that makes a candidate is ``relisting.gap_days`` (D-708: no price-jump condition) and
+    the arriving-holder window is ``relisting.rename_window_days`` (D-712); this block only says
+    where the evidence is."""
+
+    #: The corporate-action files (D-710), under ``SFAC_RAW_ROOT`` (read-only, D-028).
+    corporate_actions_dir: Path = Path("reference") / "alpaca" / "corporate_actions"
+
+
 class AlpacaConfig(_Frozen):
     history_start: dt.date = dt.date(2016, 1, 1)
     feed: Literal["sip"] = "sip"
@@ -137,6 +148,7 @@ class AlpacaConfig(_Frozen):
     split_check: SplitCheckConfig = Field(default_factory=SplitCheckConfig)
     relisting: RelistingConfig = Field(default_factory=RelistingConfig)
     coverage: CoverageConfig = Field(default_factory=CoverageConfig)
+    reuse: ReuseConfig = Field(default_factory=ReuseConfig)
 
     @field_validator("batch_size")
     @classmethod
@@ -410,6 +422,12 @@ class DailyExtremeUnsupportedConfig(_Frozen):
     severity: Severity = "warning"
 
 
+class KnownSpliceConfig(_Frozen):
+    """D-709: a snapshot carrying an unsettled re-use boundary (``full_history`` marker)."""
+
+    severity: Severity = "warning"
+
+
 class QualityConfig(_Frozen):
     weekly_window: WeeklyWindowConfig = Field(default_factory=WeeklyWindowConfig)
     break_detection: BreakDetectionConfig = Field(default_factory=BreakDetectionConfig)
@@ -424,6 +442,7 @@ class QualityConfig(_Frozen):
     daily_extreme_unsupported: DailyExtremeUnsupportedConfig = Field(
         default_factory=DailyExtremeUnsupportedConfig
     )
+    known_splice: KnownSpliceConfig = Field(default_factory=KnownSpliceConfig)
     sessions_file: Path = Path("configs") / "calendars" / "nyse_sessions.csv"
     us_equity_timezone: str = "America/New_York"
     us_equity_first_bar: str = "09:00"

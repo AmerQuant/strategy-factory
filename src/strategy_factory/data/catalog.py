@@ -4,7 +4,8 @@ Files under ``SFAC_DATA_ROOT``:
 
 * ``catalog.parquet``: one row per registered snapshot -- every :class:`SeriesMetadata`
   field (``raw_refs`` and ``derived_from`` as JSON text) plus the catalog-only columns
-  ``is_reference`` and ``quality_status`` (``ok | warning | critical | unchecked``, F-0.1.6);
+  ``is_reference``, ``quality_status`` (``ok | warning | critical | unchecked``, F-0.1.6) and
+  ``splices`` (D-709: the unsettled re-use boundaries of the series, JSON; see :class:`Splice`);
 * ``catalog_events.parquet``: append-only log ``(ts, event, symbol, timeframe,
   snapshot_hash, previous_reference, note)``.
 
@@ -21,9 +22,10 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
+from pydantic import BaseModel, ConfigDict
 
 from strategy_factory.core.errors import DataError
 from strategy_factory.data.schema import RawRef, SeriesMetadata, SnapshotKey
@@ -33,7 +35,7 @@ CATALOG_FILE = "catalog.parquet"
 EVENTS_FILE = "catalog_events.parquet"
 KEY = ("source", "symbol", "timeframe", "snapshot_hash")
 QUALITY_STATUSES = ("ok", "warning", "critical", "unchecked")
-CATALOG_ONLY = ("is_reference", "quality_status")
+CATALOG_ONLY = ("is_reference", "quality_status", "splices")
 
 _TS = pl.Datetime("us", "UTC")
 CATALOG_SCHEMA: dict[str, pl.DataType] = {
@@ -64,6 +66,7 @@ CATALOG_SCHEMA: dict[str, pl.DataType] = {
     "derived_from": pl.Utf8(),
     "is_reference": pl.Boolean(),
     "quality_status": pl.Utf8(),
+    "splices": pl.Utf8(),
 }
 # defaults for columns added after a catalog file was written (older rows are hash_version 1)
 _MIGRATION_DEFAULTS: dict[str, object] = {
@@ -73,6 +76,7 @@ _MIGRATION_DEFAULTS: dict[str, object] = {
     "hash_version": 1,
     "derived_from": None,
     "quality_status": "unchecked",
+    "splices": "[]",
 }
 EVENTS_SCHEMA: dict[str, pl.DataType] = {
     "ts": _TS,
@@ -100,6 +104,7 @@ def _meta_to_row(meta: SeriesMetadata, is_reference: bool) -> dict[str, Any]:
     )
     row["is_reference"] = is_reference
     row["quality_status"] = "unchecked"
+    row["splices"] = "[]"
     return row
 
 
@@ -109,6 +114,38 @@ def _row_to_meta(row: dict[str, Any]) -> SeriesMetadata:
     if row.get("derived_from"):
         data["derived_from"] = SnapshotKey.model_validate_json(row["derived_from"])
     return SeriesMetadata.model_validate(data)
+
+
+class Splice(BaseModel):
+    """One **unsettled** re-use boundary of a series (D-709, D-713).
+
+    The marker lives on the snapshot key in the catalog, not in the snapshot's metadata: a kept
+    series keeps its bars, and identical bars return the metadata of whoever wrote them first
+    (D-392), so a marker written there would be silently lost.
+
+    ``role`` says which snapshot carries it: ``full_history`` -- this series still joins what may
+    be two companies across ``boundary`` (or, for ``unadjusted_split``, holds a price jump its
+    history is not adjusted for: the D-397 path); ``research_window`` -- this series was derived
+    to start at the last unsettled boundary (D-713) and is the one research reads.
+    ``break_start`` is the last bar before the break when the break is a gap (else empty).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    boundary: dt.date
+    break_start: dt.date | None = None
+    role: Literal["full_history", "research_window"]
+    reason: Literal[
+        "cusip_none",
+        "cusip_before_only",
+        "cusip_after_only",
+        "cusip_disagrees_with_name",
+        "cusip_mixed",
+        "same_issuer_split_unsettled",
+        "unadjusted_split",
+    ]
+    evidence: str
+    decision: str = "D-709"
 
 
 def _key_filter(key: SnapshotKey) -> pl.Expr:
@@ -284,6 +321,41 @@ class Catalog:
         )
         _atomic_write_parquet(cat, self.path)
         self._log("quality", key.symbol, key.timeframe, key.snapshot_hash, None, note or status)
+
+    def splices(self, key: SnapshotKey) -> tuple[Splice, ...]:
+        """The unsettled re-use boundaries recorded on a registered snapshot (D-709)."""
+        rows = self.table().filter(_key_filter(key))
+        if rows.height != 1:
+            raise DataError(
+                f"snapshot {key.short()} is not registered in the catalog",
+                stage="catalog",
+                symbol=key.symbol,
+            )
+        return tuple(Splice.model_validate(s) for s in json.loads(rows["splices"][0] or "[]"))
+
+    def mark_splices(self, key: SnapshotKey, splices: tuple[Splice, ...], note: str) -> bool:
+        """Record ``splices`` on a registered snapshot; logged as a ``splice`` event. Returns
+        ``False`` (and logs nothing) when the snapshot already carries exactly these."""
+        cat = self.table()
+        sel = _key_filter(key)
+        if cat.filter(sel).height != 1:
+            raise DataError(
+                f"snapshot {key.short()} is not registered in the catalog",
+                stage="catalog",
+                symbol=key.symbol,
+            )
+        value = json.dumps(
+            [s.model_dump(mode="json") for s in sorted(splices, key=lambda s: s.boundary)],
+            sort_keys=True,
+        )
+        if cat.filter(sel)["splices"][0] == value:
+            return False
+        cat = cat.with_columns(
+            pl.when(sel).then(pl.lit(value)).otherwise(pl.col("splices")).alias("splices")
+        )
+        _atomic_write_parquet(cat, self.path)
+        self._log("splice", key.symbol, key.timeframe, key.snapshot_hash, None, note)
+        return True
 
     def retire(self, hashes: list[str], note: str) -> pl.DataFrame:
         """Remove **derived, never-referenced** snapshots from the catalog; return their rows.

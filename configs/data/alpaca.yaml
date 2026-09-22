@@ -44,3 +44,6 @@ relisting:           # re-used tickers and frozen stretches (D-383, amended by D
 coverage:            # T04h raw coverage gate (D-386; P-62: there is no --allow-gaps)
   gate_timeframes: [1H]          # an ingest of these refuses to run on a gap; 1H is mandatory
   require_from: history_start    # every year from history_start (pre-listing years are empty files)
+
+reuse:               # T04l: re-used tickers decided by CUSIP (D-705, D-708, D-709, D-712, D-713)
+  corporate_actions_dir: reference/alpaca/corporate_actions   # D-710 evidence, under SFAC_RAW_ROOT

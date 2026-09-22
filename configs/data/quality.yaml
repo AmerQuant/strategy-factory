@@ -43,3 +43,5 @@ daily_wick_outlier:            # D-396: a wick beyond the body that no real move
 daily_extreme_unsupported:     # D-396: a daily extreme the hourly feed does not support (T04k)
   eps_bps: 0.05                # noise floor, as in the T04i breach analysis
   severity: warning
+known_splice:                  # D-709: a series carrying an unsettled re-use boundary (T04l)
+  severity: warning

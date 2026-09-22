@@ -36,7 +36,7 @@ import polars as pl
 from pydantic import BaseModel, ConfigDict
 
 from strategy_factory.core.errors import DataError
-from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.catalog import Catalog, Splice
 from strategy_factory.data.config import QualityConfig
 from strategy_factory.data.schedule import expected_schedule
 from strategy_factory.data.schema import SeriesMetadata, Severity, SnapshotKey, validate_bars
@@ -412,6 +412,35 @@ def schedule_checks(
     return miss, viol, info
 
 
+def check_known_splice(splices: tuple[Splice, ...] | None, cfg: QualityConfig) -> CheckResult:
+    """D-709: a series that still joins what may be two companies says so in its own report.
+
+    ``full_history`` markers fail at ``known_splice.severity``; a ``research_window`` marker passes
+    and names the boundary the series was cut at (D-713)."""
+    code = "known_splice"
+    if splices is None:
+        return _skip(code, "no catalog marker read")
+    full = [s for s in splices if s.role == "full_history"]
+    window = [s for s in splices if s.role == "research_window"]
+    if full:
+        return CheckResult(
+            code=code,
+            status="fail",
+            severity=cfg.known_splice.severity,
+            count=len(full),
+            message="unsettled re-use boundary: "
+            + "; ".join(f"{s.boundary} ({s.reason})" for s in full)
+            + " -- research reads the D-713 research-window snapshot",
+        )
+    if window:
+        return _pass(
+            code,
+            message="research window from "
+            + "; ".join(f"{s.boundary} ({s.reason})" for s in window),
+        )
+    return _pass(code)
+
+
 def run_quality(
     df: pl.DataFrame,
     meta: SeriesMetadata,
@@ -419,6 +448,7 @@ def run_quality(
     sessions_file: Path | None = None,
     breaches: pl.DataFrame | None = None,
     coverage: pl.DataFrame | None = None,
+    splices: tuple[Splice, ...] | None = None,
 ) -> QualityReport:
     """All checks on one stored snapshot."""
     df = df.sort("ts")
@@ -433,6 +463,7 @@ def run_quality(
         check_dst(df, meta, cfg),
         check_daily_wick_outlier(df, meta, cfg),
         check_daily_extreme_unsupported(df, meta, cfg, breaches, coverage),
+        check_known_splice(splices, cfg),
     ]
     worst = max((_RANK[c.severity] for c in checks if c.severity is not None), default=0)
     levels: dict[int, QualityStatus] = {0: "ok", 1: "warning", 2: "critical"}
@@ -499,7 +530,7 @@ def check_snapshot(
     """Run the checks on a registered snapshot, write the report, record the status."""
     key = meta.key()
     df = store.read_snapshot(key.source, key.symbol, key.timeframe, key.snapshot_hash)
-    rep = run_quality(df, meta, cfg, sessions_file, breaches, coverage)
+    rep = run_quality(df, meta, cfg, sessions_file, breaches, coverage, catalog.splices(key))
     write_report(rep, store.root)
     failed = ", ".join(f"{c.code}:{c.severity}" for c in rep.failed())
     catalog.set_quality_status(key, rep.status, note=failed or "all checks passed")
