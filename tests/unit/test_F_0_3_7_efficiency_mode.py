@@ -98,12 +98,24 @@ def worker_mask(_: int) -> int | None:
 def test_F_0_3_7_d804_the_worker_initializer_applies_the_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """In-process, so the initializer's other effects are isolated: the D-012 worker marker would
+    otherwise make every later registry test refuse to write, and the Numba thread count is
+    restored."""
+    import numba
+
+    from strategy_factory.pipeline import executor
+
     seen: list[bool] = []
     monkeypatch.setattr(
         qos, "opt_out_of_efficiency_mode", lambda enabled=True: seen.append(enabled)
     )
-    _init_worker(1, True)
-    _init_worker(1, False)
+    monkeypatch.setattr(executor, "mark_executor_worker", lambda: None)
+    threads = numba.get_num_threads()
+    try:
+        _init_worker(1, True)
+        _init_worker(1, False)
+    finally:
+        numba.set_num_threads(threads)
     assert seen == [True, False]
 
 
