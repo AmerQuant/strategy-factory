@@ -47,7 +47,8 @@ def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert rules.supervisor is not None
     assert rules.supervisor.decisions == ((355, 359), (600, 699))
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
-    assert rules.streams["A"].decisions == ((360, 379),)
+    # D-378: stream A's first range is used up too, so it also holds two
+    assert rules.streams["A"].decisions == ((360, 379), (800, 899))
     assert rules.streams["A"].pending == ((40, 59),)
     # D-372: stream B's first range is used up, so it holds two
     assert rules.streams["B"].decisions == ((380, 399), (700, 799))
@@ -673,6 +674,45 @@ def test_F_X_9_d372_duplicates_are_still_rejected_in_the_new_range(rules: Owners
         "may not amend" in problem
         for problem in check_ids(None, ["| D-700 | amended |"], existing, rules, existing)
     )
+
+
+# -- D-378: stream A's second decision range, D-800 … D-899 ---------------------------------
+def test_F_X_9_d378_stream_a_may_use_its_second_range(rules: Ownership) -> None:
+    existing = ["| D-379 | the last of the first range |"]
+    for number in (800, 850, 899):
+        assert check_ids("A", [f"| D-{number} | stream A |"], existing, rules) == [], number
+    # and the first range still works
+    assert check_ids("A", ["| D-379 | still fine |"], [], rules) == []
+
+
+def test_F_X_9_d378_the_second_range_is_stream_as_own(rules: Ownership) -> None:
+    """Stream B is refused from D-8xx exactly as from D-36x (D-372's rule, mirrored)."""
+    for number in (800, 850, 899):
+        problems = check_ids("B", [f"| D-{number} | stream B reaching |"], [], rules)
+        assert len(problems) == 1, number
+        assert "outside stream B's range" in problems[0]
+    # the edges: D-799 is stream B's, D-900 is past the end of stream A's
+    assert len(check_ids("A", ["| D-799 | stream B's |"], [], rules)) == 1
+    assert len(check_ids("A", ["| D-900 | past the end |"], [], rules)) == 1
+
+
+def test_F_X_9_d378_the_message_names_both_of_stream_as_ranges(rules: Ownership) -> None:
+    problems = check_ids("A", ["| D-500 | neither range |"], [], rules)
+    assert len(problems) == 1
+    assert "outside stream A's range D-360 … D-379 and D-800 … D-899" in problems[0]
+
+
+def test_F_X_9_d378_pending_is_unchanged_and_single(rules: Ownership) -> None:
+    assert check_ids("A", ["| P-59 | stream A |"], [], rules) == []
+    assert len(check_ids("A", ["| P-800 | not a pending number |"], [], rules)) == 1
+
+
+def test_F_X_9_d378_duplicates_and_amendments_in_the_new_range(rules: Ownership) -> None:
+    existing = ["| D-800 | already taken |"]
+    assert any("duplicate id" in p for p in check_ids("A", ["| D-800 | again |"], existing, rules))
+    assert check_ids("A", ["| D-800 | amended |"], existing, rules, existing) == []
+    # stream B may not amend a stream-A row in the new range (D-369)
+    assert check_ids("B", ["| D-800 | amended |"], existing, rules, existing) != []
 
 
 def test_F_X_9_d372_one_pair_is_still_a_valid_range(tmp_path: Path) -> None:

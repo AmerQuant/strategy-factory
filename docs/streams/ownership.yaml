@@ -21,7 +21,9 @@ streams:
     name: stream A (main folder, StrategyFactory)
     branch_prefix: "a/"
     folder: StrategyFactory          # D-357 (1): the only folder this stream may work in
-    decisions: [360, 379]        # D-360 … D-379
+    # D-378: D-360 … D-379 is used up (D-379 is the last), so the supervisor granted
+    # D-800 … D-899 next to it -- the same shape as stream B's second range (D-372).
+    decisions: [[360, 379], [800, 899]]
     pending: [40, 59]            # P-40 … P-59
   B:
     name: stream B (worktree, StrategyFactory_B)
