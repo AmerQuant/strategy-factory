@@ -379,3 +379,48 @@ signal or the 50-bar cap. That is part of what D-101's TF exits measure, and it 
 Step 9 is not started. The full-run configs are ready
 (`configs/pipeline/s01_broker_{1d,1h}.yaml` and `_control` variants), with a projected ≈ 3.4 h
 in total. Step 9 waits for the supervisor.
+
+## 12. The doubled wall time, profiled (before step 9)
+
+**Benign: not the code, and not in this session.** The 2× slowdown of §7 was one time window
+on the machine, **12:42–12:48 UTC**, not a property of the D-618 code.
+
+- **Serial, one symbol end to end** (AAPL 1D, four profiles, cProfile): the pre-D-618 code
+  (commit `8e5096d`, in a scratch worktree) and the current code both take **≈ 12 s**
+  (11.8–12.7 s against 11.5–13.0 s).
+- **Parallel, the 1D pilot:** both codes take **19 s** today (pre-D-618 with a warm cache 19 s;
+  current code 19 s, 19 s and 18 s).
+- **Where the time goes** (cProfile, 13.6 s):
+
+  | part | time | share |
+  |---|---|---|
+  | the baseline (34,000 simulations) | 10.8 s | 80 % |
+  | … the engine calls | 5.1 s | |
+  | … drawing placements | 3.4 s | |
+  | … trade years | 0.6 s | |
+  | loading the universe YAML (once per run) | 1.8 s | |
+  | **re-parsing every cost profile, per symbol** | **0.5 s a symbol** | |
+
+  Nothing unintended runs inside the stage.
+- **The one waste found**, the per-symbol cost-profile parsing, cost 0.5 s per symbol in the
+  parent while the workers waited: about 14 minutes over the full scope and its controls. The
+  profiles are now **parsed once per run**, and the pilot's output is byte-identical to before
+  (40 profiles and the index).
+- **Not a Numba recompile in the main folder.** The engine's cache files were last written at
+  08:11 UTC, hours before the slow window.
+- **Everything run in the window was slow**: all five runs between 12:42 and 12:48 UTC, and
+  none before (12:13–12:18) or after (from 13:07).
+- **Most likely cause: CPU contention from outside this session.** Stream B committed its T04m
+  plan at **12:35 UTC**, seven minutes before the window, and its acceptance checks would load
+  the machine. This cannot be proven after the fact, because the process list from then is
+  gone. The machine was idle when measured before step 9.
+- **The 144 s run of the old code** was that code's first parallel run from a new folder
+  (Numba's cache is per path); re-run warm, it took 19 s.
+
+**Projection for step 9 at the measured rate:** 1D ≈ 15 min, 1H ≈ 33 min, and the same again
+for the controls: **≈ 1.6 h**. That is the original projection, not 3.4 h.
+
+**Not changed, for the record.** The executor's `auto` budget (D-351) runs 4 workers × 5 Numba
+threads. Stage 1's `simulate` is single-threaded, so 16 of the 20 cores idle. A stage-1 budget
+of about 20 workers × 1 thread would be roughly 4–5× faster, but it would take every core
+while stream B works. That is a D-351 question for later, not something to change inside step 9.

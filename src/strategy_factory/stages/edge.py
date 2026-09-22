@@ -404,9 +404,14 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
 # The stage (parent side): build the units, run them, write everything
 # --------------------------------------------------------------------------------------
 def _cost_arrays(
-    symbol: str, asset_class: str, timeframe: str, bars: dict[str, np.ndarray], costs_dir: Path
+    symbol: str,
+    asset_class: str,
+    timeframe: str,
+    bars: dict[str, np.ndarray],
+    costs_dir: Path,
+    profiles: Any,
+    assignments: Any,
 ) -> CostArrays:
-    profiles, assignments = load_profiles(costs_dir), load_assignments(costs_dir)
     profile = resolve_profile(symbol, asset_class, profiles, assignments, costs_dir)
     if isinstance(profile.spread, SpreadFromData | SpreadBrokerScaled):
         profile, _ = resolve_from_data(profile, bars)  # development bars only (D-340)
@@ -468,6 +473,9 @@ class EdgeStage:
         result = StageResult()
         index: list[dict[str, Any]] = []
         s_hash = stage_config_hash(cfg)
+        # parsed once per run, not per symbol: re-reading every profile YAML cost 0.5 s a
+        # symbol in the parent while the workers waited (T12 pilot profiling)
+        profiles, assignments = load_profiles(self.costs_dir), load_assignments(self.costs_dir)
         c_hash = config_hash(ctx.config)
         _write_json(run_dir / "edge_profile.schema.json", json_schema())
         pending: list[ProfileTask] = []
@@ -493,7 +501,9 @@ class EdgeStage:
             if ctx.config.control == "random_walk":
                 bars = permute_returns(bars, unit_seed(ctx.seed, f"{symbol}|{tf}|random_walk"))
             asset_class = universe[symbol].asset_class
-            costs = _cost_arrays(symbol, asset_class, tf, bars, self.costs_dir)
+            costs = _cost_arrays(
+                symbol, asset_class, tf, bars, self.costs_dir, profiles, assignments
+            )
             for edge_type in cfg.runnable_edge_types():
                 probes = probe_params(cfg, edge_type)
                 for direction in DIRECTIONS:
