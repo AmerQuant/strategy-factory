@@ -55,7 +55,7 @@ Batch 3-data was **approved on 2026-09-21**. Plan on `docs/batch3-data`:
 **T04f ✅ → T04i ✅ → T04g ✅ → T04k ⏳ → T04h**. T04h stays blocked until the 1H download is complete
 (D-386).
 
-**Current position:** **T04l complete, PR open, stopped for "Approved. Merge"** — branch
+**Current position:** **T04l complete, PR [#34](https://github.com/AmerQuant/strategy-factory/pull/34) open, stopped for "Approved. Merge"** — branch
 `b/T04l-cusip-reuse`. Review: `docs/reviews/T04l_review.md`. Decisions: D-705 … **D-714** (P-86 →
 D-714: the T04l layer retired and re-derived once; the general rule "retire and re-run before the first
 reference of any derivation pass" is in the runbook).
