@@ -37,8 +37,14 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
 4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **built, run at full scope,
    reviewed, approved with two conditions, both met; PR
-   [#47](https://github.com/AmerQuant/strategy-factory/pull/47) open**, waiting for
-   "Approved. Merge".
+   [#47](https://github.com/AmerQuant/strategy-factory/pull/47) open**. **The merge is already
+   authorised**: "when CI is green on the head commit, Approved. Merge #47 — no exception needed,
+   so do not record one." It is blocked only by CI, which cannot run (see the status below).
+5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — PR
+   [#48](https://github.com/AmerQuant/strategy-factory/pull/48) open, acceptance green locally,
+   **waiting for "Approved. Merge"** and for the same CI blocker to clear. Branched from `main`,
+   so it can merge in either order with #47; both touch `decisions_log.md`, and the second merge
+   resolves that by keeping every row in ID order (D-369).
 
 ## ID ranges (D-355, D-378)
 
@@ -48,10 +54,11 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-805**, **P-40 … P-59** and **P-100 … P-106**
-(all answered — stream A has no open question). **Next free here: D-806, P-107.** Supervisor rows
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-106**
+(all answered — stream A has no open question). **Next free here: D-807, P-107.** Supervisor rows
 written by stream A: D-601 … D-621; next free supervisor id **D-622**. (D-803 … D-805 and
-D-613 … D-621 are on `a/T12-edge-discovery` / PR #47, **not yet on `main`**.)
+D-613 … D-621 are on `a/T12-edge-discovery` / PR #47; **D-806 is on `a/pin-runner-images` / PR
+#48**; none of them are on `main` yet.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -75,6 +82,8 @@ D-613 … D-621 are on `a/T12-edge-discovery` / PR #47, **not yet on `main`**.)
   A's ranges or the supervisor's, never deleted (D-369).
 - **Guard tests are mutation-checked against the real file**: break the thing on its real shape
   and watch the test fail before claiming the test catches it.
+- **Runner images are pinned (D-806).** `ubuntu-24.04` and `windows-2025`; no job may use a
+  `-latest` label (`tests/unit/test_F_X_9_pinned_runners.py`). Moving a pin is its own decision.
 - **Encodings (D-377, D-379):** every text-mode subprocess and file access passes `encoding=`;
   the static guard fails otherwise. After a change to the `sfac` entry point, run `uv sync`.
   PowerShell scripts written from now on set `[Console]::OutputEncoding` to UTF-8 before
@@ -87,11 +96,31 @@ D-613 … D-621 are on `a/T12-edge-discovery` / PR #47, **not yet on `main`**.)
 
 ## Status — 2026-09-27
 
+> ### CI is blocked by an account billing state — read this first
+>
+> GitHub is **refusing to start jobs**. Both jobs of both open PRs fail in ~2 seconds with no
+> steps and no log blob; the annotation on the check run says verbatim:
+>
+> > "The job was not started because recent account payments have failed or your spending limit
+> > needs to be increased. Please check the 'Billing & plans' section in your settings"
+>
+> **It is not our code:** the same suite was fully green on `3c0ca81` (`checks` 4 min,
+> `windows-fast` 4 min); the next run, on a **docs-only** commit, failed this way, and a re-run
+> (attempt 2) failed identically. Nothing to fix in the repository — it clears in **Billing &
+> plans**, or by the repository becoming public (Actions minutes are free there).
+>
+> **The supervisor reported on 2026-09-27 that the repository was made public, but the API still
+> reports `private=True`** (`updated_at` 2026-09-22) and jobs are still refused. Check the
+> visibility flip actually landed before anything else; until then no PR can reach green CI and
+> **D-401 forbids merging** either of them.
+
 **T12 is at its stop for "Approved. Merge" — PR
 [#47](https://github.com/AmerQuant/strategy-factory/pull/47)** (critical, D-402; the review is the
 PR body). Branch **`a/T12-edge-discovery`**, rebased onto `main` at **`caf62fe`** (stream B's #45
-T04m and #46 P-93 are in) and pushed. The branch is 21 commits ahead and contains the T12 plan
-(the old `a/docs-T12-plan` is folded into it).
+T04m and #46 P-93 are in) and pushed; head commit **`9e2dbc0`**. The branch is 21 commits ahead and
+contains the T12 plan (the old `a/docs-T12-plan` is folded into it). **The merge is pre-authorised
+for green CI** — merge it without asking again once the jobs run and pass, and record no
+exception.
 
 The supervisor approved the review **with two conditions; both are met** (review §14):
 
@@ -164,9 +193,45 @@ No stage-1 behaviour changed over the rebase: stream B's #45 touches `data/split
 1 reads through `DataAccess`, but stage 1 takes no auxiliary series, so the four evidence runs
 still describe this code.
 
+### The pre-public secret audit (2026-09-27, supervisor request)
+
+Asked for before the repository was to be made public: scan the **whole** history for secrets, and
+confirm no workflow runs fork code with access to secrets.
+
+- **No secret has ever been committed; nothing to rotate.** 310 commits reachable from 115 refs
+  **plus 225 unreachable** (rebase/force-push leftovers, from `git fsck --unreachable` and all
+  reflogs) = 535 trees; 501 distinct paths; all 13 committed binaries decompressed and scanned
+  (~54 M chars); every commit message. **No `.env` was ever committed**, and all four
+  `.env.example` versions have `ALPACA_API_KEY=` / `ALPACA_API_SECRET=` **empty**. The only hits
+  were `PKFAKEKEY1234567890` (a test fake), the local-dev `postgresql+psycopg://sfac:sfac@localhost`
+  default (`.env.example`, `ci.yml`, `docker-compose.yml`) and a `FAKE_PASSWORD` fixture.
+- `docs/reviews/T04a_review.md:98` says "revoke the old hard-coded key". That key was **never in
+  this repository** (the script read the environment in its first and only versions, and no
+  `PK…`/`AK…` literal exists in any tree) — it lived outside the repo, and whether it was actually
+  revoked is not something this repository can show.
+- **No workflow can leak a secret:** one workflow file has ever existed; **no `pull_request_target`
+  and no `workflow_run`** in any version; **no `secrets.*` reference** in any version; and there is
+  nothing to steal — 0 Actions secrets, 0 variables, 0 Dependabot secrets, 0 environments, 0 deploy
+  keys, 0 self-hosted runners. Default `GITHUB_TOKEN` permission is **read**. The
+  attacker-controlled `pull_request.head.ref` reaches the guard step through `env:` and quoted
+  `"$BRANCH"`, never inlined in the script body.
+- **Still to do when it is public:** GitHub secret scanning is **disabled** (API 404) and Advanced
+  Security is unavailable while private, so GitHub has never scanned this history. **Turn on secret
+  scanning + push protection as soon as it is public** (free there; it scans the history
+  retroactively). While public, any key committed must be treated as leaked — going private again
+  does not undo publication, and forks made meanwhile survive.
+- Non-secret disclosure that comes with going public, flagged for the supervisor, not acted on: the
+  Persian spec/design/features documents, the whole decisions log and every review (the method and
+  the current findings), the Moneta cost profiles derived from a broker specification, ~24 MiB of
+  TradingView and Dukascopy fixture exports (vendor-licence question), and local absolute paths.
+
 ### Open, and on whom
 
-- **T12 — on the supervisor: "Approved. Merge"** for PR #47, with CI green (D-401, D-402).
+- **The CI billing block — on the user.** Nothing else can complete until jobs start (see the box
+  at the top of this status).
+- **T12 — PR #47: merge authorised, pending green CI only** (D-401, D-402). No exception is to be
+  recorded; the supervisor said so explicitly.
+- **D-806 — PR #48: on the supervisor for "Approved. Merge"**, with CI green.
 - **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
   skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
   stage-config hash is in the candidate id now.
@@ -216,7 +281,11 @@ still describe this code.
 
 ### Next actions, in order
 
-1. **T12: wait for "Approved. Merge" on PR #47** with CI green (D-401, D-402). Rebase again if
+0. **Check that Actions can start jobs at all** (`gh run list`, or re-run a job and see whether it
+   survives past 2 seconds). If it still fails with the billing annotation, stop and tell the user —
+   do not merge anything red, and do not spend the session re-triggering runs.
+1. **T12: merge PR #47 as soon as CI is green** — already authorised, no further approval, no
+   exception recorded. Then **PR #48** on the supervisor's "Approved. Merge". Rebase either if
    `main` moves first.
 2. At the merge: refresh `HANDOFF.md` (still v7, 2026-09-22) from this file and
    `docs/streams/B.md`, and regenerate `configs/universe.yaml` if a stream-B merge moved a symbol
