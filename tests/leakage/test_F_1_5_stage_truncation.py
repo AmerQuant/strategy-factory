@@ -1,10 +1,13 @@
 """F-1.5 / CLAUDE.md rule 3: nothing stage 1 computes at bar t uses bar t+1.
 
-A probe run is the probe's signals, its fixed exits and the engine. For every probe and both
-directions, every trade that **closed before the cut** is identical -- entry, exit, prices,
-ATR and its ATR return -- whether the run sees the bars after the cut or not. The baseline
-draws depend on the length of the window by construction (they are uniform over it), not on
-any future price.
+The stage's own probe run (``stages.edge.probe_run``: the probe's signals, its fixed exits, the
+engine, settings from ``EngineConfig``). For every probe and both directions, every trade that
+**closed before the cut** is identical -- entry, exit, prices, ATR and its ATR return -- whether
+the run sees the bars after the cut or not. **Scope, stated plainly:** this covers the probe
+trades every statistic is computed from. The profile's aggregate statistics (means, percentile,
+consistency) are functions of the whole development window by design, and the baseline's draws
+are uniform over that window's bars -- they depend on its length, never on a price after the
+bar a trade is decided at.
 """
 
 from __future__ import annotations
@@ -13,43 +16,26 @@ import numpy as np
 import pytest
 from fixtures.edge_stage import stage_config, synthetic_bars
 
-from strategy_factory.baseline.random_entries import (
-    atr_returns,
-    frictionless_costs,
-    frictionless_sizing,
-)
-from strategy_factory.components.base import Bars
-from strategy_factory.components.exits.probe import probe_exit_signals
-from strategy_factory.components.registry import default_registry
-from strategy_factory.engine import kernel as k
-from strategy_factory.engine.api import ExitParams, simulate
-from strategy_factory.pipeline.backtest import market_arrays
+from strategy_factory.baseline.random_entries import atr_returns
+from strategy_factory.core.config import EngineConfig
+from strategy_factory.stages.edge import probe_params, probe_run
 
 pytestmark = pytest.mark.leakage
 
 CFG = stage_config()
+ENGINE = EngineConfig()  # the research defaults: ATR length and disaster multiple from config
 PROBES = sorted(CFG.probes)
 FULL = synthetic_bars(900, 4, phi=-0.2)
 
 
-def probe_run(bars: dict, name: str, direction: str) -> tuple[dict, np.ndarray]:
-    comp = default_registry().get(name)
-    spec = CFG.edge_types[comp.edge_type]
-    b = Bars(*(bars[c] for c in ("open", "high", "low", "close")))
-    long_e, short_e = comp.signals(b)
-    long_x, short_x = probe_exit_signals(spec.exit_signal, comp, b)
+def run(bars: dict, name: str, direction: str) -> tuple[dict, np.ndarray]:
+    """Exactly what the stage runs for a probe: ``stages.edge.probe_run`` (zero costs)."""
+    from strategy_factory.components.registry import default_registry
+
+    edge_type = default_registry().get(name).edge_type
+    params = probe_params(CFG, edge_type)[name]
+    sim = probe_run(bars, name, params, CFG.edge_types[edge_type], direction, ENGINE)  # type: ignore[arg-type]
     d = 1 if direction == "long" else -1
-    n = len(b)
-    sim = simulate(
-        market_arrays(bars, 14),
-        long_e if d == 1 else short_e,
-        long_x if d == 1 else short_x,
-        d,
-        ExitParams(time_exit_bars=spec.time_exit_bars, disaster_atr=3.0),
-        frictionless_costs(n),
-        frictionless_sizing(100_000.0, 100_000.0),
-        k.MODE_PESSIMISTIC,
-    )
     fields = {
         f: getattr(sim, f)
         for f in ("entry_idx", "exit_idx", "entry_price", "exit_price", "atr_at_entry")
@@ -60,11 +46,11 @@ def probe_run(bars: dict, name: str, direction: str) -> tuple[dict, np.ndarray]:
 @pytest.mark.parametrize("direction", ["long", "short"])
 @pytest.mark.parametrize("name", PROBES)
 def test_F_1_5_probe_trades_before_a_cut_do_not_see_past_it(name: str, direction: str) -> None:
-    full, r_full = probe_run(FULL, name, direction)
+    full, r_full = run(FULL, name, direction)
     checked = 0
     for cut in (150, 400, 777):
         head = {c: v[:cut] for c, v in FULL.items()}
-        part, r_part = probe_run(head, name, direction)
+        part, r_part = run(head, name, direction)
         done = full["exit_idx"] < cut - 1  # closed strictly inside the truncated window
         m = int(done.sum())
         for f in full:

@@ -60,6 +60,8 @@ class S01EdgeConfig(_Frozen):
     probes: dict[str, ProbeSpec] = Field(min_length=1)
     baseline: BaselineSpec
     ess: EssConfig
+    #: work units sent to the executor per batch -- operational only, never a result
+    batch_units: int = Field(ge=1)
 
     def runnable_edge_types(self) -> tuple[str, ...]:
         """The edge types with enough applicable groups to be run (D-233), sorted."""

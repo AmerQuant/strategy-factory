@@ -118,9 +118,15 @@ def test_F_1_4_the_engine_holds_each_baseline_trade_exactly_its_drawn_bars() -> 
     entry, exit_ = baseline_signals(n, starts, held)
     # a huge disaster multiple keeps the stop out of the way, so every exit is scheduled
     sim = simulate(
-        m, entry, exit_, 1, ExitParams(disaster_atr=1e9), frictionless_costs(n),
-        frictionless_sizing(100_000.0, 100_000.0), 1,
-    )  # fmt: skip
+        m,
+        entry,
+        exit_,
+        1,
+        ExitParams(disaster_atr=1e9),
+        frictionless_costs(n),
+        frictionless_sizing(100_000.0, 100_000.0),
+        1,
+    )
     np.testing.assert_array_equal(sim.entry_idx, starts + 1)
     np.testing.assert_array_equal(sim.exit_idx - sim.entry_idx, held)
     r = atr_returns(sim, 1)
@@ -134,8 +140,8 @@ def test_F_1_4_run_baseline_matches_count_and_is_reproducible() -> None:
     holdings = np.array([2, 5, 1, 7, 3])
     ts = (np.arange(n) * 86_400_000_000).astype(np.int64)  # daily, from 1970
     kw = dict(direction=1, holdings=holdings, lo=20, hi=n - 2, simulations=50)
-    a = run_baseline(m, ts, rng=np.random.default_rng(11), **kw)  # type: ignore[arg-type]
-    b = run_baseline(m, ts, rng=np.random.default_rng(11), **kw)  # type: ignore[arg-type]
+    a = run_baseline(m, ts, notional=1e5, initial_capital=1e5, rng=np.random.default_rng(11), **kw)  # type: ignore[arg-type]
+    b = run_baseline(m, ts, notional=1e5, initial_capital=1e5, rng=np.random.default_rng(11), **kw)  # type: ignore[arg-type]
     assert a.sim_means.shape == (50,) and a.infeasible == 0
     np.testing.assert_array_equal(a.sim_means, b.sim_means)
     assert a.trades_per_sim.min() == a.trades_per_sim.max() == len(holdings)
@@ -146,9 +152,17 @@ def test_F_1_4_run_baseline_matches_count_and_is_reproducible() -> None:
 def test_F_1_4_run_baseline_counts_an_impossible_fit() -> None:
     n = 60
     res = run_baseline(
-        market(n, 1), np.arange(n, dtype=np.int64), direction=-1, holdings=np.array([40, 40]),
-        lo=10, hi=n - 2, simulations=5, rng=np.random.default_rng(0),
-    )  # fmt: skip
+        market(n, 1),
+        np.arange(n, dtype=np.int64),
+        direction=-1,
+        holdings=np.array([40, 40]),
+        lo=10,
+        hi=n - 2,
+        simulations=5,
+        notional=1e5,
+        initial_capital=1e5,
+        rng=np.random.default_rng(0),
+    )
     assert res.infeasible == 5 and np.isnan(res.sim_means).all()
 
 
@@ -157,8 +171,24 @@ def test_F_1_4_the_direction_is_matched() -> None:
     n = 300
     kw = dict(holdings=np.array([3, 3, 6]), lo=20, hi=n - 2, simulations=4)
     ts = np.arange(n, dtype=np.int64)
-    up = run_baseline(market(n, 2), ts, direction=1, rng=np.random.default_rng(1), **kw)  # type: ignore[arg-type]
-    down = run_baseline(market(n, 2), ts, direction=-1, rng=np.random.default_rng(1), **kw)  # type: ignore[arg-type]
+    up = run_baseline(
+        market(n, 2),
+        ts,
+        direction=1,
+        notional=1e5,
+        initial_capital=1e5,
+        rng=np.random.default_rng(1),
+        **kw,
+    )  # type: ignore[arg-type]
+    down = run_baseline(
+        market(n, 2),
+        ts,
+        direction=-1,
+        notional=1e5,
+        initial_capital=1e5,
+        rng=np.random.default_rng(1),
+        **kw,
+    )  # type: ignore[arg-type]
     assert up.direction == 1 and down.direction == -1
     np.testing.assert_allclose(down.pooled_returns, -up.pooled_returns)
     assert np.abs(up.pooled_returns).sum() > 0
@@ -187,7 +217,17 @@ def test_F_1_4_d618_baseline_trades_hold_exactly_their_drawn_periods() -> None:
         np.full(n, 0.5),
     )  # a tiny ATR: a 3-ATR stop is 1.5 price units away
     holdings = np.array([12, 30, 7, 45, 20])
-    res = run_baseline(m, np.arange(n, dtype=np.int64), direction=1, holdings=holdings, lo=20,
-                       hi=n - 2, simulations=30, rng=np.random.default_rng(3))  # fmt: skip
+    res = run_baseline(
+        m,
+        np.arange(n, dtype=np.int64),
+        direction=1,
+        holdings=holdings,
+        lo=20,
+        hi=n - 2,
+        simulations=30,
+        notional=1e5,
+        initial_capital=1e5,
+        rng=np.random.default_rng(3),
+    )
     assert res.infeasible == 0
     np.testing.assert_array_equal(np.sort(res.pooled_bars_held), np.sort(np.tile(holdings, 30)))

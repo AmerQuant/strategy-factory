@@ -77,6 +77,8 @@ def test_F_0_7_1_stage1_registry_rows(registry_engine: Engine, tmp_path: Path) -
         assert len(mine) == prof.probes_run  # D-605 / F-0.7.1: trials = evaluated configs
         assert {t["family_id"] for t in mine} == {c["edge_type"]}
         assert {t["params"]["probe"] for t in mine} == {p.name for p in prof.probes}
+        # rule 8 / D-606: which stage constants produced each trial is in the registry
+        assert {t["params"]["stage_config_hash"] for t in mine} == {prof.identity.stage_config_hash}
         assert c["status"] == ("active" if prof.profile.passed else "rejected")
         rows = [g for g in gates if g["candidate_id"] == c["id"]]
         # four s01_probe criteria per probe, two s01_edge criteria per profile (F-0.7.3)

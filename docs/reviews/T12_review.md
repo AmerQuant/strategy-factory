@@ -22,12 +22,14 @@ random-walk control (D-615). The seed is 42. The pilot is in `docs/reviews/T12_p
 |---|---|---|---|---|---|---|---|
 | 1D | `db666562…` | 486 | 1,944 | 0 | **14** | 0.72 % | 22 min |
 | 1D control | `279018ed…` | 486 | 1,944 | 0 | **0** | 0.00 % | 32 min |
-| 1H | `6f603a07…` | 367 | 1,468 | 3 | **4** | 0.27 % | 42 min |
-| 1H control | `9c4fcde5…` | 367 | 1,468 | 3 | **1** | 0.07 % | 37 min |
+| 1H | `6f603a07…` | 370 (367 profiled) | 1,468 | 3 | **4** | 0.27 % | 42 min |
+| 1H control | `9c4fcde5…` | 370 (367 profiled) | 1,468 | 3 | **1** | 0.07 % | 37 min |
 
-- **Scope.** 29 broker symbols were excluded at resolution for having no reference: the FX and
-  CFD instruments (`scope_excluded`). On 1H, three symbols are too short for a split and are
-  listed, not profiled.
+- **Scope.** Of the 515 broker symbols:
+  - **1D:** 486 ran; 29 were excluded at resolution for having no reference (the FX and CFD
+    instruments, `scope_excluded`).
+  - **1H:** 370 ran; **145 were excluded** (119 have no 1H in the universe, 26 have no 1H
+    reference). Of the 370, three are too short for a split and are listed, not profiled.
 - **`probes_run`**, the trial count for D-160, is **16,524** on 1D and **12,478** on 1H. It
   equals the trial rows written (tested).
 - **Wall time.** The 1D control and the 1H run were slowed by Windows scheduling the run on the
@@ -234,11 +236,14 @@ Nothing in the engine changed. There is no new dependency: the statistics are Nu
 | F-0.7.1 / F-0.7.3: trials = evaluated configurations; gate rows | db `test_F_0_7_1_stage1_registry_rows` |
 | D-607: serial and parallel bit-identical | `test_F_1_5_d607_serial_and_parallel_runs_are_bit_identical` (fast suite, so CI and `windows-fast` run it) |
 | Rule 2 / D-306 / D-616: the stage cannot reach the holdout | `test_F_1_8_d616_*` (read from the syntax tree, plus a check that the check fires) |
-| Rule 3: no look-ahead in the stage's statistics | `tests/leakage/test_F_1_5_stage_truncation.py` (34 cases) |
+| Rule 3: no look-ahead | `tests/leakage/test_F_1_5_stage_truncation.py` (34 cases). It drives the stage's own `probe_run` with settings from `EngineConfig`, and covers **the probe trades** every statistic is computed from. The aggregate statistics are functions of the whole development window by design, and the baseline draws depend on the window's length, never on a later price. *This row claimed "the stage's statistics" before the acceptance review, which was overstated.* |
+| D-602 / D-613 (3) / D-614 (1) / D-615 wiring | `tests/unit/test_F_1_5_stage_wiring.py`: consistency by hand (per-year baseline, thin years dropped), the PF equals the full-cost run's and is below the zero-cost one's, the disaster stop fires on gapping data and not with the stop moved away, and the `random_walk` control changes every statistic and every candidate id. **Added after the acceptance review**, which broke each wiring in memory while every earlier test still passed. |
+| D-610 caveats | `tests/unit/test_F_1_9_d610_caveats.py`, against a real temporary catalog: quality status, failing checks, splices, a research window is not a trim, a T04l trim |
+| D-354 (1), the non-USD skip, `sfac run` stage 1 only | `test_F_1_5_d354_a_parity_setting_is_refused_not_ignored`, `test_F_1_9_a_non_usd_symbol_is_listed_as_skipped_not_fatal`, `test_F_1_9_d616_sfac_run_refuses_anything_but_stage_1` |
 | D-354 (1) (2) | `test_F_1_8_d354_*` |
 | D-616 broker scope; D-615 control | `test_F_0_8_2_d616_*`; `test_F_1_5_d615_*` |
 | D-804 efficiency-mode opt-out | `test_F_0_3_7_d804_*` (8 tests) |
-| The pilot and the full run reproduce | pilot §7 (byte-identical); every run records its config hash, seed and code version |
+| The pilot and the full run reproduce | pilot §7 (every `summary.json` identical apart from the run id; `index.csv` byte-identical); every run records its config hash, seed and code version |
 
 Every guard test added here was mutation-checked, and each break fails its test:
 - BH without its step-up; ties counted as below; a warm-up one bar late;
@@ -247,7 +252,11 @@ Every guard test added here was mutation-checked, and each break fails its test:
 - the baseline stop reinstated (D-618);
 - a `SplitManager` import; `DEFAULT_ENGINE_CONFIG`;
 - the second pending range removed;
-- the worker opt-out removed; its failure not caught; throttling switched on instead of off.
+- the worker opt-out removed; its failure not caught; throttling switched on instead of off;
+- **after the acceptance review:** consistency without the per-year baseline and the minimum,
+  the PF at zero cost, no disaster stop on probes, and the control ignored (each fails
+  `test_F_1_5_stage_wiring`); a trim without the research-window check (fails
+  `test_F_1_9_d610_caveats`).
 
 ## 9. Deviations and judgement calls
 
@@ -265,6 +274,23 @@ Every guard test added here was mutation-checked, and each break fails its test:
    has no infinity.
 7. **The probe warm-ups are configured**, and pinned exact by a test (never before; slow: exactly
    at), because no component declares one.
+8. **`candidate_id` adds `control`** to D-616's list, so a control profile never collides with a
+   real one. It does **not** include the stage-config hash: that is **P-106**.
+9. **Missing statistics are skipped, not zeroed.** The ESS medians and the Benjamini-Hochberg `m`
+   run over the probes **that have a statistic**: a probe with no trades has no mean, p or
+   consistency. Consistency also drops a year with **no baseline trade**, alongside D-613's
+   5-trade rule. D-613's "over all probes run" is read as "all probes run that produced a number".
+10. **The stored trades (D-608)** are the **full-cost** run of each accepted probe, written by
+    `write_run_result` (trades, equity and meta), not a single `trades.parquet`. The statistics
+    come from the zero-cost run of the same signals.
+11. **Non-USD symbols are skipped and listed** (P-105). Before the review they aborted the run.
+12. **The stage-config hash is on every trial** (`params.stage_config_hash`), added after the full
+    run. The full run's trial rows do not carry it; its `summary.json` files do. Moving
+    `batch_units` into the stage config changed that hash but **no number**: a re-run of the 1D
+    pilot on the fixed code is identical in all 40 profiles and in the index.
+13. **Operational values in code, made explicit:** the baseline's notional and capital are now
+    required (from `EngineConfig`, D-004); `volume_step=1e-9` means "no rounding" in the
+    frictionless sizing, never a threshold; `batch_units` moved to the stage config.
 
 ## 10. Decisions used or made
 
@@ -277,11 +303,33 @@ Every guard test added here was mutation-checked, and each break fails its test:
 ## 11. Open questions
 
 - **P-104:** the executor's `auto` budget on hybrid CPUs (efficiency cores, hyper-threads).
+- **P-105:** non-USD symbols in stage 1 (skipped for now).
+- **P-106:** the stage-config hash in the candidate id, decided before T15 re-runs.
 - **The 1H passes** (§3): unconfirmed; three of four are on `price_spikes` series. A T15 item
   together with the hourly cleaning question (D-707).
 - **T11b / D-335 / D-336** stay open (D-802).
 
-## 12. Acceptance
+## 12. The acceptance review, and what changed
+
+The `acceptance-reviewer` subagent checked the task claim by claim. It recomputed the run's numbers
+from the artifacts, and they held. Its findings, each verified and addressed:
+
+| # | finding | what changed |
+|---|---|---|
+| 1 | **blocking**: the stage's wiring of D-602, D-613 (3), D-614 (1) and the D-615 control had no test that would fail if it broke | `test_F_1_5_stage_wiring.py`, 9 tests, each mutation-checked |
+| 2 | the leakage claim was overstated; the test re-implemented the probe run with hard-coded settings | one `probe_run` shared by the stage and the test, settings from `EngineConfig`; the claim reworded (§8) |
+| 3 | the D-610 caveat code had no test | `test_F_1_9_d610_caveats.py` against a real catalog |
+| 4 | the stage config was in neither the run's hash nor the registry | `stage_config_hash` on every trial; the candidate id is **P-106** |
+| 5 | D-354 (1): parity settings were silently ignored | refused with a `ConfigError`, tested |
+| 6 | non-USD symbols aborted the run, and the rule was undeclared | skipped and listed, tested; **P-105** |
+| 7 | deviations were not declared | §9, items 8–13 |
+| 8 | stale text (a D-130 comment; the runbook's file names) | corrected |
+| 9 | literal values in code | notional and capital required; `batch_units` into config; `1e-9` documented |
+| 10 | `sfac run`'s "stage 1 only" was untested | tested |
+| 11 | review numbers: 1H symbols, 1H exclusions, "byte-identical" | corrected (§1, §8) |
+| 12 | notes: the stage modules could reach the writable catalog; artifact paths are absolute | the guard now bans `_catalog` outside `reference.py`; absolute paths noted, not changed |
+
+## 13. Acceptance
 
 See the commit message of this review for the final run: fast suite, parity/leakage/oracle,
 `pytest -m db` with 0 skipped, ruff, format, mypy (also `--platform linux`), and `sfac streams

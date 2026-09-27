@@ -69,8 +69,10 @@ raise it; the stage reads the catalog read-only through `RunContext` instead.
    - One work unit per (symbol, timeframe, edge type, direction).
    - The parent writes candidates, trials (one per probe × direction, `family_id` = edge type),
      `gate_results` through `GateEngine`, and artifacts.
-   - `summary.json` per profile; `trades.parquet` only for the accepted probes of passing
-     profiles (D-608); `index.parquet` for the universe (P-59).
+   - `summary.json` per profile; the trades only for the accepted probes of passing
+     profiles (D-608), written with `write_run_result` (trades, equity and meta, from the
+     full-cost run); `index.csv` for the universe (D-617; CSV because Parquet I/O is the data
+     layer's, D-302).
 7. **Tests** (§9 of the task, plus the D-354 grep tests).
    - Unit tests for each part.
    - Random-walk and planted-edge fixtures, slow-marked where they are heavy.

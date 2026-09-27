@@ -46,6 +46,9 @@ def test_F_1_8_d616_no_stage_module_can_reach_the_holdout() -> None:
     for path in STAGE_MODULES:
         used = code_names(path.read_text(encoding="utf-8")) & BANNED
         assert not used, f"{path.name} uses {sorted(used)}"
+        # the catalog is writable: only the read-only view that owns it may touch it
+        if path.name != "reference.py":
+            assert "_catalog" not in code_names(path.read_text(encoding="utf-8")), path.name
 
 
 def test_F_1_8_d616_the_check_sees_code() -> None:

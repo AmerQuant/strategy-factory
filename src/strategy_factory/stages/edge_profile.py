@@ -85,7 +85,8 @@ class ProbeResult(_Frozen):
     positive_year_share: Number
     years_counted: int
     years_excluded: int
-    disaster_share: Number  # D-130: > 2 % is a warning
+    disaster_share: Number  # D-620: reported as a number, never a warning (D-130's 2 % is
+    # written for an optimised exit; raw probes measure far above it)
     baseline_infeasible: int
     clamped_holdings: int
     accepted: bool

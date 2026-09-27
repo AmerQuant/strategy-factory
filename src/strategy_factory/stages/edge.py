@@ -66,7 +66,7 @@ from strategy_factory.costs.profile import (
 from strategy_factory.data.result_io import write_run_result
 from strategy_factory.data.split import HistoryTooShortError
 from strategy_factory.engine import kernel as k
-from strategy_factory.engine.api import ExitParams, MarketArrays, SimResult, simulate
+from strategy_factory.engine.api import ExitParams, SimResult, simulate
 from strategy_factory.gates.engine import GateEngine, GateResult, to_registry_rows
 from strategy_factory.metrics.containers import RunMeta, RunResult
 from strategy_factory.metrics.ess import as_json, raw_components, score_ess
@@ -79,7 +79,13 @@ from strategy_factory.pipeline.backtest import (
 )
 from strategy_factory.pipeline.executor import unit_seed
 from strategy_factory.stages.base import ArtifactRef, RunContext, StageResult
-from strategy_factory.stages.config import PROBE_STAGE, STAGE, S01EdgeConfig, load_s01_config
+from strategy_factory.stages.config import (
+    PROBE_STAGE,
+    STAGE,
+    EdgeTypeSpec,
+    S01EdgeConfig,
+    load_s01_config,
+)
 from strategy_factory.stages.control import permute_returns
 from strategy_factory.stages.edge_profile import (
     SCHEMA_VERSION,
@@ -190,25 +196,38 @@ def _consistency(
     return (positive / counted if counted else float("nan")), counted, excluded
 
 
-def _run(
-    market: MarketArrays,
-    entry: np.ndarray,
-    exit_: np.ndarray,
-    d: int,
-    exits: ExitParams,
-    task: ProfileTask,
-    frictionless: bool,
+def probe_run(
+    bars: dict[str, np.ndarray],
+    probe: str,
+    params: dict[str, Any],
+    spec: EdgeTypeSpec,
+    direction: Direction,
+    engine: EngineConfig,
+    costs: CostArrays | None = None,
 ) -> SimResult:
-    n = int(market.close.shape[0])
-    if frictionless:
-        costs, sizing = (
-            frictionless_costs(n),
-            frictionless_sizing(task.engine.notional, task.engine.initial_capital),
-        )
+    """One probe run: its signals, its fixed exits (D-101, D-614), the engine (research mode).
+
+    ``costs=None`` runs **frictionless** (the statistic, D-602); a ``CostArrays`` runs the same
+    signals with the symbol's full costs (the profit factor). The 3-ATR disaster stop is on for
+    every probe (D-130, D-614), from ``engine``. The stage and the leakage test both call this,
+    so the test covers exactly what the stage runs.
+    """
+    comp = default_registry().get(probe)
+    b = Bars(*(np.asarray(bars[c], dtype=np.float64) for c in ("open", "high", "low", "close")))
+    long_e, short_e = comp.signals(b, params)
+    long_x, short_x = probe_exit_signals(spec.exit_signal, comp, b, params)
+    entry, exit_ = (long_e, long_x) if direction == "long" else (short_e, short_x)
+    market = market_arrays(bars, engine.atr_length)
+    n = len(b)
+    exits = ExitParams(time_exit_bars=spec.time_exit_bars, disaster_atr=engine.disaster_stop_atr)
+    if costs is None:
+        cost_in = frictionless_costs(n)
+        sizing = frictionless_sizing(engine.notional, engine.initial_capital)
     else:
-        costs = cost_inputs(task.costs)
-        sizing = sizing_inputs(task.costs, task.engine, "pessimistic", None)
-    return simulate(market, entry, exit_, d, exits, costs, sizing, k.MODE_PESSIMISTIC)
+        cost_in = cost_inputs(costs)
+        sizing = sizing_inputs(costs, engine, "pessimistic", None)
+    d = _SIGN[direction]
+    return simulate(market, entry, exit_, d, exits, cost_in, sizing, k.MODE_PESSIMISTIC)
 
 
 def compute_profile(task: ProfileTask) -> ProfileOutput:
@@ -219,15 +238,9 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
     gates = _gate_engine(task.gates_path)
     context = {"asset_class": task.asset_class, "timeframe": task.timeframe}
     ts = np.asarray(task.bars["ts"], dtype=np.int64)
-    bars = Bars(
-        *(np.asarray(task.bars[c], dtype=np.float64) for c in ("open", "high", "low", "close"))
-    )
     market = market_arrays(task.bars, task.engine.atr_length)
-    n = len(bars)
+    n = int(market.close.shape[0])
     d = _SIGN[task.direction]
-    exits = ExitParams(
-        time_exit_bars=spec.time_exit_bars, disaster_atr=task.engine.disaster_stop_atr
-    )
     first_year, last_year = (int(y) for y in trade_years(ts, np.array([0, n - 1])))
     window = range(first_year, last_year + 1)
     params = probe_params(cfg, task.edge_type)
@@ -237,11 +250,7 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
     full_runs: dict[str, SimResult] = {}
     for name in cfg.probes_of(task.edge_type):
         comp = reg.get(name)
-        long_e, short_e = comp.signals(bars, params[name])
-        long_x, short_x = probe_exit_signals(spec.exit_signal, comp, bars, params[name])
-        entry = long_e if task.direction == "long" else short_e
-        exit_ = long_x if task.direction == "long" else short_x
-        sim0 = _run(market, entry, exit_, d, exits, task, frictionless=True)
+        sim0 = probe_run(task.bars, name, params[name], spec, task.direction, task.engine)
         r = atr_returns(sim0, d)
         n_tr = int(r.size)
         row: dict[str, Any] = {
@@ -294,7 +303,9 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
             disaster = float(np.mean(sim0.exit_reason == k.DISASTER_STOP))
         else:
             disaster = math.nan
-        sim1 = _run(market, entry, exit_, d, exits, task, frictionless=False)
+        sim1 = probe_run(
+            task.bars, name, params[name], spec, task.direction, task.engine, task.costs
+        )
         full_runs[name] = sim1
         pf = profit_factor(sim1.pnl_net)
         if math.isinf(pf):
@@ -403,6 +414,10 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
 # --------------------------------------------------------------------------------------
 # The stage (parent side): build the units, run them, write everything
 # --------------------------------------------------------------------------------------
+class UnsupportedSymbol(Exception):
+    """A symbol stage 1 cannot run yet: it is listed as skipped with the reason, never aborts."""
+
+
 def _cost_arrays(
     symbol: str,
     asset_class: str,
@@ -417,9 +432,9 @@ def _cost_arrays(
         profile, _ = resolve_from_data(profile, bars)  # development bars only (D-340)
     costs = build_cost_arrays(bars, profile, timeframe=timeframe)
     if costs.quote_ccy != "USD":
-        raise ConfigError(
-            f"{symbol}: quote currency {costs.quote_ccy}; stage 1 runs USD symbols only for now",
-            symbol=symbol,
+        raise UnsupportedSymbol(
+            f"quote currency {costs.quote_ccy}: stage 1 runs USD-quoted symbols only for now "
+            "(no conversion arrays are wired in; P-105)"
         )
     return costs
 
@@ -429,6 +444,20 @@ def _write_json(path: Path, data: Any) -> str:
     text = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False)
     path.write_text(text, encoding="utf-8", newline="\n")
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _require_research_engine(ctx: RunContext) -> None:
+    """D-354 (1): the engine settings come from the run's config -- and stage 1 is a research
+    stage, so a parity setting there is refused rather than silently ignored."""
+    problems = []
+    if ctx.config.intrabar_mode != "pessimistic":
+        problems.append(f"intrabar_mode {ctx.config.intrabar_mode!r} (research runs 'pessimistic')")
+    if ctx.config.engine.entry_requires_flat_at_signal:
+        problems.append("engine.entry_requires_flat_at_signal (a parity-only option, D-367)")
+    if problems:
+        raise ConfigError(
+            "stage 1 runs research settings only; the config sets " + "; ".join(problems)
+        )
 
 
 INDEX_COLUMNS = (
@@ -461,11 +490,12 @@ class EdgeStage:
     name: str = STAGE
     stage_config_path: Path | None = None
     costs_dir: Path = Path("configs") / "costs"
-    batch_units: int = 64
+    batch_units: int | None = None  # None: the stage config's batch_units
     keep_trades: bool = True
 
     def run(self, inputs: Sequence[tuple[str, str]], ctx: RunContext) -> StageResult:
         cfg = load_s01_config(self.stage_config_path)
+        _require_research_engine(ctx)
         from strategy_factory.core.universe import load_universe
 
         universe = load_universe(ctx.config.universe).by_symbol()
@@ -501,9 +531,13 @@ class EdgeStage:
             if ctx.config.control == "random_walk":
                 bars = permute_returns(bars, unit_seed(ctx.seed, f"{symbol}|{tf}|random_walk"))
             asset_class = universe[symbol].asset_class
-            costs = _cost_arrays(
-                symbol, asset_class, tf, bars, self.costs_dir, profiles, assignments
-            )
+            try:
+                costs = _cost_arrays(
+                    symbol, asset_class, tf, bars, self.costs_dir, profiles, assignments
+                )
+            except UnsupportedSymbol as exc:
+                index.append(_skip_row(symbol, tf, caveats, str(exc)))
+                continue
             for edge_type in cfg.runnable_edge_types():
                 probes = probe_params(cfg, edge_type)
                 for direction in DIRECTIONS:
@@ -554,7 +588,7 @@ class EdgeStage:
                             keep_trades=self.keep_trades,
                         )
                     )
-            if len(pending) >= self.batch_units:
+            if len(pending) >= (self.batch_units or cfg.batch_units):
                 self._flush(pending, ctx, run_dir, result, index)
                 pending = []
         if pending:
@@ -631,7 +665,12 @@ class EdgeStage:
                     spec_hash=hashlib.sha256(
                         canonical_json({"probe": p.name, "params": p.params}).encode()
                     ).hexdigest(),
-                    params={"probe": p.name, "params": p.params, "direction": ident.direction},
+                    params={
+                        "probe": p.name,
+                        "params": p.params,
+                        "direction": ident.direction,
+                        "stage_config_hash": ident.stage_config_hash,  # D-606: which constants
+                    },
                     n_trades=p.n_closed_trades,
                     profit_factor=p.profit_factor,
                     extra={

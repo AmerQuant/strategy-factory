@@ -57,3 +57,7 @@ ess:
 
 # D-620 (P-102): the mean/median gap (D-601) and the disaster-hit share (D-130) are reported in
 # every probe result as numbers and raise no warning -- both fired on almost every probe.
+
+# Work units sent to the executor per batch: the parent writes each batch's results before the
+# next one. Operational only (memory and progress), it changes no number (D-607).
+batch_units: 64

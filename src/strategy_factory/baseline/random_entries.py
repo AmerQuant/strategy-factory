@@ -88,7 +88,7 @@ def frictionless_sizing(notional: float, initial_capital: float) -> SizingInputs
         mode=k.SIZE_RESEARCH,
         notional=notional,
         initial_capital=initial_capital,
-        volume_step=1e-9,
+        volume_step=1e-9,  # "no step": quantities are not rounded (never a threshold)
         min_volume=0.0,
     )
 
@@ -168,8 +168,8 @@ def run_baseline(
     hi: int,
     simulations: int,
     rng: np.random.Generator,
-    notional: float = 100_000.0,
-    initial_capital: float = 100_000.0,
+    notional: float,
+    initial_capital: float,
 ) -> BaselineResult:
     """Run ``simulations`` matched draws through the engine (zero costs, D-602; no stop, D-618)."""
     n = int(market.close.shape[0])
