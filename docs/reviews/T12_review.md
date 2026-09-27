@@ -338,9 +338,19 @@ from the artifacts, and they held. Its findings, each verified and addressed:
 
 ## 13. Acceptance
 
-See the commit message of this review for the final run: fast suite, parity/leakage/oracle,
-`pytest -m db` with 0 skipped, ruff, format, mypy (also `--platform linux`), and `sfac streams
-check`.
+Re-run in full after rebasing onto `origin/main` (stream B's T04m aux ingest and P-93, which
+touch `data/split.py` — the module stage 1 reads through `DataAccess`), on Windows:
+
+| suite | result |
+| --- | --- |
+| fast (`-m "not slow"`) | 1,788 passed |
+| `tests/parity tests/leakage tests/oracle` | 398 passed |
+| `-m db -rs` | 22 passed, **0 skipped** |
+| `-m slow` (the T12 self-tests included) | 20 passed |
+| ruff, `ruff format --check` (360 files), mypy `src` and `--platform linux`, `sfac streams check` | clean |
+
+No stage-1 behaviour changed over the rebase: the aux as-of work is stream B's and stage 1 takes
+no auxiliary series, and the evidence runs of §1 are unaffected.
 
 ## 14. The supervisor's two conditions (2026-09-27)
 
