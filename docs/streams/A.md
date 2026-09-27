@@ -35,7 +35,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 2. **T11b** — **parked (D-802)**; the plan stands in `docs/tasks/T11b_parity_tie_reentry.md`.
 3. Stream and CI tooling — D-611/D-612 ownership, D-377 encodings, D-378 range, D-379 UTF-8
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
-4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **planning** (D-403).
+4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **built, run at full scope,
+   reviewed; at its stop for "Approved"** on `a/T12-edge-discovery` (pushed, no PR yet).
 
 ## ID ranges (D-355, D-378)
 
@@ -45,9 +46,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-803**, **P-40 … P-59** and **P-100 … P-102**.
-**Next free here: D-804, P-103.** Supervisor rows written by stream A: D-601 … D-620; next free
-supervisor id **D-621**. (D-803 and D-613 … D-620 are on `a/T12-edge-discovery`, not yet on `main`.)
+Stream A has used **D-360 … D-379**, **D-800 … D-804**, **P-40 … P-59** and **P-100 … P-106**.
+**Next free here: D-805, P-107.** Supervisor rows written by stream A: D-601 … D-620; next free
+supervisor id **D-621**. (D-803, D-804 and D-613 … D-620 are on `a/T12-edge-discovery`, **not yet
+on `main`**.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -81,35 +83,107 @@ supervisor id **D-621**. (D-803 and D-613 … D-620 are on `a/T12-edge-discovery
 - **The venv can break silently.** If `mypy` suddenly reports `Failed to find builtin module
   "mypy_extensions"` or a wall of pydantic `import-untyped` errors: `uv sync --reinstall`.
 
-## Status — 2026-09-22
+## Status — 2026-09-27
 
-**#44 (D-802) is merged** (`main` at `44bed56`). **T12 is at its step-8 stop** (the pilot),
-before step 9, as the supervisor required: branch `a/T12-edge-discovery` (pushed, no PR yet).
+**T12 is at its stop for "Approved" (critical, D-402).** Branch **`a/T12-edge-discovery`**,
+pushed, **no PR yet** (the PR is opened after "Approved", with the review as its body). `main` is
+at `44bed56`; everything through #44 is merged. The branch is 20 commits ahead and contains the
+T12 plan (the old `a/docs-T12-plan` is folded into it).
 
-- **Plan approved** with P-55 … P-59 answered: D-613 (amends D-601/D-606), D-614 (probe
-  exits; the parity harness keeps its own copy), D-615 … D-617; stream A's second pending
-  range P-100 … P-149 (D-803, in `ownership.yaml` with tests).
-- **Built (steps 0–7):** stats helpers, the stage config and ESS, the `probe_q_value` gate
-  criterion, the probe exits, the matched baseline, the stage framework (no split manager in
-  `RunContext`), `s01_edge`, `sfac run`, the random-walk control, and their tests
-  (fast 1,737, parity/leakage/oracle 396, db 22 with 0 skipped; ruff, format, mypy clean).
-- **Pilot (step 8), then D-618 and a re-run:** `docs/reviews/T12_pilot.md`, whose §7–§11
-  supersede §1–§6. The first pilot found the D-615 baseline bias (P-100). **D-618** (the
-  baseline holds exactly its drawn periods, with no stop; why D-615 was wrong is recorded),
-  **D-619** (P-101) and **D-620** (P-102) are applied and tested. The re-run: both random-walk
-  controls pass **0 of 40** (was 0 and 2); real 1H passes fell from 3 to 0 (they were drift);
-  1D keeps AAPL MR long (ESS 60.8); reproduced exactly; ≈ 3.4 h projected for step 9 with
-  controls. Findings for T15: TF on 1D is near-unpassable (4 probes limited by the exits, 2 by
-  signal frequency); the TF disaster-stop hit rate is about 30 % (the median over all probes is
-  8 %, against D-130's 2 %); magnitude dominates ESS; the permuted control is conservative
-  (percentiles average about 38).
+### What is done
+
+1. **Plan approved** (D-403) with P-55 … P-59 answered as **D-613 … D-617**; stream A's second
+   pending range **P-100 … P-149** (D-803).
+2. **Stage 1 built** (runbook steps 0–7): the statistics (`stats/edge.py`), the stage config and
+   ESS, the `probe_q_value` gate criterion, the probe exits, the matched baseline, the stage
+   framework (`RunContext` without a split manager), `s01_edge`, `sfac run` (stage 1 only), the
+   random-walk control. **The engine is untouched** and no dependency was added.
+3. **The pilot found a flaw in my own D-615 proposal** (P-100): a second disaster stop in the
+   baseline made trend-following long probes look significant on market drift. **D-618** fixed
+   it; both random-walk controls then passed 0 of 40, and the pilot's three 1H passes vanished.
+   Also **D-619** (P-101) and **D-620** (P-102).
+4. **Full run (step 9), all four runs complete.** Report: `docs/reviews/T12_review.md`; the pilot
+   report `docs/reviews/T12_pilot.md` (§7–§13 supersede §1–§6).
+
+   | run | profiles | passed | time |
+   |---|---|---|---|
+   | 1D | 1,944 | **14** (all mean reversion) | 22 min |
+   | 1D control | 1,944 | 0 | 32 min |
+   | 1H | 1,468 (3 skipped, D-008) | **4** (all TF long) | 42 min |
+   | 1H control | 1,468 | 1 | 37 min |
+
+5. **Wall-time mystery solved and fixed** (P-103 → **D-804**): Windows was scheduling runs onto
+   this machine's four **efficiency cores** (3–4× slower: 6.5 s vs 21.1 s per symbol). Affinity
+   and machine load were ruled out by measurement. `sfac run` and its workers now opt out of
+   efficiency mode (config `efficiency_mode_opt_out`, default on, never able to stop a run).
+6. **The acceptance reviewer ran and its findings are fixed** (see below).
+
+### What the acceptance reviewer found, and what was fixed
+
+It recomputed every number in the review from the artifacts, and they held. Its findings:
+
+- **Blocking:** the stage's wiring of **D-602, D-613 (3), D-614 (1)** and the **D-615 control**
+  had no test that would fail if it broke — it proved this by breaking each one while 105 tests
+  still passed. Fixed: `tests/unit/test_F_1_5_stage_wiring.py` (9 tests), every one
+  mutation-checked against exactly those breaks.
+- The **leakage claim was overstated**: the test re-implemented the probe run with hard-coded
+  settings. Fixed: one `probe_run` shared by the stage and the test, settings from
+  `EngineConfig`; the claim reworded to what it proves.
+- The **D-610 caveat reader had no test**. Fixed: `tests/unit/test_F_1_9_d610_caveats.py`
+  against a real temporary catalog.
+- The **stage config was in neither the run hash nor the registry**. Fixed: `stage_config_hash`
+  on every trial; the candidate id is **P-106**.
+- **D-354 (1):** a parity setting was silently ignored. Fixed: refused with a `ConfigError`.
+- **Non-USD symbols aborted the run**, an undeclared rule. Fixed: skipped and listed (**P-105**).
+- Undeclared deviations, stale text, literal values in code, an untested `sfac run` refusal, and
+  the stage modules' reach into the writable catalog — all fixed (review §9, §12).
+- **A re-run of the 1D pilot on the fixed code is identical** in all 40 profiles and in the
+  index, so the full run's numbers still describe this code.
+
+### Acceptance, as run on 2026-09-27
+
+ruff, format and mypy (Windows **and** `--platform linux`) clean; fast suite **1,737 passed**;
+parity, leakage and oracle **395**; the stream guards pass.
+
+**Two environmental failures, not code:** **Docker Desktop is not running on this machine now**,
+so the registry database is unreachable: the `db` tests **skip** (21) and
+`test_F_0_8_2_reproduce_fails_loudly_when_a_cost_profile_changed` **fails**. Everything passed
+earlier today with the database up (`db` 22, 0 skipped). **Note for the next session:** that test
+needs the database but is **not marked `db`**, so it fails instead of skipping — a small
+pre-existing defect on `main`, not from T12. Start Docker (`docker compose up -d`) and re-run
+`pytest -m db -rs` before opening the PR.
 
 ### Open, and on whom
 
-- **Step 9 (the full run)** — on the supervisor's word, after the re-run pilot.
-- **T11b, P-50** — parked (D-802); resumes when the user exports.
-- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** —
-  deleting needs the supervisor (the plan branch is folded into `a/T12-edge-discovery`).
+- **T12 — on the supervisor: "Approved"** (critical, D-402). Then: open the PR (body = the
+  review), and merge only on "Approved. Merge …" with CI green (D-401).
+- **P-104** — should the executor's `auto` budget discount efficiency cores and hyper-threads?
+  (Raised so it is not forgotten; D-334 and D-351 are untouched. Decide with the stage-2/3
+  benchmarks.)
+- **P-105** — stage 1 runs USD-quoted symbols only; a non-USD symbol is skipped and listed.
+  Wire the D-316 conversion arrays when the Dukascopy references land (T04j).
+- **P-106** — the stage-config hash is **not** in the candidate id, so a T15 recalibration would
+  upsert the same candidate rows. **Decide before T15 re-runs.**
+- **T11b, P-50** — parked (D-802); they resume when the user exports.
+- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
+  or folded in; deleting any of them needs the supervisor's word.
+
+### What T15 must calibrate (from the full run; review §6)
+
+1. **The magnitude target of 0.10 ATR is too generous** — the primary target. Magnitude carries
+   11.0 of 30 ESS points on 1D against 3.9 of 20 for significance, and the **control** earns 8.05
+   magnitude points with 31 control profiles above ESS 50.
+2. **TF on 1D is near-unpassable**: in 46 % of TF profiles fewer than 3 groups have any probe
+   with enough trades. Four probes are limited by the 50-bar exit, two by signal frequency — so
+   the exits and the threshold need different answers.
+3. **The disaster stop is a primary exit for TF** (median 32 % of trades on 1D, 37 % on 1H,
+   against D-130's 2 %, which was written for an optimised exit).
+4. **Two band/channel probes are the same rule** (`close_below_bb_lower` ≡ `zscore_below_minus_2`,
+   identical in 972/972 profiles): it double-weights one rule in the ESS medians and inflates the
+   trial count. It does **not** inflate breadth.
+5. **The reshuffled-returns control is conservative** (its percentiles average 28–46, not 50), so
+   its 0–1 passes are a **lower bound**; the calibrated null is the synthetic random walk.
+6. **Residual biases after D-618** (TF short slightly high, MR short low on synthetic data).
 
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
 
@@ -130,8 +204,10 @@ before step 9, as the supervisor required: branch `a/T12-edge-discovery` (pushed
 
 ### Next actions, in order
 
-1. Step 9 on the supervisor's word: the full MVP scope on 1D and 1H plus the random-walk
-   control (`configs/pipeline/s01_broker_{1d,1h}[_control].yaml`, ≈ 3.4 h); then the review
-   (including D-619's conclusion and D-620's distribution), the acceptance reviewer, the PR,
-   and the stop for "Approved" (D-402).
-2. T11b when the user exports (D-802).
+1. **T12: wait for "Approved"** (D-402). Before opening the PR: start Docker and re-run
+   `pytest -m db -rs` (0 skipped), then `gh pr create` with `docs/reviews/T12_review.md` as the
+   body, and merge only on "Approved. Merge …".
+2. Answers to **P-104, P-105, P-106**; P-106 before any T15 re-run.
+3. **T11b** when the user exports (D-802).
+4. `HANDOFF.md` is v7 (2026-09-22); refresh it at the T12 merge from this file and
+   `docs/streams/B.md`.
