@@ -36,7 +36,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 3. Stream and CI tooling — D-611/D-612 ownership, D-377 encodings, D-378 range, D-379 UTF-8
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
 4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **built, run at full scope,
-   reviewed; at its stop for "Approved"** on `a/T12-edge-discovery` (pushed, no PR yet).
+   reviewed, approved with two conditions, both met; PR
+   [#47](https://github.com/AmerQuant/strategy-factory/pull/47) open**, waiting for
+   "Approved. Merge".
 
 ## ID ranges (D-355, D-378)
 
@@ -46,10 +48,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-804**, **P-40 … P-59** and **P-100 … P-106**.
-**Next free here: D-805, P-107.** Supervisor rows written by stream A: D-601 … D-620; next free
-supervisor id **D-621**. (D-803, D-804 and D-613 … D-620 are on `a/T12-edge-discovery`, **not yet
-on `main`**.)
+Stream A has used **D-360 … D-379**, **D-800 … D-805**, **P-40 … P-59** and **P-100 … P-106**
+(all answered — stream A has no open question). **Next free here: D-806, P-107.** Supervisor rows
+written by stream A: D-601 … D-621; next free supervisor id **D-622**. (D-803 … D-805 and
+D-613 … D-621 are on `a/T12-edge-discovery` / PR #47, **not yet on `main`**.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -85,10 +87,21 @@ on `main`**.)
 
 ## Status — 2026-09-27
 
-**T12 is at its stop for "Approved" (critical, D-402).** Branch **`a/T12-edge-discovery`**,
-pushed, **no PR yet** (the PR is opened after "Approved", with the review as its body). `main` is
-at `44bed56`; everything through #44 is merged. The branch is 20 commits ahead and contains the
-T12 plan (the old `a/docs-T12-plan` is folded into it).
+**T12 is at its stop for "Approved. Merge" — PR
+[#47](https://github.com/AmerQuant/strategy-factory/pull/47)** (critical, D-402; the review is the
+PR body). Branch **`a/T12-edge-discovery`**, rebased onto `main` at **`caf62fe`** (stream B's #45
+T04m and #46 P-93 are in) and pushed. The branch is 21 commits ahead and contains the T12 plan
+(the old `a/docs-T12-plan` is folded into it).
+
+The supervisor approved the review **with two conditions; both are met** (review §14):
+
+1. **`pytest -m db -rs` on the final code with 0 skipped** — done, **22 passed, 0 skipped**. The
+   test named in the condition turned out to be **already** marked `db`; the real defect was that
+   it called `make_engine` directly instead of a skipping fixture, so it *failed* where the others
+   skipped. Fixed at that cause (`fixtures.registry_db.require_database`).
+2. **P-106 → D-805: the stage-config hash is part of the candidate id**, so a T15 recalibration is
+   a different candidate and can never overwrite this run's rows. Two tests, both failing if the
+   hash is dropped.
 
 ### What is done
 
@@ -140,30 +153,29 @@ It recomputed every number in the review from the artifacts, and they held. Its 
 - **A re-run of the 1D pilot on the fixed code is identical** in all 40 profiles and in the
   index, so the full run's numbers still describe this code.
 
-### Acceptance, as run on 2026-09-27
+### Acceptance, as run on 2026-09-27 after the rebase
 
-ruff, format and mypy (Windows **and** `--platform linux`) clean; fast suite **1,737 passed**;
-parity, leakage and oracle **395**; the stream guards pass.
+Everything green on the rebased tree, on Windows: fast suite **1,788 passed**;
+parity + leakage + oracle **398**; **`-m db -rs` 22 passed, 0 skipped** (Docker up);
+`-m slow` **20 passed**; ruff, `ruff format --check` (360 files), mypy `src` **and**
+`--platform linux`, and `sfac streams check` clean.
 
-**Two environmental failures, not code:** **Docker Desktop is not running on this machine now**,
-so the registry database is unreachable: the `db` tests **skip** (21) and
-`test_F_0_8_2_reproduce_fails_loudly_when_a_cost_profile_changed` **fails**. Everything passed
-earlier today with the database up (`db` 22, 0 skipped). **Note for the next session:** that test
-needs the database but is **not marked `db`**, so it fails instead of skipping — a small
-pre-existing defect on `main`, not from T12. Start Docker (`docker compose up -d`) and re-run
-`pytest -m db -rs` before opening the PR.
+No stage-1 behaviour changed over the rebase: stream B's #45 touches `data/split.py`, which stage
+1 reads through `DataAccess`, but stage 1 takes no auxiliary series, so the four evidence runs
+still describe this code.
 
 ### Open, and on whom
 
-- **T12 — on the supervisor: "Approved"** (critical, D-402). Then: open the PR (body = the
-  review), and merge only on "Approved. Merge …" with CI green (D-401).
-- **P-104** — should the executor's `auto` budget discount efficiency cores and hyper-threads?
-  (Raised so it is not forgotten; D-334 and D-351 are untouched. Decide with the stage-2/3
-  benchmarks.)
-- **P-105** — stage 1 runs USD-quoted symbols only; a non-USD symbol is skipped and listed.
-  Wire the D-316 conversion arrays when the Dukascopy references land (T04j).
-- **P-106** — the stage-config hash is **not** in the candidate id, so a T15 recalibration would
-  upsert the same candidate rows. **Decide before T15 re-runs.**
+- **T12 — on the supervisor: "Approved. Merge"** for PR #47, with CI green (D-401, D-402).
+- **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
+  skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
+  stage-config hash is in the candidate id now.
+- **Carried into T13 (D-621):** the **four 1H passes go to stage 2 flagged `unconfirmed`** —
+  D-609 sends every pass forward, but stage 2 **reports them separately** and they never stand in
+  for the daily mean-reversion finding. T13 is built knowing the **14 daily passes may move** when
+  the battery is corrected at T15.
+- **Not re-run, and it is the supervisor's call:** the four evidence runs predate D-805, so their
+  candidate ids carry no stage-config hash. No number moves; a full re-run costs ≈ 1.6 h.
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
   or folded in; deleting any of them needs the supervisor's word.
@@ -204,10 +216,11 @@ pre-existing defect on `main`, not from T12. Start Docker (`docker compose up -d
 
 ### Next actions, in order
 
-1. **T12: wait for "Approved"** (D-402). Before opening the PR: start Docker and re-run
-   `pytest -m db -rs` (0 skipped), then `gh pr create` with `docs/reviews/T12_review.md` as the
-   body, and merge only on "Approved. Merge …".
-2. Answers to **P-104, P-105, P-106**; P-106 before any T15 re-run.
-3. **T11b** when the user exports (D-802).
-4. `HANDOFF.md` is v7 (2026-09-22); refresh it at the T12 merge from this file and
-   `docs/streams/B.md`.
+1. **T12: wait for "Approved. Merge" on PR #47** with CI green (D-401, D-402). Rebase again if
+   `main` moves first.
+2. At the merge: refresh `HANDOFF.md` (still v7, 2026-09-22) from this file and
+   `docs/streams/B.md`, and regenerate `configs/universe.yaml` if a stream-B merge moved a symbol
+   (D-394).
+3. **T13** next (stage 2), carrying D-621's `unconfirmed` flag for the four 1H passes; **T15** owns
+   the calibration list above.
+4. **T11b** when the user exports (D-802).
