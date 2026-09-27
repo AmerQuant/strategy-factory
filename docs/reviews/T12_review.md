@@ -1,6 +1,7 @@
 # T12 — Stage 1: edge discovery (s01_edge) — review
 
-**Critical task (D-402): stopped for "Approved".** Branch `a/T12-edge-discovery`.
+**Critical task (D-402): approved with conditions on 2026-09-27; both are met (§14).** Branch
+`a/T12-edge-discovery`.
 Features: F-1.1 … F-1.6, F-1.8 and F-1.9; F-1.7 is reserved (P1). Decisions: D-601 … D-620,
 D-802 … D-804, and those cited below.
 
@@ -274,8 +275,9 @@ Every guard test added here was mutation-checked, and each break fails its test:
    has no infinity.
 7. **The probe warm-ups are configured**, and pinned exact by a test (never before; slow: exactly
    at), because no component declares one.
-8. **`candidate_id` adds `control`** to D-616's list, so a control profile never collides with a
-   real one. It does **not** include the stage-config hash: that is **P-106**.
+8. **`candidate_id` adds `control` and the stage-config hash** to D-616's list (D-805, the
+   answer to P-106): a control profile never collides with a real one, and a recalibrated run
+   never overwrites this one's candidates.
 9. **Missing statistics are skipped, not zeroed.** The ESS medians and the Benjamini-Hochberg `m`
    run over the probes **that have a statistic**: a probe with no trades has no mean, p or
    consistency. Consistency also drops a year with **no baseline trade**, alongside D-613's
@@ -303,10 +305,15 @@ Every guard test added here was mutation-checked, and each break fails its test:
 ## 11. Open questions
 
 - **P-104:** the executor's `auto` budget on hybrid CPUs (efficiency cores, hyper-threads).
-- **P-105:** non-USD symbols in stage 1 (skipped for now).
-- **P-106:** the stage-config hash in the candidate id, decided before T15 re-runs.
-- **The 1H passes** (§3): unconfirmed; three of four are on `price_spikes` series. A T15 item
-  together with the hourly cleaning question (D-707).
+- **P-105 → D-621 (3):** non-USD symbols stay skipped and listed; revisited when T04j lands.
+- **P-106 → D-805:** the stage-config hash is now part of the candidate id (§14).
+- **P-104 → D-621 (2):** deferred to T15.
+
+**Stream A has no open question left.**
+- **The 1H passes** (§3) go to stage 2 **flagged `unconfirmed`** (D-621 (1)): D-609 sends every
+  pass forward, but stage 2 reports them separately and they never stand in for the daily MR
+  finding. T13's task file carries this, and T13 is built knowing the 14 daily passes may move
+  when the battery is corrected (D-621 (4)).
 - **T11b / D-335 / D-336** stay open (D-802).
 
 ## 12. The acceptance review, and what changed
@@ -334,3 +341,34 @@ from the artifacts, and they held. Its findings, each verified and addressed:
 See the commit message of this review for the final run: fast suite, parity/leakage/oracle,
 `pytest -m db` with 0 skipped, ruff, format, mypy (also `--platform linux`), and `sfac streams
 check`.
+
+## 14. The supervisor's two conditions (2026-09-27)
+
+1. **The `db` suite on the final code, 0 skipped.** Docker Desktop was down when §13 was first
+   run. It is up now: `pytest -m db -rs` gives **22 passed, 0 skipped**.
+
+   **A correction to what I reported.** I said
+   `test_F_0_8_2_reproduce_fails_loudly_when_a_cost_profile_changed` was not marked `db`. It
+   **was** (and still is). The real defect is different: it builds its own schema and called
+   `make_engine` **directly**, instead of going through the fixture that skips, so with no
+   database it **failed** where every other `db` test skipped. Fixed at that cause: the shared
+   reachability helper is now public (`fixtures.registry_db.require_database`) and the test uses
+   it. Proven by pointing `SFAC_DB_URL` at a dead port: the test now **skips** with the shared
+   reason. CI still fails on any skipped `db` test, so the guarantee is unchanged. The defect
+   predates T12.
+2. **P-106 implemented before the merge — D-805.** The **stage-config hash is part of the
+   candidate id**, so a run with calibrated thresholds is a different candidate and can never
+   overwrite this one's row. Two tests, both failing if the hash is dropped: a single changed ESS
+   constant changes the id, and for every profile the stage writes, recomputing the id from the
+   artifact's own identity reproduces it, with no id shared between two stage configs.
+
+   **One consequence, stated plainly:** T12's four evidence runs were written **before** D-805, so
+   their candidate ids carry no stage-config hash. **No statistic moves** — a re-run of the 1D
+   pilot on the fixed code is identical in all 40 profiles and in the index — and every profile
+   already records its `stage_config_hash` in `summary.json` and in each trial's `params`. Re-running
+   the full scope under the new id scheme costs about 1.6 h and changes no number; whether T12's
+   recorded evidence is re-written that way is the supervisor's call (D-805).
+
+**The other answers**, recorded as D-621: the four 1H passes go to stage 2 flagged `unconfirmed`
+(§11); P-104 is deferred to T15; P-105 stays as it is until T04j; the duplicate probe and the rest
+of §6 remain T15's list, and T13 is built knowing the 14 daily passes may move.

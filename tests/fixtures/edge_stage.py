@@ -14,7 +14,12 @@ from strategy_factory.costs.arrays import CostArrays
 from strategy_factory.data.schema import SnapshotKey
 from strategy_factory.data.split import Split
 from strategy_factory.stages.config import S01EdgeConfig, load_s01_config
-from strategy_factory.stages.edge import ProfileTask, candidate_id, probe_params
+from strategy_factory.stages.edge import (
+    ProfileTask,
+    candidate_id,
+    probe_params,
+    stage_config_hash,
+)
 from strategy_factory.stages.edge_profile import Caveat, Identity, SnapshotId
 
 REPO = Path(__file__).resolve().parents[2]
@@ -88,6 +93,7 @@ def make_task(
         snapshot_hash="a" * 64,
         probes=probe_params(cfg, edge_type),
         control="none",
+        stage_config_hash=stage_config_hash(cfg),
     )
     identity = Identity(
         candidate_id=cid,
@@ -99,7 +105,7 @@ def make_task(
         asset_class="us_equity",
         snapshot=SnapshotId(source="synthetic", snapshot_hash="a" * 64),
         config_hash="c" * 64,
-        stage_config_hash="s" * 64,
+        stage_config_hash=stage_config_hash(cfg),
         code_version="test",
         dev_start="2012-01-02",
         dev_end="2020-01-01",

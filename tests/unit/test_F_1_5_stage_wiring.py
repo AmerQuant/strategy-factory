@@ -32,7 +32,15 @@ from strategy_factory.gates.engine import GateEngine
 from strategy_factory.metrics.standard import profit_factor
 from strategy_factory.pipeline.executor import SerialExecutor
 from strategy_factory.stages.base import RunContext
-from strategy_factory.stages.edge import EdgeStage, _consistency, compute_profile, probe_run
+from strategy_factory.stages.edge import (
+    EdgeStage,
+    _consistency,
+    candidate_id,
+    compute_profile,
+    probe_params,
+    probe_run,
+    stage_config_hash,
+)
 
 PLANTED = synthetic_bars(2000, 1, phi=-0.35)
 
@@ -181,3 +189,60 @@ def test_F_1_9_d616_sfac_run_refuses_anything_but_stage_1(tmp_path: Path) -> Non
     )
     with pytest.raises(ConfigError, match="stage 1 only"):
         run_stage1(cfg)
+
+
+# -- D-805 (P-106): a recalibrated stage config is a different candidate ------------------------
+def test_F_1_9_d805_the_candidate_id_carries_the_stage_config_hash() -> None:
+    """T15 recalibrates the ESS constants; that run must not overwrite this one's candidates."""
+    cfg = stage_config()
+    louder = cfg.model_copy(
+        update={"ess": cfg.ess.model_copy(update={"magnitude_target_atr": 0.25})}
+    )
+    assert stage_config_hash(cfg) != stage_config_hash(louder)
+    common = dict(
+        symbol="AAPL",
+        timeframe="1D",
+        edge_type="MR",
+        direction="long",
+        snapshot_hash="a" * 64,
+        probes=probe_params(cfg, "MR"),
+        control="none",
+    )
+    before = candidate_id(**common, stage_config_hash=stage_config_hash(cfg))  # type: ignore[arg-type]
+    after = candidate_id(**common, stage_config_hash=stage_config_hash(louder))  # type: ignore[arg-type]
+    assert before != after
+
+
+def test_F_1_9_d805_the_stage_writes_ids_built_from_its_own_config(tmp_path: Path) -> None:
+    """Every candidate the stage writes carries the hash: id and artifact agree."""
+    import yaml
+
+    cfgs = {}
+    for name, target in (("base", 0.10), ("louder", 0.25)):
+        stage = stage_config(simulations=20)
+        stage = stage.model_copy(
+            update={"ess": stage.ess.model_copy(update={"magnitude_target_atr": target})}
+        )
+        path = tmp_path / f"{name}.yaml"
+        path.write_text(yaml.safe_dump(stage.model_dump(mode="json")), encoding="utf-8")
+        EdgeStage(stage_config_path=path).run([("AAPL", "1D")], context(tmp_path / name, ("AAPL",)))
+        cfgs[name] = summaries(tmp_path / name)
+    base, louder = cfgs["base"], cfgs["louder"]
+    assert not set(base) & set(louder)  # no candidate id is reused across the two configs
+    for profiles in (base, louder):
+        for cid, d in profiles.items():
+            ident = d["identity"]
+            assert ident["candidate_id"] == cid
+            assert (
+                candidate_id(
+                    symbol=ident["symbol"],
+                    timeframe=ident["timeframe"],
+                    edge_type=ident["edge_type"],
+                    direction=ident["direction"],
+                    snapshot_hash=ident["snapshot"]["snapshot_hash"],
+                    probes={p["name"]: p["params"] for p in d["probes"]},
+                    control=ident["control"],
+                    stage_config_hash=ident["stage_config_hash"],
+                )
+                == cid
+            )

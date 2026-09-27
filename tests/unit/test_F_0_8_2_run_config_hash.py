@@ -561,11 +561,10 @@ def test_F_0_8_2_reproduce_fails_loudly_when_a_cost_profile_changed(
     tmp_path: Path, store_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`sfac reproduce` must not silently rebuild a run with other costs (CLAUDE.md rule 4)."""
-    from fixtures.registry_db import schema_url
+    from fixtures.registry_db import require_database, schema_url
     from sqlalchemy import Engine, select
 
     from strategy_factory.registry import tables as T
-    from strategy_factory.registry.engine import make_engine
     from strategy_factory.registry.migrations import upgrade
     from strategy_factory.registry.writer import RegistryWriter
 
@@ -578,7 +577,7 @@ def test_F_0_8_2_reproduce_fails_loudly_when_a_cost_profile_changed(
     stored = resolved(tmp_path, store_root, spread_bps=5.0).canonical()
 
     schema = f"t_{uuid.uuid4().hex[:16]}"
-    admin = make_engine(connect_timeout=3)
+    admin = require_database()  # skips (never fails) when no database is reachable
     with admin.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA "{schema}"'))
     url = schema_url(schema).render_as_string(hide_password=False)

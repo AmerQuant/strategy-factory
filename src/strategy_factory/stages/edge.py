@@ -150,8 +150,15 @@ def candidate_id(
     snapshot_hash: str,
     probes: dict[str, dict[str, Any]],
     control: str,
+    stage_config_hash: str,
 ) -> str:
-    """D-616: sha256 of the canonical JSON of what identifies a stage-1 profile."""
+    """sha256 of the canonical JSON of what identifies a stage-1 profile (D-616).
+
+    Beyond D-616's list: ``control``, so a control profile never collides with a real one, and
+    the **stage-config hash** (D-805, answering P-106) -- a run with calibrated thresholds is a
+    different result and must never overwrite the old one's candidate row. Every candidate is
+    written with it.
+    """
     payload = {
         "stage": STAGE,
         "symbol": symbol,
@@ -161,6 +168,7 @@ def candidate_id(
         "snapshot_hash": snapshot_hash,
         "probes": probes,
         "control": control,
+        "stage_config_hash": stage_config_hash,
     }
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
@@ -549,6 +557,7 @@ class EdgeStage:
                         snapshot_hash=pinned.snapshot_hash,
                         probes=probes,
                         control=ctx.config.control,
+                        stage_config_hash=s_hash,  # D-805
                     )
                     identity = Identity(
                         candidate_id=cid,
