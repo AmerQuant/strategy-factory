@@ -1,0 +1,538 @@
+﻿//@version=5
+strategy("Amer-Index-MeanReverses", initial_capital=100000, overlay=true, pyramiding=1)
+import TradingView/ta/7
+
+
+//https://www.youtube.com/watch?v=5v8f-QbjGV0&list=PLd3M7MX0TIrBvgpAYk_Ov2Lkzary4PZe0&index=25&t=131s
+//Strategy No 1 to 10
+
+//https://www.youtube.com/watch?v=kWgUlIFAwqg&list=PLd3M7MX0TIrBvgpAYk_Ov2Lkzary4PZe0&index=2&t=100s
+//Strategy No 5,11,12,13,14
+
+
+StrategyIBS = input(true, title="0- IBS")
+StrategyRSI2 = input(false, title="1- RSI2")
+StrategyRSI2SUM = input(false, title="2- RSI2 Sum")
+StrategyLowerLow3 = input(false, title="3- Lower Low 3")
+StrategyLowerClose1 = input(false, title="4- Conss Lower Close 1")
+StrategyLowerClose2 = input(false, title="4- Conss Lower Close 2")
+StrategyLowerClose3 = input(false, title="4- Conss Lower Close 3")
+StrategyLowerClose4 = input(false, title="4- Conss Lower Close 4")
+StrategyLowerClose5 = input(false, title="5- Lowest N Close")
+StrategyClose1PercentBigAtr = input(false, title="6- Close 1% Big ATR")
+StrategyClose1PercentSmallAtr = input(false, title="7- Close 1% Small ATR")
+StrategyBelowEMABigAtr = input(false, title="8- Below EMA 50% ATR")
+StrategyBelowEMA1Percent = input(false, title="9- Below EMA 1%")
+StrategyEMADecrease = input(false, title="10- EMA Decrease 0.5%")
+StrategyATRBand = input(false, title="11- Lowest+ATR (SuperTrend Like)")
+StrategyMonday = input(false, title="12- Monday")
+StrategyNarrowRange = input(false, title="13- Narrow Range Volatility")
+StrategyIBSHigh10Day = input(false, title="14- IBS with Highest 10 Days")
+StrategyOneDay = input(false, title="15- One Day")
+StrategyIBS_Mon_Tus = input(false, title="16- IBS Monday Tusday")
+StrategyMACD = input(false, title="17- MACD")
+StrategyScoreCandle = input(false, title="18- Candle Score N")
+StrategyScoreCandleRising = input(false, title="18- Candle Score Rising")
+StrategyRSI5 = input(false, title="19- RSI5")
+StrategyMACDPivot = input(false, title="20- MACD Pivot")
+StrategySeasonHourly = input(false, title="21- Seasonality Hourly+DayofWeek")
+StrategyWilliamPR = input(false, title="22- Williams%R")
+BaseCandle = input(false, title="23- BaseCandle")
+BaseCandleSignal = input(false, title="24- BaseCandleSignal")
+
+
+directionEnable = input(false, title="Direction Filter")
+directionEnableOpposit = input(false, title="Opposit Filter")
+spyDirectionEnable = input(false, title="SPY Direction Enable Filter")
+volatilityMin = input.int(0, title="Minimum Valatility", minval=0, maxval=11, step=1)
+volatilityMax = input.int(11, title="Maximum Valatility", minval=0, maxval=11, step=1)
+volatilityRising = input(false, title="Volatility Rising")
+volatilityFalling = input(false, title="Volatility Fallimg")
+
+
+longEnable = input(true, title="LONG Enable")
+sellEnable = input(false, title="SELL Enable")
+MinStrategyNum = input.int(1, title="Minimum Number of Strategies", minval=1, maxval=100, step=1)
+emalen = input.int(20, title="EMA Length Filter", minval=1, maxval=1000, step=1)
+exitNumHigh = input.int(1, title="TP Num Higher Close", minval=0, maxval=6, step=1)
+tpPercent = input.float(50.0, title="TP %", minval=0.1, maxval=100.0, step=0.1)
+stopPercent = input.float(50.0, title="Stop %", minval=0.1, maxval=100.0, step=0.1)
+longTrailPerc = input.float(50.0, title="Long Trail Stop %", minval=0.1, maxval=100.0, step=0.1)
+exitAfterNBar = input.int(50, title="Exit After N Bar(Disable=-1)", minval=-1, maxval=100, step=1)
+exitWithCScore = input(false, title="Exit With Candle Score")
+useFirstProfit = input.bool(false, title="Exit First Profitable Candle")
+
+       
+
+startDate = input.time(timestamp("1 Jan 1900 00:00"), title="Start Backtest Date")
+endDate = input.time(timestamp("1 Jan 2025 00:00"), title="End Backtest Date")
+NumLowestColse = input.int(5, title="Lowest Close Num", minval=1, maxval=100, step=1)
+CandleScoreNum = input.int(3, title="Candle Score Num", minval=1, maxval=100, step=1)
+CandleScoreThreshold = input.int(-7, title="Candle Score Threshold", minval=-100, maxval=100, step=1)
+ibs_Min = input.int(30, title="Minimum IBS % Value", minval=1, maxval=100, step=5)
+ibs_NumConn = input.int(1, title="Num IBS Signal Conn", minval=1, maxval=3, step=1)
+
+SeasonHour = input.session("1300-1700", "Seasonality Hour Range")
+SeasonDayofWeek = input.string("Sat", options = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"])
+
+
+longConditionCount = 0
+sellConditionCount = 0
+
+plot(ta.ema(close, emalen), color=color.yellow)
+
+atr_period = 2
+sma_period = 20
+lookback_period = 120
+shift = 0
+atr_value = ta.atr(atr_period)[shift]
+atr_ratio = atr_value / close
+so_vol = ta.sma(atr_ratio, sma_period) * 100
+lowest_so_vol = ta.lowest(so_vol, lookback_period)
+highest_so_vol = ta.highest(so_vol, lookback_period)
+_range = highest_so_vol - lowest_so_vol
+so_vol_normalized = _range > 0 ? ((so_vol - lowest_so_vol) / _range) * 10 : 0
+
+//Calculate Direction Value (Based On Market Regim Casey)
+period = 100
+price_change = nz((close - close[1]) / close[1])
+dc_avg = ta.sma(price_change, period)
+dc_stdev = ta.stdev(price_change, period)
+md_value = dc_stdev > 0 ? (dc_avg / dc_stdev) * 10 : 0
+
+
+
+if StrategyIBS
+    ibs = (close - low) / (high - low) * 100
+    if ibs_NumConn==1
+        if (ibs < ibs_Min)
+            longConditionCount += 1
+        if (ibs > 100-ibs_Min)
+            sellConditionCount += 1
+    if ibs_NumConn==2
+        if (ibs < ibs_Min ) and (ibs[1] < ibs_Min)
+            longConditionCount += 1
+        if (ibs > 100-ibs_Min ) and (ibs[1] > 100-ibs_Min)
+            sellConditionCount += 1
+    if ibs_NumConn==3
+        if (ibs < ibs_Min ) and (ibs[1] < ibs_Min ) and (ibs[2] < ibs_Min)
+            longConditionCount += 1
+        if (ibs > 100-ibs_Min ) and (ibs[1] > 100-ibs_Min) and (ibs[2] > 100-ibs_Min)
+            sellConditionCount += 1
+
+
+if StrategyRSI2
+    if (ta.rsi(close, 2) <= 20)
+        longConditionCount += 1
+    if (ta.rsi(close, 2) >= 80)
+        sellConditionCount += 1
+
+if StrategyRSI2SUM
+    rsi2 = ta.rsi(close, 2)
+    if ( (rsi2 + rsi2[1]) < 20 )
+        longConditionCount += 1
+    if ( (rsi2 + rsi2[1]) > 140 )
+        sellConditionCount += 1
+
+if StrategyLowerLow3
+    if ( low < low[1] and low[1] < low[2] and low[2] < low[3] )
+        longConditionCount += 1
+    if ( high > high[1] and high[1] > high[2] and high[2] > high[3] )
+        sellConditionCount += 1
+
+if StrategyLowerClose1
+    if ( close < close[1] )
+        longConditionCount += 1
+    if ( close > close[1] )
+        sellConditionCount += 1
+
+if StrategyLowerClose2
+    if ( close < close[1] and close[1] < close[2] )
+        longConditionCount += 1
+    if ( close > close[1] and close[1] > close[2] )
+        sellConditionCount += 1
+
+if StrategyLowerClose3
+    if ( close < close[1] and close[1] < close[2] and close[2] < close[3] )
+        longConditionCount += 1
+    if ( close > close[1] and close[1] > close[2] and close[2] > close[3] )
+        sellConditionCount += 1
+
+if StrategyLowerClose4
+    if ( close < close[1] and close[1] < close[2] and close[2] < close[3]  and close[3] < close[4])
+        longConditionCount += 1
+    if ( close > close[1] and close[1] > close[2] and close[2] > close[3]  and close[3] > close[4])
+        sellConditionCount += 1
+
+if StrategyLowerClose5
+    if ( close < ta.lowest(NumLowestColse)[1] )
+        longConditionCount += 1
+    if ( close > ta.highest(NumLowestColse)[1] )
+        sellConditionCount += 1
+
+if StrategyClose1PercentBigAtr
+    if ( close*1.01 < close[1] and ta.atr(5) > ta.atr(10) )
+        longConditionCount += 1
+    if ( close*0.99 > close[1] and ta.atr(5) > ta.atr(10) )
+        sellConditionCount += 1
+
+
+if StrategyClose1PercentSmallAtr
+    if  close[0] < close[1]*0.99//and ta.atr(5) < ta.atr(10) 
+        longConditionCount += 1
+    if  close > close[1]*1.01// and ta.atr(5) < ta.atr(10) 
+        sellConditionCount += 1
+
+if StrategyBelowEMABigAtr
+    if ( close+(ta.atr(5)*0.5) < ta.ema(close, 5) )
+        longConditionCount += 1
+    if ( close-(ta.atr(5)*0.5) > ta.ema(close, 5) )
+        sellConditionCount += 1
+
+if StrategyBelowEMA1Percent
+    if ( close*1.01 < ta.ema(close, 5) )
+        longConditionCount += 1
+    if ( close*0.99 > ta.ema(close, 5) )
+        sellConditionCount += 1
+
+if StrategyEMADecrease
+    ema5 = ta.ema(close, 5)
+    if ( ema5*1.005 < ema5[1] )
+        longConditionCount += 1
+    if ( ema5*0.995 > ema5[1] )
+        sellConditionCount += 1
+
+if StrategyATRBand
+    ibs = (close - low) / (high - low) * 100
+    if close > (ta.lowest(10)+(ta.atr(25)*2.5)) //and ibs < 30
+        longConditionCount += 1
+    // if  close < (ta.lowest(10)-(ta.atr(25)*2.5))// and ibs > 70
+    //     sellConditionCount += 1
+
+float val =  (ta.lowest(10)+(ta.atr(25)*2.5))
+plot(StrategyATRBand ? val : na, "Up Trend", offset=-1, color = color.green, style = plot.style_linebr)
+
+
+if StrategyMonday
+    if ( dayofweek(time)==dayofweek.monday and close < close[1] and close[1] < close[2] )
+        longConditionCount += 1
+    if ( not (dayofweek(time)==dayofweek.monday) and close > close[1] and close[1] > close[2] )
+        sellConditionCount += 1
+
+
+var minATR = 999999.0
+if StrategyNarrowRange
+    minATR := 999999
+    for i = 1 to 6
+        if ((high[i]-low[i]) < minATR)
+            minATR := high[i]-low[i]
+    if ( high-low < minATR and close > ta.ema(close, 200))
+        longConditionCount += 1     
+    if ( high-low < minATR and close < ta.ema(close, 200))
+        sellConditionCount += 1
+
+if StrategyIBSHigh10Day
+    ibs = (close - low) / (high - low) * 100
+    if ( high > ta.highest(10)[1] and ibs < 15)
+        longConditionCount += 1
+    if ( low < ta.lowest(10)[1] and ibs > 85)
+        sellConditionCount += 1
+
+
+IsSessionStart(sessionTime, sessionTimeZone=syminfo.timezone) =>
+    inSess = not na(time(timeframe.period, sessionTime, sessionTimeZone))
+    inSess and not inSess[1]
+
+[open1D, high1D, low1D, close1D] = request.security(syminfo.tickerid, "1D", [open[0], high[0], low[0], close[0]])
+if StrategyOneDay
+    ibs = (close1D - low1D) / (high1D - low1D) * 100
+    if IsSessionStart("1700-2330") and ibs <= 20
+        longConditionCount += 1
+    if IsSessionStart("1700-2330") and ibs >= 80
+        sellConditionCount += 1
+
+
+if StrategyIBS_Mon_Tus
+    ibs = (close - low) / (high - low) * 100
+    if (ibs < 15 and (dayofweek(time)==dayofweek.monday or dayofweek(time)==dayofweek.tuesday))
+        longConditionCount += 1
+    if (ibs > 85 and not (dayofweek(time)==dayofweek.monday or dayofweek(time)==dayofweek.tuesday))
+        sellConditionCount += 1
+
+
+if StrategyMACD
+    [macdLine, signalLine, macdHist] = ta.macd(close,12,26,9)
+    if ( macdHist < macdHist[1] and macdHist[1] < macdHist[2] and macdHist[2] < macdHist[3] and macdHist[3] < macdHist[4] and macdHist < 0 and close < close[1] )
+        longConditionCount += 1
+    if ( macdHist > macdHist[1] and macdHist[1] > macdHist[2] and macdHist[2] > macdHist[3] and macdHist[3] > macdHist[4] and macdHist > 0 and close > close[1] )
+        sellConditionCount += 1
+
+
+commentStr = "Sym=" + syminfo.ticker +
+              ",Vola=" +  str.tostring(so_vol_normalized, "#.0") + 
+              ",Dir=" + str.tostring(md_value, "#.0") +
+              ",MA,50,100,200=" + str.tostring(ta.sma(close,50), "#.0") + "," + str.tostring(ta.sma(close,100), "#.0") + "," + str.tostring(ta.sma(close, 200), "#.0") +
+              ",IBS=" + str.tostring((close - low) / (high - low) * 100, "#.0")
+
+
+
+
+if strategy.position_size > 0
+    // ??? ???? ???? ?????? ?? ???? ???? ??? (???? ??? ?????)
+    if close > strategy.position_avg_price
+        strategy.close("Long")
+
+
+
+InSession(sessionTimes) =>
+    not na(time(timeframe.period, sessionTimes))
+
+if StrategySeasonHourly
+    todayTrue = if (dayofweek(time)==dayofweek.saturday) and (SeasonDayofWeek == "Sat")
+        true
+    else if (dayofweek(time)==dayofweek.sunday) and (SeasonDayofWeek == "Sun")
+        true
+    else if (dayofweek(time)==dayofweek.monday) and (SeasonDayofWeek == "Mon")
+        true
+    else if (dayofweek(time)==dayofweek.tuesday) and (SeasonDayofWeek == "Tue")
+        true
+    else if (dayofweek(time)==dayofweek.wednesday) and (SeasonDayofWeek == "Wed")
+        true
+    else if (dayofweek(time)==dayofweek.thursday) and (SeasonDayofWeek == "Thu")
+        true
+    else if (dayofweek(time)==dayofweek.friday) and (SeasonDayofWeek == "Fri")
+        true
+    else 
+        false
+
+    StrategyClose = false
+    if ( todayTrue and InSession(SeasonHour) )
+        longConditionCount += 1
+    else
+        StrategyClose := true
+
+    if ( todayTrue and InSession(SeasonHour) )
+        sellConditionCount += 1
+    else
+        StrategyClose := true
+
+    if (StrategyClose)
+        strategy.close("Short", comment = commentStr )
+        strategy.close("Long", comment = commentStr )
+
+
+int selfScore = na
+int coScore = na
+int totalScore = na
+float total_ma = na
+
+selfScore := 5*close > 4*high + low ? 2 : 5*close > 3*high + 2*low ? 1 : 5*close > 2*high + 3*low ? 0 : 5*close > high + 4*low ? -1 : -2
+coScore := close > high[1] ? 3 : 3*close > 2*high[1]+low[1] ? 2 : 3*close > high[1]+2*low[1] ? 0 : close > low[1] ? -2 : -3
+totalScore := selfScore + coScore
+
+total_ma := ta.sma(totalScore, CandleScoreNum)*CandleScoreNum
+
+if StrategyScoreCandle  
+    if ( total_ma <= CandleScoreThreshold )
+        longConditionCount += 1
+    if ( total_ma >= CandleScoreThreshold )
+        sellConditionCount += 1
+
+if StrategyScoreCandleRising 
+    if ( total_ma > total_ma[1] and total_ma <= CandleScoreThreshold )
+        longConditionCount += 1
+    if ( total_ma < total_ma[1] and total_ma >= CandleScoreThreshold )
+        sellConditionCount += 1
+
+
+if StrategyRSI5
+    if (ta.rsi(close, 5) <= 35)
+        longConditionCount += 1
+    if (ta.rsi(close, 5) >= 65)
+        sellConditionCount += 1
+
+
+if StrategyMACDPivot
+    [macdLine, signalLine, macdHist] = ta.macd(close,12,26,9)
+    if  macdHist > macdHist[1] and macdHist[1] > macdHist[2] and macdHist < 0// and close > close[1] 
+        longConditionCount += 1
+    if  macdHist < macdHist[1] and macdHist[1] < macdHist[2] and macdHist > 0//and close < close[1] 
+        sellConditionCount += 1
+
+
+
+WilliamsPR(length) =>
+    max = ta.highest(high, length)
+    min = ta.lowest(low, length)
+    100 * (close - min) / (max - min)
+
+WilliamsPR_Trigger = false
+if StrategyWilliamPR
+    // if WilliamsPR(5) < 20
+    //     longConditionCount += 1
+    if WilliamsPR(5) < 20
+        WilliamsPR_Trigger := true
+    if WilliamsPR_Trigger and high > high[1]
+        longConditionCount += 1
+        WilliamsPR_Trigger := false
+    if WilliamsPR(5) > 80
+        WilliamsPR_Trigger := false
+
+//plot(WilliamsPR(5))
+
+
+
+
+
+var float baseHigh = high
+var float baseLow = low
+var bool baseLongDirection = true
+bool longBase = na
+
+if baseLongDirection and (3*close > 2*high + low) and (close > open) and (high > baseHigh)
+    baseHigh := high
+    baseLow := low
+    longBase := true
+else if (not baseLongDirection) and (3*close < high + 2*low) and (close < open) and (low < baseLow)
+    baseHigh := high
+    baseLow := low
+    longBase := false
+else if baseLongDirection and (3*close < high + 2*low) and (close < open) and (close < baseLow)
+    baseHigh := high
+    baseLow := low
+    baseLongDirection :=false
+    longBase := false
+else if (not baseLongDirection) and (3*close > 2*high + low) and (close > open) and (close > baseHigh)
+    baseHigh := high
+    baseLow := low
+    baseLongDirection := true
+    longBase := true
+
+int long = longBase ? 1 : longBase==false ? -1 : 0
+int direction = baseLongDirection ? 1 : -1
+int signal = long * direction == 1 ? direction == 1 ? 1 :-1 : 0
+
+if BaseCandle
+    if direction[0] > direction[1] and longEnable
+        longConditionCount += 1
+    else if direction[0] < direction[1] and sellEnable
+        sellConditionCount += 1
+
+if BaseCandleSignal
+    if signal==1 and longEnable
+        longConditionCount += 1
+    else if signal==-1 and sellEnable
+        sellConditionCount += 1
+
+
+
+
+if so_vol_normalized <= volatilityMin or so_vol_normalized >= volatilityMax
+    longConditionCount := 0
+    sellConditionCount := 0
+
+
+if so_vol_normalized >= so_vol_normalized[1] and so_vol_normalized[1] >= so_vol_normalized[2]
+    if volatilityFalling
+        longConditionCount := 0
+        sellConditionCount := 0
+
+if so_vol_normalized <= so_vol_normalized[1] and so_vol_normalized[1] <= so_vol_normalized[2]
+    if volatilityRising
+        longConditionCount := 0
+        sellConditionCount := 0
+
+
+
+
+f_print(_text) =>
+    // Create label on the first bar.
+    var _label = label.new(bar_index, na, _text, xloc.bar_index, yloc.price, color(na), label.style_none, color.gray, size.large, text.align_left)
+    // On next bars, update the label's x and y position, and the text it displays.
+    label.set_xy(_label, bar_index, ta.highest(10)[1]) 
+    label.set_text(_label, _text)
+
+barsSinceLastEntry() =>
+    strategy.opentrades > 0 ? bar_index - strategy.opentrades.entry_bar_index (strategy.opentrades - 1) : -100
+
+bool longCondition = false
+if directionEnableOpposit
+    longCondition := (directionEnable ? (longConditionCount >= MinStrategyNum) and (close < ta.ema(close, emalen)) : longConditionCount >= MinStrategyNum ) 
+else
+    longCondition := (directionEnable ? (longConditionCount >= MinStrategyNum) and (close > ta.ema(close, emalen)) : longConditionCount >= MinStrategyNum ) 
+
+bool sellCondition = false
+if directionEnableOpposit
+    sellCondition := (directionEnable ? (sellConditionCount >= MinStrategyNum) and (close > ta.ema(close, emalen)) : sellConditionCount >= MinStrategyNum ) 
+else
+    sellCondition := (directionEnable ? (sellConditionCount >= MinStrategyNum) and (close < ta.ema(close, emalen)) : sellConditionCount >= MinStrategyNum ) 
+
+float orderVolume = 0
+var int numWinOrders = 0
+
+
+if (spyDirectionEnable) and ( request.security("SPX", "D", close) < ta.ema(request.security("SPX", "D", close), emalen))
+    longCondition := false
+
+if (longEnable and longCondition and time > startDate and time < endDate )
+    strategy.entry("Long", strategy.long, comment = commentStr)
+
+if (sellEnable and sellCondition and time > startDate and time < endDate)
+    strategy.entry("Short", strategy.short, comment = commentStr)
+
+bool exitLongCondition = switch exitNumHigh
+    1 => close[0] > high[1] 
+    2 => close[0] > high[1] and close[1] > high[2]
+    3 => close[0] > high[1] and close[1] > high[2] and close[2] > high[3]
+    4 => close[0] > high[1] and close[1] > high[2] and close[2] > high[3] and close[3] > high[4]
+    5 => close[0] > high[1] and close[1] > high[2] and close[2] > high[3] and close[3] > high[4] and close[4] > high[5]
+    6 => close[0] > high[1] and close[1] > high[2] and close[2] > high[3] and close[3] > high[4] and close[4] > high[5] and close[5] > high[6]
+    => false
+
+bool exitShortCondition = switch exitNumHigh
+    1 => close[0] < low[1] 
+    2 => close[0] < low[1] and close[1] < low[2] 
+    3 => close[0] < low[1] and close[1] < low[2] and close[2] < low[3]
+    4 => close[0] < low[1] and close[1] < low[2] and close[2] < low[3] and close[3] < low[4]
+    5 => close[0] < low[1] and close[1] < low[2] and close[2] < low[3] and close[3] < low[4] and close[4] < low[5]
+    6 => close[0] < low[1] and close[1] < low[2] and close[2] < low[3] and close[3] < low[4] and close[4] < low[5] and close[5] < low[6]
+    => false
+
+exitPriceLow1 = strategy.opentrades.entry_price(strategy.opentrades - 1) * (1-(tpPercent/100))
+exitPriceHigh1 = strategy.opentrades.entry_price(strategy.opentrades - 1) * (1+(stopPercent/100))
+
+if (exitShortCondition or close > exitPriceHigh1 or close < exitPriceLow1 or barsSinceLastEntry() >= exitAfterNBar )
+    strategy.close("Short", comment = commentStr )
+
+
+exitPriceHigh = strategy.opentrades.entry_price(strategy.opentrades - 1) * (1+(tpPercent/100))
+exitPriceLow = strategy.opentrades.entry_price(strategy.opentrades - 1) * (1-(stopPercent/100))
+
+tradeOpenPL() =>
+    sumProfit = 0.0
+    for tradeNo = 0 to strategy.opentrades - 1
+        sumProfit += strategy.opentrades.profit(tradeNo)
+    result = sumProfit
+
+
+longTrailStopPrice = 0.0
+
+longTrailStopPrice := if strategy.position_size > 0
+    stopValue = close * (1 - (longTrailPerc/100))
+    math.max(stopValue, longTrailStopPrice[1])
+else
+    0
+
+exitCScoreCondition = false
+if exitWithCScore  
+    if ( total_ma >= CandleScoreThreshold )
+        exitCScoreCondition := true
+
+
+if (exitLongCondition or close > exitPriceHigh or close < exitPriceLow or (barsSinceLastEntry() >= exitAfterNBar and exitAfterNBar > 0) or close < longTrailStopPrice or exitCScoreCondition)
+    strategy.close("Long", comment = commentStr )
+
+if useFirstProfit and strategy.position_size > 0 and close > strategy.position_avg_price
+    strategy.close("Long", comment = commentStr )
+    strategy.close("Short", comment = commentStr )
+
