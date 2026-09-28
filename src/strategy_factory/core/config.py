@@ -53,7 +53,9 @@ IntrabarMode = Literal["tradingview", "pessimistic"]
 UniverseFilter = Literal["broker", "all"]
 #: D-616: ``listed`` runs ``symbols`` as given; ``broker`` expands, at resolution, to every
 #: broker-tradable universe symbol that lists all ``timeframes`` and has their references.
-SymbolScope = Literal["listed", "broker"]
+#: T13: ``stage_inputs`` expands to the symbols of the passing profiles of the run named in
+#: ``stage_inputs`` (stage 2 takes whatever stage 1 produced, T13 §3).
+SymbolScope = Literal["listed", "broker", "stage_inputs"]
 #: D-615: ``random_walk`` runs the stages on each series' own returns, permuted (the control).
 Control = Literal["none", "random_walk"]
 DEFAULT_ENGINE_CONFIG = Path("configs") / "engine" / "default.yaml"
@@ -147,6 +149,10 @@ class PipelineConfig(BaseModel):
     engine: EngineConfig = Field(default_factory=EngineConfig)
     data_snapshots: dict[str, dict[str, SnapshotRef]] = Field(default_factory=dict)
     cost_inputs: CostInputsRef | None = None
+    # T13: the earlier run a stage reads, by stage id (``{"s01_edge": "<run id>"}``). Part of
+    # the run hash when set; left out of the canonical JSON when empty, so the hash of every
+    # config written before it is unchanged (``sfac reproduce`` of T12's runs).
+    stage_inputs: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("symbols", "timeframes", "stages")
     @classmethod
@@ -159,6 +165,8 @@ class PipelineConfig(BaseModel):
     def _symbols_given(self) -> PipelineConfig:
         if self.symbol_scope == "listed" and not self.symbols:
             raise ValueError("symbols: at least one symbol (or symbol_scope: broker, D-616)")
+        if self.symbol_scope == "stage_inputs" and not self.stage_inputs:
+            raise ValueError("symbol_scope: stage_inputs needs stage_inputs (the run to read)")
         return self
 
     @field_validator("cost_stress")
@@ -181,6 +189,8 @@ class PipelineConfig(BaseModel):
         data = self.model_dump(mode="json")
         data["universe"] = self.universe.as_posix()
         data["gates"] = self.gates.as_posix()
+        if not data["stage_inputs"]:
+            del data["stage_inputs"]  # hashes of configs without stage inputs stay unchanged
         return data
 
 

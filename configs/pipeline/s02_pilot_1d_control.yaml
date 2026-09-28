@@ -1,0 +1,8 @@
+# T13 pilot (RUNBOOK_T13 step 7): the control of MSFT long and K short of T12's 1D passes, run twice, identical.
+symbol_scope: listed
+symbols: [MSFT, K]
+stage_inputs: {s01_edge: db666562-0e9b-446d-8531-25437c64c6e2}
+control: random_walk
+timeframes: [1D]
+stages: [s02_screen]
+seed: 42

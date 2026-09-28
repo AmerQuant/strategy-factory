@@ -201,6 +201,13 @@ _ALL: tuple[MetricName, ...] = (
         "Smallest closed-trade count of the good cells",
         "s02_screen",
     ),
+    _m(
+        "method_q_value",
+        "p_value",
+        "Benjamini-Hochberg q-value of the method's good-region median cell against its "
+        "random baseline, within the profile (D-629)",
+        "s02_screen",
+    ),
     # -- stage 3 -------------------------------------------------------------------------
     _m("spp_median_target", "ratio", "Median target metric of the SPP distribution", "s03_entry"),
     _m("stability_ratio", "ratio", "Neighbourhood target metric / selected point", "s03_entry"),

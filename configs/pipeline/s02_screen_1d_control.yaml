@@ -1,0 +1,8 @@
+# T13 section 10, the headline control: stage 2 on the same passing profiles with each
+# symbol's returns reshuffled (D-615, seeded as T12's control). No method should pass (D-629).
+symbol_scope: stage_inputs
+stage_inputs: {s01_edge: db666562-0e9b-446d-8531-25437c64c6e2}
+control: random_walk
+timeframes: [1D]
+stages: [s02_screen]
+seed: 42
