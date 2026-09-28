@@ -345,15 +345,8 @@ def pine_base_candle_frac(b: Bars, frac: float) -> np.ndarray:
         rng = h - lo
         up = rng > 0 and (c - lo) / rng > 1 - frac
         dn = rng > 0 and (c - lo) / rng < frac
-        if (
-            (long_dir
-            and up
-            and c > o
-            and h > base_high)
-            or ((not long_dir)
-            and dn
-            and c < o
-            and lo < base_low)
+        if (long_dir and up and c > o and h > base_high) or (
+            (not long_dir) and dn and c < o and lo < base_low
         ):
             base_high, base_low = h, lo
         elif long_dir and dn and c < o and c < base_low:

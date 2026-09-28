@@ -37,9 +37,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
 4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — ✅ **merged (#47)**.
 5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — ✅ **merged (#48)**.
-6. **T13, stage 2 (method screening) — built, piloted, stopped before the full run.** Plan on
-   `a/T13-plan` (approved; D-622 … D-636); implementation and pilot on
-   `a/T13-method-screening` (stacked). Report: `docs/reviews/T13_pilot.md`.
+6. **T13, stage 2 (method screening) — full run done, reviewed; stopped for "Approved".** Plan on
+   `a/T13-plan` (approved; D-622 … D-637); implementation, pilot and full run on
+   `a/T13-method-screening` (stacked). Review: `docs/reviews/T13_review.md`.
 
 ## ID ranges (D-355, D-378)
 
@@ -50,8 +50,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
 Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-115**
-(**P-115 open**; P-107 … P-114 answered by D-629 … D-636). **Next free here: D-807, P-116.**
-Supervisor rows written by stream A: D-601 … D-636; next free supervisor id **D-637**. **Everything through D-806 is
+(all answered: P-107 … P-115 by D-629 … D-637). **Next free here: D-807, P-116.**
+Supervisor rows written by stream A: D-601 … D-637; next free supervisor id **D-638**. **Everything through D-806 is
 on `main`** (#47 and #48).
 
 ## Rules that bind this stream (D-355, D-357)
@@ -90,20 +90,18 @@ on `main`** (#47 and #48).
 
 ## Status — 2026-09-28
 
-**T13 is built and piloted; stopped before the full run** (supervisor, as for T12). Branches
-`a/T13-plan` (plan + D-622 … D-636) and `a/T13-method-screening` (stacked; implementation,
-pilot), both pushed, no PR yet. `main` is at `3db2edc` (#50).
+**T13 is done and reviewed; stopped for "Approved"** (T13 §0). Branches `a/T13-plan` (plan,
+D-622 … D-637) and `a/T13-method-screening` (stacked), pushed; the PR is open. `main` is at
+`3db2edc` (#50).
 
-**The pilot** (`docs/reviews/T13_pilot.md`): both controls pass **0** methods (MSFT's control has 9
-methods stopped by `method_q_value` alone, D-629); two runs byte-identical; before diversity the
-passes match the plan exactly (MSFT 17, K 9, BAC 9); the full run plus control ≈ 4 minutes.
-**The finding (P-115, open, non-blocking):** MR methods overlap 0.66–0.98 on in-position bars,
-so the 60 % diversity rule selects MSFT 3, K 2, BAC 1 with the stage's overlap (share of the
-smaller candidate), 5 / 5 / 3 with intersection over union. Recommended: keep the stage's.
-Found and fixed while building: Connors RSI's ROC broke its mirrored short (caught by the
-engine-truncation vacuity check; the plan's short-profile Connors numbers were affected).
-Acceptance on Windows: fast 2,455, parity/leakage/oracle 858, db 23 / 0 skipped, slow 20,
-ruff, format, mypy (both platforms), streams check — all green.
+**The full run** (`docs/reviews/T13_review.md`, committed tree `b71563a`): **both controls pass 0
+methods** (1D 0 of 280, 1H 0 of 60) — 45 and 11 methods are stopped by `method_q_value` alone
+(D-629). Real: 1D 14 profiles, 4,256 cells, **25 selected**; 1H (unconfirmed) 4 profiles, 1,008
+cells, **6 selected**. **11 of 14 daily and all 4 hourly profiles end with fewer than 3**
+candidates (D-625, D-637): MR methods with the fixed 5-bar exit hold the same bars. 22 of the 31
+selections are the user's rules. ETN long keeps one method at q 0.092. The acceptance reviewer
+found nothing blocking and recomputed every number (0 mismatches); its should-fix items are fixed
+(review §11). For the supervisor: §8 item 15 (rule-definition constants as class constants).
 
 > **The repository is public since 2026-09-28** (`private=False`, 07:34 UTC). Two consequences.
 > **(1)** Actions minutes are free, which is what unblocked CI — GitHub had been refusing to start
@@ -232,7 +230,7 @@ pushed. Keep it honest.
 
 ### Open, and on whom
 
-- **On the supervisor:** go/no-go for T13's full run, and **P-115** (the overlap definition).
+- **On the supervisor:** "Approved" for T13 (PR), and §8 item 15 of the review.
 - **On the user: turn on secret scanning and push protection** now that the repository is public.
 - **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
   skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
@@ -284,11 +282,9 @@ pushed. Keep it honest.
 
 ### Next actions, in order
 
-1. **Wait for the supervisor's word on the pilot** (and P-115); then RUNBOOK_T13 step 8: the
-   full run (`configs/pipeline/s02_screen_1d.yaml`, `_1h.yaml`) and the control
-   (`_control.yaml`), the review with the control at its head (D-629), the acceptance reviewer,
-   PR, and **stop for "Approved"**. **T15** owns the calibration list above.
-2. **Next free ids:** D-807, P-116 (stream A); supervisor D-637.
+1. **Wait for "Approved" on T13**, then "Approved. Merge" with green CI (D-401); then HANDOFF
+   v9. **T15** owns the calibration list above.
+2. **Next free ids:** D-807, P-116 (stream A); supervisor D-638.
 3. `configs/universe.yaml` — checked at these merges: stream B's #45/#46 moved **no traded symbol**
    (they add `configs/universe/aux_yahoo.csv`, an aux-series list), so D-394 owes no regeneration.
 4. **T11b** when the user exports (D-802).

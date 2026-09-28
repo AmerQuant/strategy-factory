@@ -16,7 +16,7 @@ seeds):
 
 | | 1D control | 1H control |
 |---|---|---|
-| run id | `625a0f5c…` | `8246d5f7…` |
+| run id | `dd27baf5…` | `ae578471…` |
 | methods screened (profiles) | 280 (14) | 60 (4) |
 | **pass the gate** | **0** | **0** |
 | stopped by `method_q_value` **alone** | **45** | **11** |
@@ -32,19 +32,23 @@ plan's measurement; D-629 added it.
 
 | | 1D | 1H (all `unconfirmed`, D-621, D-628) |
 |---|---|---|
-| run id | `3c76a3fa…` | `4ded5d1b…` |
+| run id | `dea1d423…` | `6025ef15…` |
 | stage-1 passes screened | 14 (13 symbols) | 4 |
 | methods / cells run (= trials, D-160) | 280 / **4,256** | 60 / **1,008** |
 | pass every criterion but the overlap | 111 | 45 |
 | … stopped by the overlap (F-2.6) only | 86 | 39 |
 | **selected** | **25** | **6** |
 | profiles with **fewer than 3** (D-625) | **11 of 14** | **4 of 4** |
-| wall time | 57 s | 20 s |
+| wall time | 78 s | 30 s |
 
 Criterion failures on 1D (a method can fail several): `overlap_with_selected` 202,
 `profitable_cell_share` 141, `grid_median_target` 117, `method_q_value` 88. The pilot showed
 the run reproduces byte for byte (pilot §2); every artifact records its config hash,
-stage-config hash, seed and code version. The four run indexes are copied to
+stage-config hash and code version, and the registry run records the seed (42). **The runs
+above were made on the committed tree** (`code_version` `b71563a…`, clean); a first set of runs
+on a tree with uncommitted docs (`3c76a3fa…`, `4ded5d1b…`, controls `625a0f5c…`, `8246d5f7…`)
+gave **identical rows** apart from the candidate ids (the stage-config hash changed with the
+review's fixes, §11). The four run indexes are copied to
 `docs/reviews/T13_index_{1D,1H,1D_control,1H_control}.csv`.
 
 ## 3. Per profile
@@ -222,6 +226,37 @@ Nothing in the engine changed. No new dependency.
    ones). The engine-truncation gate (F-0.3.9) runs all 35 new methods unchanged.
 8. **The baseline warm-up is each method's declared warm-up per cell** (the plan measured with one
    bound of 210 bars); a test asserts no cell ever signals before its warm-up.
+9. **Williams `latched`, its disarm rule:** %R < t arms the trigger; the first bar with
+   `high > high[1]`, **the arming bar included**, fires and disarms it; **%R > 100 − t disarms it**
+   (the script's own `WilliamsPR(5) > 80` reset, generalised). D-633 names the reading, not these
+   details; they are pinned by `test_F_2_1_d633_latched_disarms_above_100_minus_t`.
+10. **A registry candidate per (profile, method)**, `rejected` or `active`, not only for the
+    selected methods: every cell is a trial, and a trial row needs its candidate (the foreign key);
+    `rejected` rows keep the verdicts queryable, as stage 1 does for its profiles.
+11. **Candidate ids carry no run id** (D-636 (h)), so a re-run with the same stage config
+    **upserts** the same candidate rows: the rows keep the first run's `run_id`, and only status and
+    stage are updated (`registry/writer.py`). The first full run therefore showed 240 of 280
+    candidates under its own run id (the pilot had written MSFT's and K's); the committed-tree runs
+    above have a new stage-config hash, so all their candidates are their own. The trial and gate
+    rows always carry the run that made them.
+12. **The baseline seed is keyed by method, not by cell** (symbol, timeframe, method, direction —
+    D-607's form): one baseline per method, on its good-region median cell. RUNBOOK step 5 said
+    "keyed by method and cell"; since only one cell per method is tested, the method key identifies
+    it. The selection logic lives in `metrics/family.py` and `stages/screen.py`; RUNBOOK step 4's
+    `stages/screen_select.py` was not needed.
+13. **`unconfirmed` is set from `unconfirmed_timeframes: [1H]`** in the stage config (D-621 applied
+    to every 1H pass), not read from the stage-1 profile, which carries no such flag. Confirming an
+    hourly pass later (T15) is a config change.
+14. **An infinite raw family value is stored as `null`** in `summary.json` (JSON has no infinity):
+    `family.raw.grid_median` is `null` for both −∞ (every cell failed) and +∞; the cells say which
+    (`n_trades_*` against the minimum, `inf_target`).
+15. **Rule constants as class constants:** MACD 12/26/9, Connors' streak 2 and rank 100, the
+    stochastic smoothing 3, the ATR lengths 5/10 of the user's rules, KAMA's 2/30 — the fixed parts
+    of a method's **definition**, not thresholds or weights, as stage 1's MACD probe does. The free
+    parameters and every threshold are grid values or config. **For the supervisor to confirm.**
+16. **Private helpers shared across modules:** `screen.py` uses stage 1's `_cost_arrays` and
+    `_require_research_engine` (whose message says "stage 1"), and `methods_tf.py` imports the MR
+    module's parameter helpers. Kept to avoid a second copy; noted for a later cleanup.
 
 ## 9. How each acceptance criterion is tested
 
@@ -256,8 +291,47 @@ Nothing in the engine changed. No new dependency.
 
 ## 11. The acceptance review, and what changed
 
-*(filled in from the `acceptance-reviewer` subagent's findings)*
+The `acceptance-reviewer` subagent checked the task claim by claim. **Nothing blocking.** It
+recomputed every full-run number from the artifacts (grid sizes, both medians, profitable shares,
+good regions and median cells, BH per profile, overlaps, gate verdicts): **0 mismatches on all
+four runs**, and it recomputed all 34 stored `pipeline_runs.config_hash` values with the new
+`PipelineConfig`: **34 of 34 match**, T12's included. Its findings and what changed:
+
+| # | finding | what changed |
+|---|---|---|
+| R1 | **rule 1**: the consistency floor `0.5` was a literal in `metrics/family.py` | `consistency_floor` in `FamilyScoreConfig` and `s02_screen.yaml` |
+| S1 | the D-623 wiring test checked only the grid median's leg | it also asserts the after-cost profitable share falls under ruinous costs |
+| S2 | `run_stage2`, `run_config`, the `stage_inputs` expansion and the CLI dispatch had no test | `…stage_inputs_expand_to_the_stage1_passes`, `…sfac_run_dispatches_by_stage`, `…run_stage2_refusals` |
+| S3 | `tf_base_candle`'s naive port only at frac 1/3 | `…base_candle_equals_the_naive_machine_at_every_grid_value` (4 values × 3 seeds) |
+| S4 | the `latched` disarm rule was undeclared and untested | §8 item 9; `…d633_latched_disarms_above_100_minus_t` |
+| S5 | candidates for every method, undeclared | §8 item 10 |
+| S6 | re-runs upsert candidates that keep the first run's `run_id` | §8 item 11 |
+| S7 | the full runs were made on a tree with uncommitted docs (`-dirty`) | committed, **re-run on the clean tree**: identical rows (§2) |
+| S8 | pilot report: MSFT 17 (is 18), 14/3 (is 15/2), control 9 (is 10) | corrected in `T13_pilot.md`, marked as corrected |
+| S9 | pilot report: stale text (D-636, P-115 open) | updated to D-637 |
+| S10 | "every artifact records its … seed": it does not | reworded (§2): the registry run records the seed |
+| N1 | seed keyed by method not cell; `screen_select.py` absent | §8 item 12 |
+| N2 | `batch_units` (operational) changed the stage-config hash and so every id | left out of the hash; `test_F_2_7_operational_settings_change_no_id` |
+| N3 | `unconfirmed` by timeframe | §8 item 13 |
+| N4 | ±∞ both `null` in `family.raw` | §8 item 14 |
+| N5 | private cross-module imports | §8 item 16 |
+| N6 | `base_candle_direction` returns an unused `long_base` | kept: it is the #24 signal's input, parked for later (T13 §4.4) |
+| N7 | rule-definition constants as class constants | §8 item 15, for the supervisor |
+| N8 | ETN long contradicts D-629's rationale | §3 states it: ETN keeps one method at q 0.092, at the threshold |
 
 ## 12. Acceptance
 
-*(the final run after the reviewer's fixes)*
+Run on Windows after the reviewer's fixes, on the committed tree:
+
+| suite | result |
+| --- | --- |
+| fast (`-m "not slow"`) | **2,464 passed** |
+| `tests/parity tests/leakage tests/oracle` | **858 passed** |
+| `-m db -rs` | **23 passed, 0 skipped** |
+| `-m slow` | **20 passed** |
+| ruff, `ruff format --check` (380 files), mypy `src` and `--platform linux`, `sfac streams check` | clean |
+
+Mutation checks (each break fails its guard, then restored): ranking on the after-cost leg (the
+D-623 wiring test); the textbook Connors ROC (10 failures, the engine-truncation vacuity check
+among them); a one-bar look-ahead in `mr_ibs` (the truncation test); a late warm-up and a
+registered duplicate method (their guards). The full run and its control take about 3 minutes.
