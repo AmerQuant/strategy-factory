@@ -3,7 +3,7 @@
 Working copy: `D:\AmerAndish\Projects\Trade\StrategyFactory` (the repository's main worktree).
 Governed by **D-355** and **D-357**; the full rules are in `docs/streams/PROTOCOL.md` and the
 path ownership in `docs/streams/ownership.yaml`. This file is stream A's status; `HANDOFF.md`
-(v7, 2026-09-22) is written **only by stream A**, at merges, from this file and
+(v8, 2026-09-28) is written **only by stream A**, at merges, from this file and
 `docs/streams/B.md`. From D-802 on, this file lives on `main` (before, it lived on the
 `a/T11b-parity-tie` branch only).
 
@@ -22,7 +22,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 
 1. **Session check** (D-357 (1)): `uv run sfac streams session --stream A`. Omit `--stream` if
    you are a spawned or helper session — and then you need your **own** worktree.
-2. Read `HANDOFF.md` (v7) and this file; for T12 also `docs/streams/B_data_state.md`.
+2. Read `HANDOFF.md` (v8) and this file; for stage work also `docs/streams/B_data_state.md`.
 3. Work branches start from `origin/main`. `a/T11b-parity-tie` held only this file's updates
    while T11b waited; it is retired by D-802 (not deleted). `a/fix-metrics-fixture-prices` is
    obsolete (superseded by #31); deleting either needs the supervisor's word.
@@ -37,7 +37,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
 4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — ✅ **merged (#47)**.
 5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — ✅ **merged (#48)**.
-6. **Next: T13, stage 2** — plan first (D-403), stop for "Plan approved".
+6. **Next: T13, stage 2 (method screening) — waiting for its task file.** The supervisor and the
+   user settle its design in chat first, as for T12, then send the task file. **Until then stream
+   A is idle: T13 is neither planned nor started** (supervisor, 2026-09-28).
 
 ## ID ranges (D-355, D-378)
 
@@ -88,8 +90,10 @@ on `main`** (#47 and #48).
 
 ## Status — 2026-09-28
 
-**T12 is merged (#47, merge commit `8b9ebe0`) and D-806 is merged (#48, `3e2675c`). `main` is at
-`3e2675c`; stream A has nothing open.** Next task: **T13, stage 2.**
+**T12 is merged (#47, merge commit `8b9ebe0`), D-806 is merged (#48, `3e2675c`), and this file's
+update with `HANDOFF.md` v8 is merged (#49, `97983aa`). Stream A has nothing open and is idle,
+waiting for T13's task file.** A new session on 2026-09-28 ran the session check on `main`
+(`ok`, stream A's folder); nothing was planned or changed apart from this file.
 
 > **The repository is public since 2026-09-28** (`private=False`, 07:34 UTC). Two consequences.
 > **(1)** Actions minutes are free, which is what unblocked CI — GitHub had been refusing to start
@@ -218,8 +222,9 @@ pushed. Keep it honest.
 
 ### Open, and on whom
 
-- **Nothing is open on stream A.** T12 (#47) and D-806 (#48) are merged, every P- question is
-  answered, and the next task is **T13** (plan first, D-403).
+- **Nothing is open on stream A.** T12 (#47), D-806 (#48) and the status update (#49) are
+  merged, every P- question is answered, and the next task is **T13**, which waits for the
+  supervisor's task file (then plan first, D-403).
 - **On the user: turn on secret scanning and push protection** now that the repository is public.
 - **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
   skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
@@ -228,8 +233,9 @@ pushed. Keep it honest.
   D-609 sends every pass forward, but stage 2 **reports them separately** and they never stand in
   for the daily mean-reversion finding. T13 is built knowing the **14 daily passes may move** when
   the battery is corrected at T15.
-- **Not re-run, and it is the supervisor's call:** the four evidence runs predate D-805, so their
-  candidate ids carry no stage-config hash. No number moves; a full re-run costs ≈ 1.6 h.
+- **Not re-run (supervisor, 2026-09-28):** the four evidence runs predate D-805, so their
+  candidate ids carry no stage-config hash. **They are not re-run now**: T15's recalibration
+  re-runs the full scope anyway, and a 1.6 h re-run that moves no number buys nothing.
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
   or folded in; deleting any of them needs the supervisor's word.
@@ -270,13 +276,11 @@ pushed. Keep it honest.
 
 ### Next actions, in order
 
-1. **Merge this status branch.** The T12 and D-806 merges are done; the only thing not on `main` is
-   this file's update plus `HANDOFF.md` **v8**, on `a/stream-a-status` (PR opened, CI green, waiting
-   for "Approved. Merge"). Until it merges, `main`'s copy of this file still describes the blocked
-   state of 2026-09-27 — merge it first so the next session reads the truth.
-2. **T13** (stage 2) — plan first (D-403), stop for "Plan approved". It carries D-621's
+1. **Wait for T13's task file** (stage 2, method screening). The supervisor and the user design it
+   in chat first. When it arrives: plan (D-403) and stop for "Plan approved". It carries D-621's
    `unconfirmed` flag for the four 1H passes and is built knowing the 14 daily passes may move.
    **T15** owns the calibration list above.
+2. **Next free ids:** D-807, P-107 (stream A); supervisor D-622.
 3. `configs/universe.yaml` — checked at these merges: stream B's #45/#46 moved **no traded symbol**
    (they add `configs/universe/aux_yahoo.csv`, an aux-series list), so D-394 owes no regeneration.
 4. **T11b** when the user exports (D-802).
