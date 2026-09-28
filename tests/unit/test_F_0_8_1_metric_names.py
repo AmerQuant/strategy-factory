@@ -80,6 +80,7 @@ def test_F_0_8_1_stage_metrics_have_their_producing_stage() -> None:
     for name, stage in (
         ("ess", "s01_edge"),
         ("probe_percentile", "s01_probe"),
+        ("probe_q_value", "s01_probe"),  # D-605
         ("grid_median_target", "s02_screen"),
         ("plateau_area", "s03_entry"),
         ("q_value", "s01s_seasonal"),

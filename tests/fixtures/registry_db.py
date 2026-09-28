@@ -38,6 +38,16 @@ RUN_CONFIG = {
 _UNREACHABLE: list[str] = []  # cached skip reason (checked once per session)
 
 
+def require_database() -> Engine:
+    """An admin engine, or **skip** with the shared reason when no database is reachable.
+
+    A ``db`` test that builds its own schema (rather than taking the ``registry_engine``
+    fixture) calls this, so it skips like every other ``db`` test instead of failing on the
+    connection. CI still fails on any skipped ``db`` test.
+    """
+    return _admin_engine()
+
+
 def _admin_engine() -> Engine:
     if _UNREACHABLE:
         pytest.skip(_UNREACHABLE[0])

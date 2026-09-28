@@ -141,6 +141,7 @@ def test_F_0_8_1_default_gates_as_specified() -> None:
         "n_trades": (">=", 30, False),  # D-301/D-333: closed trades
         "probe_percentile": (">=", 90, False),
         "profit_factor": (">=", 1.1, False),
+        "probe_q_value": ("<=", 0.1, False),  # D-605
     }
     assert table["s01_edge"] == {
         "accepted_probe_groups": (">=", 3, False),

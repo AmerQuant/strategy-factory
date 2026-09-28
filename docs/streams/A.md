@@ -35,19 +35,30 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 2. **T11b** — **parked (D-802)**; the plan stands in `docs/tasks/T11b_parity_tie_reentry.md`.
 3. Stream and CI tooling — D-611/D-612 ownership, D-377 encodings, D-378 range, D-379 UTF-8
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
-4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **planning** (D-403).
+4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — **built, run at full scope,
+   reviewed, approved with two conditions, both met; PR
+   [#47](https://github.com/AmerQuant/strategy-factory/pull/47) open**. **The merge is already
+   authorised**: "when CI is green on the head commit, Approved. Merge #47 — no exception needed,
+   so do not record one." It is blocked only by CI, which cannot run (see the status below).
+5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — PR
+   [#48](https://github.com/AmerQuant/strategy-factory/pull/48) open, acceptance green locally,
+   **waiting for "Approved. Merge"** and for the same CI blocker to clear. Branched from `main`,
+   so it can merge in either order with #47; both touch `decisions_log.md`, and the second merge
+   resolves that by keeping every row in ID order (D-369).
 
 ## ID ranges (D-355, D-378)
 
 | | decisions | pending |
 |---|---|---|
 | supervisor | D-355 … D-359 (used up) and D-600 … D-699 | — |
-| **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** |
+| **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-802** and **P-40 … P-59** (the pending range is used up). **Next free
-here: D-803; no free P- number — a second pending range is needed before the next question.** Supervisor rows written by stream A: D-601 … D-612; next free supervisor id
-**D-613**.
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-106**
+(all answered — stream A has no open question). **Next free here: D-807, P-107.** Supervisor rows
+written by stream A: D-601 … D-621; next free supervisor id **D-622**. (D-803 … D-805 and
+D-613 … D-621 are on `a/T12-edge-discovery` / PR #47; **D-806 is on `a/pin-runner-images` / PR
+#48**; none of them are on `main` yet.)
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -71,6 +82,8 @@ here: D-803; no free P- number — a second pending range is needed before the n
   A's ranges or the supervisor's, never deleted (D-369).
 - **Guard tests are mutation-checked against the real file**: break the thing on its real shape
   and watch the test fail before claiming the test catches it.
+- **Runner images are pinned (D-806).** `ubuntu-24.04` and `windows-2025`; no job may use a
+  `-latest` label (`tests/unit/test_F_X_9_pinned_runners.py`). Moving a pin is its own decision.
 - **Encodings (D-377, D-379):** every text-mode subprocess and file access passes `encoding=`;
   the static guard fails otherwise. After a change to the `sfac` entry point, run `uv sync`.
   PowerShell scripts written from now on set `[Console]::OutputEncoding` to UTF-8 before
@@ -81,25 +94,173 @@ here: D-803; no free P- number — a second pending range is needed before the n
 - **The venv can break silently.** If `mypy` suddenly reports `Failed to find builtin module
   "mypy_extensions"` or a wall of pydantic `import-untyped` errors: `uv sync --reinstall`.
 
-## Status — 2026-09-22
+## Status — 2026-09-27
 
-**All stream-A PRs through #43 are merged** (`main` at `0e62999`): #40 (D-378), #41 (D-379),
-#43 (D-801), #42 (D-800), in that order. CI now runs `checks` once per PR update plus
-`windows-fast`; measured on #42's last run, 3 m 30 s and 3 m 37 s, **1.5×** the cost before
-D-800/D-801.
+> ### CI is blocked by an account billing state — read this first
+>
+> GitHub is **refusing to start jobs**. Both jobs of both open PRs fail in ~2 seconds with no
+> steps and no log blob; the annotation on the check run says verbatim:
+>
+> > "The job was not started because recent account payments have failed or your spending limit
+> > needs to be increased. Please check the 'Billing & plans' section in your settings"
+>
+> **It is not our code:** the same suite was fully green on `3c0ca81` (`checks` 4 min,
+> `windows-fast` 4 min); the next run, on a **docs-only** commit, failed this way, and a re-run
+> (attempt 2) failed identically. Nothing to fix in the repository — it clears in **Billing &
+> plans**, or by the repository becoming public (Actions minutes are free there).
+>
+> **The supervisor reported on 2026-09-27 that the repository was made public, but the API still
+> reports `private=True`** (`updated_at` 2026-09-22) and jobs are still refused. Check the
+> visibility flip actually landed before anything else; until then no PR can reach green CI and
+> **D-401 forbids merging** either of them.
 
-**Open:** **#44**, the D-802 PR (`a/T11b-deferred`: T11b parked, HANDOFF v7, this file onto `main`), CI green.
-**The T12 plan is at its stop for "Plan approved"** (D-403). It is on branch `a/docs-T12-plan` and holds three things:
-the task-file additions §12 and §13, `docs/tasks/RUNBOOK_T12.md`, and **P-55 … P-59**, each with a proposed answer.
-`configs/universe.yaml` was checked and is current, so nothing is owed. The measured compute says the baseline needs **no engine change**.
+**T12 is at its stop for "Approved. Merge" — PR
+[#47](https://github.com/AmerQuant/strategy-factory/pull/47)** (critical, D-402; the review is the
+PR body). Branch **`a/T12-edge-discovery`**, rebased onto `main` at **`caf62fe`** (stream B's #45
+T04m and #46 P-93 are in) and pushed; head commit **`9e2dbc0`**. The branch is 21 commits ahead and
+contains the T12 plan (the old `a/docs-T12-plan` is folded into it). **The merge is pre-authorised
+for green CI** — merge it without asking again once the jobs run and pass, and record no
+exception.
+
+The supervisor approved the review **with two conditions; both are met** (review §14):
+
+1. **`pytest -m db -rs` on the final code with 0 skipped** — done, **22 passed, 0 skipped**. The
+   test named in the condition turned out to be **already** marked `db`; the real defect was that
+   it called `make_engine` directly instead of a skipping fixture, so it *failed* where the others
+   skipped. Fixed at that cause (`fixtures.registry_db.require_database`).
+2. **P-106 → D-805: the stage-config hash is part of the candidate id**, so a T15 recalibration is
+   a different candidate and can never overwrite this run's rows. Two tests, both failing if the
+   hash is dropped.
+
+### What is done
+
+1. **Plan approved** (D-403) with P-55 … P-59 answered as **D-613 … D-617**; stream A's second
+   pending range **P-100 … P-149** (D-803).
+2. **Stage 1 built** (runbook steps 0–7): the statistics (`stats/edge.py`), the stage config and
+   ESS, the `probe_q_value` gate criterion, the probe exits, the matched baseline, the stage
+   framework (`RunContext` without a split manager), `s01_edge`, `sfac run` (stage 1 only), the
+   random-walk control. **The engine is untouched** and no dependency was added.
+3. **The pilot found a flaw in my own D-615 proposal** (P-100): a second disaster stop in the
+   baseline made trend-following long probes look significant on market drift. **D-618** fixed
+   it; both random-walk controls then passed 0 of 40, and the pilot's three 1H passes vanished.
+   Also **D-619** (P-101) and **D-620** (P-102).
+4. **Full run (step 9), all four runs complete.** Report: `docs/reviews/T12_review.md`; the pilot
+   report `docs/reviews/T12_pilot.md` (§7–§13 supersede §1–§6).
+
+   | run | profiles | passed | time |
+   |---|---|---|---|
+   | 1D | 1,944 | **14** (all mean reversion) | 22 min |
+   | 1D control | 1,944 | 0 | 32 min |
+   | 1H | 1,468 (3 skipped, D-008) | **4** (all TF long) | 42 min |
+   | 1H control | 1,468 | 1 | 37 min |
+
+5. **Wall-time mystery solved and fixed** (P-103 → **D-804**): Windows was scheduling runs onto
+   this machine's four **efficiency cores** (3–4× slower: 6.5 s vs 21.1 s per symbol). Affinity
+   and machine load were ruled out by measurement. `sfac run` and its workers now opt out of
+   efficiency mode (config `efficiency_mode_opt_out`, default on, never able to stop a run).
+6. **The acceptance reviewer ran and its findings are fixed** (see below).
+
+### What the acceptance reviewer found, and what was fixed
+
+It recomputed every number in the review from the artifacts, and they held. Its findings:
+
+- **Blocking:** the stage's wiring of **D-602, D-613 (3), D-614 (1)** and the **D-615 control**
+  had no test that would fail if it broke — it proved this by breaking each one while 105 tests
+  still passed. Fixed: `tests/unit/test_F_1_5_stage_wiring.py` (9 tests), every one
+  mutation-checked against exactly those breaks.
+- The **leakage claim was overstated**: the test re-implemented the probe run with hard-coded
+  settings. Fixed: one `probe_run` shared by the stage and the test, settings from
+  `EngineConfig`; the claim reworded to what it proves.
+- The **D-610 caveat reader had no test**. Fixed: `tests/unit/test_F_1_9_d610_caveats.py`
+  against a real temporary catalog.
+- The **stage config was in neither the run hash nor the registry**. Fixed: `stage_config_hash`
+  on every trial; the candidate id is **P-106**.
+- **D-354 (1):** a parity setting was silently ignored. Fixed: refused with a `ConfigError`.
+- **Non-USD symbols aborted the run**, an undeclared rule. Fixed: skipped and listed (**P-105**).
+- Undeclared deviations, stale text, literal values in code, an untested `sfac run` refusal, and
+  the stage modules' reach into the writable catalog — all fixed (review §9, §12).
+- **A re-run of the 1D pilot on the fixed code is identical** in all 40 profiles and in the
+  index, so the full run's numbers still describe this code.
+
+### Acceptance, as run on 2026-09-27 after the rebase
+
+Everything green on the rebased tree, on Windows: fast suite **1,788 passed**;
+parity + leakage + oracle **398**; **`-m db -rs` 22 passed, 0 skipped** (Docker up);
+`-m slow` **20 passed**; ruff, `ruff format --check` (360 files), mypy `src` **and**
+`--platform linux`, and `sfac streams check` clean.
+
+No stage-1 behaviour changed over the rebase: stream B's #45 touches `data/split.py`, which stage
+1 reads through `DataAccess`, but stage 1 takes no auxiliary series, so the four evidence runs
+still describe this code.
+
+### The pre-public secret audit (2026-09-27, supervisor request)
+
+Asked for before the repository was to be made public: scan the **whole** history for secrets, and
+confirm no workflow runs fork code with access to secrets.
+
+- **No secret has ever been committed; nothing to rotate.** 310 commits reachable from 115 refs
+  **plus 225 unreachable** (rebase/force-push leftovers, from `git fsck --unreachable` and all
+  reflogs) = 535 trees; 501 distinct paths; all 13 committed binaries decompressed and scanned
+  (~54 M chars); every commit message. **No `.env` was ever committed**, and all four
+  `.env.example` versions have `ALPACA_API_KEY=` / `ALPACA_API_SECRET=` **empty**. The only hits
+  were `PKFAKEKEY1234567890` (a test fake), the local-dev `postgresql+psycopg://sfac:sfac@localhost`
+  default (`.env.example`, `ci.yml`, `docker-compose.yml`) and a `FAKE_PASSWORD` fixture.
+- `docs/reviews/T04a_review.md:98` says "revoke the old hard-coded key". That key was **never in
+  this repository** (the script read the environment in its first and only versions, and no
+  `PK…`/`AK…` literal exists in any tree) — it lived outside the repo, and whether it was actually
+  revoked is not something this repository can show.
+- **No workflow can leak a secret:** one workflow file has ever existed; **no `pull_request_target`
+  and no `workflow_run`** in any version; **no `secrets.*` reference** in any version; and there is
+  nothing to steal — 0 Actions secrets, 0 variables, 0 Dependabot secrets, 0 environments, 0 deploy
+  keys, 0 self-hosted runners. Default `GITHUB_TOKEN` permission is **read**. The
+  attacker-controlled `pull_request.head.ref` reaches the guard step through `env:` and quoted
+  `"$BRANCH"`, never inlined in the script body.
+- **Still to do when it is public:** GitHub secret scanning is **disabled** (API 404) and Advanced
+  Security is unavailable while private, so GitHub has never scanned this history. **Turn on secret
+  scanning + push protection as soon as it is public** (free there; it scans the history
+  retroactively). While public, any key committed must be treated as leaked — going private again
+  does not undo publication, and forks made meanwhile survive.
+- Non-secret disclosure that comes with going public, flagged for the supervisor, not acted on: the
+  Persian spec/design/features documents, the whole decisions log and every review (the method and
+  the current findings), the Moneta cost profiles derived from a broker specification, ~24 MiB of
+  TradingView and Dukascopy fixture exports (vendor-licence question), and local absolute paths.
 
 ### Open, and on whom
 
-- **D-802 PR** — on the supervisor, "Approved. Merge".
-- **T12 plan** — on the supervisor: "Plan approved" and answers to P-55 … P-59.
-- **A second pending range for stream A** — on the supervisor; P-59 was the last.
-- **T11b, P-50** — parked (D-802); resumes when the user exports.
-- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`** — deleting needs the supervisor.
+- **The CI billing block — on the user.** Nothing else can complete until jobs start (see the box
+  at the top of this status).
+- **T12 — PR #47: merge authorised, pending green CI only** (D-401, D-402). No exception is to be
+  recorded; the supervisor said so explicitly.
+- **D-806 — PR #48: on the supervisor for "Approved. Merge"**, with CI green.
+- **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
+  skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
+  stage-config hash is in the candidate id now.
+- **Carried into T13 (D-621):** the **four 1H passes go to stage 2 flagged `unconfirmed`** —
+  D-609 sends every pass forward, but stage 2 **reports them separately** and they never stand in
+  for the daily mean-reversion finding. T13 is built knowing the **14 daily passes may move** when
+  the battery is corrected at T15.
+- **Not re-run, and it is the supervisor's call:** the four evidence runs predate D-805, so their
+  candidate ids carry no stage-config hash. No number moves; a full re-run costs ≈ 1.6 h.
+- **T11b, P-50** — parked (D-802); they resume when the user exports.
+- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
+  or folded in; deleting any of them needs the supervisor's word.
+
+### What T15 must calibrate (from the full run; review §6)
+
+1. **The magnitude target of 0.10 ATR is too generous** — the primary target. Magnitude carries
+   11.0 of 30 ESS points on 1D against 3.9 of 20 for significance, and the **control** earns 8.05
+   magnitude points with 31 control profiles above ESS 50.
+2. **TF on 1D is near-unpassable**: in 46 % of TF profiles fewer than 3 groups have any probe
+   with enough trades. Four probes are limited by the 50-bar exit, two by signal frequency — so
+   the exits and the threshold need different answers.
+3. **The disaster stop is a primary exit for TF** (median 32 % of trades on 1D, 37 % on 1H,
+   against D-130's 2 %, which was written for an optimised exit).
+4. **Two band/channel probes are the same rule** (`close_below_bb_lower` ≡ `zscore_below_minus_2`,
+   identical in 972/972 profiles): it double-weights one rule in the ESS medians and inflates the
+   trial count. It does **not** inflate breadth.
+5. **The reshuffled-returns control is conservative** (its percentiles average 28–46, not 50), so
+   its 0–1 passes are a **lower bound**; the calibrated null is the synthetic random walk.
+6. **Residual biases after D-618** (TF short slightly high, MR short low on synthetic data).
 
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
 
@@ -120,7 +281,15 @@ the task-file additions §12 and §13, `docs/tasks/RUNBOOK_T12.md`, and **P-55 �
 
 ### Next actions, in order
 
-1. Merge the D-802 PR on "Approved. Merge".
-2. **T12**: plan (task file additions, universe check, runbook, pending questions), stop for
-   "Plan approved"; then execute; critical, stop for "Approved".
-3. T11b when the user exports (D-802).
+0. **Check that Actions can start jobs at all** (`gh run list`, or re-run a job and see whether it
+   survives past 2 seconds). If it still fails with the billing annotation, stop and tell the user —
+   do not merge anything red, and do not spend the session re-triggering runs.
+1. **T12: merge PR #47 as soon as CI is green** — already authorised, no further approval, no
+   exception recorded. Then **PR #48** on the supervisor's "Approved. Merge". Rebase either if
+   `main` moves first.
+2. At the merge: refresh `HANDOFF.md` (still v7, 2026-09-22) from this file and
+   `docs/streams/B.md`, and regenerate `configs/universe.yaml` if a stream-B merge moved a symbol
+   (D-394).
+3. **T13** next (stage 2), carrying D-621's `unconfirmed` flag for the four 1H passes; **T15** owns
+   the calibration list above.
+4. **T11b** when the user exports (D-802).

@@ -24,7 +24,9 @@ streams:
     # D-378: D-360 … D-379 is used up (D-379 is the last), so the supervisor granted
     # D-800 … D-899 next to it -- the same shape as stream B's second range (D-372).
     decisions: [[360, 379], [800, 899]]
-    pending: [40, 59]            # P-40 … P-59
+    # D-803: P-40 … P-59 is used up (P-59 was the last), so the supervisor granted
+    # P-100 … P-149 -- the same shape as the decision ranges.
+    pending: [[40, 59], [100, 149]]
   B:
     name: stream B (worktree, StrategyFactory_B)
     branch_prefix: "b/"

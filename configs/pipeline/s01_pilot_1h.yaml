@@ -1,0 +1,6 @@
+# T12 step 8: the stage-1 pilot on 1H (RUNBOOK_T12). Ten broker symbols chosen to cover
+# quality ok and warning on both timeframes and one research window (DOW, D-713).
+symbols: [AAPL, ADBE, AMAT, AMD, AMGN, AMZN, BA, CSX, DOW, DUK]
+timeframes: [1H]
+stages: [s01_edge]
+seed: 42

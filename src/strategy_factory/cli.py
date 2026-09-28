@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import platform
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -62,6 +63,25 @@ def main(
         setup_logging(log_level)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--log-level") from exc
+
+
+@app.command("run")
+def run_command(
+    config: Annotated[
+        Path, typer.Option("--config", help="Pipeline config whose stages are s01_edge only.")
+    ],
+    notes: Annotated[str, typer.Option("--notes", help="Free text stored on the run.")] = "",
+) -> None:
+    """Run stage 1 (s01_edge) over the config's symbols and timeframes (D-616)."""
+    from strategy_factory.pipeline.stage_run import run_stage1
+
+    report = run_stage1(config, notes=notes)
+    typer.echo(f"run        : {report.run_id}")
+    typer.echo(f"artifacts  : {report.artifacts}")
+    typer.echo(f"symbols    : {report.symbols} (excluded by scope: {len(report.excluded)})")
+    for tf, counts in report.result.summary.items():
+        typer.echo(f"{tf:<10} : {counts}")
+    typer.echo(f"seconds    : {report.seconds:.0f}")
 
 
 @app.command()

@@ -16,6 +16,7 @@ stages:
     - {metric: n_trades, op: ">=", threshold: 30, note: "closed trades (D-301); daily, 1H override below"}
     - {metric: probe_percentile, op: ">=", threshold: 90, note: "percentile in the random baseline"}
     - {metric: profit_factor, op: ">=", threshold: 1.1, note: "after costs"}
+    - {metric: probe_q_value, op: "<=", threshold: 0.1, note: "BH q within the profile (D-605)"}
   s01_edge:                    # stage 1, edge acceptance (per edge)
     - {metric: accepted_probe_groups, op: ">=", threshold: 3}
     - {metric: ess, op: ">=", threshold: 50}

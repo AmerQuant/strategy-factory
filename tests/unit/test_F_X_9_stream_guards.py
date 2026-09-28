@@ -49,7 +49,8 @@ def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert rules.streams["A"].branch_prefix == "a/" and rules.streams["B"].branch_prefix == "b/"
     # D-378: stream A's first range is used up too, so it also holds two
     assert rules.streams["A"].decisions == ((360, 379), (800, 899))
-    assert rules.streams["A"].pending == ((40, 59),)
+    # D-803: and its first pending range as well
+    assert rules.streams["A"].pending == ((40, 59), (100, 149))
     # D-372: stream B's first range is used up, so it holds two
     assert rules.streams["B"].decisions == ((380, 399), (700, 799))
     # D-376: and its first pending range too
@@ -702,9 +703,43 @@ def test_F_X_9_d378_the_message_names_both_of_stream_as_ranges(rules: Ownership)
     assert "outside stream A's range D-360 … D-379 and D-800 … D-899" in problems[0]
 
 
-def test_F_X_9_d378_pending_is_unchanged_and_single(rules: Ownership) -> None:
+def test_F_X_9_d378_a_decision_range_opens_no_pending_numbers(rules: Ownership) -> None:
+    """D-378 gave decisions only: P-800 is nobody's (pending ranges are D-803's business)."""
     assert check_ids("A", ["| P-59 | stream A |"], [], rules) == []
     assert len(check_ids("A", ["| P-800 | not a pending number |"], [], rules)) == 1
+
+
+# -- D-803: stream A's second pending range, P-100 … P-149 -----------------------------------
+def test_F_X_9_d803_stream_a_may_use_its_second_pending_range(rules: Ownership) -> None:
+    existing = ["| P-59 | the last of the first range |"]
+    for number in (100, 125, 149):
+        assert check_ids("A", [f"| P-{number} | stream A |"], existing, rules) == [], number
+    assert check_ids("A", ["| P-45 | still fine |"], [], rules) == []
+
+
+def test_F_X_9_d803_the_second_pending_range_is_stream_as_own(rules: Ownership) -> None:
+    for number in (100, 125, 149):
+        problems = check_ids("B", [f"| P-{number} | stream B reaching |"], [], rules)
+        assert len(problems) == 1, number
+        assert "outside stream B's range" in problems[0]
+    # the edges: P-99 is stream B's, P-150 is past the end of stream A's
+    assert len(check_ids("A", ["| P-99 | stream B's |"], [], rules)) == 1
+    assert len(check_ids("A", ["| P-150 | past the end |"], [], rules)) == 1
+
+
+def test_F_X_9_d803_the_message_names_both_pending_ranges(rules: Ownership) -> None:
+    problems = check_ids("A", ["| P-70 | neither range |"], [], rules)
+    assert len(problems) == 1
+    assert "outside stream A's range P-40 … P-59 and P-100 … P-149" in problems[0]
+
+
+def test_F_X_9_d803_duplicates_and_amendments_in_the_new_pending_range(
+    rules: Ownership,
+) -> None:
+    existing = ["| P-100 | already taken |"]
+    assert any("duplicate id" in p for p in check_ids("A", ["| P-100 | again |"], existing, rules))
+    assert check_ids("A", ["| P-100 | answered |"], existing, rules, existing) == []
+    assert check_ids("B", ["| P-100 | answered |"], existing, rules, existing) != []
 
 
 def test_F_X_9_d378_duplicates_and_amendments_in_the_new_range(rules: Ownership) -> None:

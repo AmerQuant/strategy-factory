@@ -1,0 +1,6 @@
+# T12 step 9: stage 1 on the whole MVP scope on 1D -- the broker universe (D-603), expanded
+# at resolution (D-616). Not run before the supervisor has seen the pilot (step 8).
+symbol_scope: broker
+timeframes: [1D]
+stages: [s01_edge]
+seed: 42

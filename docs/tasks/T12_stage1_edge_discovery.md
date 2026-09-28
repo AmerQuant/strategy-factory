@@ -158,3 +158,73 @@ Trades only for accepted probes of passing profiles (D-608), as `trades.parquet`
   threshold to tune quietly.
 - Any probe whose trade count is systematically below the minimum on 1H (D-104's 100) — report
   it; do not drop the probe.
+
+## 12. Additions (supervisor, 2026-09-22)
+
+1. **`configs/universe.yaml` staleness (D-394).** T04f changed the hourly universe (827 → 806).
+   Check the file and regenerate it with `sfac universe generate` if it is stale.
+   *Checked while planning (2026-09-22, `main` at `0e62999`):* the file is **current**.
+   Regenerating it gives no difference except the `generated_at` line: it was regenerated after
+   T04f in #20, and the one later change under `configs/universe/` (`48d2724`, the D-383
+   exclusion file) does not feed it. `sfac universe validate` passes: 6,749 symbols, 515 with a
+   broker symbol, 396 of them listed for 1H. Nothing is owed. Step 0 of the runbook repeats the
+   check right before the full run, because a stream-B merge can change the file in between.
+2. **Acceptance gains a data-quality split.** Stage 1 reports its **pass rate split by
+   data-quality status (`ok` vs `warning`), separately for 1D and 1H**. 1,967 daily and 400 hourly
+   candidates carry a warning, mostly `price_spikes`, and the hourly layer is uncleaned (D-707).
+   **If flagged symbols pass materially more often than clean ones, that is bad data showing up
+   as edge.** The review states both rates per timeframe, the counts behind them, and a
+   two-proportion comparison. No threshold decides "materially" in code (rule 1): the numbers go
+   to the supervisor.
+
+## 13. Planning notes (stream A, 2026-09-22)
+
+These notes do not change §1–§12. They record what planning found. The questions are **P-55 …
+P-59** in `docs/decisions/pending.md`; each has a proposed answer, and the plan follows those
+proposals unless the supervisor answers otherwise.
+
+**Stale text, read with these corrections:**
+- §6: stream A implements T12 (D-611), so the gate YAML and the metric registration are part of
+  T12. The "if stream B implements T12" paragraph no longer applies.
+- "Depends on": T11b is **parked** (D-802). T12 goes ahead without it. The review states that
+  D-335 and D-336 are unverified against TradingView. **D-336 is the research default and
+  shapes the probe runs**: an MR exit scheduled at a close can be followed by a re-entry at the
+  same open. If T11b later shows an engine difference, stage-1 results may need re-running.
+- §11 cites "D-104's 100" for the 1H trade minimum. The 100 comes from the spec's gate table,
+  F-1.8 and `configs/gates/default.yaml`'s 1H override; D-104 only sets the timeframes.
+- D-605 cites D-100 for "≥ 3 accepted groups". The 3 comes from the spec gate table, F-1.8 and
+  the gate YAML. D-602's "both are gated (D-604)" means D-605. The values agree; only the
+  citations are off.
+- **F-1.9** (the edge-profile artifact, "the direct input of stage 2; schema validated") is
+  built by §8 and belongs in the feature list above. Its "universe heatmap" is P-59.
+
+**What exists, what does not** (surveyed 2026-09-22):
+- **Exists.** The 17 probes: 9 MR, 8 TF, all mirrored, with groups and triggers declared
+  (`components/entries/probes.py`). Also the engine (`simulate`, which returns trades with
+  `atr_at_entry`), the executor (`WorkUnit`, `unit_seed`, spawn), the gate engine, the metric
+  registry, `DataAccess` (development bars and `splices()`), `resolve_config` (pins references
+  and refuses `critical`) and `RegistryWriter`.
+- **Does not exist.** `Stage`, `RunContext`, `StageResult`, `Candidate`; any stats helper
+  (percentile, empirical p, Benjamini–Hochberg); a reusable MR probe exit (it is private to the
+  parity harness, D-370); the TF "reverse signal" exit; a zero-cost cost-array factory; a
+  quality-status accessor on the stage side; a structured trim flag (it lives only in snapshot
+  notes and side files); an artifacts writer; broker-universe expansion into a run config; any
+  `sfac run` command; random-walk and planted-edge fixtures.
+- **Wrong today.** `metrics/names.py` registers `ess` as "Effective sample size of the edge",
+  unit `count`. T12 defines ESS as a 0–100 score, so it is re-described. `probe_q_value` is
+  not registered yet.
+
+**Compute, measured instead of guessed.** `simulate`, the engine's single-run path with its
+trade list, was timed on synthetic bars of realistic length. 1,000 calls take **0.08 s** at
+2,600 bars (about 10 years of 1D) and **0.44 s** at 18,000 bars (about 10 years of 1H), on one
+thread. The worst case is roughly 486 broker equities × 17 probes × 2 directions on 1D, plus
+396 × 34 on 1H. That is about **22 min + 1.6 h of baseline on a single thread** before signals
+and I/O, so well under an hour on the executor, and about twice that with the random-walk
+control. **The baseline therefore uses `simulate` per simulation, and the engine is not
+changed.** T08's kernel and its parity contract stay untouched. A new grid output would be an
+engine change, critical under D-402, and is not needed. The pilot re-measures this on real
+data (§7).
+
+**Measured before the run, never hard-coded:** the resolved scope. That is the broker
+universe on 1D and 1H (D-603) ∩ references ∩ D-008 split possible. `B_data_state.md` gives the
+full-universe numbers (5,470 / 770); the broker subset is counted in runbook step 0.

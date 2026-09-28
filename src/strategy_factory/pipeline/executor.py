@@ -68,6 +68,9 @@ class ExecutorConfig(BaseModel):
     workers: int | Literal["auto"] = "auto"
     numba_threads: int | Literal["auto"] = "auto"
     max_grid_bytes: int = Field(default=512 * 1024 * 1024, gt=0)  # D-331
+    # D-804: keep the run and its workers off Windows' efficiency cores (a scheduling hint for
+    # our own processes; never a system setting, never a result change)
+    efficiency_mode_opt_out: bool = True
 
     def _positive(self) -> None:
         for name in ("workers", "numba_threads"):
@@ -236,8 +239,11 @@ def _failure(
     )
 
 
-def _init_worker(numba_threads: int) -> None:
+def _init_worker(numba_threads: int, efficiency_mode_opt_out: bool = True) -> None:
     """Worker start-up: mark the process and pin the Numba thread count before any kernel.
+
+    On Windows the worker also opts out of efficiency mode unless the config says not to
+    (D-804); that hint can fail without stopping the worker.
 
     The count is clamped to Numba's own maximum (``NUMBA_NUM_THREADS``, fixed when numba is
     imported), so an environment that allows fewer threads than the budget lowers the budget
@@ -246,6 +252,9 @@ def _init_worker(numba_threads: int) -> None:
     import numba
 
     mark_executor_worker()  # D-012: a worker may not write to the registry
+    from strategy_factory.pipeline.qos import opt_out_of_efficiency_mode
+
+    opt_out_of_efficiency_mode(efficiency_mode_opt_out)
     allowed = int(getattr(numba.config, "NUMBA_NUM_THREADS", numba_threads))
     numba.set_num_threads(max(1, min(numba_threads, allowed)))
 
@@ -270,7 +279,7 @@ class LocalExecutor:
             max_workers=self.budget.workers,
             mp_context=ctx,
             initializer=_init_worker,
-            initargs=(self.budget.numba_threads,),
+            initargs=(self.budget.numba_threads, self.config.efficiency_mode_opt_out),
         ) as pool:
             futures = [pool.submit(fn, unit) for unit in units]
             for i, (unit, future) in enumerate(zip(units, futures, strict=True)):

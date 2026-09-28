@@ -43,6 +43,7 @@ UNITS = frozenset(
         "bars",
         "days",
         "percentile",  # 0..100
+        "score",  # 0..100 composite score (ESS, F-1.6)
         "p_value",
         "index",
     }
@@ -164,7 +165,13 @@ _ALL: tuple[MetricName, ...] = (
         "s01_probe",
     ),
     _m("accepted_probe_groups", "count", "Accepted probe groups of one edge", "s01_edge"),
-    _m("ess", "count", "Effective sample size of the edge", "s01_edge"),
+    _m(
+        "probe_q_value",
+        "p_value",
+        "Benjamini-Hochberg q-value of the probe within its profile (D-605)",
+        "s01_probe",
+    ),
+    _m("ess", "score", "Edge strength score, 0-100 (F-1.6, D-606, D-613)", "s01_edge"),
     # -- stage 1-S (seasonal, P1) --------------------------------------------------------
     _m("q_value", "p_value", "Benjamini-Hochberg adjusted p-value of the effect", "s01s_seasonal"),
     _m(
