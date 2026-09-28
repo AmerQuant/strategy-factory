@@ -105,6 +105,13 @@ def load_s02_config(path: Path | None = None, s01_path: Path | None = None) -> S
     return cfg
 
 
+#: operational settings that change no number (D-607) and so stay out of the hash and the ids
+OPERATIONAL = frozenset({"batch_units"})
+
+
 def stage_config_hash(cfg: S02ScreenConfig) -> str:
-    """sha256 of the whole stage config, the stage-1 exits included (D-805's pattern)."""
-    return hashlib.sha256(canonical_json(cfg.model_dump(mode="json")).encode("utf-8")).hexdigest()
+    """sha256 of the stage config, the stage-1 exits included (D-805's pattern). Operational
+    settings (``batch_units``) are left out: they change no number, so they must not change a
+    candidate id."""
+    data = cfg.model_dump(mode="json", exclude=set(OPERATIONAL))
+    return hashlib.sha256(canonical_json(data).encode("utf-8")).hexdigest()

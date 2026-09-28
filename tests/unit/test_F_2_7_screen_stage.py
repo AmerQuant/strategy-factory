@@ -168,6 +168,13 @@ def test_F_2_7_d623_the_gate_reads_costs_the_ranking_does_not(
         if ga is not None and gb is not None and gb < ga:
             moved += 1
     assert moved > len(cheap) // 2
+    shares_fell = sum(
+        1
+        for k, a in cheap.items()
+        if (a.gate_values["profitable_cell_share"] or 0)
+        > (dear[k].gate_values["profitable_cell_share"] or 0)
+    )
+    assert shares_fell > len(cheap) // 2  # the gate's profitable share is the after-cost leg too
     assert not any(a.selected for a in dear.values())
 
 
@@ -253,6 +260,77 @@ def test_F_2_7_d636_candidate_id_carries_parent_method_control_and_config() -> N
     ]:
         ids.add(candidate_id(**{**base, k: v}))
     assert len(ids) == 5
+
+
+def test_F_2_7_operational_settings_change_no_id() -> None:
+    """``batch_units`` changes no number (D-607), so it must not change the hash or the ids."""
+    cfg = load_s02_config()
+    assert stage_config_hash(cfg) == stage_config_hash(cfg.model_copy(update={"batch_units": 7}))
+    other = cfg.model_copy(update={"good_region_share": 0.5})
+    assert stage_config_hash(cfg) != stage_config_hash(other)
+
+
+# ------------------------------------------------------------------ inputs and the run command
+def test_F_2_7_stage_inputs_expand_to_the_stage1_passes(tmp_path: Path) -> None:
+    series = planted_series(("AAPL", "MSFT"))
+    stage1_run(tmp_path, series, ("AAPL", "MSFT"))
+    rows = list(
+        csv.DictReader((tmp_path / "dry-run" / "s01_edge" / "index.csv").open(encoding="utf-8"))
+    )
+    passing = sorted({r["symbol"] for r in rows if r["passed"] == "True"})
+    assert passing  # the planted edge passes stage 1
+    assert list(screen_mod.stage1_pass_symbols(tmp_path, "dry-run", ["1D"])) == passing
+    assert screen_mod.stage1_pass_symbols(tmp_path, "dry-run", ["1H"]) == ()
+
+
+def _pipeline_yaml(path: Path, **data: Any) -> Path:
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    return path
+
+
+def test_F_2_7_sfac_run_dispatches_by_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from strategy_factory.pipeline import stage_run
+
+    calls: list[str] = []
+    monkeypatch.setattr(stage_run, "run_stage1", lambda p, **kw: calls.append("s01"))
+    monkeypatch.setattr(stage_run, "run_stage2", lambda p, **kw: calls.append("s02"))
+    s01 = _pipeline_yaml(
+        tmp_path / "a.yaml", symbols=["AAPL"], timeframes=["1D"], stages=["s01_edge"]
+    )
+    s02 = _pipeline_yaml(
+        tmp_path / "b.yaml",
+        symbol_scope="stage_inputs",
+        stage_inputs={"s01_edge": "r"},
+        timeframes=["1D"],
+        stages=["s02_screen"],
+    )
+    stage_run.run_config(s01)
+    stage_run.run_config(s02)
+    assert calls == ["s01", "s02"]
+
+
+def test_F_2_7_run_stage2_refusals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from strategy_factory.pipeline import stage_run
+
+    no_input = _pipeline_yaml(
+        tmp_path / "a.yaml", symbols=["AAPL"], timeframes=["1D"], stages=["s02_screen"]
+    )
+    with pytest.raises(ConfigError, match="stage_inputs"):
+        stage_run.run_stage2(no_input)
+    series = planted_series(SYMBOLS)
+    stage1_run(tmp_path, series, SYMBOLS)
+    monkeypatch.setattr(stage_run, "artifacts_root", lambda: tmp_path)
+    no_pass = _pipeline_yaml(
+        tmp_path / "b.yaml",
+        symbol_scope="stage_inputs",
+        stage_inputs={"s01_edge": "dry-run"},
+        timeframes=["1H"],
+        stages=["s02_screen"],
+    )
+    with pytest.raises(ConfigError, match="has no pass"):
+        stage_run.run_stage2(no_pass)
 
 
 # ------------------------------------------------------------------ stage inputs in the config

@@ -1,7 +1,7 @@
 # T13 — pilot (RUNBOOK_T13 step 7), stopped before the full run
 
 Branch `a/T13-method-screening` (stacked on `a/T13-plan`), commit `e3b25a5` plus this report.
-Decisions: D-622 … D-636. The pilot is runbook step 7; the full run (step 8) waits for the
+Decisions: D-622 … D-637 (D-637 answered this report's P-115). The pilot is runbook step 7; the full run (step 8) waits for the
 supervisor, as T12's did.
 
 > **Open parity gap (D-802).** D-335 and D-336 are unverified against TradingView. D-336 is
@@ -16,7 +16,7 @@ supervisor, as T12's did.
 | **1D control** (MSFT long, K short; returns reshuffled, D-615) | 2 | 40 | **0** | 0 |
 | **1H control** (BAC long) | 1 | 15 | **0** | 0 |
 
-**D-629 is doing the work it was added for.** On MSFT's control, **9 methods pass every
+**D-629 is doing the work it was added for.** On MSFT's control, **10 methods pass every
 criterion except `method_q_value`** (median target > 0, ≥ 60 % profitable cells, trade minimum,
 no overlap yet): the drift of a strongly rising stock. Their BH q-values are 0.20–0.74. On
 K's and BAC's controls every method also fails the target criteria.
@@ -41,12 +41,13 @@ K's and BAC's controls every method also fails the target criteria.
 
 ## 3. What each profile did
 
-Before diversity, the draft criteria plus `method_q_value` pass **MSFT 17, K 9, BAC 9 methods —
-exactly the plan's measurement** (T13 plan §1). Then the diversity walk (F-2.6) selects:
+Before diversity, the draft criteria plus `method_q_value` pass **MSFT 18, K 9, BAC 9 methods**
+(the plan's measurement: 17, 9, 9; the stage has the split `mr_ma_distance` and exact warm-ups).
+*Corrected after the acceptance review: this line said 17, "exactly the plan's".* Then the diversity walk (F-2.6) selects:
 
 | profile | selected (rank) | failed on overlap only | failed on other criteria |
 |---|---|---|---|
-| MSFT long | `mr_ibs_after_new_high` (1), `mr_zscore` (2), `mr_macd_hist_falling` (12) | 14 | 3 (`mr_daily_drop`, `mr_macd_hist_trough` on q; `mr_macd_hist_turn` on q) |
+| MSFT long | `mr_ibs_after_new_high` (1), `mr_zscore` (2), `mr_macd_hist_falling` (12) | 15 | 2 (`mr_daily_drop` on overlap and q; `mr_macd_hist_turn` on q) |
 | K short | `mr_stochastic_k` (1), `mr_macd_hist_falling` (3) — **fewer than 3 (D-625)** | 7 | 11 |
 | BAC long (unconfirmed) | `tf_keltner_breakout` (1) — **fewer than 3** | 8 | 6 |
 
@@ -64,8 +65,8 @@ good-region median cells, the overlap (the stage's definition: the share of the 
 candidate's in-position bars that the other shares) is **0.66–0.98** among MSFT's top six, and
 **0.73–0.92** among BAC's. With the 60 % threshold, each "cluster" contributes one method.
 
-F-2.6 does not say what the overlap is measured against, and D-636 does not either; the stage
-uses the smaller candidate's bars (my reading, stated in the code). Replaying the pilot's own
+F-2.6 did not say what the overlap is measured against; the stage uses the smaller candidate's
+bars. **Answered by D-637: that is the definition F-2.6 uses.** Replaying the pilot's own
 walk with the other natural reading, **intersection over union**, on the same cells
 (`scripts/analysis/T13_pilot_overlap.py`):
 
@@ -102,7 +103,7 @@ is one line to switch; it would send about twice as many candidates to stage 3.
   (negation for all, positive scale for the 31 translation-invariant ones). Nothing was weakened:
   the engine-truncation gate now also runs all 35 new methods.
 
-## 6. Interpretation made while implementing (for the supervisor to confirm)
+## 6. Interpretation made while implementing (confirmed by D-637)
 
 - **D-633, Williams %R:** `confirm` is `{off, same_bar, latched}`. D-633 names the two readings of
   the confirmation; `off` is F-2.1's plain Williams %R (T13 §4.2: "one method, `confirm` is the
@@ -120,6 +121,5 @@ by their guards.
 
 ## 8. Before the full run
 
-**P-115** (non-blocking): which overlap does F-2.6 mean — the share of the smaller candidate
-(the stage, recommended) or intersection over union? Everything else is ready: the full run and
-its control are about 4 minutes.
+**P-115** was answered by **D-637** (the share of the smaller candidate) and the full run went
+ahead; see `docs/reviews/T13_review.md`.

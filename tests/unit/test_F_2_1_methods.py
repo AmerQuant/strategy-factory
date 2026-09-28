@@ -335,6 +335,60 @@ def test_F_2_1_the_user_rules_equal_a_naive_port_of_the_script(seed: int) -> Non
         np.testing.assert_array_equal(got, np.asarray(naive, bool), err_msg=f"{name} {params}")
 
 
+def pine_base_candle_frac(b: Bars, frac: float) -> np.ndarray:
+    """Lines 387-413 with the strong-close fraction generalised, written on the close's position
+    in the bar's range (frac 1/3 is the script's ``3c > 2h + l`` / ``3c < h + 2l``)."""
+    base_high, base_low, long_dir = b.high[0], b.low[0], True
+    out = np.zeros(len(b))
+    for i in range(len(b)):
+        o, h, lo, c = b.open[i], b.high[i], b.low[i], b.close[i]
+        rng = h - lo
+        up = rng > 0 and (c - lo) / rng > 1 - frac
+        dn = rng > 0 and (c - lo) / rng < frac
+        if (
+            (long_dir
+            and up
+            and c > o
+            and h > base_high)
+            or ((not long_dir)
+            and dn
+            and c < o
+            and lo < base_low)
+        ):
+            base_high, base_low = h, lo
+        elif long_dir and dn and c < o and c < base_low:
+            base_high, base_low, long_dir = h, lo, False
+        elif (not long_dir) and up and c > o and c > base_high:
+            base_high, base_low, long_dir = h, lo, True
+        out[i] = 1 if long_dir else -1
+    return out
+
+
+@pytest.mark.parametrize("frac", [0.25, 1 / 3, 0.4, 0.5])
+def test_F_2_1_base_candle_equals_the_naive_machine_at_every_grid_value(frac: float) -> None:
+    for seed in range(3):
+        b = random_walk(seed, n=700)
+        d = pine_base_candle_frac(b, frac)
+        with np.errstate(invalid="ignore"):
+            naive = (d == 1) & (prev(d) == -1)
+        got, _ = BY_NAME["tf_base_candle"].signals(b, {"frac": frac})
+        np.testing.assert_array_equal(got, naive, err_msg=f"frac {frac} seed {seed}")
+
+
+def test_F_2_1_d633_latched_disarms_above_100_minus_t() -> None:
+    """The latch's disarm rule (stated in the review): %R < t arms; %R > 100 - t before any
+    higher high disarms, so a later higher high does not fire."""
+    from strategy_factory.components.entries.methods_mr import williams_latched
+
+    w = np.array([50.0, 10.0, 50.0, 90.0, 50.0, 50.0])
+    higher_high = np.array([False, False, False, False, False, True])
+    assert not williams_latched(w, higher_high, 20.0).any()  # disarmed at bar 3
+    w2 = np.array([50.0, 10.0, 50.0, 70.0, 50.0, 50.0])  # never above 80
+    assert williams_latched(w2, higher_high, 20.0)[5]  # still armed: fires at the higher high
+    both = np.array([50.0, 10.0, 50.0])
+    assert williams_latched(both, np.array([False, True, False]), 20.0)[1]  # the arming bar fires
+
+
 def test_F_2_1_d633_latched_is_the_intended_trigger() -> None:
     """``latched``: armed by %R < t, fired by the first bar with a higher high; hand case."""
     close = np.array([10.0, 9.0, 8.0, 7.5, 7.6, 7.7, 9.5])

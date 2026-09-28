@@ -64,6 +64,7 @@ family_score:
   grid_median_target: 1.0              # median profit/DD over the grid that scores full
   excess_target_atr: 0.10              # excess ATR return per trade that scores full
   consistency_min_trades_per_year: 5   # D-613's minimum: a year with fewer trades is excluded
+  consistency_floor: 0.5               # share of positive years scoring 0 points (as D-606)
 
 # D-625 (D-110): 3 to 5 candidates per profile; fewer pass -> what passed is sent, and said.
 selection:

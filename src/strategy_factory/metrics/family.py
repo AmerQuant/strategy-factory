@@ -11,7 +11,7 @@ grid_median         median target metric over **all** cells; a cell below the   
 profitable_share    share of cells at the minimum with a positive target          raw
 excess              the good-region median cell's mean ATR return minus its own    raw / target,
                     matched baseline's mean (D-624, D-613)                          clipped 0..1
-consistency         median over the good-region cells of the share of calendar     (raw-0.5)/0.5,
+consistency         median over the good-region cells of the share of calendar     (raw-f)/(1-f),
                     years with a positive profit (years with too few trades         clipped 0..1
                     excluded, D-613's minimum)
 ==================  ============================================================  ===========
@@ -47,6 +47,8 @@ class FamilyScoreConfig(BaseModel):
     grid_median_target: float = Field(gt=0)
     excess_target_atr: float = Field(gt=0)
     consistency_min_trades_per_year: int = Field(ge=1)
+    #: the share of positive years that scores 0 points (D-636, as D-606: 0.5 = a coin flip)
+    consistency_floor: float = Field(ge=0, lt=1)
 
     @field_validator("weights")
     @classmethod
@@ -156,7 +158,9 @@ def score_family(raw: FamilyRaw, cfg: FamilyScoreConfig) -> FamilyScore:
         "grid_median": _clip01(values["grid_median"] / cfg.grid_median_target),
         "profitable_share": _clip01(values["profitable_share"]),
         "excess": _clip01(values["excess"] / cfg.excess_target_atr),
-        "consistency": _clip01((values["consistency"] - 0.5) / 0.5),
+        "consistency": _clip01(
+            (values["consistency"] - cfg.consistency_floor) / (1.0 - cfg.consistency_floor)
+        ),
     }
     total_w = sum(cfg.weights.values())
     points = {c: 100.0 * cfg.weights[c] / total_w * share[c] for c in FAMILY_COMPONENTS}
