@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   # D-801: a push to a PR branch also fires `pull_request`, so running on every push ran
@@ -15,10 +15,15 @@ on:
 env:
   HYPOTHESIS_PROFILE: ci
 
+# D-806: every job pins its runner image explicitly -- never a `-latest` label. `ubuntu-latest`
+# migrates to Ubuntu 26 on 2026-10-19 and `windows-latest` will move on again after that; an OS
+# change under the suite is a decision of ours, taken when we can watch the run, not something
+# that arrives on GitHub's date in the middle of a task. Moving a pin is a one-line change with
+# its own decision. `tests/unit/test_F_X_9_pinned_runners.py` fails on any `-latest` label.
 jobs:
   checks:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres: # registry DB for the db-marked tests (T03, ADR-004)
         image: postgres:16
@@ -84,7 +89,7 @@ jobs:
   # benchmarks, no lint/type/guards (platform-independent, already in `checks`).
   windows-fast:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +105,7 @@ jobs:
 
   nightly-slow:
     if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -122,13 +127,16 @@ jobs:
   # sees it too. No continue-on-error: that would hide the report this job exists for.
   weekly-hypothesis:
     if: github.event.schedule == '0 4 * * 0' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       HYPOTHESIS_PROFILE: weekly
-      # 40x every per-PR budget. Measured on a GitHub runner before merge (D-368 review):
-      # 10x ran 126 tests in 9 min 33 s, 40x in 29 min 53 s -- a sixth of the timeout.
-      HYPOTHESIS_BUDGET_MULTIPLIER: "40"
+      # 10x every per-PR budget (D-806, was 40x in D-368). Measured on a GitHub runner in the
+      # D-368 review: 10x ran 126 tests in 9 min 33 s, 40x in 29 min 53 s. Runner minutes are
+      # free on a public repository, but a half-hour weekly job nobody reads is noise, and a
+      # report is only useful if it is read: 10x keeps the search under ten minutes. Raising it
+      # again is a decision, not a quiet edit.
+      HYPOTHESIS_BUDGET_MULTIPLIER: "10"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

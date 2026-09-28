@@ -26,7 +26,7 @@ def job() -> dict[str, Any]:
 
 
 def test_F_X_9_d800_the_job_runs_on_windows_on_every_pull_request(job: dict[str, Any]) -> None:
-    assert job["runs-on"] == "windows-latest"
+    assert job["runs-on"] == "windows-2025"  # pinned, not `windows-latest` (D-806)
     condition = job["if"]
     assert "github.event_name == 'pull_request'" in condition
     # not on every push as well: that would run it twice per PR and double its cost
