@@ -233,8 +233,9 @@ pushed. Keep it honest.
   D-609 sends every pass forward, but stage 2 **reports them separately** and they never stand in
   for the daily mean-reversion finding. T13 is built knowing the **14 daily passes may move** when
   the battery is corrected at T15.
-- **Not re-run, and it is the supervisor's call:** the four evidence runs predate D-805, so their
-  candidate ids carry no stage-config hash. No number moves; a full re-run costs ≈ 1.6 h.
+- **Not re-run (supervisor, 2026-09-28):** the four evidence runs predate D-805, so their
+  candidate ids carry no stage-config hash. **They are not re-run now**: T15's recalibration
+  re-runs the full scope anyway, and a 1.6 h re-run that moves no number buys nothing.
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
   or folded in; deleting any of them needs the supervisor's word.
