@@ -1,4 +1,4 @@
-# HANDOFF — Strategy Factory (v7, 2026-09-22)
+# HANDOFF — Strategy Factory (v8, 2026-09-28)
 
 Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0),
 `docs/decisions/pending.md`, the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`)
@@ -8,7 +8,7 @@ and the feature list (`docs/features.md`).
 written **only by stream A, at merges**, from both of them:
 
 - `docs/streams/A.md` — stream A, the main folder: parity (T11 done, **T11b parked**), the
-  stream and CI tooling, and now **T12** (D-611).
+  stream and CI tooling, and **T12, merged (#47)**; **T13 is next**.
 - `docs/streams/B.md` — stream B, the worktree `../StrategyFactory_B`: the data layer (complete
   for the MVP). `docs/streams/B_data_state.md` is the data state at the handover into T12 and is
   the authority on data facts; §6 below is folded from it.
@@ -54,10 +54,10 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | **T11** | **TradingView parity — critical (D-402)** | ✅ **merged (#26)**: MR 462/462, TF long 519/519, TF short 400/400; ledger **3 of 5** |
 | D-368 task | Metrics fixture, pinned examples, weekly randomized Hypothesis job | ✅ merged (#31) |
 | **T11b** | Targeted parity reference for D-335 / D-336 | ⏸ **parked (D-802)** — the gap stays open (§8) |
-| **T12** | **Stage 1 — edge discovery (s01_edge), critical (D-402)** | ⏭ **stream A, planning next** (D-611); task file `docs/tasks/T12_stage1_edge_discovery.md`, decisions D-601 … D-610 |
-| T13 … T15 | Stages 2–3, orchestrator/CLI/reports/self-tests | later |
+| **T12** | **Stage 1 — edge discovery (s01_edge), critical (D-402)** | ✅ **merged (#47)**: built, run at full scope, reviewed (`docs/reviews/T12_review.md`), approved with two conditions, both met. **14 of 1,944 daily profiles pass against 0 of 1,944 on the calibrated control**, all mean reversion; the **4 hourly passes go forward flagged `unconfirmed` (D-621)** |
+| T13 … T15 | Stages 2–3, orchestrator/CLI/reports/self-tests | next: **T13**, built knowing the 14 daily passes may move when the probe battery is corrected (T15's list is in `docs/streams/A.md`) |
 
-## 4. Merged since v6 (PRs #18 … #43)
+## 4. Merged since v6 (PRs #18 … #48)
 
 | PR | Content |
 |---|---|
@@ -69,6 +69,9 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | #32, #33, #36 | the **T12** task file and D-601 … D-610; **D-611** (stream A implements T12 and owns its paths); **D-612** (`configs/stages/`) |
 | #37, #38, #41 | **encodings:** P-52 (`registry/writer.py` could record a dirty checkout as clean on Windows); **D-377** (every text-mode subprocess and file access declares its encoding, enforced by a static guard); **D-379** (`sfac` writes its output as UTF-8, set at the entry point `strategy_factory.cli:run`) |
 | #43, #42 | **CI:** **D-801** (`checks` runs once per PR update: push only on `main`); **D-800** (a `windows-fast` job on every PR, fast suite only; 1.5× the old per-PR cost) |
+| #45, #46 | stream B: **T04m** Yahoo aux ingest (VIX, index) with the as-of join rules D-717 … D-721; P-93. Stage 1 consumes no aux series, so T12's numbers are unaffected |
+| **#47** | **T12 — stage 1, edge discovery** (F-1.1 … F-1.9). Also **D-618** (the matched baseline carries no disaster stop — the original rule manufactured edge from drift), **D-804** (Windows efficiency-mode opt-out: runs were being scheduled onto efficiency cores, 3–4× slower), **D-805** (the stage-config hash is part of the candidate id, so a recalibrated re-run can never overwrite this one), **D-621** (the hourly passes are `unconfirmed`), D-613 … D-620, D-803 |
+| **#48** | **D-806** — runner images pinned (`ubuntu-24.04`, `windows-2025`; `ubuntu-latest` would migrate to Ubuntu 26 on 2026-10-19) and the weekly Hypothesis search back to 10× |
 
 ## 5. Decisions to carry forward
 
@@ -116,7 +119,18 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 - **T11b / D-335 / D-336** — parked (D-802); the gap is open (§8).
 - **P-50** — TradingView fills at the tick-rounded open; deferred with T11b.
 - **`configs/universe.yaml`** — stream A regenerates it after any stream-B merge that moves a
-  symbol (D-394); checked as T12's first step (B_data_state item 4).
+  symbol (D-394); done for T04f (#20) and checked again at the #47/#48 merges: **#45/#46 moved no
+  traded symbol** (they add `configs/universe/aux_yahoo.csv`, an auxiliary-series list), so no
+  regeneration was owed.
+- **The repository is public since 2026-09-28.** Turn on **secret scanning and push protection**
+  (free for public repositories; it also scans the history retroactively). A full pre-public audit
+  of the whole history found **no secret has ever been committed** and no workflow that could
+  expose one — the method and the result are in `docs/streams/A.md`. From now on, anything
+  committed here is public the moment it is pushed, and making the repository private again would
+  not undo that.
+- **T15 owes a calibration pass** on the probe battery: the six items are listed in
+  `docs/streams/A.md` (magnitude target, TF exits on 1D, the disaster-stop hit rate against
+  D-130's 2 %, one duplicated probe, which control is the calibrated null, residual biases).
 - **`scripts/analysis/T04k_assert_provenance.py`** indexes by hash alone; key it by
   `(source, symbol, timeframe, snapshot_hash)` when next touched (T04l review §6.1.4).
 - **D-377 exemptions** — three text calls in stream B's paths lack an encoding (listed in
