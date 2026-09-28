@@ -1,0 +1,2 @@
+symbol,timeframe,kind,method_a,grid_a,cell_a,method_b,grid_b,cell_b,signals
+BAC,1H,within_method,tf_psar_flip,task,"{""maximum"": 0.3, ""step"": 0.01}",tf_psar_flip,task,"{""maximum"": 0.4, ""step"": 0.01}",392

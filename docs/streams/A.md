@@ -37,9 +37,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
 4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — ✅ **merged (#47)**.
 5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — ✅ **merged (#48)**.
-6. **Next: T13, stage 2 (method screening) — waiting for its task file.** The supervisor and the
-   user settle its design in chat first, as for T12, then send the task file. **Until then stream
-   A is idle: T13 is neither planned nor started** (supervisor, 2026-09-28).
+6. **T13, stage 2 (method screening) — planned, waiting for "Plan approved"** (D-403). Task
+   file, the user's Pine suite (byte-identical, `-text`), D-622 … D-628, `docs/tasks/T13_plan.md`,
+   `docs/tasks/RUNBOOK_T13.md` and P-107 … P-114 on `a/T13-plan`.
 
 ## ID ranges (D-355, D-378)
 
@@ -49,9 +49,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-106**
-(all answered — stream A has no open question). **Next free here: D-807, P-107.** Supervisor rows
-written by stream A: D-601 … D-621; next free supervisor id **D-622**. **Everything through D-806 is
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-114**
+(**P-107 … P-114 open**, T13's plan). **Next free here: D-807, P-115.** Supervisor rows written by
+stream A: D-601 … D-628 (D-622 … D-628 from T13 §2); next free supervisor id **D-629**. **Everything through D-806 is
 on `main`** (#47 and #48).
 
 ## Rules that bind this stream (D-355, D-357)
@@ -90,10 +90,17 @@ on `main`** (#47 and #48).
 
 ## Status — 2026-09-28
 
-**T12 is merged (#47, merge commit `8b9ebe0`), D-806 is merged (#48, `3e2675c`), and this file's
-update with `HANDOFF.md` v8 is merged (#49, `97983aa`). Stream A has nothing open and is idle,
-waiting for T13's task file.** A new session on 2026-09-28 ran the session check on `main`
-(`ok`, stream A's folder); nothing was planned or changed apart from this file.
+**T13 is planned and stopped for "Plan approved"** (branch `a/T13-plan`, pushed; no PR yet).
+`main` is at `3db2edc` (#50, this file's idle update). T12 (#47), D-806 (#48) and #49 are merged.
+
+**The plan's headline (P-107, blocking):** T13 §7's gate has no baseline term and passes drift —
+43 of 266 method × profile pairs on the 1D reshuffled-returns control, 11 of 60 on 1H. Adding
+`method_q_value <= 0.1` (good-region median cell vs its matched baseline, BH across the profile's
+methods) brings the control to 1 of 266 and 0 of 60 while real keeps 102 of 266 and 44 of 60.
+Also measured: 16 badly placed task grids and their replacements (P-109), every mirror-rule
+difference from the user's script (P-110: four material — #2, #18, #11, #22 — and ratio rules
+that need the `|ref|` form), the script's same-bar Williams rule (P-111). Evidence:
+`scripts/analysis/T13_grid_check.py` → `docs/reviews/T13_plan_*.csv`.
 
 > **The repository is public since 2026-09-28** (`private=False`, 07:34 UTC). Two consequences.
 > **(1)** Actions minutes are free, which is what unblocked CI — GitHub had been refusing to start
@@ -222,9 +229,7 @@ pushed. Keep it honest.
 
 ### Open, and on whom
 
-- **Nothing is open on stream A.** T12 (#47), D-806 (#48) and the status update (#49) are
-  merged, every P- question is answered, and the next task is **T13**, which waits for the
-  supervisor's task file (then plan first, D-403).
+- **On the supervisor: P-107 … P-114** (T13's plan; P-107 blocking), then "Plan approved".
 - **On the user: turn on secret scanning and push protection** now that the repository is public.
 - **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
   skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
@@ -276,11 +281,11 @@ pushed. Keep it honest.
 
 ### Next actions, in order
 
-1. **Wait for T13's task file** (stage 2, method screening). The supervisor and the user design it
-   in chat first. When it arrives: plan (D-403) and stop for "Plan approved". It carries D-621's
-   `unconfirmed` flag for the four 1H passes and is built knowing the 14 daily passes may move.
-   **T15** owns the calibration list above.
-2. **Next free ids:** D-807, P-107 (stream A); supervisor D-622.
+1. **Wait for "Plan approved"** on T13 with P-107 … P-114 answered; then execute
+   `docs/tasks/RUNBOOK_T13.md` on `a/T13-method-screening`. It carries D-621's `unconfirmed` flag
+   for the four 1H passes and is built knowing the 14 daily passes may move. **T15** owns the
+   calibration list above.
+2. **Next free ids:** D-807, P-115 (stream A); supervisor D-629.
 3. `configs/universe.yaml` — checked at these merges: stream B's #45/#46 moved **no traded symbol**
    (they add `configs/universe/aux_yahoo.csv`, an aux-series list), so D-394 owes no regeneration.
 4. **T11b** when the user exports (D-802).
