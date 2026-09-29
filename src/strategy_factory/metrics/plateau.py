@@ -46,9 +46,7 @@ def neighbours(idx: Index, shape: Sequence[int]) -> list[Index]:
     return out
 
 
-def fill_failed(
-    target: np.ndarray, valid: np.ndarray, how: FailedCell
-) -> tuple[np.ndarray, int]:
+def fill_failed(target: np.ndarray, valid: np.ndarray, how: FailedCell) -> tuple[np.ndarray, int]:
     """``(surface, n_inf)``: ``target`` with failed cells replaced (D-646) and ``+inf`` targets
     of valid cells replaced by the largest finite valid value (D-650 (h)); ``n_inf`` counts them.
 

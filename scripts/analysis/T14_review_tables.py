@@ -9,6 +9,7 @@ cells / area, half 2, SPP, the zero-cost shift, overlaps, the verdict; then per-
 
 from __future__ import annotations
 
+import csv
 import json
 import shutil
 import sys
@@ -57,7 +58,58 @@ def line(a: dict[str, Any]) -> str:
     )
 
 
+def candidate_rows(runs: list[str]) -> list[dict[str, Any]]:
+    """One row per candidate and dataset: everything T14 §8 asks the review to report."""
+    rows = []
+    for name, run in zip(NAMES, runs, strict=True):
+        for a in load(run).values():
+            i, s, g = a["identity"], a["selection"], a["grid"]
+            rows.append(
+                {
+                    "data": "control" if name.endswith("control") else "real",
+                    "timeframe": i["timeframe"],
+                    "symbol": i["symbol"],
+                    "direction": i["direction"],
+                    "method": i["method"],
+                    "unconfirmed": i["unconfirmed"],
+                    "grid_cells": g["size"],
+                    "grid_cells_d639": g["size_d639"],
+                    "step_multipliers": canonical_json(
+                        {x["name"]: x["multiplier"] for x in g["axes"]}
+                    ),
+                    "small_grid": g["small_grid"],
+                    "stage2_median_cell": canonical_json(g["stage2_median_cell"]),
+                    "selected": canonical_json(s["params"]) if s["params"] else "",
+                    "plateau_extent": canonical_json(s["plateau_extent"]),
+                    "plateau_cells": s["plateau_cells"],
+                    "plateau_area": s["plateau_area"],
+                    "stability_ratio": s["stability_ratio"],
+                    "edge_slope": s["edge_slope"],
+                    "half2_raw": a["half2"]["raw"],
+                    "half2_accepted": a["half2"]["accepted"],
+                    "spp_median": a["spp"]["median"],
+                    "spp_p5": a["spp"]["p_low"],
+                    "spp_p95": a["spp"]["p_high"],
+                    "zero_cost_selected": canonical_json(a["zero_cost"]["params"])
+                    if a["zero_cost"]["params"]
+                    else "",
+                    "zero_cost_shift_steps": a["zero_cost"]["shift_steps"],
+                    "overlaps": canonical_json({o["method"]: o["overlap"] for o in a["overlaps"]}),
+                    "gate_passed": a["gate_passed"],
+                    "failed_criteria": ";".join(x["metric"] for x in a["gate"] if not x["passed"]),
+                }
+            )
+    return rows
+
+
 def main(runs: list[str]) -> None:
+    rows = candidate_rows(runs)
+    with (Path("docs/reviews") / "T14_candidates.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]), lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
     for name, run in zip(NAMES, runs, strict=True):
         shutil.copyfile(
             artifacts_root() / run / "s03_entry" / "index.csv",

@@ -37,8 +37,9 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    **merged** (#33 … #43, #48).
 4. **T12 — stage 1, edge discovery** (critical, D-402) — ✅ **merged (#47)**.
 5. **T13 — stage 2, method screening** — ✅ **merged (#51)**.
-6. **T14, stage 3 (entry optimisation)** — plan approved (D-646 … D-651); built, piloted;
-   **stopped at the pilot's numbers** (branch `a/T14-entry-optimisation`, stacked on `a/T14-plan`).
+6. **T14, stage 3 (entry optimisation)** — built, piloted, run at full scope with its control,
+   reviewed (`docs/reviews/T14_review.md`); **stopped for "Approved"** (branch
+   `a/T14-entry-optimisation`, stacked on `a/T14-plan`; no PR yet).
 
 ## ID ranges (D-355, D-378)
 
@@ -48,8 +49,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-121**,
-all answered — **stream A has no open question**. **Next free here: D-807, P-122.** Supervisor
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-123**;
+**P-122 and P-123 (the T14 review) are open**. **Next free here: D-807, P-124.** Supervisor
 rows written by stream A: D-601 … D-651; **next free supervisor id D-652**. D-639 … D-651 are on
 `a/T14-plan`, not yet on `main`.
 
@@ -102,8 +103,13 @@ rows written by stream A: D-601 … D-651; **next free supervisor id D-652**. D-
 
 ## Status — 2026-09-29
 
-**T14 is built and piloted; stream A is stopped at the pilot's numbers** (T14 §8) and waits for
-the word to run the full scope and its control. `main` is at `ee01cde` (#53 merged). Branches:
+**T14 is reviewed; stream A is stopped for "Approved"** (T14 §8). Full scope on `0f9cd10`: 1D
+**2 of 25** pass (SHW long `mr_connors_rsi`; TXN long `mr_ema_slope_drop`, a boundary pass at
+plateau 0.100), 1H **4 of 6** (`unconfirmed`); **the control 0 of 25 and 0 of 6** (D-644 not
+triggered). No short passes. **The plan's stability counts were wrong** (polars counted NaN as
+>= 0.8): 21 real / 9 control, not 24 / 22 — **P-122** asks to amend D-651 (1); stability still
+decides no verdict. **P-123**: gate values that shape the surfaces are not in the candidate id.
+Acceptance reviewer: nothing blocking, 0 mismatches in 62 artifacts; findings fixed (review §12). `main` is at `ee01cde` (#53 merged). Branches:
 `a/T14-plan` (task file, plan, D-639 … D-651) and `a/T14-entry-optimisation` stacked on it, both
 pushed, no PR yet.
 
@@ -186,7 +192,7 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 
 ### Open, and on whom
 
-- **T14 waits for the word on the pilot** (then the full run, the control, the review).
+- **T14 waits for "Approved"** and the answers to **P-122, P-123** (supervisor).
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
@@ -230,6 +236,14 @@ From T13 (supervisor, 2026-09-29):
 10. **T13's family-score constants** (D-636: median target 1.0, excess target 0.10 ATR,
     consistency floor 0.5, 5 trades per year) are provisional like D-606's.
 
+From T14 (D-651, review §3, §6):
+
+11. **The stability threshold may be redundant**: in the full runs no candidate, real or control,
+    fails on stability alone; the half-2 check (20 real vs 6 control) and plateau area do the gate's
+    work (corrected numbers, P-122).
+12. **3-cell grids cannot be optimised** (D-648): stage 3 only accepts or rejects their stage-2
+    parameter; and MRNA 1H `tf_ichimoku` has no cell at 100 trades per half (D-647).
+
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
 
 - **D-377 is on `main` (#38).** A new text-mode `subprocess` call or text file access without
@@ -251,10 +265,11 @@ From T13 (supervisor, 2026-09-29):
 
 ### Next actions, in order
 
-1. **T14 (stage 3)** — on the word: `s03_entry_1d`, `s03_entry_1h`, then their controls; **stop if
-   any control candidate passes (D-644)**; then the review (the control first, then D-651's two
-   findings), the acceptance commands, the acceptance reviewer, and the stop for "Approved".
-2. **Next free ids:** D-807, P-122 (stream A); supervisor D-652.
+1. **T14 (stage 3)** — on "Approved" and the answers to P-122 / P-123 (P-123 may mean a re-run,
+   about 2 minutes): open the PR (body = the review), rebase, merge on "Approved. Merge …".
+   Stage 4 reads the passing `EntryOptimisation` artifacts of `e1c1d243…` (1D) and `c28bfb47…`
+   (1H).
+2. **Next free ids:** D-807, P-124 (stream A); supervisor D-652.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
 4. **T11b** when the user exports (D-802). **T15** owns the calibration list above.

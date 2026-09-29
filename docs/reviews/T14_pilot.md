@@ -35,13 +35,13 @@ their selected cells (D-643, reported only).
 | candidate | grid | selected (stage 2's median cell) | stability | plateau | h2 | both halves | SPP median | shift | overlap | verdict |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1D MSFT L `mr_ibs_after_new_high` | 319 | n 4, t 18 (n 10, t 15) | 1.36 | 15 / 0.047 | 1.12 | yes | 1.38 | 0 | 0.30 | fail: plateau area |
-| 1D MSFT L `mr_zscore` | 936 | n 28, t 0.75 (n 20, t 1.0) | 1.04 | 91 / 0.097 | 0.84 | yes | 1.38 | 0 | 0.61 | fail: plateau area |
-| 1D MSFT L `mr_macd_hist_falling` | **3** | k 1 (k 2) | 1.30 | 3 / 1.00 | 2.07 | **no** (half-2 stability 0.49) | 1.19 | 0 | 0.61 | fail: both halves |
+| 1D MSFT L `mr_zscore` | 936 | n 28, t 0.75 (n 20, t 1.0) | 1.04 | 91 / 0.097 | 0.84 | yes | 1.38 | 0 | 0.62 | fail: plateau area |
+| 1D MSFT L `mr_macd_hist_falling` | **3** | k 1 (k 2) | 1.30 | 3 / 1.00 | 2.07 | **no** (half-2 stability 0.49) | 1.19 | 0 | 0.62 | fail: both halves |
 | 1D TXN L `mr_ema_slope_drop` | 180 | n 6, p 0.70 (n 8, p 0.5) | 0.99 | 18 / **0.100** | 1.29 | yes | 1.18 | **11** | 0.45 | **pass** |
 | 1D TXN L `mr_macd_hist_falling` | **3** | k 4 (k 3) | 0.77 | **2** / 0.67 | 0.19 | yes | 0.32 | 2 | 0.45 | fail: stability, plateau cells |
-| 1D TXN L `mr_macd_hist_turn` | **3** | k 3 (k 2) | 1.22 | **2** / 0.67 | −0.03 | no | 0.31 | 2 | 0.10 | fail: plateau cells, both halves |
-| 1D TXN S `mr_ema_slope_drop` | 210 | n 6, p 0.70 (n 5, p 0.75) | 0.76 | 7 / 0.033 | 0.91 | yes | 0.56 | 0 | 0.64 | fail: stability, area |
-| 1D TXN S `mr_rsi_sum` | 312 | level 18, m 2, n 2 (level 30, m 3, n 4) | — (selected half-1 value ≤ 0) | 1 / 0.003 | 1.03 | yes | 0.11 | 0 | 0.64 | fail: stability, area, cells |
+| 1D TXN L `mr_macd_hist_turn` | **3** | k 3 (k 2) | 1.22 | **2** / 0.67 | −0.03 | no | 0.31 | 2 | 0.11 | fail: plateau cells, both halves |
+| 1D TXN S `mr_ema_slope_drop` | 210 | n 6, p 0.70 (n 5, p 0.75) | 0.76 | 7 / 0.033 | 0.91 | yes | 0.56 | 0 | 0.65 | fail: stability, area |
+| 1D TXN S `mr_rsi_sum` | 312 | level 18, m 2, n 2 (level 30, m 3, n 4) | — (selected half-1 value ≤ 0) | 1 / 0.003 | 1.03 | yes | 0.11 | 0 | 0.65 | fail: stability, area, cells |
 | 1H BAC L `tf_keltner_breakout` | 1,476 | n 41, mult 1.0 (n 30, mult 1.5) | 0.91 | 195 / 0.13 | 1.19 | yes | 1.05 | 2 | — | **pass** (`unconfirmed`) |
 
 Readings, stated plainly:
@@ -57,7 +57,7 @@ Readings, stated plainly:
   2's parameter — none of the three did (MSFT on half 2, both TXN on the plateau's size).
 - **Stability does not decide here either**: 6 of 9 meet 0.8, while plateau area and the half-2
   check remove most (T15 calibration item, D-651 (1)).
-- Overlaps after optimisation reach 0.61 (MSFT `mr_zscore` / `mr_macd_hist_falling`) and 0.64
+- Overlaps after optimisation reach 0.62 (MSFT `mr_zscore` / `mr_macd_hist_falling`) and 0.65
   (TXN short) — above stage 2's 0.60, reported, not gated (D-643).
 
 ## 3. Cost and the full-run projection
@@ -102,6 +102,9 @@ Readings, stated plainly:
   F-3.6/F-3.7 stage (28), leakage (11), db registry (1), the holdout guard now names the
   stage-3 modules. Fast suite **2,530**, parity/leakage/oracle **869**, db **24 / 0 skipped**,
   ruff, format, mypy (Windows and `--platform linux`), stream guards: green.
+
+*Corrected after the T14 acceptance review: the overlaps above were first printed truncated
+(0.61, 0.64, 0.10); they are rounded now (0.62, 0.65, 0.11).*
 
 ## 5. Next, on the word
 
