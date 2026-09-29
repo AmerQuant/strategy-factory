@@ -37,8 +37,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    **merged** (#33 … #43, #48).
 4. **T12 — stage 1, edge discovery** (critical, D-402) — ✅ **merged (#47)**.
 5. **T13 — stage 2, method screening** — ✅ **merged (#51)**.
-6. **T14, stage 3 (entry optimisation)** — task file committed, D-639 … D-645 recorded; **plan
-   written, stopped for "Plan approved"** (branch `a/T14-plan`, stacked on #53).
+6. **T14, stage 3 (entry optimisation)** — plan approved (D-646 … D-651); built, piloted;
+   **stopped at the pilot's numbers** (branch `a/T14-entry-optimisation`, stacked on `a/T14-plan`).
 
 ## ID ranges (D-355, D-378)
 
@@ -48,10 +48,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-121**;
-**P-116 … P-121 (the T14 plan) are open**, everything before them answered. **Next free here:
-D-807, P-122.** Supervisor rows written by stream A: D-601 … D-645; **next free supervisor id
-D-646**. D-639 … D-645 are on `a/T14-plan`, not yet on `main`.
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-121**,
+all answered — **stream A has no open question**. **Next free here: D-807, P-122.** Supervisor
+rows written by stream A: D-601 … D-651; **next free supervisor id D-652**. D-639 … D-651 are on
+`a/T14-plan`, not yet on `main`.
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -102,9 +102,20 @@ D-646**. D-639 … D-645 are on `a/T14-plan`, not yet on `main`.
 
 ## Status — 2026-09-29
 
-**T14's plan is written and stream A is stopped for "Plan approved"** (D-403). T13 is merged
-(#51), this status with HANDOFF v9 (#52, `38f3893`); `main` is at `38f3893`. PR #53 (A.md: the
-branch cleanup) is open; `a/T14-plan` is stacked on it.
+**T14 is built and piloted; stream A is stopped at the pilot's numbers** (T14 §8) and waits for
+the word to run the full scope and its control. `main` is at `ee01cde` (#53 merged). Branches:
+`a/T14-plan` (task file, plan, D-639 … D-651) and `a/T14-entry-optimisation` stacked on it, both
+pushed, no PR yet.
+
+### T14 — the pilot (2026-09-29, `docs/reviews/T14_pilot.md`)
+
+Code `56d78b9` (clean). 1D MSFT + TXN (8 candidates) and 1H BAC (1), each run twice:
+**identical**, and **equal to the plan's measurement on all 9** (selected cell, plateau, stability,
+verdict). **2 of 9 pass**: TXN long `mr_ema_slope_drop` (plateau exactly 0.100, costs moved it 11
+steps) and BAC 1H `tf_keltner_breakout` (`unconfirmed`). The three 3-cell grids all fail (D-648).
+Full scope projected at about 2 minutes for all four runs. A test caught an artifact defect (axis
+order lost to sorted JSON keys); fixed. Fast suite 2,530, parity/leakage/oracle 869, db 24 / 0
+skipped, ruff, format, mypy (both platforms), stream guards green.
 
 ### T14 — stage 3, the plan (2026-09-29)
 
@@ -175,8 +186,7 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 
 ### Open, and on whom
 
-- **T14's plan waits for "Plan approved"** and the answers to **P-116 … P-121** (supervisor).
-- **PR #53** (A.md, branch cleanup) waits for "Approved. Merge #53".
+- **T14 waits for the word on the pilot** (then the full run, the control, the review).
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
@@ -241,10 +251,10 @@ From T13 (supervisor, 2026-09-29):
 
 ### Next actions, in order
 
-1. **T14 (stage 3)** — on "Plan approved": `RUNBOOK_T14.md` on `a/T14-entry-optimisation`;
-   stops at the pilot's numbers, at any control pass (D-644), and after the review. Stage 3 reads
-   the `MethodScreen` artifacts of T13's runs (`dea1d423…`, `6025ef15…`).
-2. **Next free ids:** D-807, P-122 (stream A); supervisor D-646.
+1. **T14 (stage 3)** — on the word: `s03_entry_1d`, `s03_entry_1h`, then their controls; **stop if
+   any control candidate passes (D-644)**; then the review (the control first, then D-651's two
+   findings), the acceptance commands, the acceptance reviewer, and the stop for "Approved".
+2. **Next free ids:** D-807, P-122 (stream A); supervisor D-652.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
 4. **T11b** when the user exports (D-802). **T15** owns the calibration list above.
