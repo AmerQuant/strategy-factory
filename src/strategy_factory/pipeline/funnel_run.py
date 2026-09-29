@@ -179,3 +179,41 @@ def run_funnel(
     if source is not None:
         write_truth(result, cfg, runner, folder)
     return result, folder
+
+
+def reproduce(funnel_id: str, workers: int | None = None) -> Any:
+    """``sfac funnel reproduce``: see :mod:`strategy_factory.pipeline.funnel_reproduce`."""
+    import uuid
+
+    from sqlalchemy import select
+
+    from strategy_factory.pipeline.funnel_reproduce import reproduce_funnel
+    from strategy_factory.registry.tables import pipeline_runs
+
+    engine = make_engine()
+    registry = FunnelRegistry(engine)
+    row = registry.funnel(uuid.UUID(funnel_id))
+    cfg = FunnelConfig.model_validate(row["config"]["funnel"])
+    executor = None
+    if workers is not None:
+        ex_cfg = load_executor_config().model_copy(update={"workers": workers, "numba_threads": 1})
+        executor = make_executor(ex_cfg)
+    runner = DefaultRunner(executor)
+
+    def run_config_hash(run_id: str) -> str:
+        with engine.connect() as conn:
+            value = conn.execute(
+                select(pipeline_runs.c.config_hash).where(pipeline_runs.c.id == uuid.UUID(run_id))
+            ).scalar_one()
+        return str(value)
+
+    report, new = reproduce_funnel(
+        funnel_id,
+        registry=registry,
+        runner=runner,
+        hashes=funnel_hashes(cfg),
+        artifacts=runner.root,
+        run_config_hash=run_config_hash,
+    )
+    write_funnel_summary(new, funnel_folder(runner.root, new.funnel_id))
+    return report

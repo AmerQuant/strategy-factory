@@ -63,3 +63,27 @@ def funnel_status(
     typer.echo(f"control    : {row['control']}  code {row['code_version']}  seed {row['seed']}")
     for (tf, stage, arm), s in sorted(reg.stages(fid).items()):
         typer.echo(f"{tf:<4} {stage:<11} {arm:<8} {s.status:<8} {s.run_id or '-'}")
+
+
+@funnel_app.command("reproduce")
+def funnel_reproduce(
+    funnel_id: Annotated[str, typer.Argument(help="Funnel run id to rebuild.")],
+    workers: Annotated[
+        int | None,
+        typer.Option("--workers", help="Executor workers (1 Numba thread each); operational."),
+    ] = None,
+) -> None:
+    """Re-run a funnel from its registry rows and compare every artifact (F-0.7.4)."""
+    from strategy_factory.pipeline.funnel_run import reproduce
+
+    report = reproduce(funnel_id, workers=workers)
+    typer.echo(f"original     : {report.original}")
+    typer.echo(f"reproduction : {report.reproduction}")
+    typer.echo(f"files        : {report.compared_files}")
+    if report.identical:
+        typer.echo("identical    : yes (run ids and run-config hashes normalised)")
+        return
+    typer.echo(f"identical    : NO -- {len(report.differences)} difference(s)", err=True)
+    for d in report.differences[:50]:
+        typer.echo(f"  {d}", err=True)
+    raise typer.Exit(code=1)
