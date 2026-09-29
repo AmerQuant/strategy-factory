@@ -24,6 +24,7 @@ stages:
     - {metric: grid_median_target, op: ">", threshold: 0, note: "median target metric of the coarse grid, after costs"}
     - {metric: profitable_cell_share, op: ">=", threshold: 0.60}
     - {metric: overlap_with_selected, op: "<=", threshold: 0.60, note: "trade overlap with already selected candidates"}
+    - {metric: method_q_value, op: "<=", threshold: 0.1, note: "D-629: BH q within the profile, good-region median cell vs its baseline"}
     - {metric: min_trades_good_cells, op: ">=", threshold: 30, note: "as stage 1; 1H override below"}
   s03_entry:
     - {metric: spp_median_target, op: ">", threshold: 0, note: "median of the SPP distribution, after costs"}

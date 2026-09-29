@@ -1,0 +1,7 @@
+# T13 pilot (RUNBOOK_T13 step 7): BAC long of T12's 1H passes, run twice, identical.
+symbol_scope: listed
+symbols: [BAC]
+stage_inputs: {s01_edge: 6f603a07-4de6-423d-b3ee-f04ec8eb32e7}
+timeframes: [1H]
+stages: [s02_screen]
+seed: 42

@@ -12,3 +12,7 @@
 # D-359: the parity reference fixtures are byte-identical copies of the raw store and their
 # sha256 is asserted against it. Never normalize them, or the hashes stop matching.
 tests/fixtures/parity/** binary
+
+# T13 §4.2: the user's own Pine strategy suite is the specification for stage 2's MR methods and
+# is committed exactly as the user wrote it (CRLF included). Never normalize it.
+tools/tradingview/user_mr_suite.pine -text

@@ -51,10 +51,21 @@ class _Frozen(BaseModel):
 
 
 class GridRules(_Frozen):
-    """Coarse-grid rule (spec phase-1 decision): 4 values per parameter, <= 64 cells/method."""
+    """Coarse-grid rule: 2 to 4 values per parameter, <= 64 cells per method.
 
-    coarse_values_per_param: int = Field(default=4, ge=1)
+    D-110 fixed 4 values per parameter; **D-630** amends it to 2-4, because a choice or a small
+    count has fewer than 4 meaningful values and a two-way choice is never padded to four.
+    """
+
+    min_coarse_values_per_param: int = Field(default=2, ge=1)
+    max_coarse_values_per_param: int = Field(default=4, ge=1)
     max_coarse_cells: int = Field(default=64, ge=1)
+
+    def values_ok(self, count: int) -> bool:
+        return self.min_coarse_values_per_param <= count <= self.max_coarse_values_per_param
+
+    def values_text(self) -> str:
+        return f"{self.min_coarse_values_per_param} to {self.max_coarse_values_per_param}"
 
 
 DEFAULT_GRID_RULES = GridRules()
@@ -67,7 +78,8 @@ def _is_integral(value: float) -> bool:
 class ParamSpec(_Frozen):
     """Declaration of one component parameter.
 
-    ``int``/``float`` parameters need ``min <= default <= max``, strictly increasing
+    2 to 4 ``coarse_values`` (D-630). ``int``/``float`` parameters need
+    ``min <= default <= max``, strictly increasing
     ``coarse_values`` inside ``[min, max]`` and a positive ``fine_step``. ``choice`` parameters
     list their options in ``coarse_values`` and have no ``min``/``max``/``fine_step``.
     """
@@ -84,11 +96,10 @@ class ParamSpec(_Frozen):
     def _check(self) -> ParamSpec:
         if not _NAME_RE.match(self.name):
             raise ValueError(f"parameter name must be snake_case, got {self.name!r}")
-        expected = DEFAULT_GRID_RULES.coarse_values_per_param
-        if len(self.coarse_values) != expected:
+        if not DEFAULT_GRID_RULES.values_ok(len(self.coarse_values)):
             raise ValueError(
-                f"{self.name}: exactly {expected} coarse values required, "
-                f"got {len(self.coarse_values)}"
+                f"{self.name}: {DEFAULT_GRID_RULES.values_text()} coarse values required "
+                f"(D-630), got {len(self.coarse_values)}"
             )
         if self.kind == "choice":
             self._check_choice()
@@ -158,10 +169,8 @@ def check_param_grid(params: Sequence[ParamSpec], rules: GridRules = DEFAULT_GRI
     if len(set(names)) != len(names):
         raise ComponentError(f"duplicate parameter names: {names}")
     for p in params:
-        if len(p.coarse_values) != rules.coarse_values_per_param:
-            raise ComponentError(
-                f"{p.name}: exactly {rules.coarse_values_per_param} coarse values required"
-            )
+        if not rules.values_ok(len(p.coarse_values)):
+            raise ComponentError(f"{p.name}: {rules.values_text()} coarse values required (D-630)")
     cells = coarse_cells(params)
     if cells > rules.max_coarse_cells:
         raise ComponentError(

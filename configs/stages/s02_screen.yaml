@@ -1,0 +1,79 @@
+# Stage 2 -- method screening (T13; F-2.1 ... F-2.7; D-622 ... D-636). Every constant of the
+# stage lives here (CLAUDE.md rule 1); the gate thresholds live in configs/gates/default.yaml
+# (s02_screen, including the trade minimum that makes a cell "failed"). Loaded and validated by
+# strategy_factory.stages.screen_config.
+#
+# The exits are stage 1's (D-622): read from configs/stages/s01_edge.yaml (edge_types), never
+# restated here, so the two stages cannot drift apart.
+
+# The methods screened per edge type (D-627, D-631, D-635). Validated against the component
+# registry: every listed name is a registered stage-2 method of that edge type, and every
+# registered stage-2 method of a listed edge type is listed -- the library cannot silently lose
+# a method.
+methods:
+  MR:
+    - mr_candle_score
+    - mr_connors_rsi
+    - mr_daily_drop
+    - mr_down_closes
+    - mr_ema_slope_drop
+    - mr_ibs
+    - mr_ibs_after_new_high
+    - mr_keltner_lower
+    - mr_lower_lows
+    - mr_ma_distance_atr
+    - mr_ma_distance_pct
+    - mr_macd_hist_falling
+    - mr_macd_hist_trough
+    - mr_macd_hist_turn
+    - mr_n_day_low
+    - mr_rsi
+    - mr_rsi_sum
+    - mr_stochastic_k
+    - mr_williams_confirm
+    - mr_zscore
+  TF:
+    - tf_adx_di
+    - tf_aroon_cross
+    - tf_atr_band
+    - tf_base_candle
+    - tf_bb_upper
+    - tf_donchian_breakout
+    - tf_hma_turn
+    - tf_ichimoku
+    - tf_kama_cross
+    - tf_keltner_breakout
+    - tf_ma_slope
+    - tf_momentum_cross
+    - tf_psar_flip
+    - tf_sma_cross
+    - tf_supertrend
+
+# D-624: the good region is the top quartile of cells by the zero-cost target metric (among
+# cells at the trade minimum); its median cell carries the excess return and the baseline test.
+good_region_share: 0.25
+
+# D-624 via D-102, D-607, D-618: matched random entries for the good-region median cell. The
+# empirical p is floored at 1 / (simulations + 1).
+baseline:
+  simulations: 1000
+
+# F-2.4, D-636: provisional, calibrated in T15 like D-606's ESS constants.
+family_score:
+  weights: {grid_median: 40, profitable_share: 25, excess: 20, consistency: 15}
+  grid_median_target: 1.0              # median profit/DD over the grid that scores full
+  excess_target_atr: 0.10              # excess ATR return per trade that scores full
+  consistency_min_trades_per_year: 5   # D-613's minimum: a year with fewer trades is excluded
+  consistency_floor: 0.5               # share of positive years scoring 0 points (as D-606)
+
+# D-625 (D-110): 3 to 5 candidates per profile; fewer pass -> what passed is sent, and said.
+selection:
+  min_candidates: 3
+  max_candidates: 5
+
+# D-621, D-628: stage-1 passes on these timeframes are screened but flagged `unconfirmed`, and
+# the review reports them apart; they never stand in for the daily MR finding.
+unconfirmed_timeframes: [1H]
+
+# Work units sent to the executor per batch -- operational only, changes no number (D-607).
+batch_units: 64

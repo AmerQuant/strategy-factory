@@ -51,6 +51,79 @@ def artifacts_root() -> Path:
     return Path(value)
 
 
+def run_config(config_path: Path, notes: str = "", executor: Any = None) -> RunReport:
+    """``sfac run``: one stage per config -- ``s01_edge`` (D-616) or ``s02_screen`` (T13)."""
+    from strategy_factory.stages.screen_config import STAGE as S02
+
+    stages = tuple(load_pipeline_config(config_path).stages)
+    if stages == (S02,):
+        return run_stage2(config_path, notes=notes, executor=executor)
+    return run_stage1(config_path, notes=notes, executor=executor)
+
+
+def run_stage2(config_path: Path, notes: str = "", executor: Any = None) -> RunReport:
+    """Stage 2 over the passes of the stage-1 run named in ``stage_inputs`` (T13 §3).
+
+    ``symbol_scope: stage_inputs`` expands to the symbols of those passes before resolution, so
+    the resolved config (and its hash) names exactly what ran; the stage then refuses a profile
+    whose reference moved since stage 1.
+    """
+    from strategy_factory.stages.config import STAGE as S01
+    from strategy_factory.stages.screen import ScreenStage, stage1_pass_symbols
+    from strategy_factory.stages.screen_config import STAGE as S02
+
+    cfg = load_pipeline_config(config_path)
+    if tuple(cfg.stages) != (S02,):
+        raise ConfigError(f"run_stage2 runs {S02} only; the config lists {list(cfg.stages)}")
+    if S01 not in cfg.stage_inputs:
+        raise ConfigError(f"{S02} needs stage_inputs.{S01}", config_path=config_path)
+    executor_cfg = load_executor_config()
+    opt_out_of_efficiency_mode(executor_cfg.efficiency_mode_opt_out)  # D-804
+    root = artifacts_root()
+    if cfg.symbol_scope == "stage_inputs":
+        symbols = stage1_pass_symbols(root, cfg.stage_inputs[S01], cfg.timeframes)
+        if not symbols:
+            raise ConfigError(
+                f"stage-1 run {cfg.stage_inputs[S01]} has no pass on {list(cfg.timeframes)}"
+            )
+        cfg = cfg.model_copy(update={"symbols": symbols})
+    store = SnapshotStore()
+    catalog = Catalog(store.root)
+    cfg = resolve_config(cfg, catalog_root=store.root, config_path=config_path)
+    engine = make_engine()
+    writer = RegistryWriter(engine)
+    version = code_version()
+    run_id = start_run(cfg, writer, notes=notes or f"{S02} control={cfg.control}")
+    splits = SplitManager(RegistryLedger(engine), load_split_config(), store, catalog)
+    ctx = RunContext(
+        config=cfg,
+        data=DataAccess(splits),
+        references=ReferenceInfo(catalog),
+        executor=executor if executor is not None else make_executor(executor_cfg),
+        gates=GateEngine.from_file(cfg.gates),
+        artifacts_root=root,
+        code_version=version,
+        registry=writer,
+        run_id=run_id,
+    )
+    inputs = [(sym, tf) for tf in cfg.timeframes for sym in cfg.symbols]
+    started = dt.datetime.now(dt.UTC)
+    try:
+        result = ScreenStage().run(inputs, ctx)
+    except BaseException:
+        writer.finish_run(run_id, "failed")
+        raise
+    writer.finish_run(run_id, "done")
+    return RunReport(
+        run_id=str(run_id),
+        artifacts=ctx.artifacts_root / str(run_id) / S02,
+        result=result,
+        seconds=(dt.datetime.now(dt.UTC) - started).total_seconds(),
+        symbols=len(cfg.symbols),
+        excluded=dict(cfg.scope_excluded),
+    )
+
+
 def run_stage1(config_path: Path, notes: str = "", executor: Any = None) -> RunReport:
     cfg = load_pipeline_config(config_path)
     if tuple(cfg.stages) != (STAGE,):

@@ -1,0 +1,7 @@
+# T13: stage 2 over the passes of T12's full 1H run (6f603a07-4de6-423d-b3ee-f04ec8eb32e7, docs/reviews/T12_review.md section 1).
+# symbol_scope stage_inputs expands to the passing symbols at resolution (T13 section 3).
+symbol_scope: stage_inputs
+stage_inputs: {s01_edge: 6f603a07-4de6-423d-b3ee-f04ec8eb32e7}
+timeframes: [1H]
+stages: [s02_screen]
+seed: 42

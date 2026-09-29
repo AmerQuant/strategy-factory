@@ -82,12 +82,16 @@ def test_F_0_4_1_registry_lookup_and_listing() -> None:
     reg = default_registry()
     assert set(reg.names()) >= MR_PROBES | TF_PROBES
     assert reg.get("mr_rsi2_below_10").name == "mr_rsi2_below_10"
-    entries = {c.name for c in reg.list_by_role("entry")}
-    assert entries == MR_PROBES | TF_PROBES
+    entries = reg.list_by_role("entry")
+    probes = {c.name for c in entries if c.group is not None}
+    methods = {c.name for c in entries if getattr(c, "screen", False)}  # stage 2 (T13)
+    assert probes == MR_PROBES | TF_PROBES
+    assert probes | methods == {c.name for c in entries} and not probes & methods
     assert reg.list_by_role("exit") == []
     edges = load_edge_types()
-    assert {c.name for c in reg.list_by_edge_type("MR", edges)} == MR_PROBES
-    assert {c.name for c in reg.list_by_edge_type("TF", edges)} == TF_PROBES
+    mr = {c.name for c in reg.list_by_edge_type("MR", edges) if c.group is not None}
+    tf = {c.name for c in reg.list_by_edge_type("TF", edges) if c.group is not None}
+    assert mr == MR_PROBES and tf == TF_PROBES
     assert reg.list_by_edge_type("SEASONAL", edges) == []
     for cls in reg.entries():
         assert isinstance(cls, Component)
@@ -158,10 +162,26 @@ def test_F_0_4_1_duplicate_and_invalid_registrations_raise() -> None:
 # ----------------------------------------------------------------------------- ParamSpec
 
 
-@pytest.mark.parametrize("coarse", [(5, 10, 15), (5, 10, 15, 20, 25), ()])
-def test_F_0_4_1_param_spec_requires_exactly_four_coarse_values(coarse: tuple[int, ...]) -> None:
-    with pytest.raises(ValidationError, match="exactly 4 coarse values"):
+@pytest.mark.parametrize("coarse", [(5,), (5, 10, 15, 20, 25), ()])
+def test_F_0_4_1_param_spec_requires_two_to_four_coarse_values(coarse: tuple[int, ...]) -> None:
+    """D-630 (amends D-110): 2 to 4 coarse values per parameter."""
+    with pytest.raises(ValidationError, match="2 to 4 coarse values"):
         int_param(coarse=coarse)
+
+
+@pytest.mark.parametrize("coarse", [(5, 10), (5, 10, 15), (5, 10, 15, 20)])
+def test_F_0_4_1_d630_two_and_three_values_are_allowed(coarse: tuple[int, ...]) -> None:
+    assert int_param(coarse=coarse).coarse_values == coarse
+
+
+def test_F_0_4_1_d630_a_two_way_choice_is_not_padded() -> None:
+    spec = ParamSpec(name="unit", kind="choice", default="pct", coarse_values=("pct", "atr"))
+    assert len(spec.coarse_values) == 2
+    with pytest.raises(ComponentError, match="64"):
+        check_param_grid(
+            [int_param(name=n, coarse=(5, 10, 15, 20)) for n in ("a", "b", "c")]
+            + [ParamSpec(name="d", kind="choice", default="x", coarse_values=("x", "y"))]
+        )
 
 
 @pytest.mark.parametrize(
@@ -364,7 +384,7 @@ TRIGGERS = {
 
 
 def test_F_0_4_1_every_probe_declares_its_trigger() -> None:
-    probes = default_registry().entries()
+    probes = [c for c in default_registry().entries() if c.group is not None]
     assert {p.name: p.trigger for p in probes} == TRIGGERS
     for p in probes:
         assert "trigger" in vars(p), f"{p.name}: trigger must be declared on the class itself"

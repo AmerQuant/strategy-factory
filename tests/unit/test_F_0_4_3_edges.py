@@ -22,7 +22,10 @@ from strategy_factory.components.edges import DEFAULT_EDGE_TYPES, load_edge_type
 from strategy_factory.components.registry import ComponentRegistry, default_registry
 from strategy_factory.core.errors import ConfigError
 
-PROBES = default_registry().entries()
+#: the stage-1 probes (entries with a group); the stage-2 methods have their own mirror tests
+#: in test_F_2_1_methods (their ratio rules are mirror-exact under negation, D-632, and no
+#: reflection is exact for a ratio rule under translation)
+PROBES = [c for c in default_registry().entries() if c.group is not None]
 
 
 # ----------------------------------------------------------------------------- tags
@@ -46,7 +49,8 @@ def test_F_0_4_3_edge_types_come_from_yaml() -> None:
 def test_F_0_4_3_every_probe_group_is_populated() -> None:
     edges = load_edge_types()
     for edge_id in ("MR", "TF"):
-        groups = {c.group for c in default_registry().list_by_edge_type(edge_id, edges)}
+        entries = default_registry().list_by_edge_type(edge_id, edges)
+        groups = {c.group for c in entries if c.group is not None}
         assert groups == set(edges.get(edge_id).group_ids())
 
 
