@@ -21,12 +21,14 @@ from typer.testing import CliRunner, Result
 from strategy_factory.cli import app
 from strategy_factory.data import cli_dukascopy
 from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.config import load_dukascopy_config
 from strategy_factory.data.coverage import (
     Window,
     dukascopy_coverage_frame,
     dukascopy_gaps,
     dukascopy_windows,
     is_settled,
+    verified_flags,
 )
 from strategy_factory.data.download.dukascopy import Instrument, month_dir, raw_pairs
 
@@ -359,3 +361,27 @@ def test_F_0_1_3_T04j_the_ingest_reads_only_settled_months(tmp_path: Path) -> No
     bid, ask = raw_pairs(tmp_path, "h1", "eurusd")
     assert "2010-05.csv.gz" not in [p.name for p in bid]
     assert "2010-05.csv.gz" in [p.name for p in ask] and len(bid) == len(ask) - 1
+
+
+# -- D-672: a verified market event is reported, never a stop -----------------------------------
+
+
+def test_F_0_1_3_T04j_D672_a_verified_event_is_reported_and_any_other_flag_still_stops() -> None:
+    snb = dt.datetime(2015, 1, 15, 9, tzinfo=dt.UTC)
+    other = dt.datetime(2016, 6, 24, 0, tzinfo=dt.UTC)
+    events = load_dukascopy_config().verified_events
+    unverified, verified = verified_flags("USDCHF", "wick_flags", [snb, other], events)
+    assert (unverified, verified) == ([other], [snb])
+    # the event belongs to its instrument and family only
+    assert verified_flags("EURCHF", "wick_flags", [snb], events) == ([snb], [])
+
+
+def test_F_0_1_3_T04j_D672_the_usdchf_snb_bar_is_listed_with_its_source() -> None:
+    (event,) = load_dukascopy_config().verified_events
+    assert (event.symbol, event.ts, event.family, event.decision) == (
+        "USDCHF",
+        dt.datetime(2015, 1, 15, 9, tzinfo=dt.UTC),
+        "wick_flags",
+        "D-672",
+    )
+    assert "Swiss National Bank" in event.source

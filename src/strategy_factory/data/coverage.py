@@ -24,7 +24,7 @@ from typing import cast
 
 import polars as pl
 
-from strategy_factory.data.config import CoverageConfig
+from strategy_factory.data.config import CoverageConfig, VerifiedEvent
 from strategy_factory.data.download.alpaca import latest_chunks
 from strategy_factory.data.download.dukascopy import (
     SIDES,
@@ -262,3 +262,13 @@ def _manifest_rows(path: Path | None) -> int | None:
         return None
     value = json.loads(manifest.read_text(encoding="utf-8")).get("row_count")
     return int(value) if isinstance(value, int) else None
+
+
+def verified_flags(
+    symbol: str, family: str, flagged_ts: Sequence[dt.datetime], events: Sequence[VerifiedEvent]
+) -> tuple[list[dt.datetime], list[dt.datetime]]:
+    """Split a D-717 family's flagged bars into (unverified, verified) by the config's verified
+    events (D-672). Only an unverified flag stops an instrument; a verified one is reported."""
+    known = {e.ts for e in events if e.symbol == symbol and e.family == family}
+    unverified = [ts for ts in flagged_ts if ts not in known]
+    return unverified, [ts for ts in flagged_ts if ts in known]

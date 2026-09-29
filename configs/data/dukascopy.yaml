@@ -20,3 +20,16 @@ tool:                         # pinned dukascopy-node (tools/dukascopy, npm ci)
   timeout_seconds: 900        # per CLI call
   call_retries: 3             # wrapper: re-run a month that still ends in HTTP 429/5xx
   call_backoff_seconds: 30    # wrapper backoff: 30 s, 60 s, 120 s
+
+# D-672: flagged bars verified as real market moves. Kept unchanged; the D-717 re-measure
+# (scripts/analysis/T04j_defects.py) reports them and does not stop on them. Any other flag stops.
+# Correcting or removing such a bar would make every backtest on the instrument optimistic.
+verified_events:
+  - symbol: USDCHF
+    ts: 2015-01-15T09:00:00Z
+    family: wick_flags
+    source: >-
+      Swiss National Bank removes the EUR/CHF minimum exchange rate of 1.20, announced
+      2015-01-15 09:30 UTC; USDCHF reprices from 1.02 to 0.73-0.88 and never returns to 1.02
+      (Dukascopy h1: L 0.72705, C 0.87536). A stage-6 crisis period (D-150).
+    decision: D-672

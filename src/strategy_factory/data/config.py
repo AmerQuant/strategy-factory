@@ -216,12 +216,24 @@ class DukascopyToolConfig(_Frozen):
     call_backoff_seconds: float = Field(default=30.0, ge=0)
 
 
+class VerifiedEvent(_Frozen):
+    """A flagged bar confirmed as a real market move (D-672): kept unchanged, reported by the D-717
+    re-measure and never a stop. Correcting or removing it would make backtests optimistic."""
+
+    symbol: str
+    ts: dt.datetime  # the bar's start, UTC
+    family: Literal["wick_flags"]
+    source: str  # what verifies it
+    decision: str  # the decision that admits it
+
+
 class DukascopyConfig(_Frozen):
     h1_start: dt.date = dt.date(2010, 1, 1)
     m1_months: int = Field(default=24, gt=0)
     universe_file: Path = Path("configs") / "universe" / "dukascopy.csv"
     max_one_sided_share: float = Field(default=0.001, ge=0)
     tool: DukascopyToolConfig = Field(default_factory=DukascopyToolConfig)
+    verified_events: tuple[VerifiedEvent, ...] = ()
 
 
 def load_dukascopy_config(path: Path | None = None) -> DukascopyConfig:

@@ -11,7 +11,9 @@ The plan measured six near-complete instruments (``docs/reviews/T04j_defects.csv
 plan's record). Before an ingest, D-717 re-measures on the **complete** raw set: by default the
 instruments with a D-661 window now, measured over that window. Rows are upserted by symbol into
 ``docs/reviews/T04j_defects_ingest.csv``, and the exit code is **1 when any defect family is present**
-(frozen stretches, long gaps, bad prints): T04j then stops and raises; nothing is absorbed.
+(frozen stretches, long gaps, bad prints): that instrument is held and raised (per instrument,
+D-672); nothing is absorbed. A bar listed in ``verified_events`` (``configs/data/dukascopy.yaml``,
+D-672) is reported in ``verified_events`` and is not a stop.
 
 Per instrument, the families measured on the Alpaca sets:
 
@@ -48,7 +50,11 @@ from strategy_factory.data.config import (
     load_quality_config,
     load_split_config,
 )
-from strategy_factory.data.coverage import dukascopy_coverage_frame, dukascopy_windows
+from strategy_factory.data.coverage import (
+    dukascopy_coverage_frame,
+    dukascopy_windows,
+    verified_flags,
+)
 from strategy_factory.data.download.dukascopy import load_instruments
 from strategy_factory.data.download.rawfiles import is_settled, raw_root, version_of
 from strategy_factory.data.relisting import frozen_stretches
@@ -105,6 +111,11 @@ def measure(
         pl.col("g") >= alpaca.relisting.gap_days
     )
     w = wick_outliers(bars.select("ts", "open", "high", "low", "close"), quality.daily_wick_outlier)
+    flagged = w.filter(pl.col("flag_high") | pl.col("flag_low"))["ts"].to_list()
+    # D-672: a verified market event is reported, never a stop; any other flag stops (D-717)
+    wick_unverified, wick_verified = verified_flags(
+        sym, "wick_flags", flagged, adapter.config.verified_events
+    )
     med = bars["spread"].rolling_median(window_size=500, min_samples=50)
     spikes = int((bars["spread"] > SPREAD_SPIKE_X * med).sum())
     # weekday holes: an hour missing between two bars less than a day apart, Mon-Thu
@@ -139,7 +150,8 @@ def measure(
         "frozen_bars": sum(e - s + 1 for s, e in frozen),
         "long_gaps": gaps.height,
         "longest_gap_days": int(bars["ts"].diff().dt.total_days().max() or 0),
-        "wick_flags": w.filter(pl.col("flag_high") | pl.col("flag_low")).height,
+        "wick_flags": len(wick_unverified),
+        "verified_events": ";".join(f"{ts:%Y-%m-%d %H:%M}" for ts in wick_verified),
         "spread_spikes": spikes,
         "zero_or_neg_spread": int((bars["spread"] <= 0).sum()),
         "saturday_bars": int((wd == 6).sum()),
@@ -226,8 +238,12 @@ def main(argv: list[str] | None = None) -> int:
     pl.Config.set_tbl_width_chars(260)
     print(new)
     found = {r["symbol"]: present(r) for r in new.iter_rows(named=True) if present(r)}
+    verified = {r["symbol"]: r["verified_events"] for r in new.iter_rows(named=True)}
+    verified = {k: v for k, v in verified.items() if v}
+    if verified:
+        print(f"verified events (D-672), reported, not a stop: {verified}")
     if found:
-        print(f"STOP (D-717): defect families present, nothing may be ingested: {found}")
+        print(f"HELD (D-717, per instrument, D-672): these may not be ingested: {found}")
         return 1
     print(f"D-717: no defect family in {len(symbols)} instrument(s): {', '.join(symbols)}")
     return 0

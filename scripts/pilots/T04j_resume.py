@@ -19,8 +19,9 @@ in the task file's order (``docs/tasks/T04j_dukascopy_ingest.md``):
    snapshot and the references move; nothing is overwritten.
 3. **D-008:** measured on the window's bars; a window too short to split waits (D-661).
 4. **D-717:** the defect families are re-measured over the window of every instrument about to be
-   ingested (``scripts/analysis/T04j_defects.py``). **Any family present stops the run before
-   anything is written** (exit 1).
+   ingested (``scripts/analysis/T04j_defects.py``). **An instrument with any family present is held
+   and nothing is written for it** (per instrument, D-672); the others proceed. A bar listed in
+   ``verified_events`` (D-672) is reported and is not a stop.
 5. **Ingest 1H** (``sfac data ingest dukascopy``, which applies the window itself) with
    ``--set-reference``; a hash-version-1 pilot reference (EURUSD, XAUUSD, USA500IDXUSD) with
    ``--rehash`` (event note ``rehash v1→v2``).
@@ -28,8 +29,8 @@ in the task file's order (``docs/tasks/T04j_dukascopy_ingest.md``):
 7. **Quality** for both snapshots, then ``sfac costs show`` (the 1H development segment, D-523).
 
 Writes ``docs/reviews/T04j_instrument_status.csv`` (per instrument: state, window, the gap that
-bounds it) and prints the same summary. Exit 0 when every step ran; 1 on a D-717 stop; 2 when a
-step failed.
+bounds it) and prints the same summary. Exit 0 when every step ran; 1 when an instrument was held
+by D-717 (raise it); 2 when a step failed.
 """
 
 from __future__ import annotations
@@ -137,9 +138,14 @@ def main(argv: list[str] | None = None) -> int:
         todo = [i for i in todo if i not in short]
         found = {i.symbol: defects.present(rows[i.symbol]) for i in todo}
         found = {s: f for s, f in found.items() if f}
+        # D-672 (2): the D-717 stop is per instrument -- a flag holds that instrument only
+        state |= {s: f"held (D-717): {', '.join(f)}" for s, f in found.items()}
+        todo = [i for i in todo if i.symbol not in found]
+        for s, ev in ((i.symbol, rows[i.symbol]["verified_events"]) for i in todo):
+            if ev:
+                print(f"{s}: verified event(s) {ev} kept unchanged (D-672), not a stop")
         if found:
-            print(f"STOP (D-717): defect families present; nothing ingested: {found}")
-            return 1
+            print(f"HELD (D-717): {found} -- raise it; the others proceed")
         if todo:
             print(f"D-717: no defect family in {', '.join(i.symbol for i in todo)}")
     print(
@@ -211,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     if failed:
         print(f"FAILED: {failed}")
         return 2
-    return 0
+    return 1 if any(v.startswith("held") for v in state.values()) else 0
 
 
 if __name__ == "__main__":
