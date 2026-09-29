@@ -126,8 +126,8 @@ and their reshuffled-returns control (132,408 runs, 1 min 42 s;
 `scripts/analysis/T14_plan_measure.py`, `T14_plan_analyse.py`):
 
 - **Under the proposals: 9 real passes, 0 on the control** (6 real with P-118). All nine are long;
-  4 are the 1H `unconfirmed` TF candidates. Stability ratio does not discriminate (22 of 31 control
-  candidates meet it); plateau area and the half-2 check do.
+  4 are the 1H `unconfirmed` TF candidates. (The plan's "22 of 31 control candidates meet the
+  stability ratio" was wrong -- NaN counted as passing; correct: 21 real, 9 control. See P-122.)
 - **P-117 (per-half minimum):** half strength lets **one control candidate pass** (MSFT long
   `mr_ibs_after_new_high`) — a D-644 stop; full strength gives 0 but leaves MRNA 1H ichimoku no
   valid cell.

@@ -34,7 +34,7 @@ half, P-117):
 | candidates | 31 (25 1D, 6 1H) | 31 (the same, reshuffled returns) |
 | **pass the gate** | **9** | **0** |
 | `spp_median_target > 0` | 31 | 7 |
-| `stability_ratio ≥ 0.8` | 24 | **22** |
+| `stability_ratio ≥ 0.8` | ~~24~~ **21** | ~~22~~ **9** (erratum below) |
 | `plateau_area ≥ 0.10` | 14 | 6 |
 | `selected_in_both_halves` | 20 | 6 |
 
@@ -43,9 +43,14 @@ half, P-117):
   failed-cell treatment**: MSFT long `mr_ibs_after_new_high`, stability 0.92, plateau area 0.107,
   half 2 positive, SPP median 0.52 — a long MR rule on a drifting stock, exactly D-644's worry.
   Under D-644 that would stop the stage. This is the main evidence for P-117.
-- **The stability ratio does not discriminate**: 22 of 31 control candidates meet it (24 of 31
-  real). A smoothed maximum's neighbours are close to it by construction. **Plateau area and the
-  half-2 check are what separate real from control** (14 and 20 real against 6 and 6).
+- ~~**The stability ratio does not discriminate**: 22 of 31 control candidates meet it (24 of 31
+  real).~~ **Erratum (T14 review §3, P-122):** these two counts were wrong. The analysis counted
+  with polars, which orders NaN above every number, so a NaN stability ratio (a selected cell at a
+  loss, D-650 (e)) counted as meeting 0.8. **The correct counts are 21 of 31 real and 9 of 31
+  control**; the stage's full runs give the same. Every pass count in this plan was computed in
+  Python and is unaffected. What survives of the reading: **no candidate fails on stability
+  alone** in either dataset, so the threshold decides no verdict; plateau area and the half-2 check
+  separate real from control (14 and 20 real against 6 and 6).
 - **SPP median > 0 holds for 7 control candidates** — the high-drift longs (AAPL, MSFT, ETN, TMUS
   williams, TSLA ichimoku 1H). On its own it would be a drift detector.
 - **All 9 real passes are long**: AAPL `mr_down_closes`, RTX `mr_n_day_low`, SHW

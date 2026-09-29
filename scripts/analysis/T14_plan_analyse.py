@@ -274,7 +274,11 @@ def cmd_analyse() -> None:
             .agg(
                 pl.len().alias("n"),
                 pl.col("passed").sum().alias("pass"),
-                (pl.col("stability") >= STAB).sum().alias("stab_ok"),
+                # polars orders NaN above every number, so ``NaN >= 0.8`` is true: exclude it (the
+                # T14 review's erratum -- the plan's printed counts included NaN stabilities)
+                ((pl.col("stability") >= STAB) & pl.col("stability").is_not_nan())
+                .sum()
+                .alias("stab_ok"),
                 (pl.col("plateau_area") >= AREA).sum().alias("area_ok"),
                 pl.col("in_both").sum().alias("both_ok"),
                 (pl.col("spp_median") > 0).sum().alias("spp_ok"),
