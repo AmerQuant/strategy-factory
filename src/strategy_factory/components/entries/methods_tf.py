@@ -20,12 +20,12 @@ import numpy as np
 
 from strategy_factory.components import indicators as ind
 from strategy_factory.components.base import Bars, BoolArray, FloatArray, ParamValue
-from strategy_factory.components.entries.methods_mr import (
-    _float,
-    _float_param,
-    _int,
-    _int_param,
-    _Method,
+from strategy_factory.components.entries.method_base import (
+    Method,
+    float_param,
+    float_value,
+    int_param,
+    int_value,
     prev,
 )
 from strategy_factory.components.registry import register
@@ -43,7 +43,7 @@ def turns_up(x: FloatArray) -> BoolArray:
         return (x > prev(x)) & (prev(x) <= prev(x, 2))
 
 
-class _TfMethod(_Method):
+class _TfMethod(Method):
     edge_type: ClassVar[str] = "TF"
 
 
@@ -53,17 +53,17 @@ class TfMaSlope(_TfMethod):
 
     name = "tf_ma_slope"
     trigger = "event"
-    params = (_int_param("n", 50, (20, 50, 100, 200), 5, 250),)
+    params = (int_param("n", 50, (20, 50, 100, 200), 5, 250),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        slope = ind.sma_slope(bars.close, _int(params, "n"))
+        slope = ind.sma_slope(bars.close, int_value(params, "n"))
         with np.errstate(invalid="ignore"):
             return (slope > 0.0) & (prev(slope) <= 0.0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + 1
+        return int_value(params, "n") + 1
 
 
 @register
@@ -73,18 +73,20 @@ class TfSmaCross(_TfMethod):
     name = "tf_sma_cross"
     trigger = "event"
     params = (
-        _int_param("fast", 10, (5, 10, 15, 20), 2, 50),
-        _int_param("slow", 50, (30, 50, 75, 100), 21, 300),
+        int_param("fast", 10, (5, 10, 15, 20), 2, 50),
+        int_param("slow", 50, (30, 50, 75, 100), 21, 300),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         c = bars.close
-        return crossover(ind.sma(c, _int(params, "fast")), ind.sma(c, _int(params, "slow")))
+        return crossover(
+            ind.sma(c, int_value(params, "fast")), ind.sma(c, int_value(params, "slow"))
+        )
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return max(_int(params, "fast"), _int(params, "slow"))
+        return max(int_value(params, "fast"), int_value(params, "slow"))
 
 
 @register
@@ -94,16 +96,16 @@ class TfDonchianBreakout(_TfMethod):
 
     name = "tf_donchian_breakout"
     trigger = "event"
-    params = (_int_param("n", 20, (10, 20, 55, 100), 5, 200),)
+    params = (int_param("n", 20, (10, 20, 55, 100), 5, 200),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         with np.errstate(invalid="ignore"):
-            return bars.close > prev(ind.highest(bars.high, _int(params, "n")))
+            return bars.close > prev(ind.highest(bars.high, int_value(params, "n")))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
@@ -113,18 +115,18 @@ class TfBbUpperCross(_TfMethod):
     name = "tf_bb_upper"
     trigger = "event"
     params = (
-        _int_param("n", 20, (10, 20, 30, 40), 5, 100),
-        _float_param("mult", 2.0, (1.0, 1.5, 2.0, 2.5), 0.5, 4.0, 0.1),
+        int_param("n", 20, (10, 20, 30, 40), 5, 100),
+        float_param("mult", 2.0, (1.0, 1.5, 2.0, 2.5), 0.5, 4.0, 0.1),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        bb = ind.bollinger(bars.close, _int(params, "n"), _float(params, "mult"))
+        bb = ind.bollinger(bars.close, int_value(params, "n"), float_value(params, "mult"))
         return crossover(bars.close, bb.upper)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
@@ -134,20 +136,20 @@ class TfSupertrendFlip(_TfMethod):
     name = "tf_supertrend"
     trigger = "event"
     params = (
-        _int_param("atr", 10, (7, 10, 14, 20), 2, 50),
-        _float_param("factor", 3.0, (2.0, 2.5, 3.0, 3.5), 1.0, 5.0, 0.1),
+        int_param("atr", 10, (7, 10, 14, 20), 2, 50),
+        float_param("factor", 3.0, (2.0, 2.5, 3.0, 3.5), 1.0, 5.0, 0.1),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         d = ind.supertrend(
-            bars.high, bars.low, bars.close, _float(params, "factor"), _int(params, "atr")
+            bars.high, bars.low, bars.close, float_value(params, "factor"), int_value(params, "atr")
         ).direction
         return (d == -1.0) & (prev(d) == 1.0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "atr")
+        return int_value(params, "atr")
 
 
 @register
@@ -158,16 +160,16 @@ class TfIchimokuCloud(_TfMethod):
     name = "tf_ichimoku"
     trigger = "state"
     params = (
-        _int_param("conversion", 9, (7, 9, 12, 15), 2, 20),
-        _int_param("base", 26, (22, 26, 30, 40), 21, 60),
-        _int_param("span_b", 52, (44, 52, 60, 80), 21, 120),
+        int_param("conversion", 9, (7, 9, 12, 15), 2, 20),
+        int_param("base", 26, (22, 26, 30, 40), 21, 60),
+        int_param("span_b", 52, (44, 52, 60, 80), 21, 120),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        base = _int(params, "base")
+        base = int_value(params, "base")
         ich = ind.ichimoku(
-            bars.high, bars.low, _int(params, "conversion"), base, _int(params, "span_b")
+            bars.high, bars.low, int_value(params, "conversion"), base, int_value(params, "span_b")
         )
         top = np.maximum(prev(ich.span_a_raw, base - 1), prev(ich.span_b_raw, base - 1))
         with np.errstate(invalid="ignore"):
@@ -175,7 +177,11 @@ class TfIchimokuCloud(_TfMethod):
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return max(_int(params, "span_b"), _int(params, "conversion")) + _int(params, "base") - 2
+        return (
+            max(int_value(params, "span_b"), int_value(params, "conversion"))
+            + int_value(params, "base")
+            - 2
+        )
 
 
 @register
@@ -185,17 +191,17 @@ class TfMomentumCross(_TfMethod):
 
     name = "tf_momentum_cross"
     trigger = "event"
-    params = (_int_param("n", 20, (10, 20, 40, 60), 2, 250),)
+    params = (int_param("n", 20, (10, 20, 40, 60), 2, 250),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        mom = ind.momentum(bars.close, _int(params, "n"))
+        mom = ind.momentum(bars.close, int_value(params, "n"))
         with np.errstate(invalid="ignore"):
             return (mom > 0.0) & (prev(mom) <= 0.0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + 1
+        return int_value(params, "n") + 1
 
 
 @register
@@ -205,18 +211,20 @@ class TfKeltnerBreakout(_TfMethod):
     name = "tf_keltner_breakout"
     trigger = "event"
     params = (
-        _int_param("n", 20, (10, 20, 30, 40), 5, 100),
-        _float_param("mult", 1.5, (0.75, 1.0, 1.5, 2.0), 0.25, 4.0, 0.05),
+        int_param("n", 20, (10, 20, 30, 40), 5, 100),
+        float_param("mult", 1.5, (0.75, 1.0, 1.5, 2.0), 0.25, 4.0, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        kc = ind.keltner(bars.high, bars.low, bars.close, _int(params, "n"), _float(params, "mult"))
+        kc = ind.keltner(
+            bars.high, bars.low, bars.close, int_value(params, "n"), float_value(params, "mult")
+        )
         return crossover(bars.close, kc.upper)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + 1
+        return int_value(params, "n") + 1
 
 
 @register
@@ -226,20 +234,20 @@ class TfAdxDi(_TfMethod):
     name = "tf_adx_di"
     trigger = "event"
     params = (
-        _int_param("n", 10, (5, 7, 10, 14), 2, 50),
-        _float_param("t", 20.0, (10.0, 15.0, 20.0, 25.0), 5.0, 50.0, 1.0),
+        int_param("n", 10, (5, 7, 10, 14), 2, 50),
+        float_param("t", 20.0, (10.0, 15.0, 20.0, 25.0), 5.0, 50.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        n = _int(params, "n")
+        n = int_value(params, "n")
         d = ind.dmi(bars.high, bars.low, bars.close, n, n)
         with np.errstate(invalid="ignore"):
-            return crossover(d.plus, d.minus) & (d.adx > _float(params, "t"))
+            return crossover(d.plus, d.minus) & (d.adx > float_value(params, "t"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return 2 * _int(params, "n") - 1  # ADX: the DI from bar n, their RMA n - 1 bars later
+        return 2 * int_value(params, "n") - 1  # ADX: the DI from bar n, their RMA n - 1 bars later
 
 
 @register
@@ -248,15 +256,15 @@ class TfHmaTurn(_TfMethod):
 
     name = "tf_hma_turn"
     trigger = "event"
-    params = (_int_param("n", 16, (9, 16, 25, 49), 4, 200),)
+    params = (int_param("n", 16, (9, 16, 25, 49), 4, 200),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        return turns_up(ind.hma(bars.close, _int(params, "n")))
+        return turns_up(ind.hma(bars.close, int_value(params, "n")))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        n = _int(params, "n")
+        n = int_value(params, "n")
         return n - 1 + int(np.floor(np.sqrt(n))) - 1 + 2
 
 
@@ -268,16 +276,16 @@ class TfKamaCross(_TfMethod):
     trigger = "event"
     kama_fast: ClassVar[int] = 2
     kama_slow: ClassVar[int] = 30
-    params = (_int_param("n", 10, (5, 10, 20, 30), 2, 100),)
+    params = (int_param("n", 10, (5, 10, 20, 30), 2, 100),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        k = ind.kama(bars.close, _int(params, "n"), cls.kama_fast, cls.kama_slow)
+        k = ind.kama(bars.close, int_value(params, "n"), cls.kama_fast, cls.kama_slow)
         return crossover(bars.close, k)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")  # KAMA is seeded at n - 1; the cross needs one value before
+        return int_value(params, "n")  # KAMA is seeded at n - 1; the cross needs one value before
 
 
 @register
@@ -287,14 +295,14 @@ class TfPsarFlip(_TfMethod):
     name = "tf_psar_flip"
     trigger = "event"
     params = (
-        _float_param("step", 0.02, (0.01, 0.02, 0.03, 0.04), 0.005, 0.1, 0.005),
-        _float_param("maximum", 0.2, (0.1, 0.2, 0.3, 0.4), 0.05, 0.5, 0.05),
+        float_param("step", 0.02, (0.01, 0.02, 0.03, 0.04), 0.005, 0.1, 0.005),
+        float_param("maximum", 0.2, (0.1, 0.2, 0.3, 0.4), 0.05, 0.5, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        step = _float(params, "step")
-        s = ind.psar(bars.high, bars.low, bars.close, step, step, _float(params, "maximum"))
+        step = float_value(params, "step")
+        s = ind.psar(bars.high, bars.low, bars.close, step, step, float_value(params, "maximum"))
         with np.errstate(invalid="ignore"):
             return (s < bars.close) & (prev(s) > prev(bars.close))
 
@@ -309,16 +317,16 @@ class TfAroonCross(_TfMethod):
 
     name = "tf_aroon_cross"
     trigger = "event"
-    params = (_int_param("n", 25, (10, 14, 25, 50), 2, 200),)
+    params = (int_param("n", 25, (10, 14, 25, 50), 2, 200),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        a = ind.aroon(bars.high, bars.low, _int(params, "n"))
+        a = ind.aroon(bars.high, bars.low, int_value(params, "n"))
         return crossover(a.up, a.down)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + 1
+        return int_value(params, "n") + 1
 
 
 @register
@@ -329,21 +337,21 @@ class TfAtrBand(_TfMethod):
     name = "tf_atr_band"
     trigger = "state"
     params = (
-        _int_param("n", 10, (5, 10, 20, 40), 2, 100),
-        _float_param("k", 2.5, (1.5, 2.0, 2.5, 3.0), 0.5, 5.0, 0.1),
-        _int_param("m", 25, (10, 14, 25, 50), 2, 100),
+        int_param("n", 10, (5, 10, 20, 40), 2, 100),
+        float_param("k", 2.5, (1.5, 2.0, 2.5, 3.0), 0.5, 5.0, 0.1),
+        int_param("m", 25, (10, 14, 25, 50), 2, 100),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        atr = ind.atr(bars.high, bars.low, bars.close, _int(params, "m"))
-        band = ind.lowest(bars.low, _int(params, "n")) + _float(params, "k") * atr
+        atr = ind.atr(bars.high, bars.low, bars.close, int_value(params, "m"))
+        band = ind.lowest(bars.low, int_value(params, "n")) + float_value(params, "k") * atr
         with np.errstate(invalid="ignore"):
             return bars.close > band
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return max(_int(params, "n"), _int(params, "m")) - 1
+        return max(int_value(params, "n"), int_value(params, "m")) - 1
 
 
 def base_candle_direction(bars: Bars, frac: float) -> tuple[FloatArray, FloatArray]:
@@ -390,11 +398,11 @@ class TfBaseCandle(_TfMethod):
 
     name = "tf_base_candle"
     trigger = "event"
-    params = (_float_param("frac", 1 / 3, (0.25, 1 / 3, 0.4, 0.5), 0.1, 0.5, 0.01),)
+    params = (float_param("frac", 1 / 3, (0.25, 1 / 3, 0.4, 0.5), 0.1, 0.5, 0.01),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        d, _ = base_candle_direction(bars, _float(params, "frac"))
+        d, _ = base_candle_direction(bars, float_value(params, "frac"))
         return (d == 1.0) & (prev(d) == -1.0)
 
     @classmethod

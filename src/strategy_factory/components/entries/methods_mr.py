@@ -35,23 +35,22 @@ from strategy_factory.components import indicators as ind
 from strategy_factory.components.base import (
     Bars,
     BoolArray,
-    EntryComponent,
     FloatArray,
-    ParamSpec,
     ParamValue,
+)
+from strategy_factory.components.entries.method_base import (
+    Method,
+    choice_param,
+    float_param,
+    float_value,
+    int_param,
+    int_value,
+    prev,
 )
 from strategy_factory.components.registry import register
 
 
 # ------------------------------------------------------------------------------ helpers
-def prev(x: FloatArray, periods: int = 1) -> FloatArray:
-    """Pine ``x[periods]``: NaN before the start."""
-    out = np.full(x.shape[0], np.nan)
-    if 0 < periods < x.shape[0]:
-        out[periods:] = x[:-periods]
-    return out
-
-
 def run_of(cond: BoolArray, count: int) -> BoolArray:
     """``cond`` true on this bar and on the ``count - 1`` bars before it."""
     c = np.asarray(cond, dtype=np.bool_)
@@ -150,101 +149,63 @@ def williams_latched(w: FloatArray, higher_high: BoolArray, t: float) -> BoolArr
     return out
 
 
-def _int(p: Mapping[str, ParamValue], key: str) -> int:
-    return int(p[key])
-
-
-def _float(p: Mapping[str, ParamValue], key: str) -> float:
-    return float(p[key])
-
-
-def _int_param(name: str, default: int, coarse: tuple[int, ...], lo: int, hi: int) -> ParamSpec:
-    return ParamSpec(
-        name=name, kind="int", default=default, min=lo, max=hi, coarse_values=coarse, fine_step=1
-    )
-
-
-def _float_param(
-    name: str, default: float, coarse: tuple[float, ...], lo: float, hi: float, step: float
-) -> ParamSpec:
-    return ParamSpec(
-        name=name,
-        kind="float",
-        default=default,
-        min=lo,
-        max=hi,
-        coarse_values=coarse,
-        fine_step=step,
-    )
-
-
-def _choice(name: str, default: str, options: tuple[str, ...]) -> ParamSpec:
-    return ParamSpec(name=name, kind="choice", default=default, coarse_values=options)
-
-
 MACD_FAST, MACD_SLOW, MACD_SIGNAL = 12, 26, 9
 #: first bar with a MACD histogram: the slow EMA at ``slow - 1``, the signal EMA ``signal - 1``
 #: bars later
 MACD_HIST_FIRST = MACD_SLOW - 1 + MACD_SIGNAL - 1
 
 
-class _Method(EntryComponent):
-    """A stage-2 method (T13): an entry with a coarse grid and a declared warm-up."""
+class MrMethod(Method):
+    """A stage-2 mean-reversion method."""
 
     edge_type: ClassVar[str] = "MR"
-    screen: ClassVar[bool] = True
-
-    @classmethod
-    def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        """First bar index at which the method can signal for resolved ``params``."""
-        raise NotImplementedError
 
 
 # ------------------------------------------------------------------------------ methods
 @register
-class MrIbs(_Method):
+class MrIbs(MrMethod):
     """#0 and stage-1 IBS: IBS < t (0..100) on each of the last k bars."""
 
     name = "mr_ibs"
     trigger = "state"
     params = (
-        _float_param("t", 30.0, (15.0, 20.0, 30.0, 40.0), 5.0, 50.0, 1.0),
-        _int_param("k", 1, (1, 2, 3), 1, 5),
+        float_param("t", 30.0, (15.0, 20.0, 30.0, 40.0), 5.0, 50.0, 1.0),
+        int_param("k", 1, (1, 2, 3), 1, 5),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         with np.errstate(invalid="ignore"):
-            return run_of(ibs_pct(bars) < _float(params, "t"), _int(params, "k"))
+            return run_of(ibs_pct(bars) < float_value(params, "t"), int_value(params, "k"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "k") - 1
+        return int_value(params, "k") - 1
 
 
 @register
-class MrRsi(_Method):
+class MrRsi(MrMethod):
     """#1, #19 and the stage-1 RSI probes: RSI(n) <= t (the script's ``<=``)."""
 
     name = "mr_rsi"
     trigger = "state"
     params = (
-        _int_param("n", 2, (2, 3, 5, 7), 2, 14),
-        _float_param("t", 20.0, (15.0, 20.0, 30.0, 35.0), 5.0, 45.0, 1.0),
+        int_param("n", 2, (2, 3, 5, 7), 2, 14),
+        float_param("t", 20.0, (15.0, 20.0, 30.0, 35.0), 5.0, 45.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         with np.errstate(invalid="ignore"):
-            return ind.rsi(bars.close, _int(params, "n")) <= _float(params, "t")
+            return ind.rsi(bars.close, int_value(params, "n")) <= float_value(params, "t")
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
-class MrRsiSum(_Method):
+class MrRsiSum(MrMethod):
     """#2 = cumulative RSI: the sum of RSI(n) over the last m bars < m * level.
 
     The script's rule is n 2, m 2, level 10 (``rsi2 + rsi2[1] < 20``). Its short, ``> 140``, is
@@ -254,21 +215,21 @@ class MrRsiSum(_Method):
     name = "mr_rsi_sum"
     trigger = "state"
     params = (
-        _int_param("n", 2, (2, 3, 4, 5), 2, 14),
-        _int_param("m", 2, (2, 3), 2, 5),
-        _float_param("level", 10.0, (15.0, 20.0, 25.0, 30.0), 5.0, 45.0, 1.0),
+        int_param("n", 2, (2, 3, 4, 5), 2, 14),
+        int_param("m", 2, (2, 3), 2, 5),
+        float_param("level", 10.0, (15.0, 20.0, 25.0, 30.0), 5.0, 45.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        m = _int(params, "m")
-        total = rolling_sum(ind.rsi(bars.close, _int(params, "n")), m)
+        m = int_value(params, "m")
+        total = rolling_sum(ind.rsi(bars.close, int_value(params, "n")), m)
         with np.errstate(invalid="ignore"):
-            return total < m * _float(params, "level")
+            return total < m * float_value(params, "level")
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + _int(params, "m") - 1
+        return int_value(params, "n") + int_value(params, "m") - 1
 
 
 def connors_rsi_mirrorable(
@@ -291,7 +252,7 @@ def connors_rsi_mirrorable(
 
 
 @register
-class MrConnorsRsi(_Method):
+class MrConnorsRsi(MrMethod):
     """F-2.1 Connors RSI: CRSI(rsi_len, 2, 100) < t (streak length and rank length fixed); the
     one-bar ROC in the ``|ref|`` form so the mirror is exact (see
     :func:`connors_rsi_mirrorable`)."""
@@ -301,60 +262,60 @@ class MrConnorsRsi(_Method):
     streak_length: ClassVar[int] = 2
     rank_length: ClassVar[int] = 100
     params = (
-        _int_param("rsi_len", 3, (2, 3, 4, 5), 2, 14),
-        _float_param("t", 20.0, (15.0, 20.0, 25.0, 30.0), 5.0, 45.0, 1.0),
+        int_param("rsi_len", 3, (2, 3, 4, 5), 2, 14),
+        float_param("t", 20.0, (15.0, 20.0, 25.0, 30.0), 5.0, 45.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         crsi = connors_rsi_mirrorable(
-            bars.close, _int(params, "rsi_len"), cls.streak_length, cls.rank_length
+            bars.close, int_value(params, "rsi_len"), cls.streak_length, cls.rank_length
         )
         with np.errstate(invalid="ignore"):
-            return crsi < _float(params, "t")
+            return crsi < float_value(params, "t")
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
         # the percent rank of the one-bar return needs rank_length previous values
-        return max(cls.rank_length, _int(params, "rsi_len"), cls.streak_length + 1)
+        return max(cls.rank_length, int_value(params, "rsi_len"), cls.streak_length + 1)
 
 
 @register
-class MrDownCloses(_Method):
+class MrDownCloses(MrMethod):
     """#4 and stage-1 ``three_down_closes``: k consecutive lower closes."""
 
     name = "mr_down_closes"
     trigger = "state"
-    params = (_int_param("k", 3, (1, 2, 3, 4), 1, 8),)
+    params = (int_param("k", 3, (1, 2, 3, 4), 1, 8),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        return falling_run(bars.close, _int(params, "k"))
+        return falling_run(bars.close, int_value(params, "k"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "k")
+        return int_value(params, "k")
 
 
 @register
-class MrLowerLows(_Method):
+class MrLowerLows(MrMethod):
     """#3: k consecutive lower lows (the script's ``Lower Low 3`` is k 3)."""
 
     name = "mr_lower_lows"
     trigger = "state"
-    params = (_int_param("k", 3, (1, 2, 3, 4), 1, 8),)
+    params = (int_param("k", 3, (1, 2, 3, 4), 1, 8),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        return falling_run(bars.low, _int(params, "k"))
+        return falling_run(bars.low, int_value(params, "k"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "k")
+        return int_value(params, "k")
 
 
 @register
-class MrNDayLow(_Method):
+class MrNDayLow(MrMethod):
     """#5, F-2.1 N-day low, stage-1 ``donchian20_new_low`` and ``lowest_close_7``: the close
     below the lowest ``source`` of the previous n bars.
 
@@ -365,23 +326,23 @@ class MrNDayLow(_Method):
     name = "mr_n_day_low"
     trigger = "event"
     params = (
-        _int_param("n", 5, (3, 5, 10, 20), 2, 50),
-        _choice("source", "low", ("low", "close")),
+        int_param("n", 5, (3, 5, 10, 20), 2, 50),
+        choice_param("source", "low", ("low", "close")),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         src = bars.low if params["source"] == "low" else bars.close
         with np.errstate(invalid="ignore"):
-            return bars.close < prev(ind.lowest(src, _int(params, "n")))
+            return bars.close < prev(ind.lowest(src, int_value(params, "n")))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
-class MrDailyDrop(_Method):
+class MrDailyDrop(MrMethod):
     """#6 (ATR expanding) and #7 (plain; the script's "Small ATR" condition is commented out):
     close below the previous close by d %, optionally with ATR(5) > ATR(10).
 
@@ -394,14 +355,14 @@ class MrDailyDrop(_Method):
     atr_fast: ClassVar[int] = 5
     atr_slow: ClassVar[int] = 10
     params = (
-        _float_param("d", 1.0, (0.5, 1.0, 2.0, 3.0), 0.1, 10.0, 0.1),
-        _choice("atr_expanding", "off", ("off", "on")),
+        float_param("d", 1.0, (0.5, 1.0, 2.0, 3.0), 0.1, 10.0, 0.1),
+        choice_param("atr_expanding", "off", ("off", "on")),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         c = bars.close
-        sig = below_by(c, prev(c), _float(params, "d") / 100.0)
+        sig = below_by(c, prev(c), float_value(params, "d") / 100.0)
         if params["atr_expanding"] == "on":
             fast = ind.atr(bars.high, bars.low, c, cls.atr_fast)
             slow = ind.atr(bars.high, bars.low, c, cls.atr_slow)
@@ -415,7 +376,7 @@ class MrDailyDrop(_Method):
 
 
 @register
-class MrMaDistancePct(_Method):
+class MrMaDistancePct(MrMethod):
     """#9 and F-2.1 distance from a moving average, in percent: close below EMA(n) by p %.
 
     Written ``close < ema - p * |ema|`` (D-632). Split from the ATR form (D-630).
@@ -424,22 +385,22 @@ class MrMaDistancePct(_Method):
     name = "mr_ma_distance_pct"
     trigger = "state"
     params = (
-        _int_param("n", 5, (5, 10, 20, 50), 2, 200),
-        _float_param("p", 1.0, (0.5, 1.0, 2.0, 3.0), 0.1, 10.0, 0.1),
+        int_param("n", 5, (5, 10, 20, 50), 2, 200),
+        float_param("p", 1.0, (0.5, 1.0, 2.0, 3.0), 0.1, 10.0, 0.1),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        ema = ind.ema(bars.close, _int(params, "n"))
-        return below_by(bars.close, ema, _float(params, "p") / 100.0)
+        ema = ind.ema(bars.close, int_value(params, "n"))
+        return below_by(bars.close, ema, float_value(params, "p") / 100.0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") - 1
+        return int_value(params, "n") - 1
 
 
 @register
-class MrMaDistanceAtr(_Method):
+class MrMaDistanceAtr(MrMethod):
     """#8 and F-2.1 distance from a moving average, in ATR: ``close + a * ATR(5) < EMA(n)``.
     Split from the percent form (D-630)."""
 
@@ -447,129 +408,131 @@ class MrMaDistanceAtr(_Method):
     trigger = "state"
     atr_length: ClassVar[int] = 5
     params = (
-        _int_param("n", 5, (5, 10, 20, 50), 2, 200),
-        _float_param("a", 0.5, (0.25, 0.5, 1.0, 1.5), 0.05, 5.0, 0.05),
+        int_param("n", 5, (5, 10, 20, 50), 2, 200),
+        float_param("a", 0.5, (0.25, 0.5, 1.0, 1.5), 0.05, 5.0, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        ema = ind.ema(bars.close, _int(params, "n"))
+        ema = ind.ema(bars.close, int_value(params, "n"))
         atr = ind.atr(bars.high, bars.low, bars.close, cls.atr_length)
         with np.errstate(invalid="ignore"):
-            return bars.close + _float(params, "a") * atr < ema
+            return bars.close + float_value(params, "a") * atr < ema
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return max(_int(params, "n") - 1, cls.atr_length - 1)
+        return max(int_value(params, "n") - 1, cls.atr_length - 1)
 
 
 @register
-class MrEmaSlopeDrop(_Method):
+class MrEmaSlopeDrop(MrMethod):
     """#10: EMA(n) fell by more than p % in one bar, written
     ``ema < ema[1] - p * |ema[1]|`` (D-632)."""
 
     name = "mr_ema_slope_drop"
     trigger = "state"
     params = (
-        _int_param("n", 5, (3, 5, 8, 10), 2, 50),
-        _float_param("p", 0.5, (0.25, 0.5, 0.75, 1.0), 0.05, 5.0, 0.05),
+        int_param("n", 5, (3, 5, 8, 10), 2, 50),
+        float_param("p", 0.5, (0.25, 0.5, 0.75, 1.0), 0.05, 5.0, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        ema = ind.ema(bars.close, _int(params, "n"))
-        return below_by(ema, prev(ema), _float(params, "p") / 100.0)
+        ema = ind.ema(bars.close, int_value(params, "n"))
+        return below_by(ema, prev(ema), float_value(params, "p") / 100.0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
-class MrIbsAfterNewHigh(_Method):
+class MrIbsAfterNewHigh(MrMethod):
     """#14 (a pullback inside strength): the high above the highest high of the previous n
     bars, and IBS < t (0..100)."""
 
     name = "mr_ibs_after_new_high"
     trigger = "state"
     params = (
-        _int_param("n", 10, (3, 5, 10, 20), 2, 100),
-        _float_param("t", 15.0, (15.0, 20.0, 25.0, 30.0), 5.0, 50.0, 1.0),
+        int_param("n", 10, (3, 5, 10, 20), 2, 100),
+        float_param("t", 15.0, (15.0, 20.0, 25.0, 30.0), 5.0, 50.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         with np.errstate(invalid="ignore"):
-            new_high = bars.high > prev(ind.highest(bars.high, _int(params, "n")))
-            return new_high & (ibs_pct(bars) < _float(params, "t"))
+            new_high = bars.high > prev(ind.highest(bars.high, int_value(params, "n")))
+            return new_high & (ibs_pct(bars) < float_value(params, "t"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")
 
 
 @register
-class MrMacdHistFalling(_Method):
+class MrMacdHistFalling(MrMethod):
     """#17: the MACD(12, 26, 9) histogram fell k bars in a row, is below 0, and
     close < close[1] (the script's k is 4)."""
 
     name = "mr_macd_hist_falling"
     trigger = "state"
-    params = (_int_param("k", 4, (2, 3, 4, 5), 1, 10),)
+    params = (int_param("k", 4, (2, 3, 4, 5), 1, 10),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         h = macd_hist(bars)
         with np.errstate(invalid="ignore"):
-            return falling_run(h, _int(params, "k")) & (h < 0) & (bars.close < prev(bars.close))
+            return (
+                falling_run(h, int_value(params, "k")) & (h < 0) & (bars.close < prev(bars.close))
+            )
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return MACD_HIST_FIRST + _int(params, "k")
+        return MACD_HIST_FIRST + int_value(params, "k")
 
 
 @register
-class MrMacdHistTurn(_Method):
+class MrMacdHistTurn(MrMethod):
     """#20: the MACD(12, 26, 9) histogram rose k bars in a row while below 0 (the script's k
     is 2). Not the stage-1 trough probe: that is a minimum, this is a rise."""
 
     name = "mr_macd_hist_turn"
     trigger = "state"
-    params = (_int_param("k", 2, (1, 2, 3, 4), 1, 10),)
+    params = (int_param("k", 2, (1, 2, 3, 4), 1, 10),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         h = macd_hist(bars)
         with np.errstate(invalid="ignore"):
-            return rising_run(h, _int(params, "k")) & (h < 0)
+            return rising_run(h, int_value(params, "k")) & (h < 0)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return MACD_HIST_FIRST + _int(params, "k")
+        return MACD_HIST_FIRST + int_value(params, "k")
 
 
 @register
-class MrMacdHistTrough(_Method):
+class MrMacdHistTrough(MrMethod):
     """Stage-1 ``macd_hist_trough_5``: the MACD(12, 26, 9) histogram at its lowest value of the
     last w bars, current bar included."""
 
     name = "mr_macd_hist_trough"
     trigger = "state"
-    params = (_int_param("w", 5, (3, 5, 7, 10), 2, 30),)
+    params = (int_param("w", 5, (3, 5, 7, 10), 2, 30),)
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         h = macd_hist(bars)
         with np.errstate(invalid="ignore"):
-            return h <= ind.lowest(h, _int(params, "w"))
+            return h <= ind.lowest(h, int_value(params, "w"))
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return MACD_HIST_FIRST + _int(params, "w") - 1
+        return MACD_HIST_FIRST + int_value(params, "w") - 1
 
 
 @register
-class MrCandleScore(_Method):
+class MrCandleScore(MrMethod):
     """#18: the script's candle score summed over n bars <= n * level; ``rising`` also needs
     the sum above its previous value (#18 "Rising").
 
@@ -581,28 +544,28 @@ class MrCandleScore(_Method):
     name = "mr_candle_score"
     trigger = "state"
     params = (
-        _int_param("n", 3, (2, 3, 4, 5), 1, 20),
-        _float_param("level", -2.5, (-2.5, -2.0, -1.5, -1.0), -5.0, 5.0, 0.25),
-        _choice("mode", "level", ("level", "rising")),
+        int_param("n", 3, (2, 3, 4, 5), 1, 20),
+        float_param("level", -2.5, (-2.5, -2.0, -1.5, -1.0), -5.0, 5.0, 0.25),
+        choice_param("mode", "level", ("level", "rising")),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        n = _int(params, "n")
+        n = int_value(params, "n")
         total = rolling_sum(candle_total(bars), n)
         with np.errstate(invalid="ignore"):
-            sig = total <= n * _float(params, "level")
+            sig = total <= n * float_value(params, "level")
             if params["mode"] == "rising":
                 sig = sig & (total > prev(total))
         return np.asarray(sig, dtype=np.bool_)
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") + (1 if params["mode"] == "rising" else 0)
+        return int_value(params, "n") + (1 if params["mode"] == "rising" else 0)
 
 
 @register
-class MrWilliamsConfirm(_Method):
+class MrWilliamsConfirm(MrMethod):
     """#22 and F-2.1 Williams %R: %R(n) (0..100) < t, with a confirmation choice.
 
     * ``off``: %R < t alone (F-2.1's Williams %R);
@@ -617,14 +580,14 @@ class MrWilliamsConfirm(_Method):
     name = "mr_williams_confirm"
     trigger = "state"
     params = (
-        _int_param("n", 5, (5, 10, 14, 20), 2, 50),
-        _float_param("t", 20.0, (5.0, 10.0, 20.0, 30.0), 1.0, 45.0, 1.0),
-        _choice("confirm", "same_bar", ("off", "same_bar", "latched")),
+        int_param("n", 5, (5, 10, 14, 20), 2, 50),
+        float_param("t", 20.0, (5.0, 10.0, 20.0, 30.0), 1.0, 45.0, 1.0),
+        choice_param("confirm", "same_bar", ("off", "same_bar", "latched")),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        n, t = _int(params, "n"), _float(params, "t")
+        n, t = int_value(params, "n"), float_value(params, "t")
         w = williams_pct(bars, n)
         with np.errstate(invalid="ignore"):
             below = w < t
@@ -638,34 +601,34 @@ class MrWilliamsConfirm(_Method):
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        first = _int(params, "n") - 1
+        first = int_value(params, "n") - 1
         return first if params["confirm"] == "off" else max(first, 1)
 
 
 @register
-class MrZscore(_Method):
+class MrZscore(MrMethod):
     """Stage-1 z-score probe (it replaces ``close_below_bb_lower``, the same rule, D-627):
     z(close, n) < -t."""
 
     name = "mr_zscore"
     trigger = "state"
     params = (
-        _int_param("n", 20, (10, 20, 30, 40), 5, 100),
-        _float_param("t", 1.5, (1.0, 1.25, 1.5, 2.0), 0.25, 4.0, 0.05),
+        int_param("n", 20, (10, 20, 30, 40), 5, 100),
+        float_param("t", 1.5, (1.0, 1.25, 1.5, 2.0), 0.25, 4.0, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
         with np.errstate(invalid="ignore"):
-            return ind.zscore(bars.close, _int(params, "n")) < -_float(params, "t")
+            return ind.zscore(bars.close, int_value(params, "n")) < -float_value(params, "t")
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") - 1
+        return int_value(params, "n") - 1
 
 
 @register
-class MrStochasticK(_Method):
+class MrStochasticK(MrMethod):
     """F-2.1 stochastic: the smoothed %K(n, 3) < t. Smoothed, so it is not the raw %R of
     ``mr_williams_confirm``."""
 
@@ -673,38 +636,42 @@ class MrStochasticK(_Method):
     trigger = "state"
     k_smooth: ClassVar[int] = 3
     params = (
-        _int_param("n", 14, (5, 9, 14, 21), 2, 50),
-        _float_param("t", 20.0, (10.0, 15.0, 20.0, 30.0), 1.0, 45.0, 1.0),
+        int_param("n", 14, (5, 9, 14, 21), 2, 50),
+        float_param("t", 20.0, (10.0, 15.0, 20.0, 30.0), 1.0, 45.0, 1.0),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        k = ind.stochastic(bars.high, bars.low, bars.close, _int(params, "n"), cls.k_smooth, 3).k
+        k = ind.stochastic(
+            bars.high, bars.low, bars.close, int_value(params, "n"), cls.k_smooth, 3
+        ).k
         with np.errstate(invalid="ignore"):
-            return k < _float(params, "t")
+            return k < float_value(params, "t")
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n") - 1 + cls.k_smooth - 1
+        return int_value(params, "n") - 1 + cls.k_smooth - 1
 
 
 @register
-class MrKeltnerLower(_Method):
+class MrKeltnerLower(MrMethod):
     """F-2.1 Keltner lower band: close below the lower Keltner band (n, mult)."""
 
     name = "mr_keltner_lower"
     trigger = "state"
     params = (
-        _int_param("n", 20, (10, 20, 30, 40), 5, 100),
-        _float_param("mult", 1.0, (0.5, 1.0, 1.5, 2.0), 0.25, 4.0, 0.05),
+        int_param("n", 20, (10, 20, 30, 40), 5, 100),
+        float_param("mult", 1.0, (0.5, 1.0, 1.5, 2.0), 0.25, 4.0, 0.05),
     )
 
     @classmethod
     def long_signals(cls, bars: Bars, params: Mapping[str, ParamValue]) -> BoolArray:
-        kc = ind.keltner(bars.high, bars.low, bars.close, _int(params, "n"), _float(params, "mult"))
+        kc = ind.keltner(
+            bars.high, bars.low, bars.close, int_value(params, "n"), float_value(params, "mult")
+        )
         with np.errstate(invalid="ignore"):
             return bars.close < kc.lower
 
     @classmethod
     def warmup(cls, params: Mapping[str, ParamValue]) -> int:
-        return _int(params, "n")
+        return int_value(params, "n")

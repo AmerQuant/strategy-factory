@@ -155,9 +155,9 @@ def test_F_2_7_d623_the_gate_reads_costs_the_ranking_does_not(
     def costs_with(spread: float) -> Any:
         return lambda sym, ac, tf, bars, *a: flat_costs(int(bars["close"].shape[0]), spread)
 
-    monkeypatch.setattr(screen_mod, "_cost_arrays", costs_with(0.0))
+    monkeypatch.setattr(screen_mod, "cost_arrays", costs_with(0.0))
     cheap = {a.identity.method + a.identity.direction: a for a in summaries(run(tmp_path / "a")[0])}
-    monkeypatch.setattr(screen_mod, "_cost_arrays", costs_with(5.0))
+    monkeypatch.setattr(screen_mod, "cost_arrays", costs_with(5.0))
     dear = {a.identity.method + a.identity.direction: a for a in summaries(run(tmp_path / "b")[0])}
     assert cheap.keys() == dear.keys()
     moved = 0

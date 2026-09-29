@@ -83,10 +83,10 @@ from strategy_factory.pipeline.backtest import (
 )
 from strategy_factory.pipeline.executor import unit_seed
 from strategy_factory.stages.base import ArtifactRef, RunContext, StageResult
+from strategy_factory.stages.common import UnsupportedSymbol, cost_arrays, require_research_engine
 from strategy_factory.stages.config import STAGE as S01_STAGE
 from strategy_factory.stages.config import EdgeTypeSpec
 from strategy_factory.stages.control import permute_returns
-from strategy_factory.stages.edge import UnsupportedSymbol, _cost_arrays, _require_research_engine
 from strategy_factory.stages.edge_profile import EdgeProfile, GateLine, SnapshotId, clean
 from strategy_factory.stages.screen_artifact import (
     SCHEMA_VERSION,
@@ -545,7 +545,7 @@ class ScreenStage:
 
     def run(self, inputs: Sequence[tuple[str, str]], ctx: RunContext) -> StageResult:
         cfg = load_s02_config(self.stage_config_path, self.s01_config_path)
-        _require_research_engine(ctx)
+        require_research_engine(ctx, STAGE)
         from strategy_factory.core.universe import load_universe
 
         parent_run = ctx.config.stage_inputs.get(S01_STAGE)
@@ -588,7 +588,7 @@ class ScreenStage:
                         bars, unit_seed(ctx.seed, f"{key[0]}|{key[1]}|random_walk")
                     )
                 try:
-                    costs = _cost_arrays(
+                    costs = cost_arrays(
                         key[0], universe[key[0]].asset_class, key[1], bars, self.costs_dir,
                         cost_profiles, assignments,
                     )  # fmt: skip
