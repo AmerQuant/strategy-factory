@@ -50,10 +50,11 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-807**, **P-40 … P-59** and **P-100 … P-123**,
-all answered — **stream A has no open question**. **Next free here: D-808, P-124.** Supervisor
-rows written by stream A: D-601 … D-651 (D-651 (1) amended on the T14 review); **next free
-supervisor id D-652**. Everything through D-651 and D-807 is on `main` (#54, #55).
+Stream A has used **D-360 … D-379**, **D-800 … D-807**, **P-40 … P-59** and **P-100 … P-133**;
+**P-124 … P-133 (the T15a plan) are open**, everything before them answered. **Next free here: D-808, P-134.** Supervisor
+rows written by stream A: D-601 … D-656 (D-651 (1) amended on the T14 review; D-652 … D-656
+from the T15a task file, on `a/T15a-plan`); **next free
+supervisor id D-657**. Everything through D-651 and D-807 is on `main` (#54, #55).
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -104,11 +105,13 @@ supervisor id D-652**. Everything through D-651 and D-807 is on `main` (#54, #55
 
 ## Status — 2026-09-29
 
-**T15a plan in progress (branch `a/T15a-plan`, not yet stopped for "Plan approved").** Task file
-and D-652 … D-656 committed. Draft `docs/tasks/T15a_plan.md` with measurements M1 (null fit), M2
-(stage 1 on the null), M4 (null through stages 1-3: 1D 6 of 486 symbols = 1.23 % > D-656's 1 %;
-1H 0.27 %). Still to do: M3 (planted ladder, plan §4), P-124 … P-133 in `pending.md`,
-`RUNBOOK_T15a.md`, then the plan summary and the stop.
+**T15a plan stopped for "Plan approved" (branch `a/T15a-plan`).** Task file and D-652 … D-656
+committed; plan `docs/tasks/T15a_plan.md` (measurements M1–M4), runbook `docs/tasks/RUNBOOK_T15a.md`,
+open questions **P-124 … P-133**. Headline: the calibrated null reaches the end of stage 3 on
+**1.23 % of daily symbols (6 of 486)** against the real data's 0.41 % (2 of 486); on 1H the null's
+stage-1 passes are all TF long like the real ones; the reshuffled control's zeros understated the
+false-positive rate (it distorts bar shape: ATR 17–30 % too high). **Next free: D-808, P-134;
+supervisor D-657.**
 
 **T14 is merged (#54 plan, #55 stage; merge commit `85870be`). Stream A has nothing open and waits
 for the next task file.** `main` is at `85870be` plus this status (HANDOFF v10).
@@ -285,7 +288,7 @@ From T14 (D-651, review §3, §6):
 1. **The next task** — wait for the supervisor's task file; then plan (D-403), measuring on real
    data and on the control before proposing, and stop for "Plan approved". Stage 4 would read the
    passing `EntryOptimisation` artifacts of `f72b80ee…` (1D) and `ce348ae8…` (1H).
-2. **Next free ids:** D-808, P-124 (stream A); supervisor D-652.
+2. **Next free ids:** D-808, P-134 (stream A); supervisor D-657.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
 4. **T11b** when the user exports (D-802). **T15** owns the calibration list above (12 items).

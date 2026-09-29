@@ -4,7 +4,7 @@ Stream A's plan for `docs/tasks/T15a_orchestrator_synthetic_report.md` (D-403). 
 the supervisor's and is not edited. Decisions: **D-652 … D-656** (recorded from T15a §2), D-004,
 D-008, D-031, D-160, D-305, D-306, D-334, D-351, D-352, D-354, D-400, D-401, D-402, D-602, D-607,
 D-610, D-615 … D-618, D-621, D-629, D-644, D-647, D-651, D-802, D-804, D-805, D-807, ADR-008.
-Open questions: **P-124 … P-132** (`docs/decisions/pending.md`).
+Open questions: **P-124 … P-133** (`docs/decisions/pending.md`).
 
 Features: **F-X.1** (orchestrator), **F-X.2** (CLI), **F-X.3** (Persian HTML report framework),
 **F-X.4** (stage 1–3 report), **F-X.5** (false-positive self-test), all MVP and assigned to T15;
@@ -177,14 +177,68 @@ and reads T12's real and control artifacts for the same symbols
   sits *below* its null (45 / 9.4 %). The null is not at fault — it is a random walk; the matched
   baseline is: it places random entries uniformly in time, while the probes enter at particular
   session slots after particular bars (the overnight-gap slot has 2.8× the volatility). **This is
-  a new item for T15b's list (item 13): the stage-1 baseline is not matched on intraday timing.**
+  a new item for T15b's list (item 13, P-133): the stage-1 baseline is not matched on intraday
+  timing.**
   T15a reports it and changes nothing (D-652).
 - The 1D sample happened to contain three of T12's 14 real passes (MSFT, SHW, AAPL); every null
   pass is MR. Counts of 1–5 do not separate the variants; M4 (§1) is the full-scope measurement.
 
 ## 4. The planted edge (D-654, F-X.6) (M3)
 
-TBD-M3
+The planted edge is added to the calibrated null and is **timing, never drift**
+(`scripts/analysis/T15a_planted.py`, M3; `docs/reviews/T15a_plan_planted.csv`):
+
+- **MR (long):** events at seeded random bars, 12 a year on average. At an event bar the close is
+  pushed down by **s × ATR** (the null's own ATR(14) at the previous bar); over the next **k = 5**
+  bars it reverts in equal steps. Net zero, so the drift is unchanged.
+- **TF (long):** segments of **60 daily bars** (420 hourly), one a year on average; inside a segment
+  each bar gains **d × the bar volatility**; the series is then re-centred so its mean return is the
+  null's.
+- The planted positions (event bars, segment spans) are recorded per symbol.
+
+Measured on 30 daily symbols, six strengths each, stage 1 as a dry run (a symbol is 3.3 %):
+
+| planted | strength | own statistic, planted mean [p5] | null [p5, p95] | stage 1 pass rate, planted type & direction | its probe percentiles, mean / ≥ 90 |
+|---|---|---|---|---|---|
+| MR long | s 0.25 | 0.28 [0.02] | 0.02 [−0.25, 0.28] | 0 % | 55 / 9 % |
+| | 0.5 | 0.54 [0.28] | | 0 % | 59 / 11 % |
+| | **1.0** | 1.05 [**0.80**] | | **0 %** | 66 / 20 % |
+| | 1.5 | 1.54 [1.30] | | 3 % | 75 / 35 % |
+| | 2.0 | 2.02 [1.78] | | 17 % | 83 / 54 % |
+| | 3.0 | 2.93 [2.70] | | **40 %** | 88 / 72 % |
+| TF long | d 0.05 | 0.06 [−0.00] | 0.01 [−0.05, 0.09] | 3 % | 47 / 7 % |
+| | 0.1 | 0.11 [0.05] | | 3 % | 53 / 12 % |
+| | **0.15** | 0.16 [**0.10**] | | **3 %** | 63 / 20 % |
+| | 0.2 | 0.21 [0.15] | | 0 % | 72 / 34 % |
+| | 0.3 | 0.31 [0.25] | | 10 % | 84 / 60 % |
+| | 0.5 | 0.50 [0.44] | | **7 %** | 94 / 83 % |
+
+(own statistic: MR — the mean 5-bar forward return after an event in ATR units minus the same
+after every other bar; TF — the mean return inside the segments minus outside, in units of the bar
+volatility.)
+
+- **The generator plants what it says**: the own statistic recovers the strength (0.28 for 0.25,
+  2.93 for 3.0; 0.06 … 0.50 for d) and is ≈ 0 on the null. **From MR 1 ATR and TF 0.15 σ the
+  planted edge is present on every symbol** — its 5th percentile is above the null's 95th.
+- **Stage 1 finds a present edge rarely.** At 1 ATR, where the effect is on every symbol, stage 1
+  passes none; at 3 ATR, 40 %. The probe percentiles do move (66 → 88 mean, 20 → 72 % at or above
+  90): the probes see the edge; the profile gate (breadth over groups, the trade minimum, the
+  probe q-values) stops it. For TF the percentiles reach 94 / 83 % at d 0.5 and the pass rate stays
+  3–10 % — T12's "TF on 1D is near-unpassable" (calibration item 2), now measured as power.
+- **Other edge types stay clean**: a planted MR edge makes no TF profile pass and vice versa (0 %
+  everywhere). **But the opposite direction moves**: a planted MR-long edge passes MR *short*
+  profiles at 10 % (s 2) and 33 % (s 3), and the re-centred TF-long edge passes TF *short* at
+  3 % and 10 % (d 0.3, 0.5) — the re-centring puts a down-drift outside the segments. So the truth of a planted run is
+  recorded per (type, direction), and the TF plant is changed (P-127): **segments of both signs**,
+  alternating, with no re-centring needed — a trend edge in both directions, honestly labelled.
+- **The ladder for the acceptance runs (P-127)** has to reach "obvious" at the end of stage 3, and
+  stage 1 alone does not reach it at today's strengths. Proposal: MR s ∈ {1, 2, 3, 4, 6} and TF
+  d ∈ {0.1, 0.2, 0.3, 0.5, 0.8}, each (type, direction, strength) on an equal share of the scope
+  (≈ 24 daily symbols per cell with 20 cells; a planted run also keeps a share of pure-null
+  symbols, so its false positives are counted in the same run). The two top values of each ladder
+  are **not measured yet**; the implementation's first planted pilot checks that the top reaches at
+  least 80 % at stage 1 and widens the ladder if not, before the full run (a stop, §12).
+- Power at the end of stage 3 is the acceptance run's number (T15a §6); M3 measures stage 1 only.
 
 ## 5. The orchestrator (F-X.1, F-X.2)
 
@@ -326,7 +380,7 @@ URI, all CSS and JS inline; `displaylogo: false`, no MathJax, no topojson.
 - **Synthetic runs:** the truth — null: every pass is a false positive, the end-of-stage-3 share
   against D-656; planted: power per (type, direction, strength) at each stage.
 - A candidate cap per run (`report.max_candidate_sections`, config) moves the rest into a table,
-  should a null run send many candidates to stage 3.
+  should a null run send many candidates to stage 3. The report's scope is **P-130**.
 
 ### 7.3 Font and direction (P-128)
 
@@ -388,8 +442,8 @@ its licence.
 
 Measured incidentally so far, all on 6 workers × 1 Numba thread: stage 1 on the 486 daily null
 series in **520 s** (T12's full 1D run: 22 min under `auto` = 4 workers × 5 threads, partly on
-efficiency cores before D-804); the 120-symbol sample in 119 s. Stage 1 is single-threaded per
-unit, so `auto`'s five Numba threads per worker idle. **Proposal (P-129):** in the implementation,
+efficiency cores before D-804); the 120-symbol sample in 119 s. Whether stage 1's units use
+`auto`'s five Numba threads per worker at all is part of the measurement. **Proposal (P-129):** in the implementation,
 measure stage 1 (1D, full scope) and stage 3 (1H, the largest grids) at workers ∈ {auto, 8, 12, 16}
 × 1 thread **while stream B is idle** (benchmarks take every core), and propose a per-stage default
 from the numbers; the budget is operational (never hashed, D-351), so no result changes. Not
@@ -426,10 +480,13 @@ unchanged, so their truncation tests stand.
 1. **Real:** `sfac funnel run configs/funnel/mvp.yaml` (1D and 1H, with the control) — the same
    passes as T12–T14 at every stage (14 / 25 / 2 on 1D, 4 / 6 / 4 on 1H) and 0 control passes at
    stages 2 and 3; the wall time stated. Expected ≈ 2 h (stage 1 dominates).
-2. **Null** and **planted**: full funnel runs, both timeframes, today's thresholds; the null's
-   end-of-stage-3 share against D-656 and the planted power curve, per stage.
-3. One report per funnel run; the reports and their sizes in the review.
-4. Fast suite, parity / leakage / oracle, db (0 skipped), slow, ruff, format, mypy (Windows and
+2. **Planted pilot, then stop**: 30 daily symbols at the ladder's top two strengths; if the top does
+   not reach 80 % at stage 1, widen the ladder (P-127) and report before the full run.
+3. **Null** and **planted**: full funnel runs, both timeframes, today's thresholds; the null's
+   end-of-stage-3 share against D-656 (with the seed spread: three seeds of the null) and the
+   planted power curve, per stage.
+4. One report per funnel run; the reports and their sizes in the review.
+5. Fast suite, parity / leakage / oracle, db (0 skipped), slow, ruff, format, mypy (Windows and
    `--platform linux`), stream guards; the `acceptance-reviewer`; D-802 stated; **stop for
    "Approved"**.
 
