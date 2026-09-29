@@ -16,8 +16,15 @@ from `main`.
 > when T04j completes.
 
 **Status:** plan approved 2026-09-22 (D-715, D-716, D-717). The coverage gate and the week-open
-spread key are built. **Paused:** the download needs several more days, and nothing is ingested
-until the coverage gate passes.
+spread key are built. **D-657 (supervisor, 2026-09-29): the gate is per instrument** -- a complete
+instrument is ingested now, a gapped one waits for its download; no instrument is ever ingested with
+a gap. Built for it: the per-instrument refusal in `sfac data ingest dukascopy`, the D-717
+re-measure per instrument (`scripts/analysis/T04j_defects.py`, exit 1 on any family) and the single
+resume command `uv run python scripts/pilots/T04j_resume.py` (coverage -> D-717 -> ingest 1H ->
+1D -> quality -> costs, skipping instruments already done; `--dry-run` stops after D-717).
+**2026-09-29: 0 of 29 instruments complete; the newest raw file is from 2026-09-22 16:05 UTC** --
+the download has not written for a week, and every instrument still misses months (scattered
+one-sided months on the near-complete ones: failed fetches a re-run fills). Nothing is ingested.
 
 Read first: `CLAUDE.md` (rules 3, 7, 10, 11), D-010, D-020, D-026, D-028, D-031, D-032, D-323, D-350,
 D-386, D-523, D-707, D-708, D-714, D-715, D-716, D-717; `docs/reviews/T04e_review.md`, `T05_review.md`, `T06b_review.md`,

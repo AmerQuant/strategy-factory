@@ -21,7 +21,8 @@
 # without a bid / ask file, missing; writes SFAC_RAW_ROOT\_reports\dukascopy_coverage_h1.csv and
 # prints the remaining gaps. "coverage gate: passed" means the set is complete.
 #
-# Nothing is ingested by this script (T04j: no ingest until the coverage gate passes).
+# Nothing is ingested by this script. The ingest of every complete instrument is one local command,
+# `uv run python scripts/pilots/T04j_resume.py` (D-657: the gate is per instrument).
 # Needs SFAC_RAW_ROOT in .env (or the environment) and Node/npx for dukascopy-node (as in T04e).
 # All output is appended to SFAC_RAW_ROOT\_reports\T04j_dukascopy_download_<timestamp>.log.
 
@@ -117,6 +118,8 @@ if ($coverage -eq 0) {
 }
 if ($coverage -eq 1) {
     Write-Log 'NOT COMPLETE: the GAPS line above lists the months still missing.'
+    Write-Log ("Complete instruments can be ingested now (D-657, per instrument): {0}" -f `
+        'uv run python scripts/pilots/T04j_resume.py')
     Write-Log 'Re-run this same script to fetch them (stored months are skipped).'
     Write-Log "If the same months fail on every re-run, send the log to Claude Code (stream B): $log"
     exit 1

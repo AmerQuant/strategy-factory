@@ -123,10 +123,12 @@ def ingest_dukascopy(
         cfg = load_dukascopy_config(config)
         insts = _select(instruments, cfg.universe_file)
         root = raw_root()
-        # T04j (D-386 copied, P-62): a gapped raw set is not ingested at all -- refuse before
-        # anything is written; there is no --allow-gaps.
+        # T04j (D-386 copied, P-62; per instrument since D-657): an instrument with a gap is never
+        # ingested -- it waits, and nothing is written for it; there is no --allow-gaps. A complete
+        # instrument is ingested without waiting for the others.
         gaps = dukascopy_gaps(_coverage(root, series, insts, cfg))
-        if gaps:
+        ready = [i for i in insts if i.symbol not in gaps]
+        if not ready:
             raise _fail(
                 f"{series} raw coverage has gaps, nothing ingested (no --allow-gaps): "
                 f"{describe_month_gaps(gaps)}. See `sfac data coverage dukascopy`."
@@ -134,7 +136,7 @@ def ingest_dukascopy(
         store, catalog = SnapshotStore(), Catalog()
         adapter = DukascopyAdapter(cfg)
         failed = 0
-        for inst in insts:
+        for inst in ready:
             try:
                 bid, ask = raw_pairs(root, series, inst.instrument_id)
                 df, meta = adapter.to_canonical(
@@ -166,16 +168,24 @@ def ingest_dukascopy(
                 typer.echo(f"{inst.symbol}: FAILED {exc}", err=True)
     except SfacError as exc:
         raise _fail(str(exc)) from exc
+    if gaps:
+        typer.echo(
+            f"waiting (not ingested, D-657): {describe_month_gaps(gaps)}. "
+            "See `sfac data coverage dukascopy`."
+        )
     if failed:
         raise typer.Exit(code=2)
+
+
+def _today() -> dt.date:
+    return dt.datetime.now(dt.UTC).date()
 
 
 COVERAGE_REPORT = "dukascopy_coverage_{series}.csv"
 
 
 def _coverage(root: Path, series: str, insts: list, cfg: DukascopyConfig) -> pl.DataFrame:  # type: ignore[type-arg]
-    today = dt.datetime.now(dt.UTC).date()
-    return dukascopy_coverage_frame(root, series, insts, cfg.h1_start, today)
+    return dukascopy_coverage_frame(root, series, insts, cfg.h1_start, _today())
 
 
 @coverage_app.command("dukascopy")

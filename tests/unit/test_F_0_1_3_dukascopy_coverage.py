@@ -3,7 +3,8 @@
 A gap is a required month without a file on either side (the adapter refuses one-sided bars); a
 month before the instrument's own start (its universe notes) and the current month are never
 required; the latest version of a month counts. The verdict rests on the files present, never on a
-manifest field (D-711). The ingest refuses a gapped set and writes nothing.
+manifest field (D-711). The ingest never writes an instrument with a gap; since D-657 the gate is
+per instrument, so a complete instrument is ingested while a gapped one waits.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from strategy_factory.cli import app
+from strategy_factory.data import cli_dukascopy
+from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.coverage import dukascopy_coverage_frame, dukascopy_gaps
 from strategy_factory.data.download.dukascopy import Instrument, month_dir
 
@@ -134,3 +137,72 @@ def test_F_0_1_3_T04j_the_coverage_command_reports_and_exits_on_a_gap(cli_env: P
     assert out.exit_code == 1 and "GAPS" in out.output and "complete: 0 of 1" in out.output
     report = cli_env / "raw" / "_reports" / "dukascopy_coverage_h1.csv"
     assert report.is_file() and "EURUSD" in report.read_text(encoding="utf-8")
+
+
+FIX = Path(__file__).resolve().parents[1] / "fixtures" / "dukascopy" / "h1" / "EURUSD"
+
+
+@pytest.fixture
+def two_instruments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """EURUSD complete (the real 2024-03 fixture month, both sides) and GBPUSD with no file; the
+    only required month is 2024-03."""
+    raw = tmp_path / "raw"
+    for side in ("bid", "ask"):
+        folder = month_dir(raw, "h1", "eurusd", side)
+        folder.mkdir(parents=True)
+        (folder / "2024-03.csv.gz").write_bytes((FIX / side / "2024-03.csv.gz").read_bytes())
+    universe = tmp_path / "dukascopy.csv"
+    universe.write_text(
+        "instrument_id,symbol,asset_class,notes\n"
+        "eurusd,EURUSD,fx,h1 from 2003-05-04;\n"
+        "gbpusd,GBPUSD,fx,h1 from 2003-05-04;\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dukascopy.yaml").write_text(
+        # the fixture month has 1 one-sided bar of 73, as in test_F_0_1_3_dukascopy's adapt()
+        f"h1_start: 2024-03-01\nmax_one_sided_share: 0.02\nuniverse_file: {universe.as_posix()}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(raw))
+    monkeypatch.setenv("SFAC_DATA_ROOT", str(tmp_path / "store"))
+    monkeypatch.setattr(cli_dukascopy, "_today", lambda: dt.date(2024, 4, 15))
+    return tmp_path
+
+
+def test_F_0_1_3_T04j_D657_a_complete_instrument_is_ingested_while_a_gapped_one_waits(
+    two_instruments: Path,
+) -> None:
+    out = _invoke(two_instruments, "ingest", "dukascopy", "--set-reference")
+    assert out.exit_code == 0, out.output
+    assert "waiting (not ingested, D-657)" in out.output
+    assert "GBPUSD 1 month(s) (2024-03..2024-03)" in out.output
+    catalog = Catalog()
+    assert catalog.has_reference("EURUSD", "1H")
+    assert catalog.get_reference("EURUSD", "1H").hash_version == 2
+    assert catalog.table()["symbol"].unique().to_list() == ["EURUSD"]  # nothing for GBPUSD
+    assert not (two_instruments / "store" / "dukascopy" / "GBPUSD").exists()
+
+
+def test_F_0_1_3_T04j_D657_a_gapped_instrument_named_alone_is_refused_and_writes_nothing(
+    two_instruments: Path,
+) -> None:
+    out = _invoke(two_instruments, "ingest", "dukascopy", "--instruments", "gbpusd")
+    assert out.exit_code == 1
+    assert "nothing ingested" in out.output and "GBPUSD" in out.output
+    assert not (two_instruments / "store").exists()
+
+
+def test_F_0_1_3_T04j_D657_a_rerun_of_an_ingested_instrument_writes_nothing(
+    two_instruments: Path,
+) -> None:
+    assert _invoke(two_instruments, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    store = two_instruments / "store"
+    before = sorted((p.relative_to(store), p.stat().st_mtime_ns) for p in store.rglob("*.parquet"))
+    rows = Catalog().table().height
+    assert _invoke(two_instruments, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    after = sorted((p.relative_to(store), p.stat().st_mtime_ns) for p in store.rglob("*.parquet"))
+    assert Catalog().table().height == rows
+    snapshots = [f for f, _ in before if "_catalog" not in str(f)]
+    assert snapshots and [x for x in after if x[0] in snapshots] == [
+        x for x in before if x[0] in snapshots
+    ]
