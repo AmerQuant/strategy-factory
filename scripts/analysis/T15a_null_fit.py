@@ -50,7 +50,9 @@ VARIANTS = ("gauss", "t", "t_vp")
 def data_access() -> DataAccess:
     store = SnapshotStore()
     catalog = Catalog(store.root)
-    return DataAccess(SplitManager(RegistryLedger(make_engine()), load_split_config(), store, catalog))
+    return DataAccess(
+        SplitManager(RegistryLedger(make_engine()), load_split_config(), store, catalog)
+    )
 
 
 def slots(ts_us: np.ndarray, timeframe: str) -> np.ndarray:
@@ -264,7 +266,11 @@ def main() -> None:
             df = pl.DataFrame(per)
             for stat, q in (("mean", None), ("p2.5", 2.5), ("p97.5", 97.5)):
                 vals = {
-                    c: float(np.mean(df[c].to_numpy()) if q is None else np.percentile(df[c].to_numpy(), q))
+                    c: float(
+                        np.mean(df[c].to_numpy())
+                        if q is None
+                        else np.percentile(df[c].to_numpy(), q)
+                    )
                     for c in df.columns
                 }
                 rows.append({"symbol": sym, "tf": tf, "variant": name, "stat": stat, **vals})

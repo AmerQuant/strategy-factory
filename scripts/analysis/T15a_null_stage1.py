@@ -28,19 +28,23 @@ import numpy as np
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from T15a_null_fit import fit, generate, slots, vol_path, wick_scales  # noqa: E402
+from T15a_null_fit import fit, generate, slots, vol_path, wick_scales
 
-from strategy_factory.core.config import PipelineConfig, resolve_config  # noqa: E402
-from strategy_factory.data.catalog import Catalog  # noqa: E402
-from strategy_factory.data.config import load_split_config  # noqa: E402
-from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager  # noqa: E402
-from strategy_factory.data.store import SnapshotStore  # noqa: E402
-from strategy_factory.gates.engine import GateEngine  # noqa: E402
-from strategy_factory.pipeline.executor import ExecutorConfig, make_executor, unit_seed  # noqa: E402
-from strategy_factory.registry.engine import make_engine  # noqa: E402
-from strategy_factory.stages.base import RunContext  # noqa: E402
-from strategy_factory.stages.edge import EdgeStage  # noqa: E402
-from strategy_factory.stages.reference import ReferenceInfo  # noqa: E402
+from strategy_factory.core.config import PipelineConfig, resolve_config
+from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.config import load_split_config
+from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager
+from strategy_factory.data.store import SnapshotStore
+from strategy_factory.gates.engine import GateEngine
+from strategy_factory.pipeline.executor import (
+    ExecutorConfig,
+    make_executor,
+    unit_seed,
+)
+from strategy_factory.registry.engine import make_engine
+from strategy_factory.stages.base import RunContext
+from strategy_factory.stages.edge import EdgeStage
+from strategy_factory.stages.reference import ReferenceInfo
 
 ARTIFACTS = Path("D:/SfacData/artifacts")
 T12 = {  # T12 review section 1
@@ -164,10 +168,14 @@ def main() -> None:
         )
         .sort("variant")
     )
-    pooled = pct.group_by("variant").agg(
-        pl.col("percentile").mean().alias("pct_mean"),
-        (pl.col("percentile") >= 90).mean().alias("share_ge_90"),
-    ).sort("variant")
+    pooled = (
+        pct.group_by("variant")
+        .agg(
+            pl.col("percentile").mean().alias("pct_mean"),
+            (pl.col("percentile") >= 90).mean().alias("share_ge_90"),
+        )
+        .sort("variant")
+    )
     summary.write_csv(out / "summary_by_type.csv")
     profiles.write_csv(out / "summary_profiles.csv")
     pooled.write_csv(out / "summary_pooled.csv")

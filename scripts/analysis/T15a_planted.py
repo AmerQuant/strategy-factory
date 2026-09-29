@@ -33,20 +33,24 @@ import numpy as np
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from T15a_null_fit import fit, generate, slots, vol_path, wick_scales  # noqa: E402
-from T15a_null_stage1 import HALF_LIFE_1D, T12, probe_rows, run_dir  # noqa: E402
+from T15a_null_fit import fit, generate, slots, vol_path, wick_scales
+from T15a_null_stage1 import HALF_LIFE_1D, T12, probe_rows, run_dir
 
-from strategy_factory.core.config import PipelineConfig, resolve_config  # noqa: E402
-from strategy_factory.data.catalog import Catalog  # noqa: E402
-from strategy_factory.data.config import load_split_config  # noqa: E402
-from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager  # noqa: E402
-from strategy_factory.data.store import SnapshotStore  # noqa: E402
-from strategy_factory.gates.engine import GateEngine  # noqa: E402
-from strategy_factory.pipeline.executor import ExecutorConfig, make_executor, unit_seed  # noqa: E402
-from strategy_factory.registry.engine import make_engine  # noqa: E402
-from strategy_factory.stages.base import RunContext  # noqa: E402
-from strategy_factory.stages.edge import EdgeStage  # noqa: E402
-from strategy_factory.stages.reference import ReferenceInfo  # noqa: E402
+from strategy_factory.core.config import PipelineConfig, resolve_config
+from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.config import load_split_config
+from strategy_factory.data.split import DataAccess, RegistryLedger, SplitManager
+from strategy_factory.data.store import SnapshotStore
+from strategy_factory.gates.engine import GateEngine
+from strategy_factory.pipeline.executor import (
+    ExecutorConfig,
+    make_executor,
+    unit_seed,
+)
+from strategy_factory.registry.engine import make_engine
+from strategy_factory.stages.base import RunContext
+from strategy_factory.stages.edge import EdgeStage
+from strategy_factory.stages.reference import ReferenceInfo
 
 BARS_PER_YEAR = {"1D": 252.0, "1H": 252.0 * 7}
 ATR_N = 14
@@ -127,7 +131,11 @@ def own_statistic(b: dict[str, np.ndarray], marks: np.ndarray, kind: str, k: int
         fwd[:-k] = (lc[k:] - lc[:-k]) / np.where(a[:-k] > 0, a[:-k], np.nan)
         ok = np.isfinite(fwd)
         ev = ok & (marks == 1)
-        return float(np.nanmean(fwd[ev]) - np.nanmean(fwd[ok & (marks == 0)])) if ev.any() else float("nan")
+        return (
+            float(np.nanmean(fwd[ev]) - np.nanmean(fwd[ok & (marks == 0)]))
+            if ev.any()
+            else float("nan")
+        )
     r = np.diff(lc, prepend=lc[0])
     sd = np.std(r[1:])
     inside = marks == 1
@@ -135,7 +143,9 @@ def own_statistic(b: dict[str, np.ndarray], marks: np.ndarray, kind: str, k: int
 
 
 class PlantedDataAccess(DataAccess):
-    def __init__(self, splits: SplitManager, kind: str, strength: float, seed: int, args: Any) -> None:
+    def __init__(
+        self, splits: SplitManager, kind: str, strength: float, seed: int, args: Any
+    ) -> None:
         super().__init__(splits)
         self.kind, self.strength, self.seed, self.args = kind, strength, seed, args
         self.own: dict[str, float] = {}
@@ -147,7 +157,15 @@ class PlantedDataAccess(DataAccess):
         params = fit(real, slot)
         vp = vol_path(real, slot, HALF_LIFE_1D * (7 if timeframe == "1H" else 1))
         ws = wick_scales(real, slot, params, "t_vp", vp)
-        null = generate(real, slot, params, unit_seed(self.seed, f"{symbol}|{timeframe}|null|t_vp"), "t_vp", ws, vp)
+        null = generate(
+            real,
+            slot,
+            params,
+            unit_seed(self.seed, f"{symbol}|{timeframe}|null|t_vp"),
+            "t_vp",
+            ws,
+            vp,
+        )
         planted, marks = plant(null, self.kind, self.strength,
                                unit_seed(self.seed, f"{symbol}|{timeframe}|plant"), timeframe, self.args)  # fmt: skip
         self.own[symbol] = own_statistic(planted, marks, self.kind, self.args.k)
@@ -224,12 +242,19 @@ def main() -> None:
     pct = (
         df.filter(pl.col("percentile").is_not_null())
         .group_by("planted", "strength", "edge_type", "direction")
-        .agg(pl.col("percentile").mean().alias("pct_mean"), (pl.col("percentile") >= 90).mean().alias("ge90"))
+        .agg(
+            pl.col("percentile").mean().alias("pct_mean"),
+            (pl.col("percentile") >= 90).mean().alias("ge90"),
+        )
     )
     power = power.join(pct, on=["planted", "strength", "edge_type", "direction"])
-    own_s = own.group_by("planted", "strength").agg(
-        pl.col("own").mean().alias("own_mean"), pl.col("own_null").mean().alias("own_null_mean")
-    ).sort("planted", "strength")
+    own_s = (
+        own.group_by("planted", "strength")
+        .agg(
+            pl.col("own").mean().alias("own_mean"), pl.col("own_null").mean().alias("own_null_mean")
+        )
+        .sort("planted", "strength")
+    )
     power.write_csv(out / "power.csv")
     own_s.write_csv(out / "own_summary.csv")
     (out / "sample.json").write_text(json.dumps(sample), encoding="utf-8")

@@ -22,21 +22,21 @@ from typing import Any
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from T15a_null_stage1 import T12, NullDataAccess, run_dir  # noqa: E402
+from T15a_null_stage1 import T12, NullDataAccess, run_dir
 
-from strategy_factory.core.config import PipelineConfig, resolve_config  # noqa: E402
-from strategy_factory.data.catalog import Catalog  # noqa: E402
-from strategy_factory.data.config import load_split_config  # noqa: E402
-from strategy_factory.data.split import RegistryLedger, SplitManager  # noqa: E402
-from strategy_factory.data.store import SnapshotStore  # noqa: E402
-from strategy_factory.gates.engine import GateEngine  # noqa: E402
-from strategy_factory.pipeline.executor import ExecutorConfig, make_executor  # noqa: E402
-from strategy_factory.registry.engine import make_engine  # noqa: E402
-from strategy_factory.stages.base import RunContext  # noqa: E402
-from strategy_factory.stages.edge import EdgeStage  # noqa: E402
-from strategy_factory.stages.optimize import EntryStage, stage2_selection_symbols  # noqa: E402
-from strategy_factory.stages.reference import ReferenceInfo  # noqa: E402
-from strategy_factory.stages.screen import ScreenStage, stage1_pass_symbols  # noqa: E402
+from strategy_factory.core.config import PipelineConfig, resolve_config
+from strategy_factory.data.catalog import Catalog
+from strategy_factory.data.config import load_split_config
+from strategy_factory.data.split import RegistryLedger, SplitManager
+from strategy_factory.data.store import SnapshotStore
+from strategy_factory.gates.engine import GateEngine
+from strategy_factory.pipeline.executor import ExecutorConfig, make_executor
+from strategy_factory.registry.engine import make_engine
+from strategy_factory.stages.base import RunContext
+from strategy_factory.stages.edge import EdgeStage
+from strategy_factory.stages.optimize import EntryStage, stage2_selection_symbols
+from strategy_factory.stages.reference import ReferenceInfo
+from strategy_factory.stages.screen import ScreenStage, stage1_pass_symbols
 
 DRY = "dry-run"
 
