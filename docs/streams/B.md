@@ -34,16 +34,20 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
   `scripts/pilots/T04j_resume.py` (done = the 1H reference spans exactly the current window, so a
   grown window is re-ingested); `T04j_defects.py` measures over the window. Full fast suite 2,560
   passed, parity + leakage 866, db 24 (0 skipped), ruff / format / mypy clean.
-- **STOPPED by D-717 before any ingest — P-94.** Over the windows, five are clean; **USDCHF has 1
-  wick flag: 2015-01-15 09:00 UTC, L 0.72705 — the SNB removing the EUR/CHF floor**, a real
-  repricing. Nothing ingested. P-94 proposes: record it as a verified market event (ingest
-  unchanged, config-listed so a re-derive does not stop again), ingest the five clean ones either
-  way, and decide whether **AUDUSD** (now a clean 12.25-y window, 2014-06…) joins this PR.
-- **Next, on the supervisor's answer:** `uv run python scripts/pilots/T04j_resume.py` (after
-  implementing P-94's answer), then the review with the window table at ingest time (and the
-  XAUUSD note: bounded by scattered one-sided months that look like failed fetches; a later pass
-  may extend it, the resume script then re-derives it as a new versioned snapshot, and stream A
-  regenerates `configs/universe.yaml` after that merge, D-394), the acceptance reviewer, the PR.
+- **D-672 (P-94, 2026-09-29; D-662 … D-671 were stream A's T15a answers, so D-672):** USDCHF's
+  2015-01-15 09:00 UTC bar (the SNB) is a verified event in `configs/data/dukascopy.yaml`,
+  reported and never a stop; the D-717 stop is per instrument; AUDUSD joins over 2014-06….
+- **Ingested 2026-09-29 (`T04j_resume.py`, for real):** **GBPUSD, USDJPY** (2010-01…, complete),
+  **AUDUSD** (2014-06…), **GBPCHF** (2013-03…), **XAUUSD** (2019-12…, pilot re-hashed v1→v2, the
+  old snapshot kept) — 1H + 1D references (1D derived from 1H, 0 weekend bars), quality (1H
+  `warning`, 1D `ok`), `costs show` resolves. A dry re-run shows all five done (writes nothing).
+- **STOPPED — P-95:** the store refused **EURUSD** and **USDCHF** (`ohlc_outside_range`): their
+  Dukascopy **2024-10** files have bars whose open/close is 1 pip outside high/low (also EURAUD's
+  ask, not yet ingestible). Nothing written for them. Recommendation (a): a bounded repair in the
+  adapter (≤ 0.00002, config), counted in the notes.
+- **Next, on P-95's answer:** implement it, re-run the resume script (EURUSD with `--rehash`, the
+  v1 pilot), then the review (window table at ingest time, the XAUUSD note, the USDCHF event), the
+  acceptance reviewer, the PR, stop for "Approved. Merge".
 - **Changed test, flag in the review:** `test_F_0_1_3_T04j_the_verdict_ignores_manifest_fields`
   (was `..._ignores_the_manifest`): a data file without its manifest is now *not yet written*,
   i.e. a gap. D-711 still holds — no manifest **field** decides coverage.
@@ -62,7 +66,7 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
 
 ### IDs
 
-Next free: **D-722**, **P-95**. D-715 … D-717, D-657 and D-661 (supervisor) and P-87, P-88, P-94 (open) live on
+Next free: **D-722**, **P-96**; supervisor **D-673**. D-715 … D-717, D-657, D-661 and D-672 (supervisor) and P-87, P-88, P-94, P-95 (open) live on
 the T04j branch until it merges.
 
 ## Scope

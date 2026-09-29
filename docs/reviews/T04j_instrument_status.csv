@@ -1,0 +1,30 @@
+symbol,state,window_first,window_last,years,complete,bounding_gap,missing_before,checked_on
+EURUSD,failed,2010-01,2026-08,16.67,true,,0,2026-09-29
+GBPUSD,ingested now,2010-01,2026-08,16.67,true,,0,2026-09-29
+USDJPY,ingested now,2010-01,2026-08,16.67,true,,0,2026-09-29
+USDCHF,failed,2010-01,2026-08,16.67,true,,0,2026-09-29
+AUDUSD,ingested now,2014-06,2026-08,12.25,false,2014-05,2,2026-09-29
+USDCAD,waiting: no window,,,0.0,false,2026-08,141,2026-09-29
+NZDUSD,waiting: window shorter than D-008,2026-07,2026-08,0.17,false,2026-06,122,2026-09-29
+EURJPY,waiting: no window,,,0.0,false,2026-08,120,2026-09-29
+GBPJPY,waiting: no window,,,0.0,false,2026-08,200,2026-09-29
+EURGBP,waiting: no window,,,0.0,false,2026-08,200,2026-09-29
+EURCHF,waiting: no window,,,0.0,false,2026-08,200,2026-09-29
+AUDJPY,waiting: no window,,,0.0,false,2026-08,194,2026-09-29
+EURAUD,waiting: window shorter than D-008,2026-08,2026-08,0.08,false,2026-07,113,2026-09-29
+GBPCHF,ingested now,2013-03,2026-08,13.5,false,2013-02,11,2026-09-29
+CADJPY,waiting: window shorter than D-008,2026-06,2026-08,0.25,false,2026-05,15,2026-09-29
+XAUUSD,ingested now,2019-12,2026-08,6.75,false,2019-11,6,2026-09-29
+XAGUSD,waiting: window shorter than D-008,2026-01,2026-08,0.67,false,2025-12,12,2026-09-29
+LIGHTCMDUSD,waiting: no window,,,0.0,false,2026-08,180,2026-09-29
+BRENTCMDUSD,waiting: no window,,,0.0,false,2026-08,189,2026-09-29
+USA500IDXUSD,waiting: no window,,,0.0,false,2026-08,142,2026-09-29
+USA30IDXUSD,waiting: no window,,,0.0,false,2026-08,156,2026-09-29
+USATECHIDXUSD,waiting: no window,,,0.0,false,2026-08,180,2026-09-29
+USSC2000IDXUSD,waiting: window shorter than D-008,2026-07,2026-08,0.17,false,2026-06,95,2026-09-29
+DEUIDXEUR,waiting: window shorter than D-008,2026-03,2026-08,0.5,false,2026-02,11,2026-09-29
+GBRIDXGBP,waiting: no window,,,0.0,false,2026-08,180,2026-09-29
+JPNIDXJPY,waiting: no window,,,0.0,false,2026-08,180,2026-09-29
+FRAIDXEUR,waiting: no window,,,0.0,false,2026-08,180,2026-09-29
+AUSIDXAUD,waiting: no window,,,0.0,false,2026-08,147,2026-09-29
+HKGIDXHKD,waiting: no window,,,0.0,false,2026-08,159,2026-09-29
