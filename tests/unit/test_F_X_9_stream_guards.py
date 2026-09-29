@@ -139,6 +139,76 @@ def test_F_X_9_d611_protocol_and_log_state_it() -> None:
     assert "Stream A implements T12" in d611 and "past T11" in d611
 
 
+# -- D-658: the stage-7 statistics library and its tests are stream B's ----------------------
+D658_B_PATHS = (
+    "src/strategy_factory/stats/__init__.py",
+    "src/strategy_factory/stats/dsr.py",
+    "src/strategy_factory/stats/pbo/cscv.py",
+    "tests/unit/test_F_7_4_dsr.py",
+    "tests/test_F_7_1_ttest.py",  # `**/` also matches no folder at all
+    "tests/property/nested/test_F_7_5_pbo.py",
+)
+
+
+def test_F_X_9_d658_the_stats_library_and_its_tests_are_stream_bs(rules: Ownership) -> None:
+    for path in D658_B_PATHS:
+        assert rules.owner_of(path) == "B", path
+    assert check_paths("B", list(D658_B_PATHS), rules) == []
+    problems = check_paths("A", list(D658_B_PATHS), rules)
+    assert {p.split(":")[0] for p in problems} == set(D658_B_PATHS)
+
+
+def test_F_X_9_d658_stage_1s_statistics_stay_stream_as(rules: Ownership) -> None:
+    """`stats/edge.py` is T12's (stages 1 and 2 import it): the file overrides its folder."""
+    assert rules.owner_of("src/strategy_factory/stats/edge.py") == "A"
+    assert check_paths("A", ["src/strategy_factory/stats/edge.py"], rules) == []
+    assert len(check_paths("B", ["src/strategy_factory/stats/edge.py"], rules)) == 1
+
+
+def test_F_X_9_d658_the_glob_is_anchored_and_stays_in_its_segment(rules: Ownership) -> None:
+    """Other features' tests stay shared: the name must *start* with `test_F_7_`, `*` does not
+    cross a folder, and the glob is anchored at `tests/`."""
+    for shared in (
+        "tests/unit/test_F_0_7_1_registry.py",  # F-0.7.1 contains "7_1", not the F-7 prefix
+        "tests/unit/test_F_1_5_edge_stats.py",
+        "tests/unit/test_F_7x_other.py",
+        "tests/unit/test_F_7_1_dir/helper.py",  # `*` stays inside one segment
+        "src/tests/unit/test_F_7_1.py",  # anchored at the start of the path
+        "tests/unit/test_F_X_9_stream_guards.py",
+    ):
+        assert rules.owner_of(shared) is None, shared
+
+
+def test_F_X_9_d658_glob_semantics(tmp_path: Path) -> None:
+    """The matcher on its own: `*` within one segment, `**/` any number of whole segments,
+    the longest pattern wins over a shorter prefix."""
+    data: dict[str, Any] = {
+        "streams": {
+            "A": {"name": "a", "branch_prefix": "a/", "decisions": [1, 9], "pending": [1, 9]},
+            "B": {"name": "b", "branch_prefix": "b/", "decisions": [10, 19], "pending": [10, 19]},
+        },
+        "owners": {"docs/": "A", "docs/**/*.csv": "B", "docs/x/*.md": "B"},
+    }
+    target = tmp_path / "ownership.yaml"
+    target.write_text(yaml.safe_dump(data), encoding="utf-8")
+    rules = load_ownership(target)
+    assert rules.owner_of("docs/a.csv") == "B"
+    assert rules.owner_of("docs/x/y/z.csv") == "B"
+    assert rules.owner_of("docs/x/a.md") == "B"
+    assert rules.owner_of("docs/x/y/a.md") == "A"  # `*` does not cross `/`
+    assert rules.owner_of("docs/a.csv.bak") == "A"  # anchored at the end
+    assert rules.owner_of("docs/readme.md") == "A"
+    assert rules.owner_of("other/a.csv") is None
+
+
+def test_F_X_9_d658_protocol_and_log_state_it() -> None:
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "src/strategy_factory/stats/" in protocol and "tests/**/test_F_7_*" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    d658 = next(line for line in log.splitlines() if line.startswith("| D-658 |"))
+    assert "stream B" in d658 and "stats/" in d658
+
+
 def test_F_X_9_invalid_ownership_files_are_refused(tmp_path: Path) -> None:
     path = tmp_path / "ownership.yaml"
     base: dict[str, Any] = {
