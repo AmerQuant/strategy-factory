@@ -26,19 +26,24 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
 - **D-661 (supervisor, 2026-09-29, amends D-657):** an incomplete instrument is ingested over its
   longest contiguous complete window ending at the last complete month; shorter than D-008 → it
   waits; a closed gap later → re-derived as a new versioned snapshot.
-- **STOPPED before any ingest** on the supervisor's order: the window table
-  (`uv run python scripts/analysis/T04j_windows.py` → `docs/reviews/T04j_windows.csv`) is with the
-  supervisor. Measured 2026-09-29 while the download runs: **4 complete** (EURUSD, GBPUSD, USDJPY,
-  USDCHF, 16.7 y); **2 partial windows pass D-008** (GBPCHF 2013-03…, 13.5 y; XAUUSD 2019-12…,
-  6.75 y); 8 have a window of 1–8 months (fail D-008); 15 have none (2026-08 not downloaded yet).
-- **Built:** `coverage.dukascopy_windows` (D-661), `rawfiles.is_settled` (a month counts only
-  once its data file and manifest exist and no `.partial` is left — the coverage, the window and
-  `raw_pairs` read only settled months, so everything works alongside the download); the download
-  script checks Node.js and `tools/dukascopy/node_modules/dukascopy-node` first and prints the
-  `npm ci` step (exit 3).
-- **Not built yet (after the supervisor's go):** the D-661 window in `sfac data ingest dukascopy`
-  and `scripts/pilots/T04j_resume.py` (today they ingest only fully complete instruments, D-657).
-  **Do not run the resume script until then.**
+- **Supervisor 2026-09-29:** go ahead with D-661 as written for EURUSD, GBPUSD, USDJPY, USDCHF,
+  GBPCHF and XAUUSD (the user chose XAUUSD over its 2019-12… window).
+- **Built and tested:** the D-661 window in `sfac data ingest dukascopy` (settled months of the
+  window only; D-008 checked on the window's 1H and in-memory 1D bars before writing; a partial
+  window's snapshot notes `D-661 window …`; a closed gap re-derives a new versioned snapshot) and in
+  `scripts/pilots/T04j_resume.py` (done = the 1H reference spans exactly the current window, so a
+  grown window is re-ingested); `T04j_defects.py` measures over the window. Full fast suite 2,560
+  passed, parity + leakage 866, db 24 (0 skipped), ruff / format / mypy clean.
+- **STOPPED by D-717 before any ingest — P-94.** Over the windows, five are clean; **USDCHF has 1
+  wick flag: 2015-01-15 09:00 UTC, L 0.72705 — the SNB removing the EUR/CHF floor**, a real
+  repricing. Nothing ingested. P-94 proposes: record it as a verified market event (ingest
+  unchanged, config-listed so a re-derive does not stop again), ingest the five clean ones either
+  way, and decide whether **AUDUSD** (now a clean 12.25-y window, 2014-06…) joins this PR.
+- **Next, on the supervisor's answer:** `uv run python scripts/pilots/T04j_resume.py` (after
+  implementing P-94's answer), then the review with the window table at ingest time (and the
+  XAUUSD note: bounded by scattered one-sided months that look like failed fetches; a later pass
+  may extend it, the resume script then re-derives it as a new versioned snapshot, and stream A
+  regenerates `configs/universe.yaml` after that merge, D-394), the acceptance reviewer, the PR.
 - **Changed test, flag in the review:** `test_F_0_1_3_T04j_the_verdict_ignores_manifest_fields`
   (was `..._ignores_the_manifest`): a data file without its manifest is now *not yet written*,
   i.e. a gap. D-711 still holds — no manifest **field** decides coverage.
@@ -57,8 +62,8 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
 
 ### IDs
 
-Next free: **D-722**, **P-94**. D-715 … D-717, D-657 and D-661 (supervisor) and P-87, P-88 live on the T04j
-branch until it merges.
+Next free: **D-722**, **P-95**. D-715 … D-717, D-657 and D-661 (supervisor) and P-87, P-88, P-94 (open) live on
+the T04j branch until it merges.
 
 ## Scope
 

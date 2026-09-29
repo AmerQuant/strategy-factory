@@ -14,6 +14,7 @@ import gzip
 import json
 from pathlib import Path
 
+import polars as pl
 import pytest
 from typer.testing import CliRunner, Result
 
@@ -149,19 +150,44 @@ def test_F_0_1_3_T04j_the_coverage_command_reports_and_exits_on_a_gap(cli_env: P
     assert report.is_file() and "EURUSD" in report.read_text(encoding="utf-8")
 
 
-FIX = Path(__file__).resolve().parents[1] / "fixtures" / "dukascopy" / "h1" / "EURUSD"
+INGEST_TODAY = dt.date(2024, 6, 15)  # required: 2024-01 .. 2024-05
+
+
+def _synthetic_month(root: Path, inst: Instrument, side: str, month: str) -> None:
+    """Weekday hourly bars of ``month``, the ask 2 pips above the bid, plus the manifest."""
+    y, m = map(int, month.split("-"))
+    ts = dt.datetime(y, m, 1, tzinfo=dt.UTC)
+    lines = ["timestamp,open,high,low,close,volume"]
+    k = 0
+    while ts.month == m:
+        if ts.weekday() < 5:
+            px = 1.1 + 0.0001 * (k % 50) + (0.0002 if side == "ask" else 0.0)
+            lines.append(f"{int(ts.timestamp() * 1000)},{px},{px + 0.0005},{px - 0.0005},{px},1000")
+            k += 1
+        ts += dt.timedelta(hours=1)
+    folder = month_dir(root, "h1", inst.instrument_id, side)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{month}.csv.gz").write_bytes(gzip.compress("\n".join(lines).encode("utf-8")))
+    (folder / f"{month}.csv.gz.manifest.json").write_text("{}", encoding="utf-8")
+
+
+def _synthetic(root: Path, inst: Instrument, skip: tuple[tuple[str, str], ...] = ()) -> None:
+    for month in _months("2024-01", "2024-05"):
+        for side in ("bid", "ask"):
+            if (month, side) not in skip:
+                _synthetic_month(root, inst, side, month)
+
+
+GBPUSD = Instrument("gbpusd", "GBPUSD", "fx", "h1 from 2003-05-04;")
 
 
 @pytest.fixture
-def two_instruments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """EURUSD complete (the real 2024-03 fixture month, both sides) and GBPUSD with no file; the
-    only required month is 2024-03."""
+def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """EURUSD complete 2024-01 .. 2024-05; GBPUSD missing its last month (no window). The D-008
+    check is stubbed to pass (five months cannot split); ``_real_d008`` restores it."""
     raw = tmp_path / "raw"
-    for side in ("bid", "ask"):
-        folder = month_dir(raw, "h1", "eurusd", side)
-        folder.mkdir(parents=True)
-        (folder / "2024-03.csv.gz").write_bytes((FIX / side / "2024-03.csv.gz").read_bytes())
-        (folder / "2024-03.csv.gz.manifest.json").write_text("{}", encoding="utf-8")
+    _synthetic(raw, EURUSD)
+    _synthetic(raw, GBPUSD, skip=(("2024-05", "bid"),))
     universe = tmp_path / "dukascopy.csv"
     universe.write_text(
         "instrument_id,symbol,asset_class,notes\n"
@@ -170,53 +196,102 @@ def two_instruments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         encoding="utf-8",
     )
     (tmp_path / "dukascopy.yaml").write_text(
-        # the fixture month has 1 one-sided bar of 73, as in test_F_0_1_3_dukascopy's adapt()
-        f"h1_start: 2024-03-01\nmax_one_sided_share: 0.02\nuniverse_file: {universe.as_posix()}\n",
-        encoding="utf-8",
+        f"h1_start: 2024-01-01\nuniverse_file: {universe.as_posix()}\n", encoding="utf-8"
     )
     monkeypatch.setenv("SFAC_RAW_ROOT", str(raw))
     monkeypatch.setenv("SFAC_DATA_ROOT", str(tmp_path / "store"))
-    monkeypatch.setattr(cli_dukascopy, "_today", lambda: dt.date(2024, 4, 15))
+    monkeypatch.setattr(cli_dukascopy, "_today", lambda: INGEST_TODAY)
+    monkeypatch.setattr(cli_dukascopy, "d008_short", lambda *a: None)
     return tmp_path
 
 
-def test_F_0_1_3_T04j_D657_a_complete_instrument_is_ingested_while_a_gapped_one_waits(
-    two_instruments: Path,
+def _snapshots(store: Path) -> list[tuple[Path, int]]:
+    return sorted(
+        (p.relative_to(store), p.stat().st_mtime_ns)
+        for p in store.rglob("*.parquet")
+        if not p.name.startswith("catalog")
+    )
+
+
+def test_F_0_1_3_T04j_D657_a_complete_instrument_is_ingested_while_one_without_window_waits(
+    ingest_env: Path,
 ) -> None:
-    out = _invoke(two_instruments, "ingest", "dukascopy", "--set-reference")
+    out = _invoke(ingest_env, "ingest", "dukascopy", "--set-reference")
     assert out.exit_code == 0, out.output
-    assert "waiting (not ingested, D-657)" in out.output
-    assert "GBPUSD 1 month(s) (2024-03..2024-03)" in out.output
-    catalog = Catalog()
-    assert catalog.has_reference("EURUSD", "1H")
-    assert catalog.get_reference("EURUSD", "1H").hash_version == 2
-    assert catalog.table()["symbol"].unique().to_list() == ["EURUSD"]  # nothing for GBPUSD
-    assert not (two_instruments / "store" / "dukascopy" / "GBPUSD").exists()
+    assert "waiting (not ingested, D-661)" in out.output
+    assert "GBPUSD no complete window (2024-05 missing)" in out.output
+    ref = Catalog().get_reference("EURUSD", "1H")
+    assert ref.hash_version == 2 and "D-661" not in ref.notes  # complete: no window note
+    assert Catalog().table()["symbol"].unique().to_list() == ["EURUSD"]  # nothing for GBPUSD
 
 
-def test_F_0_1_3_T04j_D657_a_gapped_instrument_named_alone_is_refused_and_writes_nothing(
-    two_instruments: Path,
+def test_F_0_1_3_T04j_D657_a_waiting_instrument_named_alone_is_refused_and_writes_nothing(
+    ingest_env: Path,
 ) -> None:
-    out = _invoke(two_instruments, "ingest", "dukascopy", "--instruments", "gbpusd")
+    out = _invoke(ingest_env, "ingest", "dukascopy", "--instruments", "gbpusd")
     assert out.exit_code == 1
     assert "nothing ingested" in out.output and "GBPUSD" in out.output
-    assert not (two_instruments / "store").exists()
+    assert not (ingest_env / "store").exists()
 
 
 def test_F_0_1_3_T04j_D657_a_rerun_of_an_ingested_instrument_writes_nothing(
-    two_instruments: Path,
+    ingest_env: Path,
 ) -> None:
-    assert _invoke(two_instruments, "ingest", "dukascopy", "--set-reference").exit_code == 0
-    store = two_instruments / "store"
-    before = sorted((p.relative_to(store), p.stat().st_mtime_ns) for p in store.rglob("*.parquet"))
-    rows = Catalog().table().height
-    assert _invoke(two_instruments, "ingest", "dukascopy", "--set-reference").exit_code == 0
-    after = sorted((p.relative_to(store), p.stat().st_mtime_ns) for p in store.rglob("*.parquet"))
-    assert Catalog().table().height == rows
-    snapshots = [f for f, _ in before if "_catalog" not in str(f)]
-    assert snapshots and [x for x in after if x[0] in snapshots] == [
-        x for x in before if x[0] in snapshots
-    ]
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    store = ingest_env / "store"
+    before, rows = _snapshots(store), Catalog().table().height
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    assert before and _snapshots(store) == before and Catalog().table().height == rows
+
+
+def test_F_0_1_3_T04j_D661_a_gapped_instrument_is_ingested_over_its_window_only(
+    ingest_env: Path,
+) -> None:
+    (month_dir(ingest_env / "raw", "h1", "eurusd", "bid") / "2024-02.csv.gz").unlink()
+    out = _invoke(ingest_env, "ingest", "dukascopy", "--set-reference")
+    assert out.exit_code == 0, out.output
+    assert "window=2024-03..2024-05 (D-661)" in out.output
+    ref = Catalog().get_reference("EURUSD", "1H")
+    assert ref.first_ts is not None and ref.first_ts.strftime("%Y-%m") == "2024-03"
+    assert ref.last_ts is not None and ref.last_ts.strftime("%Y-%m") == "2024-05"
+    assert "D-661 window 2024-03..2024-05: 1 month(s) missing before it, the latest 2024-02" in (
+        ref.notes
+    )
+
+
+def test_F_0_1_3_T04j_D661_a_window_shorter_than_D008_waits_and_writes_nothing(
+    ingest_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.undo()  # the real D-008 check: five months cannot hold an 18-month holdout
+    monkeypatch.setenv("SFAC_RAW_ROOT", str(ingest_env / "raw"))
+    monkeypatch.setenv("SFAC_DATA_ROOT", str(ingest_env / "store"))
+    monkeypatch.setattr(cli_dukascopy, "_today", lambda: INGEST_TODAY)
+    out = _invoke(ingest_env, "ingest", "dukascopy", "--instruments", "eurusd")
+    assert out.exit_code == 1
+    assert "EURUSD window 2024-01..2024-05 (0.42 y) shorter than D-008 on 1H, 1D" in out.output
+    assert not (ingest_env / "store").exists()
+
+
+def test_F_0_1_3_T04j_D661_a_closed_gap_re_derives_a_new_versioned_snapshot(
+    ingest_env: Path,
+) -> None:
+    raw = ingest_env / "raw"
+    (month_dir(raw, "h1", "eurusd", "bid") / "2024-02.csv.gz").unlink()
+    (month_dir(raw, "h1", "eurusd", "bid") / "2024-02.csv.gz.manifest.json").unlink()
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    old = Catalog().get_reference("EURUSD", "1H")
+    before = _snapshots(ingest_env / "store")
+    _synthetic_month(raw, EURUSD, "bid", "2024-02")  # a later download closes the gap
+    out = _invoke(ingest_env, "ingest", "dukascopy", "--set-reference")
+    assert out.exit_code == 0, out.output
+    assert "window=2024-01..2024-05 (reference)" in out.output  # complete now: no D-661 mark
+    new = Catalog().get_reference("EURUSD", "1H")
+    assert new.snapshot_hash != old.snapshot_hash
+    assert new.first_ts is not None and new.first_ts.strftime("%Y-%m") == "2024-01"
+    after = _snapshots(ingest_env / "store")
+    assert set(before) <= set(after) and len(after) == len(before) + 1  # nothing overwritten
+    hashes = Catalog().table().filter(pl.col("symbol") == "EURUSD")["snapshot_hash"].to_list()
+    assert {old.snapshot_hash, new.snapshot_hash} <= set(hashes)
 
 
 # -- D-661: the complete window; reading alongside a running download --------------------------

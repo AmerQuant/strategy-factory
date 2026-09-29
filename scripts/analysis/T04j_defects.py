@@ -4,12 +4,12 @@ Local only; reads the raw h1 months (read-only, D-028), builds the canonical mid
 memory** with the existing adapter (months present on both sides only), and writes a CSV. Nothing is
 stored::
 
-    uv run python scripts/analysis/T04j_defects.py                     # every complete instrument
+    uv run python scripts/analysis/T04j_defects.py                     # every D-661 window
     uv run python scripts/analysis/T04j_defects.py --symbols EURUSD,XAUUSD
 
 The plan measured six near-complete instruments (``docs/reviews/T04j_defects.csv``, kept as the
 plan's record). Before an ingest, D-717 re-measures on the **complete** raw set: by default the
-instruments that pass the coverage gate now (per instrument, D-657). Rows are upserted by symbol into
+instruments with a D-661 window now, measured over that window. Rows are upserted by symbol into
 ``docs/reviews/T04j_defects_ingest.csv``, and the exit code is **1 when any defect family is present**
 (frozen stretches, long gaps, bad prints): T04j then stops and raises; nothing is absorbed.
 
@@ -48,9 +48,9 @@ from strategy_factory.data.config import (
     load_quality_config,
     load_split_config,
 )
-from strategy_factory.data.coverage import dukascopy_coverage_frame, dukascopy_gaps
+from strategy_factory.data.coverage import dukascopy_coverage_frame, dukascopy_windows
 from strategy_factory.data.download.dukascopy import load_instruments
-from strategy_factory.data.download.rawfiles import raw_root, version_of
+from strategy_factory.data.download.rawfiles import is_settled, raw_root, version_of
 from strategy_factory.data.relisting import frozen_stretches
 from strategy_factory.data.resample import resample_bars
 from strategy_factory.data.split import HistoryTooShortError, compute_split
@@ -66,6 +66,8 @@ FAMILIES = ("frozen_stretches", "long_gaps", "wick_flags")
 def _latest(folder: Path) -> dict[str, Path]:
     best: dict[str, tuple[int, Path]] = {}
     for f in folder.glob("*.csv.gz"):
+        if not is_settled(f):  # the download runs alongside: skip a month still being written
+            continue
         base, n = version_of(f, ".csv.gz")
         if base not in best or n > best[base][0]:
             best[base] = (n, f)
@@ -81,10 +83,14 @@ def measure(
     alpaca: AlpacaConfig,
     quality: QualityConfig,
     split_cfg: SplitConfig,
+    window: tuple[str, str] | None = None,
 ) -> dict[str, object]:
-    """One instrument's row: every family, on the months present on both sides."""
+    """One instrument's row: every family, on the months present on both sides -- only those of
+    ``window`` (first, last month; D-661) when given."""
     bid, ask = _latest(root / sym / "bid"), _latest(root / sym / "ask")
     months = sorted(set(bid) & set(ask))
+    if window is not None:
+        months = [m for m in months if window[0] <= m <= window[1]]
     paths = [bid[m] for m in months] + [ask[m] for m in months]
     bars, meta = adapter.to_canonical(paths, symbol=sym, instrument=inst, asset_class=cls)
     bars = bars.sort("ts")
@@ -123,6 +129,8 @@ def measure(
     return {
         "symbol": sym,
         "asset_class": cls,
+        "window_first": months[0] if months else None,
+        "window_last": months[-1] if months else None,
         "months_both_sides": len(months),
         "bars_1h": bars.height,
         "first": str(bars["ts"].min())[:10],
@@ -150,17 +158,20 @@ def present(row: dict[str, object]) -> list[str]:
     return [f for f in FAMILIES if int(str(row[f])) > 0]
 
 
-def complete_symbols() -> list[str]:
-    """The instruments that pass the coverage gate now (per instrument, D-657)."""
+def current_windows() -> dict[str, tuple[str, str]]:
+    """Every instrument's D-661 window now (first, last month); none for an instrument without."""
     cfg = load_dukascopy_config()
     insts = load_instruments(cfg.universe_file)
     today = dt.datetime.now(dt.UTC).date()
-    gaps = dukascopy_gaps(dukascopy_coverage_frame(raw_root(), "h1", insts, cfg.h1_start, today))
-    return [i.symbol for i in insts if i.symbol not in gaps]
+    frame = dukascopy_coverage_frame(raw_root(), "h1", insts, cfg.h1_start, today)
+    return {s: (w.first, w.last) for s, w in dukascopy_windows(frame).items() if w.first}
 
 
-def run(symbols: list[str], out: Path = OUT) -> pl.DataFrame:
-    """Measure ``symbols``, upsert their rows (by symbol) into ``out``; return the new rows."""
+def run(
+    symbols: list[str], windows: dict[str, tuple[str, str]] | None = None, out: Path = OUT
+) -> pl.DataFrame:
+    """Measure ``symbols`` (over their windows when given), upsert their rows (by symbol) into
+    ``out``; return the new rows."""
     root = raw_root() / "fx_metals_cfd" / "dukascopy" / "h1"
     universe = pl.read_csv(UNIVERSE)
     alpaca, quality, split_cfg = load_alpaca_config(), load_quality_config(), load_split_config()
@@ -168,7 +179,17 @@ def run(symbols: list[str], out: Path = OUT) -> pl.DataFrame:
     measured_on = dt.datetime.now(dt.UTC).date().isoformat()
     rows = [
         {
-            **measure(inst, sym, cls, root, adapter, alpaca, quality, split_cfg),
+            **measure(
+                inst,
+                sym,
+                cls,
+                root,
+                adapter,
+                alpaca,
+                quality,
+                split_cfg,
+                (windows or {}).get(sym),
+            ),
             "measured_on": measured_on,
         }
         for inst, sym, cls in universe.select("instrument_id", "symbol", "asset_class").rows()
@@ -187,18 +208,19 @@ def run(symbols: list[str], out: Path = OUT) -> pl.DataFrame:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--symbols", help="Comma-separated symbols (default: every complete one).")
+    parser.add_argument("--symbols", help="Comma-separated symbols (default: every window).")
     args = parser.parse_args(argv)
     utf8_output()
+    windows = current_windows()
     symbols = (
         [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
         if args.symbols
-        else complete_symbols()
+        else list(windows)
     )
     if not symbols:
-        print("no instrument to measure: none passes the coverage gate")
+        print("no instrument to measure: none has a complete window (D-661)")
         return 0
-    new = run(symbols)
+    new = run(symbols, windows)
     pl.Config.set_tbl_rows(40)
     pl.Config.set_tbl_cols(25)
     pl.Config.set_tbl_width_chars(260)

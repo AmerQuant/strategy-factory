@@ -13,13 +13,24 @@ from strategy_factory.core.errors import SfacError
 from strategy_factory.data.adapters.dukascopy import DukascopyAdapter
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.cli_alpaca import coverage_app, download_app, ingest_app
-from strategy_factory.data.config import DukascopyConfig, load_dukascopy_config
+from strategy_factory.data.config import (
+    DukascopyConfig,
+    QualityConfig,
+    ResampleConfig,
+    SplitConfig,
+    load_dukascopy_config,
+    load_quality_config,
+    load_split_config,
+)
 from strategy_factory.data.coverage import (
+    Window,
     describe_month_gaps,
     dukascopy_coverage_frame,
     dukascopy_gaps,
+    dukascopy_windows,
 )
 from strategy_factory.data.download.dukascopy import (
+    Instrument,
     Series,
     Tool,
     add_months,
@@ -30,6 +41,9 @@ from strategy_factory.data.download.dukascopy import (
 )
 from strategy_factory.data.download.ratelimit import TLSVerificationError
 from strategy_factory.data.download.rawfiles import raw_root
+from strategy_factory.data.resample import resample_bars
+from strategy_factory.data.schema import SeriesMetadata
+from strategy_factory.data.split import HistoryTooShortError, compute_split
 from strategy_factory.data.store import SnapshotStore
 
 ConfigOpt = Annotated[Path | None, typer.Option("--config", help="Dukascopy config YAML.")]
@@ -116,36 +130,65 @@ def ingest_dukascopy(
     ] = False,
     config: ConfigOpt = None,
 ) -> None:
-    """Raw bid/ask months -> mid snapshots with spread + catalog."""
+    """Raw bid/ask months -> mid snapshots with spread + catalog, over each instrument's complete
+    window (D-661)."""
     if series != "h1":
         raise _fail("only --series h1 is ingested (m1 is used later by the spread-profile task)")
     try:
         cfg = load_dukascopy_config(config)
         insts = _select(instruments, cfg.universe_file)
         root = raw_root()
-        # T04j (D-386 copied, P-62; per instrument since D-657): an instrument with a gap is never
-        # ingested -- it waits, and nothing is written for it; there is no --allow-gaps. A complete
-        # instrument is ingested without waiting for the others.
-        gaps = dukascopy_gaps(_coverage(root, series, insts, cfg))
-        ready = [i for i in insts if i.symbol not in gaps]
-        if not ready:
-            raise _fail(
-                f"{series} raw coverage has gaps, nothing ingested (no --allow-gaps): "
-                f"{describe_month_gaps(gaps)}. See `sfac data coverage dukascopy`."
-            )
-        store, catalog = SnapshotStore(), Catalog()
+        # T04j (D-386 copied; per instrument, D-657; the window, D-661): an instrument is ingested
+        # over its longest contiguous complete window ending at the last complete month -- never
+        # across a gap, never with a month still being written (``is_settled``). No window, or a
+        # window too short for D-008: it waits and nothing is written for it. No --allow-gaps.
+        windows = dukascopy_windows(_coverage(root, series, insts, cfg))
         adapter = DukascopyAdapter(cfg)
+        split_cfg, quality = load_split_config(), load_quality_config()
+        waiting: dict[str, str] = {}
         failed = 0
-        for inst in ready:
+        ready: list[tuple[Instrument, Window, pl.DataFrame, SeriesMetadata]] = []
+        for inst in insts:
+            w = windows[inst.symbol]
+            if w.first is None:
+                waiting[inst.symbol] = f"no complete window ({w.bounding_gap} missing)"
+                continue
             try:
                 bid, ask = raw_pairs(root, series, inst.instrument_id)
+                paths = [p for p in bid + ask if w.first <= p.name[:7] <= w.last]
                 df, meta = adapter.to_canonical(
-                    bid + ask,
+                    paths,
                     series=series,
                     symbol=inst.symbol,
                     instrument=inst.instrument_id,
                     asset_class=inst.asset_class,
                 )
+            except SfacError as exc:
+                failed += 1
+                typer.echo(f"{inst.symbol}: FAILED {exc}", err=True)
+                continue
+            short = d008_short(df, meta, split_cfg, quality)
+            if short:
+                waiting[inst.symbol] = (
+                    f"window {w.first}..{w.last} ({w.years} y) shorter than D-008 on {short}"
+                )
+                continue
+            if not w.complete:
+                note = (
+                    f"D-661 window {w.first}..{w.last}: {w.missing_before} month(s) missing "
+                    f"before it, the latest {w.bounding_gap}"
+                )
+                meta = meta.model_copy(update={"notes": f"{meta.notes}; {note}".lstrip("; ")})
+            ready.append((inst, w, df, meta))
+        if not ready and not failed:
+            raise _fail(
+                "nothing ingested (no --allow-gaps): "
+                + "; ".join(f"{s} {why}" for s, why in waiting.items())
+                + ". See `sfac data coverage dukascopy`."
+            )
+        store, catalog = SnapshotStore(), Catalog()
+        for inst, w, df, meta in ready:
+            try:
                 stored = store.write_snapshot(df, meta)
                 catalog.register(stored)
                 ref = (
@@ -158,23 +201,42 @@ def ingest_dukascopy(
                         inst.symbol,
                         stored.timeframe,
                         stored.snapshot_hash,
-                        note="rehash v1→v2" if rehash else "dukascopy ingest",
+                        note="rehash v1→v2" if rehash else f"dukascopy ingest {w.first}..{w.last}",
                     )
                 flag = " (reference)" if ref else ""
-                short = (stored.snapshot_hash or "")[:12]
-                typer.echo(f"{inst.symbol:<16} {short} rows={stored.row_count}{flag}")
+                short_hash = (stored.snapshot_hash or "")[:12]
+                typer.echo(
+                    f"{inst.symbol:<16} {short_hash} rows={stored.row_count} "
+                    f"window={w.first}..{w.last}{'' if w.complete else ' (D-661)'}{flag}"
+                )
             except SfacError as exc:
                 failed += 1
                 typer.echo(f"{inst.symbol}: FAILED {exc}", err=True)
     except SfacError as exc:
         raise _fail(str(exc)) from exc
-    if gaps:
+    if waiting:
         typer.echo(
-            f"waiting (not ingested, D-657): {describe_month_gaps(gaps)}. "
-            "See `sfac data coverage dukascopy`."
+            f"waiting (not ingested, D-661): {len(waiting)} instrument(s): "
+            + "; ".join(f"{s} {why}" for s, why in waiting.items())
         )
     if failed:
         raise typer.Exit(code=2)
+
+
+def d008_short(
+    bars: pl.DataFrame, meta: SeriesMetadata, split_cfg: SplitConfig, quality: QualityConfig
+) -> str | None:
+    """``None`` when the 1H bars and their D-032 daily series (research mode, in memory) both
+    admit a D-008 split; else the timeframe(s) that do not (D-661: such a window waits)."""
+    key = meta.model_copy(update={"snapshot_hash": "0" * 64}).key()
+    daily = resample_bars(bars.sort("ts"), meta, "1D", "research", ResampleConfig(), quality)
+    short = []
+    for tf, ts in (("1H", bars.sort("ts")["ts"]), ("1D", daily.bars["ts"])):
+        try:
+            compute_split(ts, key, split_cfg)
+        except HistoryTooShortError:
+            short.append(tf)
+    return ", ".join(short) or None
 
 
 def _today() -> dt.date:
