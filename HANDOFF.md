@@ -33,7 +33,7 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 - **Supervisor (Claude chat, inside the Claude Project connected to this repo):** architect and reviewer. Keeps the decisions log, answers `pending.md`, reviews plans and PRs. After every merge, press **Sync** in the Project so the supervisor sees the current `main`.
 - **Claude Code, two streams.** Both follow `docs/STANDING_PROMPT.md`: plan (task files + runbook, assumptions to `pending.md`, stop for "Plan approved"), execute (tests first, acceptance commands, the `acceptance-reviewer` subagent, review file), PR with `gh`; merge only on "Approved. Merge …" with green CI (D-401). Critical tasks (D-402) stop after their review for "Approved".
 - **Stream protocol** (`docs/streams/PROTOCOL.md`, `docs/streams/ownership.yaml`, enforced in CI by `sfac streams check`): one folder and one session per stream, each session in its own worktree (D-357 (1)); `a/` and `b/` branch prefixes; streams connect only through `main`; merges one at a time, rebased onto the latest `main`; **no direct messages between streams** — cross-stream notes go in the status files and through the supervisor.
-- **ID ranges:** supervisor D-355 … D-359 (used up) and D-600 … D-699 (next free **D-652**); stream A D-360 … D-379 (used up) and **D-800 … D-899** (D-378; next free **D-808**), P-40 … P-59 (used up) and **P-100 … P-149** (D-803; next free **P-124**); stream B D-380 … D-399 (used up) and D-700 … D-799, P-60 … P-99.
+- **ID ranges:** supervisor D-355 … D-359 (used up) and D-600 … D-699 (next free **D-672**; D-657 … D-661 assigned to T04j and T16); stream A D-360 … D-379 (used up) and **D-800 … D-899** (D-378; next free **D-808**), P-40 … P-59 (used up) and **P-100 … P-149** (D-803; next free **P-134**); stream B D-380 … D-399 (used up) and D-700 … D-799, P-60 … P-99.
 - **Path ownership (stream A only):** `HANDOFF.md`, `CLAUDE.md`, `docs/STANDING_PROMPT.md`, `.github/`, `pyproject.toml`, `uv.lock`, the Alembic migrations, `configs/universe.yaml` (D-394), and the T12 paths `components/`, `stages/`, `baseline/`, `metrics/`, `configs/gates/`, `configs/stages/` (D-611, D-612). **Stream B:** `configs/universe/`. Everything else is shared.
 - **Only stream B writes `SFAC_DATA_ROOT`**; both read `SFAC_RAW_ROOT` read-only. Each stream has its own test database (`sfac` / `sfac_b`) on the shared Postgres (port 5433, D-305).
 - Code, identifiers, commits and repo docs are in English; user-facing reports are Persian (RTL, Vazirmatn).
@@ -142,7 +142,11 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
   expose one — the method and the result are in `docs/streams/A.md`. From now on, anything
   committed here is public the moment it is pushed, and making the repository private again would
   not undo that.
-- **T15 owes a calibration pass**: the twelve items are listed in `docs/streams/A.md` — from T12
+- **T15b owes a calibration pass** (D-652): sixteen items in `docs/streams/A.md`. **From T15a's plan
+  (D-671): stage 1 both admits noise** (the calibrated null reaches the end of stage 3 on 1.23 %
+  of daily symbols, 6 of 486, against the real 0.41 %) **and misses real edges** (a planted MR edge
+  on every symbol is found 0 % of the time at 1 ATR, 40 % at 3 ATR) — T15b redesigns how stage 1
+  decides; plus the 1H stage-1 bias and the control's bar-shape distortion (items 13–16). From T12
   the magnitude target, TF exits on 1D, the disaster-stop hit rate against D-130's 2 %, one
   duplicated probe, which control is the calibrated null, residual biases, P-104; from T13 the
   11 of 14 daily profiles below three candidates (partly the fixed 5-bar exit, D-637), the

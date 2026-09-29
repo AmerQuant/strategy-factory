@@ -4,7 +4,8 @@ Stream A's plan for `docs/tasks/T15a_orchestrator_synthetic_report.md` (D-403). 
 the supervisor's and is not edited. Decisions: **D-652 … D-656** (recorded from T15a §2), D-004,
 D-008, D-031, D-160, D-305, D-306, D-334, D-351, D-352, D-354, D-400, D-401, D-402, D-602, D-607,
 D-610, D-615 … D-618, D-621, D-629, D-644, D-647, D-651, D-802, D-804, D-805, D-807, ADR-008.
-Open questions: **P-124 … P-133** (`docs/decisions/pending.md`).
+Open questions **P-124 … P-133**, answered on approval (2026-09-29) as **D-662 … D-671** (all
+accepted as proposed; the user decided Latin digits, D-666).
 
 Features: **F-X.1** (orchestrator), **F-X.2** (CLI), **F-X.3** (Persian HTML report framework),
 **F-X.4** (stage 1–3 report), **F-X.5** (false-positive self-test), all MVP and assigned to T15;
@@ -34,7 +35,23 @@ folder, nothing written to `SFAC_DATA_ROOT`, no threshold changed.
 > false positive**, and counts of a few are Poisson-noisy. (2) **D-335 / D-336 are unverified
 > against TradingView (D-802)**; D-336 is the research default and shapes every MR run here.
 
-## 1. The headline: today's funnel on the calibrated null (M4, D-656)
+## 1. The headline, in two parts (D-671)
+
+> **Stage 1 both admits noise and misses real edges** — so T15b is a redesign of how stage 1
+> decides, not only a tuning of thresholds (D-671). T15a's review leads with both.
+>
+> 1. **It admits noise** (M4, below): the calibrated null reaches the end of stage 3 on
+>    **1.23 % of daily symbols (6 of 486)** against the real data's **0.41 % (2 of 486)**; today's
+>    funnel does not separate the real daily candidates from noise. On 1H the null's stage-1
+>    passes have the same shape as the real ones (all TF long).
+> 2. **It misses real edges** (M3, §4): a planted mean-reversion edge **present on every symbol
+>    from 1 ATR upward** is found by stage 1 **0 % of the time at 1 ATR and 40 % at 3 ATR**; a
+>    planted trend edge **3–10 %** of the time (0.05–0.5 σ per bar).
+>
+> And the reshuffled-returns control, which showed 0 passes at stages 2 and 3, **understated the
+> false-positive rate**: it distorts bar shape (ATR 17–30 % too high, §2).
+
+### 1.1 Today's funnel on the calibrated null (M4, D-656)
 
 The calibrated null of §2 (`t_vp`) through the real stages 1 → 2 → 3, T12's full scope, today's
 thresholds, beside the merged real runs and their reshuffled-returns controls:
