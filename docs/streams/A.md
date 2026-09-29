@@ -104,6 +104,12 @@ supervisor id D-652**. Everything through D-651 and D-807 is on `main` (#54, #55
 
 ## Status — 2026-09-29
 
+**T15a plan in progress (branch `a/T15a-plan`, not yet stopped for "Plan approved").** Task file
+and D-652 … D-656 committed. Draft `docs/tasks/T15a_plan.md` with measurements M1 (null fit), M2
+(stage 1 on the null), M4 (null through stages 1-3: 1D 6 of 486 symbols = 1.23 % > D-656's 1 %;
+1H 0.27 %). Still to do: M3 (planted ladder, plan §4), P-124 … P-133 in `pending.md`,
+`RUNBOOK_T15a.md`, then the plan summary and the stop.
+
 **T14 is merged (#54 plan, #55 stage; merge commit `85870be`). Stream A has nothing open and waits
 for the next task file.** `main` is at `85870be` plus this status (HANDOFF v10).
 
