@@ -103,8 +103,8 @@ D-638 is on `main` (#51).
 
 ## Status — 2026-09-29
 
-**T13 is merged (#51, merge commit `e432b80`). Stream A has nothing open and waits for T14's
-task file.** `main` is at `e432b80`.
+**T13 is merged (#51, merge commit `e432b80`), and this status with HANDOFF v9 (#52,
+`38f3893`). Stream A has nothing open and waits for T14's task file.** `main` is at `38f3893`.
 
 > **The repository is public since 2026-09-28.** Everything pushed here is public immediately,
 > and going private again would not undo it. **Turn on secret scanning and push protection** —
@@ -157,9 +157,14 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 - **Nothing is open on stream A**; the next task, **T14**, waits for the supervisor's task file.
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
-- **Obsolete branches, not deleted** (the supervisor's word is needed): `a/fix-metrics-fixture-prices`,
-  `a/T11b-parity-tie`, `a/docs-T12-plan`, `a/stream-a-status`, `a/stream-a-idle-t13`, `a/T13-plan`
-  (folded into #51).
+- **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
+  fully merged into `main` first — `a/stream-a-status`, `a/stream-a-idle-t13`, `a/T13-plan`
+  (ancestors of `main`) and `a/docs-T12-plan` (its one commit is patch-identical to `6943204` on
+  `main`). **Kept, because they hold commits `main` does not:** `a/fix-metrics-fixture-prices`
+  (one commit, 2026-09-20: a fixture fix that scales prices — superseded by D-368's `qty` fix in
+  #31, never merged) and `a/T11b-parity-tie` (seven A.md status commits of 2026-09-21/22,
+  superseded by the A.md on `main`). Deleting either needs the user's word that unmerged work may
+  go.
 
 ### What T15 must calibrate
 
