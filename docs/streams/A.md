@@ -37,9 +37,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    **merged** (#33 … #43, #48).
 4. **T12 — stage 1, edge discovery** (critical, D-402) — ✅ **merged (#47)**.
 5. **T13 — stage 2, method screening** — ✅ **merged (#51)**.
-6. **Next: T14, stage 3 (entry optimisation) — waits for its task file.** As for T12 and T13, the
-   supervisor and the user settle the design in chat first; until the task file arrives stream A
-   neither plans nor starts it.
+6. **T14, stage 3 (entry optimisation)** — task file committed, D-639 … D-645 recorded; **plan
+   written, stopped for "Plan approved"** (branch `a/T14-plan`, stacked on #53).
 
 ## ID ranges (D-355, D-378)
 
@@ -49,10 +48,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-115**,
-all answered — **stream A has no open question**. **Next free here: D-807, P-116.** Supervisor
-rows written by stream A: D-601 … D-638; **next free supervisor id D-639**. Everything through
-D-638 is on `main` (#51).
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-121**;
+**P-116 … P-121 (the T14 plan) are open**, everything before them answered. **Next free here:
+D-807, P-122.** Supervisor rows written by stream A: D-601 … D-645; **next free supervisor id
+D-646**. D-639 … D-645 are on `a/T14-plan`, not yet on `main`.
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -103,8 +102,30 @@ D-638 is on `main` (#51).
 
 ## Status — 2026-09-29
 
-**T13 is merged (#51, merge commit `e432b80`), and this status with HANDOFF v9 (#52,
-`38f3893`). Stream A has nothing open and waits for T14's task file.** `main` is at `38f3893`.
+**T14's plan is written and stream A is stopped for "Plan approved"** (D-403). T13 is merged
+(#51), this status with HANDOFF v9 (#52, `38f3893`); `main` is at `38f3893`. PR #53 (A.md: the
+branch cleanup) is open; `a/T14-plan` is stacked on it.
+
+### T14 — stage 3, the plan (2026-09-29)
+
+Task file `docs/tasks/T14_stage3_entry_optimisation.md` (supervisor's, committed as delivered),
+D-639 … D-645 recorded (section I-S3), plan `docs/tasks/T14_plan.md`, runbook
+`docs/tasks/RUNBOOK_T14.md`, questions **P-116 … P-121**. Measured on the 31 stage-2 selections
+and their reshuffled-returns control (132,408 runs, 1 min 42 s;
+`scripts/analysis/T14_plan_measure.py`, `T14_plan_analyse.py`):
+
+- **Under the proposals: 9 real passes, 0 on the control** (6 real with P-118). All nine are long;
+  4 are the 1H `unconfirmed` TF candidates. Stability ratio does not discriminate (22 of 31 control
+  candidates meet it); plateau area and the half-2 check do.
+- **P-117 (per-half minimum):** half strength lets **one control candidate pass** (MSFT long
+  `mr_ibs_after_new_high`) — a D-644 stop; full strength gives 0 but leaves MRNA 1H ichimoku no
+  valid cell.
+- **P-116 (failed cells):** "the grid's worst value" passes TMUS `mr_n_day_low` with 20 of 21
+  half-1 cells failed; proposed min(worst, 0).
+- **P-118:** 8 fine grids below 10 cells (7 of them 3 cells); 3 passes rest on one- or two-cell
+  plateaus; proposed `min_plateau_cells` 3.
+- **P-119:** only the two 1H ichimoku grids exceed 2,000; Sobol has no lattice neighbours, so the
+  plan coarsens the lattice (amends D-639's last clause).
 
 > **The repository is public since 2026-09-28.** Everything pushed here is public immediately,
 > and going private again would not undo it. **Turn on secret scanning and push protection** —
@@ -154,7 +175,8 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 
 ### Open, and on whom
 
-- **Nothing is open on stream A**; the next task, **T14**, waits for the supervisor's task file.
+- **T14's plan waits for "Plan approved"** and the answers to **P-116 … P-121** (supervisor).
+- **PR #53** (A.md, branch cleanup) waits for "Approved. Merge #53".
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
@@ -219,10 +241,10 @@ From T13 (supervisor, 2026-09-29):
 
 ### Next actions, in order
 
-1. **T14 (stage 3)** — wait for the supervisor's task file; then plan (D-403), measuring on real
-   data and on the control before proposing, and stop for "Plan approved". Stage 3 reads the
-   `MethodScreen` artifacts of T13's runs (`dea1d423…`, `6025ef15…`).
-2. **Next free ids:** D-807, P-116 (stream A); supervisor D-639.
+1. **T14 (stage 3)** — on "Plan approved": `RUNBOOK_T14.md` on `a/T14-entry-optimisation`;
+   stops at the pilot's numbers, at any control pass (D-644), and after the review. Stage 3 reads
+   the `MethodScreen` artifacts of T13's runs (`dea1d423…`, `6025ef15…`).
+2. **Next free ids:** D-807, P-122 (stream A); supervisor D-646.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
 4. **T11b** when the user exports (D-802). **T15** owns the calibration list above.
