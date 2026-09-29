@@ -1,0 +1,24 @@
+# The planted edge of D-654 (D-665; T15a plan §4, measured as M3). Defaults live in
+# strategy_factory.synthetic.config.PlantedConfig (rule 1) and are restated here.
+# The null underneath is configs/synthetic/null.yaml's, restated under `base`.
+base:
+  innovations: student_t
+  df_min: 4.5
+  df_max: 60.0
+  vol_path: true
+  half_life_bars: {1D: 20.0, 1H: 140.0}
+  slot_cap: {1D: 0, 1H: 6}
+  wick_calibration_draws: 20
+mr:                             # a pullback of s x ATR at an event bar, reverting in equal steps
+  events_per_year: 12.0
+  reversion_bars: 5
+  atr_length: 14
+  ladder: [1.0, 2.0, 3.0, 4.0, 6.0]
+  directions: [long, short]     # short is the mirror: a spike up that reverts down
+tf:                             # segments of both signs, alternating: a two-sided trend edge
+  segments_per_year: 1.0
+  segment_bars: {1D: 60, 1H: 420}
+  ladder: [0.1, 0.2, 0.3, 0.5, 0.8]   # d x the bar volatility per bar
+null_share: 0.2                 # share of the scope left as the pure null
+bars_per_year: {1D: 252.0, 1H: 1764.0}
+# assignment: filled by the funnel when it resolves its scope (symbol -> cell), never by hand

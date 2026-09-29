@@ -61,6 +61,29 @@ Control = Literal["none", "random_walk"]
 DEFAULT_ENGINE_CONFIG = Path("configs") / "engine" / "default.yaml"
 
 
+#: D-654: a synthetic source replaces each series by its calibrated null or a planted edge.
+SourceKind = Literal["null", "planted"]
+
+
+class SourceRef(BaseModel):
+    """D-654, D-670: a synthetic data source for a run. The generator settings are stored **in
+    full** (the validated ``synthetic`` config as JSON, the planted assignment included), so the
+    run hash covers them and no stage re-reads a file that may have changed since."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: SourceKind
+    seed: int
+    generator: dict[str, Any]
+
+    @property
+    def id(self) -> str:
+        """``null:<hash12>`` / ``planted:<hash12>``: the source in identities and candidate ids."""
+        payload = {"kind": self.kind, "seed": self.seed, "generator": self.generator}
+        digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
+        return f"{self.kind}:{digest[:12]}"
+
+
 class SnapshotRef(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -153,6 +176,9 @@ class PipelineConfig(BaseModel):
     # the run hash when set; left out of the canonical JSON when empty, so the hash of every
     # config written before it is unchanged (``sfac reproduce`` of T12's runs).
     stage_inputs: dict[str, str] = Field(default_factory=dict)
+    # D-654, D-670: a synthetic source (``None`` = the real data). Left out of the canonical JSON
+    # when real, so every existing config hash is unchanged.
+    source: SourceRef | None = None
 
     @field_validator("symbols", "timeframes", "stages")
     @classmethod
@@ -191,7 +217,14 @@ class PipelineConfig(BaseModel):
         data["gates"] = self.gates.as_posix()
         if not data["stage_inputs"]:
             del data["stage_inputs"]  # hashes of configs without stage inputs stay unchanged
+        if data["source"] is None:
+            del data["source"]  # D-670: real runs hash as before
         return data
+
+    @property
+    def source_id(self) -> str:
+        """``real``, or the synthetic source's id (D-670)."""
+        return "real" if self.source is None else self.source.id
 
 
 def canonical_json(obj: Any) -> str:

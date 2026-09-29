@@ -1,0 +1,13 @@
+# The calibrated null of D-654 (D-664; T15a plan §2, measured as M1). Defaults live in
+# strategy_factory.synthetic.config.NullConfig (rule 1) and are restated here.
+#
+# Per session slot a gap and a body, rescaled to the slot's real mean and sd exactly (the
+# realised drift and volatility are the real ones); Student-t innovations times the real series'
+# own causal EWMA volatility path; Brownian-bridge wicks scaled to the real mean wick.
+innovations: student_t          # student_t (the null) | gaussian (the reported sensitivity)
+df_min: 4.5                     # df from the real kurtosis, bounded
+df_max: 60.0
+vol_path: true
+half_life_bars: {1D: 20.0, 1H: 140.0}   # EWMA half-life of the volatility path, in bars
+slot_cap: {1D: 0, 1H: 6}                # slot = position in the UTC trading date, capped
+wick_calibration_draws: 20
