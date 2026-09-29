@@ -1,4 +1,4 @@
-# HANDOFF — Strategy Factory (v8, 2026-09-28)
+# HANDOFF — Strategy Factory (v9, 2026-09-29)
 
 Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0),
 `docs/decisions/pending.md`, the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`)
@@ -8,7 +8,7 @@ and the feature list (`docs/features.md`).
 written **only by stream A, at merges**, from both of them:
 
 - `docs/streams/A.md` — stream A, the main folder: parity (T11 done, **T11b parked**), the
-  stream and CI tooling, and **T12, merged (#47)**; **T13 is next**.
+  stream and CI tooling, **T12 (#47)** and **T13 (#51)**, merged; **T14 waits for its task file**.
 - `docs/streams/B.md` — stream B, the worktree `../StrategyFactory_B`: the data layer (complete
   for the MVP). `docs/streams/B_data_state.md` is the data state at the handover into T12 and is
   the authority on data facts; §6 below is folded from it.
@@ -55,9 +55,9 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | D-368 task | Metrics fixture, pinned examples, weekly randomized Hypothesis job | ✅ merged (#31) |
 | **T11b** | Targeted parity reference for D-335 / D-336 | ⏸ **parked (D-802)** — the gap stays open (§8) |
 | **T12** | **Stage 1 — edge discovery (s01_edge), critical (D-402)** | ✅ **merged (#47)**: built, run at full scope, reviewed (`docs/reviews/T12_review.md`), approved with two conditions, both met. **14 of 1,944 daily profiles pass against 0 of 1,944 on the calibrated control**, all mean reversion; the **4 hourly passes go forward flagged `unconfirmed` (D-621)** |
-| T13 … T15 | Stages 2–3, orchestrator/CLI/reports/self-tests | next: **T13**, built knowing the 14 daily passes may move when the probe battery is corrected (T15's list is in `docs/streams/A.md`) |
+| **T13** | **Stage 2 — method screening (s02_screen)** | ✅ **merged (#51)**: planned on measured grids, built, piloted, run at full scope, reviewed (`docs/reviews/T13_review.md`), approved. **Both controls pass 0 methods** (45 daily and 11 hourly stopped by `method_q_value` alone, D-629); 25 daily and 6 hourly (`unconfirmed`) methods selected; **11 of 14 daily profiles end with fewer than 3** (D-625, D-637) |
 
-## 4. Merged since v6 (PRs #18 … #48)
+## 4. Merged since v6 (PRs #18 … #51)
 
 | PR | Content |
 |---|---|
@@ -72,6 +72,8 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | #45, #46 | stream B: **T04m** Yahoo aux ingest (VIX, index) with the as-of join rules D-717 … D-721; P-93. Stage 1 consumes no aux series, so T12's numbers are unaffected |
 | **#47** | **T12 — stage 1, edge discovery** (F-1.1 … F-1.9). Also **D-618** (the matched baseline carries no disaster stop — the original rule manufactured edge from drift), **D-804** (Windows efficiency-mode opt-out: runs were being scheduled onto efficiency cores, 3–4× slower), **D-805** (the stage-config hash is part of the candidate id, so a recalibrated re-run can never overwrite this one), **D-621** (the hourly passes are `unconfirmed`), D-613 … D-620, D-803 |
 | **#48** | **D-806** — runner images pinned (`ubuntu-24.04`, `windows-2025`; `ubuntu-latest` would migrate to Ubuntu 26 on 2026-10-19) and the weekly Hypothesis search back to 10× |
+| #49, #50 | stream A status and HANDOFF v8; the idle state before T13 |
+| **#51** | **T13 — stage 2, method screening** (F-2.1 … F-2.7): 35 stage-2 methods (the spec's library plus the user's MR suite, deduplicated), `metrics/family.py`, `stages/screen.py`, the `MethodScreen` artifact, `PipelineConfig.stage_inputs` (old hashes unchanged), `sfac run` for `s02_screen`; decisions **D-622 … D-638** |
 
 ## 5. Decisions to carry forward
 
@@ -128,9 +130,12 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
   expose one — the method and the result are in `docs/streams/A.md`. From now on, anything
   committed here is public the moment it is pushed, and making the repository private again would
   not undo that.
-- **T15 owes a calibration pass** on the probe battery: the six items are listed in
-  `docs/streams/A.md` (magnitude target, TF exits on 1D, the disaster-stop hit rate against
-  D-130's 2 %, one duplicated probe, which control is the calibrated null, residual biases).
+- **T15 owes a calibration pass**: the ten items are listed in `docs/streams/A.md` — from T12
+  the magnitude target, TF exits on 1D, the disaster-stop hit rate against D-130's 2 %, one
+  duplicated probe, which control is the calibrated null, residual biases, P-104; from T13 the
+  11 of 14 daily profiles below three candidates (partly the fixed 5-bar exit, D-637), the
+  cleanup of private cross-module helpers (T13 review §8 item 16), and T13's provisional
+  family-score constants (D-636).
 - **`scripts/analysis/T04k_assert_provenance.py`** indexes by hash alone; key it by
   `(source, symbol, timeframe, snapshot_hash)` when next touched (T04l review §6.1.4).
 - **D-377 exemptions** — three text calls in stream B's paths lack an encoding (listed in
