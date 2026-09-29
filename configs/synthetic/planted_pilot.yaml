@@ -1,0 +1,24 @@
+# T15a planted pilot (D-665, RUNBOOK_T15a step 8): the top two strengths of each ladder only,
+# no pure-null share -- 6 cells (MR long / short x {4, 6} ATR, TF two-sided x {0.5, 0.8} sigma).
+# The pilot checks that the top of each ladder reaches at least 80 % at stage 1 before the full
+# planted run; every other value is configs/synthetic/planted.yaml's.
+base:
+  innovations: student_t
+  df_min: 4.5
+  df_max: 60.0
+  vol_path: true
+  half_life_bars: {1D: 20.0, 1H: 140.0}
+  slot_cap: {1D: 0, 1H: 6}
+  wick_calibration_draws: 20
+mr:
+  events_per_year: 12.0
+  reversion_bars: 5
+  atr_length: 14
+  ladder: [4.0, 6.0]
+  directions: [long, short]
+tf:
+  segments_per_year: 1.0
+  segment_bars: {1D: 60, 1H: 420}
+  ladder: [0.5, 0.8]
+null_share: 0.0
+bars_per_year: {1D: 252.0, 1H: 1764.0}

@@ -1,0 +1,11 @@
+# T15a planted pilot (RUNBOOK_T15a step 8, D-665): the 30 daily symbols of the plan's M3 sample,
+# the ladder's top two strengths (configs/synthetic/planted_pilot.yaml), with the control.
+source: {kind: planted, seed: 20260929, generator: configs/synthetic/planted_pilot.yaml}
+symbol_scope: listed
+symbols: [AAL, AMD, BLDP, BND, CRM, DE, DOW, EA, EEM, FAST, HPQ, HYLN, INCY, INTU, JCI, LHX, MCK,
+          NBR, PEP, POOL, RIVN, RTX, SCHW, SE, STT, SWKS, TROW, TSM, YUM, YUMC]
+timeframes: [1D]
+stages: [s01_edge, s02_screen, s03_entry]
+control: true
+seed: 42
+report: false
