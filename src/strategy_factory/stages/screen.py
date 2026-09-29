@@ -58,7 +58,7 @@ from strategy_factory.costs.arrays import CostArrays
 from strategy_factory.costs.profile import load_assignments, load_profiles
 from strategy_factory.data.result_io import write_run_result
 from strategy_factory.engine import kernel as k
-from strategy_factory.engine.api import ExitParams, SimResult, simulate
+from strategy_factory.engine.api import ExitParams, MarketArrays, SimResult, simulate
 from strategy_factory.gates.engine import GateEngine, GateResult, to_registry_rows
 from strategy_factory.metrics.containers import RunMeta, RunResult
 from strategy_factory.metrics.family import (
@@ -185,6 +185,76 @@ def method_cells(method: str) -> list[dict[str, Any]]:
     ]
 
 
+@dataclass(frozen=True)
+class CellSignals:
+    """A cell's entry and exit signals and its market arrays, computed on bars ``[0, end)``."""
+
+    entry: np.ndarray
+    exit: np.ndarray
+    market: MarketArrays
+
+    @property
+    def end(self) -> int:
+        return int(self.entry.shape[0])
+
+
+def cell_signals(
+    bars: dict[str, np.ndarray],
+    method: str,
+    params: dict[str, Any],
+    exits: EdgeTypeSpec,
+    direction: Direction,
+    atr_length: int,
+    end: int | None = None,
+) -> CellSignals:
+    """The method's signals and stage 1's exit signals (D-622), and the ATR, on the bars up to
+    ``end`` only -- nothing after ``end`` is read (rule 3; T14's halves, D-641, D-650 (c))."""
+    head = {
+        c: np.asarray(bars[c][:end], dtype=np.float64) for c in ("open", "high", "low", "close")
+    }
+    comp = default_registry().get(method)
+    b = Bars(head["open"], head["high"], head["low"], head["close"])
+    long_e, short_e = comp.signals(b, params)
+    long_x, short_x = probe_exit_signals(exits.exit_signal, comp, b, params)
+    entry, exit_ = (long_e, long_x) if direction == "long" else (short_e, short_x)
+    return CellSignals(entry=entry, exit=exit_, market=market_arrays(head, atr_length))
+
+
+def segment_run(
+    sig: CellSignals,
+    exits: EdgeTypeSpec,
+    direction: Direction,
+    engine: EngineConfig,
+    costs: CostArrays | None = None,
+    start: int = 0,
+) -> SimResult:
+    """Simulate bars ``[start, sig.end)`` only: the signals and the ATR come from ``sig`` (so a
+    segment's indicators are warmed up by the earlier bars, D-650 (c)); no trade can enter
+    before ``start``. ``costs`` covers the same bars as the series ``sig`` was computed on (the
+    whole development window); it is cut to the segment here."""
+    end = sig.end
+    m = sig.market
+    market = MarketArrays(
+        *(np.ascontiguousarray(a[start:end]) for a in (m.open, m.high, m.low, m.close, m.atr))
+    )
+    entry = np.ascontiguousarray(sig.entry[start:end])
+    exit_ = np.ascontiguousarray(sig.exit[start:end])
+    n = end - start
+    ex = ExitParams(time_exit_bars=exits.time_exit_bars, disaster_atr=engine.disaster_stop_atr)
+    if costs is None:
+        cost_in = frictionless_costs(n)
+        sizing = frictionless_sizing(engine.notional, engine.initial_capital)
+    else:
+        seg = (
+            costs
+            if (start == 0 and costs.half_spread.shape[0] == end)
+            else costs.segment(start, end)
+        )
+        cost_in = cost_inputs(seg)
+        sizing = sizing_inputs(seg, engine, "pessimistic", None)
+    return simulate(market, entry, exit_, _SIGN[direction], ex, cost_in, sizing, k.MODE_PESSIMISTIC)
+
+
 def method_run(
     bars: dict[str, np.ndarray],
     method: str,
@@ -193,28 +263,19 @@ def method_run(
     direction: Direction,
     engine: EngineConfig,
     costs: CostArrays | None = None,
+    start: int = 0,
+    end: int | None = None,
 ) -> SimResult:
     """One cell: the method's signals with stage 1's fixed exits (D-622) in research mode.
 
     ``costs=None`` runs frictionless (the ranking leg); a ``CostArrays`` the full costs (the gate
-    leg, D-623). The 3-ATR disaster stop is on (D-130). The stage and the leakage test both call
-    this, so the test covers what the stage runs.
+    leg, D-623). The 3-ATR disaster stop is on (D-130). ``start`` / ``end`` restrict the run to a
+    segment (stage 3's halves, D-641): the signals are computed on the bars up to ``end``, the
+    simulation covers ``[start, end)``; the defaults run the whole series (stage 2). The stages
+    and the leakage tests all call this, so the tests cover what the stages run.
     """
-    comp = default_registry().get(method)
-    b = Bars(*(np.asarray(bars[c], dtype=np.float64) for c in ("open", "high", "low", "close")))
-    long_e, short_e = comp.signals(b, params)
-    long_x, short_x = probe_exit_signals(exits.exit_signal, comp, b, params)
-    entry, exit_ = (long_e, long_x) if direction == "long" else (short_e, short_x)
-    market = market_arrays(bars, engine.atr_length)
-    n = len(b)
-    ex = ExitParams(time_exit_bars=exits.time_exit_bars, disaster_atr=engine.disaster_stop_atr)
-    if costs is None:
-        cost_in = frictionless_costs(n)
-        sizing = frictionless_sizing(engine.notional, engine.initial_capital)
-    else:
-        cost_in = cost_inputs(costs)
-        sizing = sizing_inputs(costs, engine, "pessimistic", None)
-    return simulate(market, entry, exit_, _SIGN[direction], ex, cost_in, sizing, k.MODE_PESSIMISTIC)
+    sig = cell_signals(bars, method, params, exits, direction, engine.atr_length, end)
+    return segment_run(sig, exits, direction, engine, costs, start)
 
 
 def _meta(task: MethodTask, params: dict[str, Any]) -> RunMeta:
@@ -947,12 +1008,15 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 __all__ = [
+    "CellSignals",
     "MethodTask",
     "ScreenStage",
     "candidate_id",
+    "cell_signals",
     "compute_method",
     "method_cells",
     "method_run",
     "read_stage1_passes",
+    "segment_run",
     "stage1_pass_symbols",
 ]

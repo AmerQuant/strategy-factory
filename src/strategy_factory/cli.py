@@ -69,11 +69,14 @@ def main(
 def run_command(
     config: Annotated[
         Path,
-        typer.Option("--config", help="Pipeline config with one stage: s01_edge or s02_screen."),
+        typer.Option(
+            "--config", help="Pipeline config with one stage: s01_edge, s02_screen or s03_entry."
+        ),
     ],
     notes: Annotated[str, typer.Option("--notes", help="Free text stored on the run.")] = "",
 ) -> None:
-    """Run one stage: s01_edge (D-616) or s02_screen over a stage-1 run's passes (T13)."""
+    """Run one stage: s01_edge (D-616), s02_screen over a stage-1 run's passes (T13), or
+    s03_entry over a stage-2 run's selections (T14)."""
     from strategy_factory.pipeline.stage_run import run_config
 
     report = run_config(config, notes=notes)

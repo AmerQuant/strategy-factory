@@ -1,0 +1,8 @@
+# T14, the headline control (D-644, D-651 (b)): the same real stage-2 selections on each symbol's
+# returns reshuffled (D-615, seeded as T12's and T13's controls). If any candidate passes, stop.
+symbol_scope: stage_inputs
+stage_inputs: {s02_screen: dea1d423-6621-43f9-8057-227e6e576ee0}
+control: random_walk
+timeframes: [1D]
+stages: [s03_entry]
+seed: 42

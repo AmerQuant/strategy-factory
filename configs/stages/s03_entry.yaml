@@ -1,0 +1,40 @@
+# Stage 3 -- entry optimisation (T14; F-3.1, F-3.3 ... F-3.7; D-639 ... D-651). Every constant of
+# the stage lives here (CLAUDE.md rule 1); the gate thresholds live in configs/gates/default.yaml
+# (s03_entry). Loaded and validated by strategy_factory.stages.optimize_config.
+#
+# Read from elsewhere, never restated here, so the stages cannot drift apart:
+#   * the exits are stage 1's (D-622): configs/stages/s01_edge.yaml (edge_types);
+#   * the trade minimum that makes a cell "failed" is stages 1 and 2's (T14 section 4): the
+#     s02_screen gate's min_trades_good_cells (30, 1H override 100);
+#   * the plateau cut and the half-2 stability test use the s03_entry gate's stability_ratio
+#     threshold (0.8, D-650 (f), (g)).
+
+fine_grid:
+  # D-639: stage 2's good region plus this many coarse steps outward on each side, per numeric
+  # parameter (the neighbouring coarse value; beyond the ends, the end interval), clipped to the
+  # parameter's [min, max], at its fine_step. Choice parameters are fixed (D-640).
+  margin_coarse_steps: 1
+  # D-120 / D-649: at most this many cells; above it the step of the axis with the most values
+  # is multiplied by 2, 3, ... until the grid fits (a lattice, never a Sobol sample).
+  max_cells: 2000
+  # D-120: at most this many free (numeric) entry parameters.
+  max_free_params: 3
+
+# D-646: a cell below the trade minimum enters every mean as min(the grid's worst valid value, 0).
+failed_cell: worst0
+
+# D-647: the trade minimum in each half -- "full" (the same minimum as the whole window) or
+# "half" (rounded up). Full: at half strength the control passed MSFT long (T14 plan section 4).
+half_min_trades: full
+
+# F-3.5: the SPP percentiles reported beside the median (nearest rank).
+spp_percentiles:
+  low: 5
+  high: 95
+
+# Reporting only (D-648): a fine grid below this many cells is flagged `small_grid` -- one cell
+# is already >= 10 % of it, so stage 3 can only accept or reject its stage-2 parameter.
+small_grid_cells: 10
+
+# Work units sent to the executor per batch -- operational only, changes no number (D-607).
+batch_units: 16

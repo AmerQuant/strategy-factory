@@ -51,6 +51,14 @@ def test_F_1_8_d616_no_stage_module_can_reach_the_holdout() -> None:
             assert "_catalog" not in code_names(path.read_text(encoding="utf-8")), path.name
 
 
+def test_F_1_8_d616_the_guard_scans_every_stage_module() -> None:
+    """Stages 2 and 3 are in the scanned set (T13, T14 §7: "the stage cannot reach
+    ``open_holdout``"), so a new stage file cannot escape the guard by its name."""
+    names = {p.name for p in STAGE_MODULES}
+    assert {"edge.py", "screen.py", "optimize.py", "optimize_grid.py"} <= names
+    assert {"optimize_config.py", "optimize_artifact.py", "random_entries.py"} <= names
+
+
 def test_F_1_8_d616_the_check_sees_code() -> None:
     assert code_names("from x import SplitManager") & BANNED
     assert code_names("ctx.data._splits.open_holdout('c', 's', '1D', stage='s')") & BANNED

@@ -30,6 +30,7 @@ stages:
     - {metric: spp_median_target, op: ">", threshold: 0, note: "median of the SPP distribution, after costs"}
     - {metric: stability_ratio, op: ">=", threshold: 0.8, note: "neighbourhood / selected point"}
     - {metric: plateau_area, op: ">=", threshold: 0.10, note: "share of the search space"}
+    - {metric: plateau_cells, op: ">=", threshold: 3, note: "D-648: a plateau needs at least 3 cells"}
     - {metric: selected_in_both_halves, op: "==", threshold: 1, note: "selected parameters accepted in both data halves"}
 
   # ---- used from P1 (stages 1-S, 4-7), values from the phase-1 decisions -----------------
