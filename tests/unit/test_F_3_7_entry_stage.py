@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -418,12 +419,48 @@ def test_F_3_7_d622_the_exits_are_stage_1s_and_cannot_be_restated(tmp_path: Path
         load_s03_config(path)
 
 
-def test_F_3_7_d651_candidate_id_carries_parent_control_and_config() -> None:
-    base = {"parent_id": "p", "control": "none", "stage_config_hash": "h"}
-    ids = {candidate_id(**base)}
-    for k, v in [("parent_id", "q"), ("control", "random_walk"), ("stage_config_hash", "g")]:
-        ids.add(candidate_id(**{**base, k: v}))
-    assert len(ids) == 4
+def test_F_3_7_d807_candidate_id_carries_parent_control_config_and_gate_values() -> None:
+    """D-651 (c) and D-807: a different trade minimum (whole or per half) or plateau cut is a
+    different result, so it must not reuse an id."""
+    base = {
+        "parent_id": "p",
+        "control": "none",
+        "stage_config_hash": "h",
+        "min_trades": 30,
+        "min_trades_half": 30,
+        "plateau_cut": 0.8,
+    }
+    ids = {candidate_id(**base)}  # type: ignore[arg-type]
+    for k, v in [
+        ("parent_id", "q"),
+        ("control", "random_walk"),
+        ("stage_config_hash", "g"),
+        ("min_trades", 100),
+        ("min_trades_half", 15),
+        ("plateau_cut", 0.75),
+    ]:
+        ids.add(candidate_id(**{**base, k: v}))  # type: ignore[arg-type]
+    assert len(ids) == 7
+
+
+def test_F_3_7_d807_a_gate_change_changes_the_stage_ids(entered: Any, tmp_path: Path) -> None:
+    """End to end: the same stage config with a different plateau cut in the gate YAML writes
+    candidates under new ids (the stored ids were made with the shipped gate)."""
+    _, _, base = entered
+    gates = yaml.safe_load(GATES.read_text(encoding="utf-8"))
+    for crit in gates["stages"]["s03_entry"]:
+        if crit["metric"] == "stability_ratio":
+            crit["threshold"] = 0.75
+    path = tmp_path / "gates.yaml"
+    path.write_text(yaml.safe_dump(gates), encoding="utf-8")
+    series = planted_series(SYMBOLS)
+    stage2_run(tmp_path, series, SYMBOLS)
+    ctx = entry_context(tmp_path, series, SYMBOLS)
+    ctx = replace(ctx, gates=GateEngine.from_file(path))
+    EntryStage(stage_config_path=entry_config_file(tmp_path, **FAST)).run([("AAPL", "1D")], ctx)
+    new = summaries(tmp_path / "dry-run" / "s03_entry")
+    assert {a.identity.parent_id for a in new} == {a.identity.parent_id for a in base}
+    assert not {a.identity.candidate_id for a in new} & {a.identity.candidate_id for a in base}
 
 
 def test_F_3_7_operational_settings_change_no_id() -> None:

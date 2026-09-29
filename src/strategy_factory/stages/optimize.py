@@ -157,15 +157,29 @@ class EntryOutput:
     warnings: tuple[str, ...]
 
 
-def candidate_id(*, parent_id: str, control: str, stage_config_hash: str) -> str:
-    """sha256 of what identifies a stage-3 candidate (D-651 (c)): the stage, the parent stage-2
-    candidate (which names the method and its profile), the control and the stage-config hash
-    (D-805's pattern)."""
+def candidate_id(
+    *,
+    parent_id: str,
+    control: str,
+    stage_config_hash: str,
+    min_trades: int,
+    min_trades_half: int,
+    plateau_cut: float,
+) -> str:
+    """sha256 of what identifies a stage-3 candidate (D-651 (c), D-807): the stage, the parent
+    stage-2 candidate (which names the method and its profile), the control, the stage-config hash
+    (D-805's pattern) and **the gate values that shape the surfaces** -- the trade minimum of the
+    whole window and of each half, and the plateau cut. They come from the gate YAML, not the
+    stage config, and a different value is a different result, so it must not reuse an id (D-807;
+    T15 recalibrates exactly these)."""
     payload = {
         "stage": STAGE,
         "parent_id": parent_id,
         "control": control,
         "stage_config_hash": stage_config_hash,
+        "min_trades": int(min_trades),
+        "min_trades_half": int(min_trades_half),
+        "plateau_cut": float(plateau_cut),
     }
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
@@ -485,11 +499,15 @@ class EntryStage:
                 max_cells=cfg.fine_grid.max_cells,
                 max_free_params=cfg.fine_grid.max_free_params,
             )
+            cut = _threshold(ctx.gates, STAGE, STABILITY_METRIC, context)
             task = EntryTask(
                 candidate_id=candidate_id(
                     parent_id=ident.candidate_id,
                     control=ctx.config.control,
                     stage_config_hash=s_hash,
+                    min_trades=min_trades,
+                    min_trades_half=min_half,
+                    plateau_cut=cut,
                 ),
                 parent_id=ident.candidate_id,
                 method=ident.method,
@@ -503,7 +521,7 @@ class EntryStage:
                 exits=cfg.exits[ident.edge_type],
                 min_trades=min_trades,
                 min_trades_half=min_half,
-                ratio=_threshold(ctx.gates, STAGE, STABILITY_METRIC, context),
+                ratio=cut,
                 failed_cell=cfg.failed_cell,
                 spp_low=cfg.spp_percentiles.low,
                 spp_high=cfg.spp_percentiles.high,
