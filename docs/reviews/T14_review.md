@@ -16,7 +16,7 @@ reshuffled (D-615, T12's seeds; D-651 (b)):
 
 | | 1D control | 1H control |
 |---|---|---|
-| run id | `66c31bde…` | `d9de3267…` |
+| run id | `0a4fb887…` | `9d37799d…` |
 | candidates | 25 | 6 |
 | **pass the gate** | **0** | **0** |
 | `spp_median_target > 0` | 6 | 1 |
@@ -35,7 +35,7 @@ minimum in each half it passes (D-647).
 
 | | 1D | 1H (all `unconfirmed`, D-645) |
 |---|---|---|
-| run id | `e1c1d243…` | `c28bfb47…` |
+| run id | `f72b80ee…` | `ce348ae8…` |
 | candidates (stage-2 selections) | 25 | 6 |
 | fine-grid cells | 5,383 | 5,651 (2 grids coarsened, D-649) |
 | trials (cells × 3 segments, D-160) | 16,149 | 16,953 |
@@ -43,17 +43,19 @@ minimum in each half it passes (D-647).
 | small grids (< 10 cells, D-648) | 8 | 0 |
 | wall time | 15 s | 34 s |
 
-- The runs were made on the **committed tree** (`code_version` `0f9cd10…`, clean), after the
-  acceptance review's fixes (§12). The first full runs on `75eefa0…` (`768685ea…`, `b1021722…`,
-  controls `86f27fb0…`, `9c98bad1…`) gave **identical artifacts** apart from the one intended
-  change: three control overlaps against a candidate without a selection are now `null`, not
-  0.0. The pilot showed that a run reproduces byte for byte (pilot §1). Every artifact records
+- The runs were made on the **committed tree** (`code_version` `effba41…`, clean), after the
+  acceptance review's fixes (§12) and **D-807** (the gate values in the candidate id). Two
+  earlier sets gave **identical artifacts apart from the ids**: on `0f9cd10…` (`e1c1d243…`,
+  `c28bfb47…`, controls `66c31bde…`, `d9de3267…`; all 62 identical, no id shared) and, before
+  the review's fixes, on `75eefa0…` (`768685ea…`, `b1021722…`, `86f27fb0…`, `9c98bad1…`; one
+  more difference: three control overlaps against a candidate without a selection were 0.0,
+  now `null`). The pilot showed that a run reproduces byte for byte (pilot §1). Every artifact records
   its config hash, stage-config hash and code version; the registry run records the seed (42).
 - **6 of 31 pass — the count the plan predicted** under D-646 … D-648.
-- Gate rows: 5 per candidate. Candidate ids carry no run id (D-651 (c)), so a candidate row keeps
-  the run that first wrote it: the pilot's 9 and the first full runs' 22 (real) and 31 (control),
-  as T13 §8 item 11 described. Trial and gate rows always carry the run that made them. Whether
-  gate values that shape the surfaces belong in the id is **P-123** (§9).
+- Gate rows: 5 per candidate. Since D-807 changed every id, **each run owns all its candidate
+  rows** (25 and 6; active 2 and 4); the rows of the earlier runs stay, under their own ids.
+  Candidate ids carry no run id (D-651 (c)), so an identical re-run would upsert the same rows,
+  as T13 §8 item 11 described.
 - The four run indexes are copied to `docs/reviews/T14_index_{1D,1H,1D_control,1H_control}.csv`;
   the tables below come from `scripts/analysis/T14_review_tables.py`.
 
@@ -72,9 +74,13 @@ loss (D-650 (e)) — counted as meeting the threshold. The correct counts:
 | **the plan, corrected** | **21 of 31** | **9 of 31** |
 | **the full runs** | **21 of 31** | **9 of 31** |
 
-Every pass count of the plan was computed in Python and is unaffected; the script is fixed
-(`T14_plan_analyse.py`), and the plan carries an erratum. **P-122** asks the supervisor to amend
-D-651 (1).
+Every pass count of the plan was computed in Python and is unaffected; the plan carries an
+erratum. **D-651 (1) is amended** (P-122) with these numbers, and with a general rule: **any
+count behind a decision is computed so that NaN cannot pass a comparison, with a test** —
+`gates.engine.count_meeting` (the gate's own comparison; NaN and missing never meet a
+threshold), tested against the polars behaviour in
+`test_F_0_8_1_count_meeting_never_counts_nan_or_missing`. The plan's analysis now counts with
+it and reproduces the corrected 21 / 9.
 
 What holds after the correction:
 
@@ -272,9 +278,10 @@ multipliers and overlaps are in `docs/reviews/T14_candidates.csv`.
     `mr_rsi_sum`, −2.13); read it as "half 2 accepts the selected cell".
 11. **An overlap with a candidate that has no selection is `null`** (D-643), not 0.0 — fixed
     after the acceptance review (§12); it changed three control overlaps (TMUS).
-12. **Gate values that shape the surfaces are recorded, not hashed** (P-123): the trade minimum
-    and the plateau cut change which cells fail and the plateau, but are not in the candidate id
-    (D-651 (c)); each artifact records them (`segments.*.min_trades`, the gate lines).
+12. **Gate values that shape the surfaces are hashed into the candidate id (D-807)**: the trade
+    minimum of the whole window and of each half and the plateau cut change which cells fail and
+    the plateau, so a different value must not reuse an id (tests: each value changes the id; a
+    gate-YAML change writes new ids end to end). The artifacts also record them.
 13. **Stage 2 unchanged:** besides T13's tests and the recomputed T13 grid, the acceptance
     reviewer loaded `origin/main`'s `screen.py` beside the branch's: 88 `method_run` cases (5
     methods, both directions, zero and flat costs) identical. No committed test pins the
@@ -296,7 +303,8 @@ multipliers and overlaps are in `docs/reviews/T14_candidates.csv`.
 | rule 2: holdout | T12's guard scans `stages/*.py`; `test_F_1_8_d616_the_guard_scans_every_stage_module` names the stage-3 modules |
 | D-607: serial = parallel | `test_F_3_7_d607_serial_and_parallel_runs_are_bit_identical`; the pilot's reruns |
 | D-644 / D-651 (b): the control | `…d651_the_control_reruns_the_real_selections_on_reshuffled_bars`, `…a_control_stage2_run_is_refused_as_input` |
-| D-622, D-645, D-651 (c), rule 8 | `…d622_the_exits_are_stage_1s…`, `…d645_unconfirmed_is_carried_from_stage_2`, `…d651_candidate_id_carries_…`, `…operational_settings_change_no_id` |
+| D-622, D-645, D-651 (c) / D-807, rule 8 | `…d622_the_exits_are_stage_1s…`, `…d645_unconfirmed_is_carried_from_stage_2`, `…d807_candidate_id_carries_parent_control_config_and_gate_values`, `…d807_a_gate_change_changes_the_stage_ids`, `…operational_settings_change_no_id` |
+| D-651 (1) amended: counts cannot let NaN pass | `test_F_0_8_1_count_meeting_never_counts_nan_or_missing` (pins the polars behaviour it guards against) |
 | inputs, `sfac run` | `…stage_inputs_expand_to_the_stage2_selections`, `…sfac_run_dispatches_s03`, `…run_stage3_refusals` |
 | stage 2 unchanged | T13's stage tests pass; a T13 grid recomputes to its artifact exactly; `test_F_3_6_method_run_whole_equals_the_unsegmented_run` |
 
@@ -305,9 +313,10 @@ multipliers and overlaps are in `docs/reviews/T14_candidates.csv`.
 - **Used:** D-004, D-120 (as amended), D-130, D-160, D-306, D-334, D-354, D-607, D-610, D-615,
   D-616, D-621 … D-625, D-628, D-636, D-637, D-802, D-805.
 - **Made, supervisor range:** D-639 … D-645 (T14 §2), **D-646 … D-651** (the plan's answers;
-  D-649 amends D-120).
-- **Stream A:** **P-122 open** — the correction of D-651 (1) (§3); **P-123 open** — the gate
-  values that shape the surfaces are not in the candidate id (§9 item 12).
+  D-649 amends D-120; D-651 (1) amended on the review).
+- **Stream A range:** **D-807** (P-123: the gate values in the candidate id, amends D-651 (c)).
+  **D-651 (1) amended** in place (P-122: the corrected counts and the NaN rule). Stream A has no
+  open question.
 
 ## 12. The acceptance review, and what changed
 
@@ -323,7 +332,7 @@ Its findings and what changed:
 | 1 | §3 ranked plateau area above stability; by difference stability separates more, by ratio equally | §3 reworded (both 2.3×; only the half-2 check separates more); P-122 reworded |
 | 2 | §4 "chooses the one that is actually traded best" overclaims: the selection is the best **smoothed** cell; raw, other cells score higher | §4 reworded with the raw numbers |
 | 3 | D-647's per-half minimum had no test | `test_F_3_7_d647_…`, `…config_values_reach_the_stage` |
-| 4 | the trade minimum and the plateau cut shape the surfaces but are not in the id or the stage-config hash | raised as **P-123** (recorded in every artifact; the id follows D-651 (c)) |
+| 4 | the trade minimum and the plateau cut shape the surfaces but are not in the id or the stage-config hash | raised as P-123; answered by **D-807**: hashed into the id, full scope and control re-run (unchanged apart from the ids) |
 | 5 | "the plateau centre is what stage 4 receives": it is the smoothed maximum, which can sit at the plateau's edge | §5 reworded; F-3.3's "centre" vs D-650 (d) stated |
 | 6 | extents, zero-cost cells, multipliers and overlaps not given per candidate | `docs/reviews/T14_candidates.csv`; multipliers in §6; §7 completed |
 | 7 | numeric defaults restating config values (`margin`, `max_cells`, `max_free_params`, SPP percentiles, `failed_cell`) | removed; the tests pass the values or read the shipped config |
@@ -336,12 +345,12 @@ Its findings and what changed:
 
 ## 13. Acceptance
 
-Run on Windows after the reviewer's fixes, on the code of the full runs (`0f9cd10`; the final
-commit adds only a `ruff format` line wrap in `metrics/plateau.py`, no behaviour):
+Run on Windows on the final code (`effba41` plus documents), after the reviewer's fixes and
+D-807:
 
 | suite | result |
 | --- | --- |
-| fast (`-m "not slow"`) | **2,532 passed** |
+| fast (`-m "not slow"`) | **2,534 passed** |
 | `tests/parity tests/leakage tests/oracle` | **869 passed** |
 | `-m db -rs` | **24 passed, 0 skipped** |
 | `-m slow` | **20 passed** |
