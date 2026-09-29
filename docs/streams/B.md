@@ -21,27 +21,27 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
 | `b/D377-encoding` | [PR #58](https://github.com/AmerQuant/strategy-factory/pull/58): the three D-377 exemptions fixed, `ALLOWED` empty | CI, then **"Approved. Merge"** |
 | `b/T04j-dukascopy-ingest` | pushed, **no PR**: D-657 built; **nothing ingested** | **the user**: the Dukascopy download |
 
-### T04j — Dukascopy h1 (D-657: the gate is per instrument)
+### T04j — Dukascopy h1 (D-657, amended by D-661: the complete window)
 
-- **D-657 (supervisor, 2026-09-29):** a complete instrument is ingested now, a gapped one waits; no
-  instrument is ever ingested with a gap.
-- **Built for it:** `sfac data ingest dukascopy` ingests the complete instruments and lists the
-  waiting ones (refuses, writing nothing, when none is complete); `scripts/analysis/T04j_defects.py`
-  re-measures D-717 per instrument (exit 1 on any family, rows upserted into
-  `docs/reviews/T04j_defects_ingest.csv`; the refactor reproduces the plan's rows exactly); and
-  **the single resume command** `uv run python scripts/pilots/T04j_resume.py` (coverage → D-717 stop
-  → ingest 1H, pilots `--rehash` → 1D `--set-reference` → quality → `costs show`; instruments
-  already done are skipped; `--dry-run` stops after D-717; writes
-  `docs/reviews/T04j_instrument_status.csv`).
-- **Measured 2026-09-29: 0 of 29 complete, 3,743 months missing.** The newest raw file is from
-  **2026-09-22 16:05 UTC**; no downloader process runs. Closest: XAUUSD 6 months, GBPCHF 11,
-  DEUIDXEUR 11, XAGUSD 12, EURUSD 14, CADJPY 15, GBPUSD 16 — scattered months on **one side**
-  (failed fetches); 14 instruments have no file at all.
-- **The user:** re-run `powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1`
-  (resumable; it now ends by naming the resume command). Then stream B runs
-  `uv run python scripts/pilots/T04j_resume.py` — as often as instruments complete.
-- **Still to do after instruments are ingested:** `B_data_state.md`, the review, the acceptance
-  reviewer, the PR (partial per D-657), stop for "Approved. Merge".
+- **D-661 (supervisor, 2026-09-29, amends D-657):** an incomplete instrument is ingested over its
+  longest contiguous complete window ending at the last complete month; shorter than D-008 → it
+  waits; a closed gap later → re-derived as a new versioned snapshot.
+- **STOPPED before any ingest** on the supervisor's order: the window table
+  (`uv run python scripts/analysis/T04j_windows.py` → `docs/reviews/T04j_windows.csv`) is with the
+  supervisor. Measured 2026-09-29 while the download runs: **4 complete** (EURUSD, GBPUSD, USDJPY,
+  USDCHF, 16.7 y); **2 partial windows pass D-008** (GBPCHF 2013-03…, 13.5 y; XAUUSD 2019-12…,
+  6.75 y); 8 have a window of 1–8 months (fail D-008); 15 have none (2026-08 not downloaded yet).
+- **Built:** `coverage.dukascopy_windows` (D-661), `rawfiles.is_settled` (a month counts only
+  once its data file and manifest exist and no `.partial` is left — the coverage, the window and
+  `raw_pairs` read only settled months, so everything works alongside the download); the download
+  script checks Node.js and `tools/dukascopy/node_modules/dukascopy-node` first and prints the
+  `npm ci` step (exit 3).
+- **Not built yet (after the supervisor's go):** the D-661 window in `sfac data ingest dukascopy`
+  and `scripts/pilots/T04j_resume.py` (today they ingest only fully complete instruments, D-657).
+  **Do not run the resume script until then.**
+- **Changed test, flag in the review:** `test_F_0_1_3_T04j_the_verdict_ignores_manifest_fields`
+  (was `..._ignores_the_manifest`): a data file without its manifest is now *not yet written*,
+  i.e. a gap. D-711 still holds — no manifest **field** decides coverage.
 
 ### Waiting on whom
 
@@ -57,7 +57,7 @@ The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15
 
 ### IDs
 
-Next free: **D-722**, **P-94**. D-715 … D-717, D-657 (supervisor) and P-87, P-88 live on the T04j
+Next free: **D-722**, **P-94**. D-715 … D-717, D-657 and D-661 (supervisor) and P-87, P-88 live on the T04j
 branch until it merges.
 
 ## Scope

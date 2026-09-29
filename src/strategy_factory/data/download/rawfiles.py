@@ -106,6 +106,22 @@ def write_immutable(data_path: Path, payload: bytes, manifest: dict[str, Any]) -
     return data_path
 
 
+def is_settled(path: Path) -> bool:
+    """A raw month file that is finished being written, so it may be read while the download runs.
+
+    ``write_immutable`` writes the payload to ``<name>.partial``, links it to its final name, and
+    only then writes the manifest the same way; the manifest is the last thing written. So a month
+    counts only when its data file **and** its manifest exist and neither ``.partial`` is left.
+    Only the manifest's *existence* is the write-completion marker; its fields never decide
+    coverage (D-711)."""
+    manifest = manifest_path(path)
+    partials = (
+        path.with_name(path.name + ".partial"),
+        manifest.with_name(manifest.name + ".partial"),
+    )
+    return path.is_file() and manifest.is_file() and not any(p.exists() for p in partials)
+
+
 def read_manifest(data_path: Path) -> dict[str, Any] | None:
     mpath = manifest_path(data_path)
     if not mpath.is_file():

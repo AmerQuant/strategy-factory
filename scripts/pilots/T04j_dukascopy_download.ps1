@@ -93,6 +93,26 @@ Write-Log "  branch  : $branch"
 Write-Log "  raw root: $rawRoot"
 Write-Log "  log     : $log"
 
+# --- 0. Pre-check: Node.js and dukascopy-node in THIS worktree (no network) -------------------
+# The tool lives in tools\dukascopy\node_modules, per worktree (node_modules is not in git), so a
+# fresh worktree has none. Check before step 1 instead of failing inside the download.
+$toolDir = Join-Path $repo 'tools\dukascopy'
+$toolPkg = Join-Path $toolDir 'node_modules\dukascopy-node\package.json'
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Log 'STOPPED before the download: Node.js (node) is not on PATH. Install Node.js LTS, then re-run.'
+    exit 3
+}
+if (-not (Test-Path -LiteralPath $toolPkg)) {
+    Write-Log "STOPPED before the download: dukascopy-node is not installed in this worktree ($toolDir)."
+    Write-Log 'Install it once (pinned by package-lock.json; a network step), then re-run this script:'
+    Write-Log ''
+    Write-Log "    cd $toolDir"
+    Write-Log '    npm ci'
+    Write-Log "    cd $repo"
+    exit 3
+}
+Write-Log ("dukascopy-node found: {0}" -f $toolPkg)
+
 # --- 1. Download (resumable; stored months are skipped) --------------------------------------
 $download = Invoke-Step '1 Dukascopy h1 download, all instruments, bid + ask' `
     'uv run sfac data download dukascopy --series h1'

@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -35,7 +36,7 @@ from strategy_factory.data.download.dukascopy import (
     month_start,
     months,
 )
-from strategy_factory.data.download.rawfiles import MANIFEST_SUFFIX
+from strategy_factory.data.download.rawfiles import MANIFEST_SUFFIX, is_settled
 
 COVERAGE_COLUMNS = [
     "symbol",
@@ -159,7 +160,11 @@ def dukascopy_coverage_frame(
         if own is not None:
             start = max(start, month_start(own))
         sides = {
-            side: {p.name[:7]: p for p in latest_months(raw_root, series, inst.instrument_id, side)}
+            side: {
+                p.name[:7]: p
+                for p in latest_months(raw_root, series, inst.instrument_id, side)
+                if is_settled(p)
+            }
             for side in SIDES
         }
         for m in months(month_start(first), last):
@@ -189,6 +194,50 @@ def dukascopy_coverage_frame(
         "missing": pl.Boolean,
     }
     return pl.DataFrame(rows, schema=schema).select(DUKASCOPY_COLUMNS)
+
+
+@dataclass(frozen=True)
+class Window:
+    """D-661: the longest contiguous complete window that ends at the last complete month."""
+
+    symbol: str
+    required_from: str  # the first required month (h1_start or the instrument's own start)
+    last: str  # the last complete month
+    first: str | None  # the window's first month; None when the last month itself is missing
+    months: int  # months in the window
+    bounding_gap: str | None  # the missing month just before the window; None: nothing missing
+    missing_before: int  # required months missing before the window (all of them)
+
+    @property
+    def complete(self) -> bool:
+        return self.bounding_gap is None and self.first is not None
+
+    @property
+    def years(self) -> float:
+        return round(self.months / 12, 2)
+
+
+def dukascopy_windows(frame: pl.DataFrame) -> dict[str, Window]:
+    """Per instrument, the D-661 window over the required months of a coverage frame."""
+    out: dict[str, Window] = {}
+    req = frame.filter(pl.col("required"))
+    for sym in req["symbol"].unique(maintain_order=True).to_list():
+        rows = req.filter(pl.col("symbol") == sym).sort("month")
+        months, missing = rows["month"].to_list(), rows["missing"].to_list()
+        k = len(months)
+        while k > 0 and not missing[k - 1]:
+            k -= 1
+        run = len(months) - k  # trailing complete months
+        out[sym] = Window(
+            symbol=sym,
+            required_from=months[0],
+            last=months[-1],
+            first=months[k] if run else None,
+            months=run,
+            bounding_gap=months[k - 1] if k > 0 else None,
+            missing_before=int(sum(missing[:k])),
+        )
+    return out
 
 
 def dukascopy_gaps(frame: pl.DataFrame) -> dict[str, list[str]]:

@@ -20,8 +20,14 @@ from typer.testing import CliRunner, Result
 from strategy_factory.cli import app
 from strategy_factory.data import cli_dukascopy
 from strategy_factory.data.catalog import Catalog
-from strategy_factory.data.coverage import dukascopy_coverage_frame, dukascopy_gaps
-from strategy_factory.data.download.dukascopy import Instrument, month_dir
+from strategy_factory.data.coverage import (
+    Window,
+    dukascopy_coverage_frame,
+    dukascopy_gaps,
+    dukascopy_windows,
+    is_settled,
+)
+from strategy_factory.data.download.dukascopy import Instrument, month_dir, raw_pairs
 
 TODAY = dt.date(2011, 3, 15)  # 2010-01 .. 2011-02 complete, 2011-03 current
 START = dt.date(2010, 1, 1)
@@ -88,14 +94,18 @@ def test_F_0_1_3_T04j_the_latest_version_of_a_month_counts(tmp_path: Path) -> No
     assert _gaps(tmp_path, EURUSD) == {}
 
 
-def test_F_0_1_3_T04j_the_verdict_ignores_the_manifest(tmp_path: Path) -> None:
-    """D-711: a missing manifest does not make a present month a gap, and a manifest alone does
-    not make a missing month present."""
+def test_F_0_1_3_T04j_the_verdict_ignores_manifest_fields(tmp_path: Path) -> None:
+    """D-711: no manifest field decides coverage -- a manifest alone does not make a missing month
+    present, and a manifest claiming no rows does not make a present month a gap. Only the
+    manifest's existence counts, as the write-completion marker (D-661: the download runs
+    alongside; a data file without its manifest is still being written)."""
     _full(tmp_path, EURUSD)
     bid = month_dir(tmp_path, "h1", "eurusd", "bid")
-    (bid / "2010-03.csv.gz.manifest.json").unlink()
+    manifest = bid / "2010-03.csv.gz.manifest.json"
+    manifest.write_text(json.dumps({"row_count": 0, "complete": False}), encoding="utf-8")
     (bid / "2010-04.csv.gz").unlink()  # its manifest stays behind
-    assert _gaps(tmp_path, EURUSD) == {"EURUSD": ["2010-04"]}
+    (bid / "2010-05.csv.gz.manifest.json").unlink()  # data written, manifest not yet
+    assert _gaps(tmp_path, EURUSD) == {"EURUSD": ["2010-04", "2010-05"]}
 
 
 @pytest.fixture
@@ -151,6 +161,7 @@ def two_instruments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         folder = month_dir(raw, "h1", "eurusd", side)
         folder.mkdir(parents=True)
         (folder / "2024-03.csv.gz").write_bytes((FIX / side / "2024-03.csv.gz").read_bytes())
+        (folder / "2024-03.csv.gz.manifest.json").write_text("{}", encoding="utf-8")
     universe = tmp_path / "dukascopy.csv"
     universe.write_text(
         "instrument_id,symbol,asset_class,notes\n"
@@ -206,3 +217,70 @@ def test_F_0_1_3_T04j_D657_a_rerun_of_an_ingested_instrument_writes_nothing(
     assert snapshots and [x for x in after if x[0] in snapshots] == [
         x for x in before if x[0] in snapshots
     ]
+
+
+# -- D-661: the complete window; reading alongside a running download --------------------------
+
+
+def _windows(root: Path, *insts: Instrument) -> dict[str, Window]:
+    return dukascopy_windows(dukascopy_coverage_frame(root, "h1", list(insts), START, TODAY))
+
+
+def test_F_0_1_3_T04j_D661_the_window_ends_at_the_last_complete_month_after_the_last_gap(
+    tmp_path: Path,
+) -> None:
+    _full(tmp_path, EURUSD)
+    for month in ("2010-03", "2010-07"):  # two gaps: the later one bounds the window
+        (month_dir(tmp_path, "h1", "eurusd", "bid") / f"{month}.csv.gz").unlink()
+    w = _windows(tmp_path, EURUSD)["EURUSD"]
+    assert (w.first, w.last, w.months, w.bounding_gap, w.missing_before) == (
+        "2010-08",
+        "2011-02",
+        7,
+        "2010-07",
+        2,
+    )
+    assert not w.complete
+
+
+def test_F_0_1_3_T04j_D661_a_missing_last_month_leaves_no_window(tmp_path: Path) -> None:
+    _full(tmp_path, EURUSD)
+    (month_dir(tmp_path, "h1", "eurusd", "ask") / "2011-02.csv.gz").unlink()
+    w = _windows(tmp_path, EURUSD)["EURUSD"]
+    assert w.first is None and w.months == 0 and w.bounding_gap == "2011-02"
+
+
+def test_F_0_1_3_T04j_D661_a_complete_instrument_has_the_whole_span(tmp_path: Path) -> None:
+    _full(tmp_path, LATE, first="2010-08")
+    w = _windows(tmp_path, LATE)["USSC2000IDXUSD"]
+    assert w.complete and (w.first, w.months, w.missing_before) == ("2010-08", 7, 0)
+
+
+@pytest.mark.parametrize("unfinished", ["data.partial", "no manifest", "manifest.partial"])
+def test_F_0_1_3_T04j_a_month_still_being_written_is_not_counted(
+    tmp_path: Path, unfinished: str
+) -> None:
+    """The download runs alongside: the writer links the data file, then its manifest; a month
+    counts only once both exist and no ``.partial`` is left."""
+    _full(tmp_path, EURUSD)
+    folder = month_dir(tmp_path, "h1", "eurusd", "ask")
+    data = folder / "2010-05.csv.gz"
+    manifest = folder / "2010-05.csv.gz.manifest.json"
+    if unfinished == "data.partial":
+        (folder / "2010-05.csv.gz.partial").write_bytes(b"")
+    elif unfinished == "no manifest":
+        manifest.unlink()
+    else:
+        (folder / "2010-05.csv.gz.manifest.json.partial").write_text("{}", encoding="utf-8")
+    assert data.is_file()
+    assert _gaps(tmp_path, EURUSD) == {"EURUSD": ["2010-05"]}
+    assert not is_settled(data)
+
+
+def test_F_0_1_3_T04j_the_ingest_reads_only_settled_months(tmp_path: Path) -> None:
+    """``raw_pairs`` (what the ingest reads) skips a month whose manifest is not written yet."""
+    _full(tmp_path, EURUSD)
+    (month_dir(tmp_path, "h1", "eurusd", "bid") / "2010-05.csv.gz.manifest.json").unlink()
+    bid, ask = raw_pairs(tmp_path, "h1", "eurusd")
+    assert "2010-05.csv.gz" not in [p.name for p in bid]
+    assert "2010-05.csv.gz" in [p.name for p in ask] and len(bid) == len(ask) - 1

@@ -18,7 +18,10 @@ from `main`.
 **Status:** plan approved 2026-09-22 (D-715, D-716, D-717). The coverage gate and the week-open
 spread key are built. **D-657 (supervisor, 2026-09-29): the gate is per instrument** -- a complete
 instrument is ingested now, a gapped one waits for its download; no instrument is ever ingested with
-a gap. Built for it: the per-instrument refusal in `sfac data ingest dukascopy`, the D-717
+a gap. **D-661 amends it:** an incomplete instrument is ingested over its longest contiguous
+complete window ending at the last complete month, if that window meets D-008 (measured by
+`scripts/analysis/T04j_windows.py`; the ingest waits for the supervisor's review of that table).
+Built for D-657: the per-instrument refusal in `sfac data ingest dukascopy`, the D-717
 re-measure per instrument (`scripts/analysis/T04j_defects.py`, exit 1 on any family) and the single
 resume command `uv run python scripts/pilots/T04j_resume.py` (coverage -> D-717 -> ingest 1H ->
 1D -> quality -> costs, skipping instruments already done; `--dry-run` stops after D-717).
