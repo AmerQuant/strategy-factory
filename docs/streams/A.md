@@ -3,7 +3,7 @@
 Working copy: `D:\AmerAndish\Projects\Trade\StrategyFactory` (the repository's main worktree).
 Governed by **D-355** and **D-357**; the full rules are in `docs/streams/PROTOCOL.md` and the
 path ownership in `docs/streams/ownership.yaml`. This file is stream A's status; `HANDOFF.md`
-(v9, 2026-09-29) is written **only by stream A**, at merges, from this file and
+(v10, 2026-09-29) is written **only by stream A**, at merges, from this file and
 `docs/streams/B.md`. From D-802 on, this file lives on `main`.
 
 New branches here carry the **`a/`** prefix. Run the guards locally with
@@ -21,8 +21,8 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 
 1. **Session check** (D-357 (1)): `uv run sfac streams session --stream A`. Omit `--stream` if
    you are a spawned or helper session — and then you need your **own** worktree.
-2. Read `HANDOFF.md` (v9) and this file; for stage work also `docs/streams/B_data_state.md`,
-   `docs/reviews/T12_review.md` (stage 1) and `docs/reviews/T13_review.md` (stage 2).
+2. Read `HANDOFF.md` (v10) and this file; for stage work also `docs/streams/B_data_state.md`,
+   `docs/reviews/T12_review.md` (stage 1), `docs/reviews/T13_review.md` (stage 2) and `docs/reviews/T14_review.md` (stage 3).
 3. Work branches start from `origin/main`. Obsolete stream-A branches (listed under "Open")
    are not deleted without the supervisor's word.
 4. If `git worktree list` shows scratch entries under `AppData\Local\Temp\claude\…`, run
@@ -37,9 +37,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
    **merged** (#33 … #43, #48).
 4. **T12 — stage 1, edge discovery** (critical, D-402) — ✅ **merged (#47)**.
 5. **T13 — stage 2, method screening** — ✅ **merged (#51)**.
-6. **T14, stage 3 (entry optimisation)** — built, piloted, run at full scope with its control,
-   reviewed (`docs/reviews/T14_review.md`); **stopped for "Approved"** (branch
-   `a/T14-entry-optimisation`, stacked on `a/T14-plan`; no PR yet).
+6. **T14 — stage 3, entry optimisation** — ✅ **merged (#54 plan, #55 stage)**.
+7. **Next: the next task waits for its task file.** As for T12 … T14, the supervisor and the user
+   settle the design in chat first; until the task file arrives stream A neither plans nor
+   starts it.
 
 ## ID ranges (D-355, D-378)
 
@@ -49,10 +50,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-123**;
-**P-122 and P-123 (the T14 review) are open**. **Next free here: D-807, P-124.** Supervisor
-rows written by stream A: D-601 … D-651; **next free supervisor id D-652**. D-639 … D-651 are on
-`a/T14-plan`, not yet on `main`.
+Stream A has used **D-360 … D-379**, **D-800 … D-807**, **P-40 … P-59** and **P-100 … P-123**,
+all answered — **stream A has no open question**. **Next free here: D-808, P-124.** Supervisor
+rows written by stream A: D-601 … D-651 (D-651 (1) amended on the T14 review); **next free
+supervisor id D-652**. Everything through D-651 and D-807 is on `main` (#54, #55).
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -103,46 +104,47 @@ rows written by stream A: D-601 … D-651; **next free supervisor id D-652**. D-
 
 ## Status — 2026-09-29
 
-**T14 is reviewed; stream A is stopped for "Approved"** (T14 §8). Full scope on `0f9cd10`: 1D
-**2 of 25** pass (SHW long `mr_connors_rsi`; TXN long `mr_ema_slope_drop`, a boundary pass at
-plateau 0.100), 1H **4 of 6** (`unconfirmed`); **the control 0 of 25 and 0 of 6** (D-644 not
-triggered). No short passes. **The plan's stability counts were wrong** (polars counted NaN as
->= 0.8): 21 real / 9 control, not 24 / 22 — **P-122** asks to amend D-651 (1); stability still
-decides no verdict. **P-123**: gate values that shape the surfaces are not in the candidate id.
-Acceptance reviewer: nothing blocking, 0 mismatches in 62 artifacts; findings fixed (review §12). `main` is at `ee01cde` (#53 merged). Branches:
-`a/T14-plan` (task file, plan, D-639 … D-651) and `a/T14-entry-optimisation` stacked on it, both
-pushed, no PR yet.
+**T14 is merged (#54 plan, #55 stage; merge commit `85870be`). Stream A has nothing open and waits
+for the next task file.** `main` is at `85870be` plus this status (HANDOFF v10).
 
-### T14 — the pilot (2026-09-29, `docs/reviews/T14_pilot.md`)
+### T14 — stage 3, entry optimisation (#54, #55)
 
-Code `56d78b9` (clean). 1D MSFT + TXN (8 candidates) and 1H BAC (1), each run twice:
-**identical**, and **equal to the plan's measurement on all 9** (selected cell, plateau, stability,
-verdict). **2 of 9 pass**: TXN long `mr_ema_slope_drop` (plateau exactly 0.100, costs moved it 11
-steps) and BAC 1H `tf_keltner_breakout` (`unconfirmed`). The three 3-cell grids all fail (D-648).
-Full scope projected at about 2 minutes for all four runs. A test caught an artifact defect (axis
-order lost to sorted JSON keys); fixed. Fast suite 2,530, parity/leakage/oracle 869, db 24 / 0
-skipped, ruff, format, mypy (both platforms), stream guards green.
+Task file `docs/tasks/T14_stage3_entry_optimisation.md`, plan `docs/tasks/T14_plan.md` (132,408
+measured runs, with an erratum), pilot `docs/reviews/T14_pilot.md`, review
+`docs/reviews/T14_review.md` (the PR body). Decisions **D-639 … D-651** (D-651 (1) amended) and
+**D-807**. Approved on 2026-09-29.
 
-### T14 — stage 3, the plan (2026-09-29)
+| run (committed tree `effba41`) | run id | candidates | cells | pass |
+|---|---|---|---|---|
+| 1D | `f72b80ee…` | 25 | 5,383 | **2** |
+| 1H (`unconfirmed`) | `ce348ae8…` | 6 | 5,651 | **4** |
+| **1D control** (D-644) | `0a4fb887…` | 25 | 5,383 | **0** |
+| **1H control** | `9d37799d…` | 6 | 5,651 | **0** |
 
-Task file `docs/tasks/T14_stage3_entry_optimisation.md` (supervisor's, committed as delivered),
-D-639 … D-645 recorded (section I-S3), plan `docs/tasks/T14_plan.md`, runbook
-`docs/tasks/RUNBOOK_T14.md`, questions **P-116 … P-121**. Measured on the 31 stage-2 selections
-and their reshuffled-returns control (132,408 runs, 1 min 42 s;
-`scripts/analysis/T14_plan_measure.py`, `T14_plan_analyse.py`):
-
-- **Under the proposals: 9 real passes, 0 on the control** (6 real with P-118). All nine are long;
-  4 are the 1H `unconfirmed` TF candidates. (The plan's "22 of 31 control candidates meet the
-  stability ratio" was wrong -- NaN counted as passing; correct: 21 real, 9 control. See P-122.)
-- **P-117 (per-half minimum):** half strength lets **one control candidate pass** (MSFT long
-  `mr_ibs_after_new_high`) — a D-644 stop; full strength gives 0 but leaves MRNA 1H ichimoku no
-  valid cell.
-- **P-116 (failed cells):** "the grid's worst value" passes TMUS `mr_n_day_low` with 20 of 21
-  half-1 cells failed; proposed min(worst, 0).
-- **P-118:** 8 fine grids below 10 cells (7 of them 3 cells); 3 passes rest on one- or two-cell
-  plateaus; proposed `min_plateau_cells` 3.
-- **P-119:** only the two 1H ichimoku grids exceed 2,000; Sobol has no lattice neighbours, so the
-  plan coarsens the lattice (amends D-639's last clause).
+- **The control passes nothing.** Its two nearest misses (MSFT `mr_ibs_after_new_high`, TMUS
+  `mr_williams_confirm`, both drift longs) fail on plateau area alone.
+- **The passes:** 1D **SHW** long `mr_connors_rsi` and **TXN** long `mr_ema_slope_drop` (a
+  boundary pass at plateau 0.100; costs moved its plateau 11 steps — D-642's example); 1H ARKK
+  `tf_base_candle`, BAC `tf_keltner_breakout`, TSLA `tf_hma_turn` and `tf_ichimoku` (`unconfirmed`;
+  the two TSLA ones overlap 0.64). **No short passes.** Stage 4 reads the passing
+  `EntryOptimisation` artifacts of `f72b80ee…` (1D) and `ce348ae8…` (1H).
+- **D-651 (1), amended:** 21 of 31 real and 9 of 31 control meet the stability threshold, and no
+  candidate fails on it alone — it decides no verdict. The plan had printed 24 / 22: polars counts
+  `NaN >= 0.8` as true. **Any count behind a decision is computed so that NaN cannot pass**
+  (`gates.engine.count_meeting`, tested).
+- **D-807:** the stage-3 candidate id hashes the trade minimum (whole and per half) and the plateau
+  cut; the full scope and the control were re-run and are unchanged apart from the ids.
+- The eight small grids (seven of 3 cells, EEM's 9) all fail; stage 3 can only accept or reject
+  their stage-2 parameter (D-648). MRNA 1H `tf_ichimoku` has no cell at 100 trades per half (D-647).
+- Built: `stages/optimize*.py`, `metrics/plateau.py`, `robustness/spp.py`, the `EntryOptimisation`
+  artifact (surfaces as data, axes as an ordered list), `method_run` segments (stage 2 unchanged),
+  `CostArrays.segment`, `plateau_cells >= 3` in the gates, `sfac run` for `s03_entry`. No engine
+  change, no new dependency.
+- Acceptance on Windows: fast **2,534**, parity/leakage/oracle **869**, db **24 / 0 skipped**, slow
+  **20**, ruff, format, mypy (both platforms), stream guards; CI green on #54 and #55. The
+  acceptance reviewer recomputed all 62 artifacts (0 mismatches); its findings are fixed (review
+  §12).
+- Commit `caf74be` carries a byte-order mark in its subject line, left as it is (review §14).
 
 > **The repository is public since 2026-09-28.** Everything pushed here is public immediately,
 > and going private again would not undo it. **Turn on secret scanning and push protection** —
@@ -192,7 +194,7 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 
 ### Open, and on whom
 
-- **T14 waits for "Approved"** and the answers to **P-122, P-123** (supervisor).
+- **Nothing is open on stream A**; the next task waits for its task file.
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
@@ -203,6 +205,9 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
   #31, never merged) and `a/T11b-parity-tie` (seven A.md status commits of 2026-09-21/22,
   superseded by the A.md on `main`). Deleting either needs the user's word that unmerged work may
   go.
+- **Merged and deletable, not deleted** (the user's word is needed): `a/stream-a-status-t13`
+  (#52), `a/stream-a-branch-cleanup` (#53), `a/T14-plan` (#54), `a/T14-entry-optimisation` (#55);
+  after this status merges, `a/stream-a-status-t14` too.
 
 ### What T15 must calibrate
 
@@ -261,15 +266,17 @@ From T14 (D-651, review §3, §6):
 - **D-611 / D-612:** `configs/gates/`, `metrics/`, `stages/`, `baseline/`, `components/`,
   `configs/stages/` are stream A's paths. **T13 (#51)** added `method_q_value` to the gates,
   `PipelineConfig.stage_inputs` (a new optional field; existing configs and hashes unchanged) and
-  the D-630 grid rule (2–4 values per parameter) in `components/base.py`.
+  the D-630 grid rule (2–4 values per parameter) in `components/base.py`. **T14 (#55)** added
+  `plateau_cells` to the gates, `CostArrays.segment` in `costs/arrays.py` (shared) and
+  `gates.engine.count_meeting` (shared): **any count behind a decision uses it** so NaN cannot
+  pass a comparison (D-651 (1)) — this binds stream B's analyses too.
 
 ### Next actions, in order
 
-1. **T14 (stage 3)** — on "Approved" and the answers to P-122 / P-123 (P-123 may mean a re-run,
-   about 2 minutes): open the PR (body = the review), rebase, merge on "Approved. Merge …".
-   Stage 4 reads the passing `EntryOptimisation` artifacts of `e1c1d243…` (1D) and `c28bfb47…`
-   (1H).
-2. **Next free ids:** D-807, P-124 (stream A); supervisor D-652.
+1. **The next task** — wait for the supervisor's task file; then plan (D-403), measuring on real
+   data and on the control before proposing, and stop for "Plan approved". Stage 4 would read the
+   passing `EntryOptimisation` artifacts of `f72b80ee…` (1D) and `ce348ae8…` (1H).
+2. **Next free ids:** D-808, P-124 (stream A); supervisor D-652.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
-4. **T11b** when the user exports (D-802). **T15** owns the calibration list above.
+4. **T11b** when the user exports (D-802). **T15** owns the calibration list above (12 items).
