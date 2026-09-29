@@ -10,8 +10,8 @@ measurements: `docs/tasks/T14_plan.md`. Decisions: **D-639 … D-645** and the a
 
 | step | branch | base | stop |
 |---|---|---|---|
-| plan | `a/T14-plan` | `a/stream-a-branch-cleanup` (#53, A.md only) | **"Plan approved"** (D-403) |
-| 1 … 9 | `a/T14-entry-optimisation` (one task, one review file) | `main` after the plan merges | the pilot's numbers; D-644; after the review, **"Approved"** |
+| plan | `a/T14-plan` | `main` (after #53) | **"Plan approved"** (D-403) — given 2026-09-29, answers D-646 … D-651 |
+| 1 … 9 | `a/T14-entry-optimisation` (one task, one review file) | stacked on `a/T14-plan` (plan and decisions), as T13 | the pilot's numbers; D-644; after the review, **"Approved"** |
 
 Paths: `stages/`, `metrics/`, `configs/stages/`, `configs/gates/` are stream A's (D-611, D-612);
 `robustness/`, `core/`, `pipeline/`, `tests/`, `scripts/` are shared; `data/` and `engine/` are
