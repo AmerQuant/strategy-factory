@@ -1,0 +1,10 @@
+# T15a: the MVP funnel on the real data -- stages 1 -> 2 -> 3 on the broker universe, 1D and 1H,
+# with the reshuffled-returns control of every stage (D-653, D-662). Reproduces T12-T14:
+# the same stage configs as configs/pipeline/s0{1,2,3}_*_{1d,1h}{,_control}.yaml.
+source: {kind: real}
+symbol_scope: broker
+timeframes: [1D, 1H]
+stages: [s01_edge, s02_screen, s03_entry]
+control: true
+seed: 42
+report: true
