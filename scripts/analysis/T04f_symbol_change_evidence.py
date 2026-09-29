@@ -239,6 +239,7 @@ def main() -> None:
             ["git", "show", f"{args.previous_rev}:{args.universe.as_posix()}"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         ).stdout
         tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115 - kept until the script exits

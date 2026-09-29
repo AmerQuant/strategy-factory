@@ -164,7 +164,13 @@ Runner = Callable[[list[str], Path, int], "subprocess.CompletedProcess[str]"]
 
 def run_subprocess(cmd: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=timeout,
+        check=False,
     )
 
 

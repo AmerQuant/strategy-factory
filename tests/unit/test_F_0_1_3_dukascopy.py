@@ -226,7 +226,9 @@ def test_F_0_1_3_utc_offset_from_manifest_is_corrected(tmp_path: Path) -> None:
         d = tmp_path / side
         d.mkdir()
         shutil.copy(FIX / side / "2024-03.csv.gz", d / "2024-03.csv.gz")
-        (d / "2024-03.csv.gz.manifest.json").write_text(json.dumps({"utc_offset_minutes": 120}))
+        (d / "2024-03.csv.gz.manifest.json").write_text(
+            json.dumps({"utc_offset_minutes": 120}), encoding="utf-8"
+        )
     df, _ = adapt([tmp_path / "bid" / "2024-03.csv.gz", tmp_path / "ask" / "2024-03.csv.gz"])
     assert df["ts"].min() == dt.datetime(2024, 3, 7, 22, tzinfo=dt.UTC)
 

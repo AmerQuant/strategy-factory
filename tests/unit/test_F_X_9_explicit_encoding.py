@@ -32,20 +32,7 @@ TEMPFILE_CALLS = {"NamedTemporaryFile", "TemporaryFile", "SpooledTemporaryFile"}
 #: (repo-relative path, kind) -> number of sites exempted, with the reason.
 #: Stream B's paths (the data layer and its T04f script, D-357) are listed for stream B to fix;
 #: stream A does not edit them (D-377).
-ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
-    ("src/strategy_factory/data/download/dukascopy.py", "subprocess.run"): (
-        1,
-        "stream B's data layer: dukascopy-node output; relayed in docs/streams/A.md",
-    ),
-    ("tests/unit/test_F_0_1_3_dukascopy.py", "write_text"): (
-        1,
-        "stream B's Dukascopy tests; relayed in docs/streams/A.md",
-    ),
-    ("scripts/analysis/T04f_symbol_change_evidence.py", "subprocess.run"): (
-        1,
-        "stream B's T04f analysis script; relayed in docs/streams/A.md",
-    ),
-}
+ALLOWED: dict[tuple[str, str], tuple[int, str]] = {}
 
 
 def _kw(call: ast.Call, name: str) -> ast.expr | None:
