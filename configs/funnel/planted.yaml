@@ -1,0 +1,10 @@
+# T15a: the funnel on the planted-edge ladder (D-654, D-665) -- every symbol assigned to one
+# (type, direction, strength) cell or to the pure null (configs/synthetic/planted.yaml); the
+# report reads power per cell and stage.
+source: {kind: planted, seed: 20260929}
+symbol_scope: broker
+timeframes: [1D, 1H]
+stages: [s01_edge, s02_screen, s03_entry]
+control: true
+seed: 42
+report: true

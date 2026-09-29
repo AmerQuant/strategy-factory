@@ -16,6 +16,7 @@ from strategy_factory.core.env import resolve_env
 from strategy_factory.core.logging import get_logger, setup_logging
 from strategy_factory.costs.cli import costs_app
 from strategy_factory.data.cli import data_app
+from strategy_factory.pipeline.cli_funnel import funnel_app
 from strategy_factory.registry.cli import db_app, reproduce
 
 app = typer.Typer(
@@ -31,6 +32,7 @@ app.add_typer(costs_app, name="costs")
 app.add_typer(config_app, name="config")
 app.add_typer(universe_app, name="universe")
 app.add_typer(streams_app, name="streams")
+app.add_typer(funnel_app, name="funnel")
 app.command("reproduce")(reproduce)
 
 INFO_ENV_KEYS = ("SFAC_DATA_ROOT", "SFAC_ARTIFACTS_ROOT")
