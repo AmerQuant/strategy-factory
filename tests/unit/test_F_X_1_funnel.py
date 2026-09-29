@@ -305,3 +305,79 @@ def test_F_X_1_d663_resume_on_the_real_registry(registry_engine: Any) -> None:
     rows = reg.stages(uuid.UUID(res.funnel_id))
     assert all(r.status in ("done", "empty") for r in rows.values())
     assert reg.funnel(uuid.UUID(res.funnel_id))["status"] == "done"
+
+
+# -- reproduce (F-0.7.4) ---------------------------------------------------------------------------
+class ArtifactRunner(FakeRunner):
+    """Writes a summary per stage run that names its run, its upstream run and its config hash,
+    as the real artifacts do; a fresh run gets fresh run ids."""
+
+    def __init__(self, root: Path) -> None:
+        super().__init__()
+        self.root = root
+
+    def run(self, cfg: PipelineConfig, on_start: Callable[[str], None]) -> str:
+        run_id = str(uuid.uuid4())
+        on_start(run_id)
+        self.configs[run_id] = cfg
+        folder = self.root / run_id / cfg.stages[0]
+        folder.mkdir(parents=True)
+        body = {
+            "run_id": run_id,
+            "parent_run_id": next(iter(cfg.stage_inputs.values()), None),
+            "config_hash": config_hash(cfg.canonical()),
+            "candidates": [f"{cfg.stages[0]}:{s}:{cfg.control}" for s in cfg.symbols],
+        }
+        (folder / "summary.json").write_text(canonical_json(body), encoding="utf-8")
+        return run_id
+
+
+def _reproduce(
+    reg: MemoryRegistry, runner: ArtifactRunner, fid: str, hashes: Hashes = HASHES
+) -> Any:
+    from strategy_factory.pipeline.funnel_reproduce import reproduce_funnel
+
+    return reproduce_funnel(
+        fid,
+        registry=reg,  # type: ignore[arg-type]
+        runner=runner,
+        hashes=hashes,
+        artifacts=runner.root,
+        run_config_hash=lambda rid: config_hash(runner.configs[rid].canonical()),
+    )
+
+
+def test_F_0_7_4_funnel_reproduce_is_identical_after_normalising_the_run_ids(
+    tmp_path: Path,
+) -> None:
+    reg, runner = MemoryRegistry(), ArtifactRunner(tmp_path)
+    first = funnel(CFG, reg, runner).run()
+    report, new = _reproduce(reg, runner, first.funnel_id)
+    assert new.funnel_id != first.funnel_id and not new.resumed
+    assert report.identical and report.compared_files == 10  # 10 stage runs ran, 2 were empty
+    assert {o.run_id for o in new.stages} & {o.run_id for o in first.stages} == {None}
+
+
+def test_F_0_7_4_funnel_reproduce_reports_a_changed_artifact(tmp_path: Path) -> None:
+    reg, runner = MemoryRegistry(), ArtifactRunner(tmp_path)
+    first = funnel(CFG, reg, runner).run()
+    victim = tmp_path / str(first.run_of("1D", "s02_screen", "control")) / "s02_screen"
+    text = (victim / "summary.json").read_text(encoding="utf-8")
+    (victim / "summary.json").write_text(text.replace("MSFT", "MSFX"), encoding="utf-8")
+    report, _ = _reproduce(reg, runner, first.funnel_id)
+    assert not report.identical
+    assert report.differences == ["('1D', 's02_screen', 'control'): differs: summary.json"]
+
+
+def test_F_0_7_4_funnel_reproduce_refuses_other_or_dirty_code(tmp_path: Path) -> None:
+    from strategy_factory.core.errors import ConfigError
+
+    reg, runner = MemoryRegistry(), ArtifactRunner(tmp_path)
+    first = funnel(CFG, reg, runner).run()
+    other = Hashes(**{**HASHES.__dict__, "code_version": "e" * 40})
+    with pytest.raises(ConfigError, match="check out the recorded commit"):
+        _reproduce(reg, runner, first.funnel_id, other)
+    dirty = Hashes(**{**HASHES.__dict__, "code_version": "f" * 40 + "-dirty"})
+    run = funnel(CFG, reg, runner, hashes=dirty).run()
+    with pytest.raises(ConfigError, match="not reproducible"):
+        _reproduce(reg, runner, run.funnel_id, dirty)
