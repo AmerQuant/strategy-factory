@@ -165,6 +165,7 @@ def candidate_id(
     min_trades: int,
     min_trades_half: int,
     plateau_cut: float,
+    source: str = "real",
 ) -> str:
     """sha256 of what identifies a stage-3 candidate (D-651 (c), D-807): the stage, the parent
     stage-2 candidate (which names the method and its profile), the control, the stage-config hash
@@ -181,6 +182,8 @@ def candidate_id(
         "min_trades_half": int(min_trades_half),
         "plateau_cut": float(plateau_cut),
     }
+    if source != "real":
+        payload["source"] = source  # D-670
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
@@ -322,7 +325,7 @@ class Stage2Input:
 
 
 def read_stage2_selections(
-    artifacts_root: Path, run_id: str, timeframes: Sequence[str]
+    artifacts_root: Path, run_id: str, timeframes: Sequence[str], source: str = "real"
 ) -> list[Stage2Input]:
     """The methods a stage-2 run selected (index + ``summary.json``), for ``timeframes``. A
     stage-2 control run is refused: the control reruns the real selections (D-651 (b))."""
@@ -342,6 +345,11 @@ def read_stage2_selections(
                     f"stage-2 run {run_id} is a control run: stage 3 reads real selections "
                     "(D-651 (b))"
                 )
+            if art.identity.source != source:
+                raise ConfigError(
+                    f"stage-2 run {run_id} is source {art.identity.source!r}, this run is "
+                    f"{source!r}: real and synthetic results are never mixed (D-654)"
+                )
             out.append(Stage2Input(screen=art, parent_run_id=run_id))
     return sorted(
         out,
@@ -355,14 +363,14 @@ def read_stage2_selections(
 
 
 def stage2_selection_symbols(
-    artifacts_root: Path, run_id: str, timeframes: Sequence[str]
+    artifacts_root: Path, run_id: str, timeframes: Sequence[str], source: str = "real"
 ) -> tuple[str, ...]:
     """The symbols ``symbol_scope: stage_inputs`` expands to (T14 §3)."""
     return tuple(
         sorted(
             {
                 s.screen.identity.symbol
-                for s in read_stage2_selections(artifacts_root, run_id, timeframes)
+                for s in read_stage2_selections(artifacts_root, run_id, timeframes, source)
             }
         )
     )
@@ -439,7 +447,9 @@ class EntryStage:
         wanted = set(inputs)
         sources = [
             s
-            for s in read_stage2_selections(ctx.artifacts_root, parent_run, ctx.config.timeframes)
+            for s in read_stage2_selections(
+                ctx.artifacts_root, parent_run, ctx.config.timeframes, ctx.config.source_id
+            )
             if (s.screen.identity.symbol, s.screen.identity.timeframe) in wanted
         ]
         universe = load_universe(ctx.config.universe).by_symbol()
@@ -508,6 +518,7 @@ class EntryStage:
                     min_trades=min_trades,
                     min_trades_half=min_half,
                     plateau_cut=cut,
+                    source=ctx.config.source_id,  # D-670
                 ),
                 parent_id=ident.candidate_id,
                 method=ident.method,
@@ -711,6 +722,7 @@ class EntryStage:
                 stage_config_hash=s_hash,
                 code_version=ctx.code_version,
                 control=ctx.config.control,
+                source=ctx.config.source_id,
                 unconfirmed=ident.unconfirmed,  # D-645: carried unchanged
             ),
             grid=GridInfo(

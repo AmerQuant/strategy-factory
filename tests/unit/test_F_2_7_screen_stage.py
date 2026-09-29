@@ -294,8 +294,7 @@ def test_F_2_7_sfac_run_dispatches_by_stage(
     from strategy_factory.pipeline import stage_run
 
     calls: list[str] = []
-    monkeypatch.setattr(stage_run, "run_stage1", lambda p, **kw: calls.append("s01"))
-    monkeypatch.setattr(stage_run, "run_stage2", lambda p, **kw: calls.append("s02"))
+    monkeypatch.setattr(stage_run, "_run", lambda cfg, stage, *a, **kw: calls.append(stage))
     s01 = _pipeline_yaml(
         tmp_path / "a.yaml", symbols=["AAPL"], timeframes=["1D"], stages=["s01_edge"]
     )
@@ -308,7 +307,7 @@ def test_F_2_7_sfac_run_dispatches_by_stage(
     )
     stage_run.run_config(s01)
     stage_run.run_config(s02)
-    assert calls == ["s01", "s02"]
+    assert calls == ["s01_edge", "s02_screen"]
 
 
 def test_F_2_7_run_stage2_refusals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -351,3 +350,20 @@ def test_F_2_7_positions_feed_the_overlap(screened: Any) -> None:
     walked = [a for a in arts if a.overlap_with_selected is not None]
     assert walked and all(0.0 <= a.overlap_with_selected <= 1.0 for a in walked)  # type: ignore[operator]
     assert overlap(np.ones(3, bool), np.ones(3, bool)) == 1.0
+
+
+def test_F_2_7_d670_a_run_of_another_source_is_refused_as_input(tmp_path: Path) -> None:
+    """D-654: real and synthetic results are never mixed -- stage 2 on a synthetic source
+    refuses a real stage-1 run (and the other way round)."""
+    series = planted_series(("AAPL",))
+    stage1_run(tmp_path, series, ("AAPL",))
+    assert screen_mod.stage1_pass_symbols(tmp_path, "dry-run", ["1D"])  # real reads real
+    with pytest.raises(ConfigError, match="never mixed"):
+        screen_mod.stage1_pass_symbols(tmp_path, "dry-run", ["1D"], "null:0123456789ab")
+
+
+def test_F_2_7_d670_source_enters_the_id_only_when_synthetic() -> None:
+    kw = {"parent_id": "p", "method": "mr_rsi", "control": "none", "stage_config_hash": "h"}
+    real = screen_mod.candidate_id(**kw)
+    assert screen_mod.candidate_id(**kw, source="real") == real
+    assert screen_mod.candidate_id(**kw, source="null:0123456789ab") != real

@@ -42,6 +42,7 @@ class EntryIdentity(_Frozen):
     stage_config_hash: str
     code_version: str
     control: Literal["none", "random_walk"] = "none"
+    source: str = "real"  # D-670: "real", or the synthetic source id (null:/planted:<hash12>)
     unconfirmed: bool = False  # D-621, D-628, carried unchanged (D-645)
 
 

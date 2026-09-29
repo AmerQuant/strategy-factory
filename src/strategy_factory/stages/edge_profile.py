@@ -49,6 +49,7 @@ class Identity(_Frozen):
     stage_config_hash: str  # configs/stages/s01_edge.yaml
     code_version: str
     control: Literal["none", "random_walk"] = "none"
+    source: str = "real"  # D-670: "real", or the synthetic source id (null:/planted:<hash12>)
     dev_start: str
     dev_end: str
     dev_bars: int

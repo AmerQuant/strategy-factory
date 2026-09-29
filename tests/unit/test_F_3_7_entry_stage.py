@@ -488,7 +488,7 @@ def test_F_3_7_sfac_run_dispatches_s03(tmp_path: Path, monkeypatch: pytest.Monke
     from strategy_factory.pipeline import stage_run
 
     calls: list[str] = []
-    monkeypatch.setattr(stage_run, "run_stage3", lambda p, **kw: calls.append("s03"))
+    monkeypatch.setattr(stage_run, "_run", lambda cfg, stage, *a, **kw: calls.append(stage))
     s03 = _pipeline_yaml(
         tmp_path / "c.yaml",
         symbol_scope="stage_inputs",
@@ -497,7 +497,7 @@ def test_F_3_7_sfac_run_dispatches_s03(tmp_path: Path, monkeypatch: pytest.Monke
         stages=["s03_entry"],
     )
     stage_run.run_config(s03)
-    assert calls == ["s03"]
+    assert calls == ["s03_entry"]
 
 
 def test_F_3_7_run_stage3_refusals(
@@ -521,3 +521,21 @@ def test_F_3_7_run_stage3_refusals(
     )
     with pytest.raises(ConfigError, match="has no selection"):
         stage_run.run_stage3(no_sel)
+
+
+def test_F_3_7_d670_a_run_of_another_source_is_refused_as_input(entered: Any) -> None:
+    out, _, _ = entered
+    root = out.parents[1]
+    with pytest.raises(ConfigError, match="never mixed"):
+        stage2_selection_symbols(root, "dry-run", ["1D"], "planted:0123456789ab")
+
+
+def test_F_3_7_d670_source_enters_the_id_only_when_synthetic() -> None:
+    from strategy_factory.stages.optimize import candidate_id
+
+    kw: dict[str, Any] = {
+        "parent_id": "p", "control": "none", "stage_config_hash": "h",
+        "min_trades": 30, "min_trades_half": 30, "plateau_cut": 0.8,
+    }  # fmt: skip
+    assert candidate_id(**kw, source="real") == candidate_id(**kw)
+    assert candidate_id(**kw, source="null:0123456789ab") != candidate_id(**kw)
