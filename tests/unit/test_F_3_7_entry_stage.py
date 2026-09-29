@@ -167,6 +167,39 @@ def test_F_3_3_the_selection_is_the_smoothed_half1_after_cost_maximum(entered: A
         assert want == a.selection.params
 
 
+def test_F_3_7_d647_the_full_trade_minimum_applies_in_each_half(entered: Any) -> None:
+    _, _, arts = entered
+    for a in arts:
+        whole = a.segments["whole"].min_trades
+        assert whole == 30  # the s02_screen gate's minimum on 1D
+        assert a.segments["h1"].min_trades == a.segments["h2"].min_trades == whole
+        assert a.selection.failed_cells["h1"] == sum(c.cost.n_trades[1] < whole for c in a.surface)
+
+
+def test_F_3_7_config_values_reach_the_stage(entered: Any, tmp_path: Path) -> None:
+    """The per-half rule (D-647), the margin (D-639) and the SPP percentiles come from
+    ``s03_entry.yaml``: changing each changes the artifacts accordingly."""
+    _, _, base = entered
+    out, _ = run(
+        tmp_path,
+        config={
+            "half_min_trades": "half",
+            "fine_grid": {"max_cells": 300, "margin_coarse_steps": 2},
+            "spp_percentiles": {"low": 10, "high": 90},
+        },
+    )
+    arts = {a.identity.parent_id: a for a in summaries(out)}
+    wider = 0
+    for b in base:
+        a = arts[b.identity.parent_id]
+        assert a.segments["whole"].min_trades == 30
+        assert a.segments["h1"].min_trades == a.segments["h2"].min_trades == 15
+        assert (a.spp.low_pct, a.spp.high_pct) == (10, 90)
+        assert a.grid.size_d639 >= b.grid.size_d639
+        wider += a.grid.size_d639 > b.grid.size_d639
+    assert wider  # two coarse steps of margin widen at least one grid
+
+
 # ------------------------------------------------------------------ the gate (F-3.7)
 GOOD = {
     "spp_median_target": 0.5,
@@ -244,7 +277,7 @@ def _task(bars: dict[str, Any], method: str = "mr_n_day_low") -> EntryTask:
         symbol="SYN",
         timeframe="1D",
         direction="long",
-        grid=fine_grid(method, good, good[0]),
+        grid=fine_grid(method, good, good[0], margin=1, max_cells=2000, max_free_params=3),
         bars=bars,
         costs=flat_costs(int(bars["close"].shape[0]), 0.0),
         engine=EngineConfig(),
@@ -283,18 +316,18 @@ def test_F_3_6_half2_acceptance_on_hand_built_surfaces() -> None:
     """A parameter good on half 1 and bad on half 2 fails; one good on both passes (D-641)."""
     h1 = np.array([0.2, 1.0, 1.1, 1.0, 0.3])
     valid = np.ones(5, bool)
-    x1, _ = fill_failed(h1, valid)
+    x1, _ = fill_failed(h1, valid, "worst0")
     sel = select(smooth(x1), valid, np.array(["a", "b", "c", "d", "e"], dtype=object))
     assert sel == (2,)
     good_h2 = np.array([0.1, 0.9, 1.0, 0.95, 0.2])
     bad_h2 = np.array([0.5, -0.2, -0.4, -0.1, 0.6])
     thin_h2 = np.array([0.0, 0.1, 1.0, 0.1, 0.0])  # positive but unstable at the cell
     for surf, want in ((good_h2, True), (bad_h2, False), (thin_h2, False)):
-        x2, _ = fill_failed(surf, valid)
+        x2, _ = fill_failed(surf, valid, "worst0")
         assert accepted(x2, smooth(x2), valid, sel, 0.8) is want
     failed = valid.copy()
     failed[2] = False  # below the trade minimum in half 2
-    x2, _ = fill_failed(good_h2, failed)
+    x2, _ = fill_failed(good_h2, failed, "worst0")
     assert accepted(x2, smooth(x2), failed, sel, 0.8) is False
 
 
@@ -310,7 +343,7 @@ def test_F_3_6_the_stage_applies_the_half2_rule(entered: Any) -> None:
         t = np.array([np.inf if c.cost.target[2] is None else c.cost.target[2] for c in a.surface])
         n = np.array([c.cost.n_trades[2] for c in a.surface])
         valid = (n >= a.segments["h2"].min_trades).reshape(shape)
-        x2, _ = fill_failed(t.reshape(shape), valid)
+        x2, _ = fill_failed(t.reshape(shape), valid, "worst0")
         idx = next(np.unravel_index(i, shape) for i, c in enumerate(a.surface)
                    if c.params == a.selection.params)  # fmt: skip
         assert a.half2.accepted == accepted(x2, smooth(x2), valid, idx, 0.8)

@@ -34,7 +34,7 @@ def nearest_rank(sorted_values: np.ndarray, pct: float) -> float:
     return float(sorted_values[min(n - 1, math.floor(pct / 100.0 * (n - 1) + 0.5))])
 
 
-def spp(target: np.ndarray, valid: np.ndarray, low: float = 5.0, high: float = 95.0) -> SPP:
+def spp(target: np.ndarray, valid: np.ndarray, low: float, high: float) -> SPP:
     """F-3.5 over ``target`` (any shape); ``valid`` marks the cells at the trade minimum."""
     t = np.asarray(target, dtype=np.float64).ravel()
     ok = np.asarray(valid, dtype=np.bool_).ravel()

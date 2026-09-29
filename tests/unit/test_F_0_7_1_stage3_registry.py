@@ -8,6 +8,7 @@ artifact row per ``summary.json`` and per stored trade set.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -73,6 +74,20 @@ def test_F_0_7_1_stage3_registry_rows(registry_engine: Engine, tmp_path: Path) -
         assert t["stage"] == "s03_entry" and t["family_id"] == t["params"]["method"]
         assert t["params"]["segment"] in {"whole", "h1", "h2"}
     assert per_cand == {a.identity.candidate_id: a.cells_run for a in arts}
+    # one row per (candidate, cell, segment): no cell counted twice, none missing
+    keys = {
+        (
+            t["candidate_id"],
+            json.dumps(t["params"]["params"], sort_keys=True),
+            t["params"]["segment"],
+        )
+        for t in trials
+    }
+    assert len(keys) == len(trials)
+    for a in arts:
+        for c in a.surface:
+            for seg in ("whole", "h1", "h2"):
+                assert (a.identity.candidate_id, json.dumps(c.params, sort_keys=True), seg) in keys
     # every criterion of every candidate, D-648's included
     assert len(gates) == 5 * len(arts)
     assert {g["criterion"] for g in gates} == {

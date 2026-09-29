@@ -22,14 +22,14 @@ def test_F_3_5_spp_on_a_hand_computed_distribution() -> None:
 def test_F_3_5_failed_cells_rank_below_every_valid_cell() -> None:
     t = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
     valid = np.array([True, True, False, False, False])
-    r = spp(t, valid)
+    r = spp(t, valid, 5, 95)
     assert r.median == -math.inf  # three of five failed: the median is a failed cell
     assert r.median_valid == pytest.approx(4.5)
     assert r.failed == 3
-    assert spp(t, np.array([True] * 3 + [False] * 2)).median == 3.0
+    assert spp(t, np.array([True] * 3 + [False] * 2), 5, 95).median == 3.0
 
 
 def test_F_3_5_spp_accepts_any_shape_and_empty() -> None:
     grid = np.arange(12, dtype=float).reshape(3, 4)
-    assert spp(grid, np.ones((3, 4), bool)).median == nearest_rank(np.arange(12.0), 50)
+    assert spp(grid, np.ones((3, 4), bool), 5, 95).median == nearest_rank(np.arange(12.0), 50)
     assert math.isnan(nearest_rank(np.array([]), 50))

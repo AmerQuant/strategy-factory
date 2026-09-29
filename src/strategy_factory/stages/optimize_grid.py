@@ -66,7 +66,7 @@ def _on_steps(spec: ParamSpec, lo: float, hi: float, step: float) -> tuple[float
 
 
 def fine_axis(
-    spec: ParamSpec, good_values: Sequence[float], margin: int = 1, multiplier: int = 1
+    spec: ParamSpec, good_values: Sequence[float], margin: int, multiplier: int = 1
 ) -> tuple[float | int, ...]:
     """D-639: one numeric axis from the good region's values (see the module docstring)."""
     if spec.kind == "choice" or spec.fine_step is None:
@@ -95,9 +95,9 @@ def fine_grid(
     good_cells: Sequence[Mapping[str, Any]],
     median_cell: Mapping[str, Any],
     *,
-    margin: int = 1,
-    max_cells: int = 2000,
-    max_free_params: int = 3,
+    margin: int,
+    max_cells: int,
+    max_free_params: int,
 ) -> FineGrid:
     """The fine grid of ``method`` from stage 2's good region and its median cell."""
     comp = default_registry().get(method)

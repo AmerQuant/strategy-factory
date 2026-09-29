@@ -36,7 +36,7 @@ def _task(bars: dict[str, Any], method: str, direction: str, edge: str, good: An
         symbol="SYN",
         timeframe="1D",
         direction=direction,  # type: ignore[arg-type]
-        grid=fine_grid(method, good, good[0], max_cells=8),
+        grid=fine_grid(method, good, good[0], margin=1, max_cells=8, max_free_params=3),
         bars=bars,
         costs=flat_costs(int(bars["close"].shape[0]), 0.02),
         engine=EngineConfig(),

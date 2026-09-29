@@ -569,7 +569,12 @@ class EntryStage:
                 OverlapLine(
                     candidate_id=outs[j].task.candidate_id,
                     method=outs[j].task.method,
-                    overlap=clean(overlap(o.position, outs[j].position)),
+                    # D-643; no overlap is defined against a candidate without a selection
+                    overlap=(
+                        clean(overlap(o.position, outs[j].position))
+                        if o.selected is not None and outs[j].selected is not None
+                        else None
+                    ),
                     gate_passed=gates[j].passed,
                 )
                 for j in range(len(outs))
