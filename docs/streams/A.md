@@ -200,14 +200,17 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked
   fully merged into `main` first — `a/stream-a-status`, `a/stream-a-idle-t13`, `a/T13-plan`
   (ancestors of `main`) and `a/docs-T12-plan` (its one commit is patch-identical to `6943204` on
-  `main`). **Kept, because they hold commits `main` does not:** `a/fix-metrics-fixture-prices`
-  (one commit, 2026-09-20: a fixture fix that scales prices — superseded by D-368's `qty` fix in
-  #31, never merged) and `a/T11b-parity-tie` (seven A.md status commits of 2026-09-21/22,
-  superseded by the A.md on `main`). Deleting either needs the user's word that unmerged work may
-  go.
-- **Merged and deletable, not deleted** (the user's word is needed): `a/stream-a-status-t13`
-  (#52), `a/stream-a-branch-cleanup` (#53), `a/T14-plan` (#54), `a/T14-entry-optimisation` (#55);
-  after this status merges, `a/stream-a-status-t14` too.
+  `main`).
+- **Two branches with unmerged commits, deleted on the user's explicit approval (2026-09-29)**,
+  locally and on origin: `a/fix-metrics-fixture-prices` (tip `91ea691`, one commit of 2026-09-20:
+  a fixture fix that scales prices — superseded by D-368's `qty` fix in #31, never merged) and
+  `a/T11b-parity-tie` (tip `9a2c335`, seven A.md status commits of 2026-09-21/22, superseded by
+  the A.md on `main`). **The user approved losing that unmerged work.** When T11b resumes it starts
+  from a fresh branch off `main`; its plan stays in `docs/tasks/T11b_parity_tie_reentry.md`.
+- **Merged branches** `a/stream-a-status-t13` (#52), `a/stream-a-branch-cleanup` (#53),
+  `a/T14-plan` (#54), `a/T14-entry-optimisation` (#55) and `a/stream-a-status-t14` (#56): the user
+  approved deleting them (2026-09-29); they were already gone locally and on origin (deleted at
+  their merges).
 
 ### What T15 must calibrate
 

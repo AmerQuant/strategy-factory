@@ -154,8 +154,9 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 - **D-377 exemptions** — three text calls in stream B's paths lack an encoding (listed in
   `tests/unit/test_F_X_9_explicit_encoding.py`, `ALLOWED`), for stream B to fix.
 - **P-68, P-69, P-70** (stream B, T04f) — a handful of symbols; do not affect the pipeline.
-- **`a/fix-metrics-fixture-prices`** — an obsolete branch from the D-357 incident; deleting it
-  needs the supervisor's word.
+- **`a/fix-metrics-fixture-prices`** and **`a/T11b-parity-tie`** — deleted locally and on origin
+  on 2026-09-29 with the user's approval, although each held commits `main` does not (tips
+  `91ea691`, `9a2c335`; superseded by #31 and by A.md on `main`). Details in `docs/streams/A.md`.
 - P-01 (edge-type addendum) and P-02 (futures, blocks T04d): decisions log section G.
 
 ## 8. Parity status (T11 done, T11b parked)
