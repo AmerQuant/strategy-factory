@@ -246,3 +246,24 @@ def test_F_1_9_d805_the_stage_writes_ids_built_from_its_own_config(tmp_path: Pat
                 )
                 == cid
             )
+
+
+def test_F_1_9_d670_a_real_profile_keeps_its_d805_id_and_a_synthetic_one_differs() -> None:
+    """D-670: `source` joins the id payload only when synthetic, so every real id is the D-805
+    payload's hash exactly as before T15a."""
+    import hashlib
+
+    from strategy_factory.core.config import canonical_json
+
+    cfg = stage_config()
+    common: dict[str, object] = dict(
+        symbol="AAPL", timeframe="1D", edge_type="MR", direction="long",
+        snapshot_hash="a" * 64, probes=probe_params(cfg, "MR"), control="none",
+        stage_config_hash=stage_config_hash(cfg),
+    )  # fmt: skip
+    before_t15a = hashlib.sha256(
+        canonical_json({"stage": "s01_edge", **common}).encode("utf-8")
+    ).hexdigest()
+    assert candidate_id(**common) == before_t15a
+    assert candidate_id(**common, source="real") == before_t15a
+    assert candidate_id(**common, source="null:0123456789ab") != before_t15a

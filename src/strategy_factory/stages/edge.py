@@ -149,6 +149,7 @@ def candidate_id(
     probes: dict[str, dict[str, Any]],
     control: str,
     stage_config_hash: str,
+    source: str = "real",
 ) -> str:
     """sha256 of the canonical JSON of what identifies a stage-1 profile (D-616).
 
@@ -168,6 +169,8 @@ def candidate_id(
         "control": control,
         "stage_config_hash": stage_config_hash,
     }
+    if source != "real":
+        payload["source"] = source  # D-670: a synthetic profile never collides with a real one
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
@@ -517,6 +520,7 @@ class EdgeStage:
                         probes=probes,
                         control=ctx.config.control,
                         stage_config_hash=s_hash,  # D-805
+                        source=ctx.config.source_id,  # D-670
                     )
                     identity = Identity(
                         candidate_id=cid,
@@ -533,6 +537,7 @@ class EdgeStage:
                         stage_config_hash=s_hash,
                         code_version=ctx.code_version,
                         control=ctx.config.control,
+                        source=ctx.config.source_id,
                         dev_start=split.dev_start.isoformat(),
                         dev_end=split.dev_end.isoformat(),
                         dev_bars=int(bars["close"].shape[0]),

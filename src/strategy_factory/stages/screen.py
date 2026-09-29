@@ -162,7 +162,9 @@ class MethodOutput:
     warnings: tuple[str, ...]
 
 
-def candidate_id(*, parent_id: str, method: str, control: str, stage_config_hash: str) -> str:
+def candidate_id(
+    *, parent_id: str, method: str, control: str, stage_config_hash: str, source: str = "real"
+) -> str:
     """sha256 of what identifies a stage-2 candidate (D-636 (h)): the stage, the parent
     stage-1 candidate, the method, the control and the stage-config hash (D-805's pattern)."""
     payload = {
@@ -172,6 +174,8 @@ def candidate_id(*, parent_id: str, method: str, control: str, stage_config_hash
         "control": control,
         "stage_config_hash": stage_config_hash,
     }
+    if source != "real":
+        payload["source"] = source  # D-670
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
@@ -472,7 +476,7 @@ INDEX_COLUMNS = (
 
 
 def read_stage1_passes(
-    artifacts_root: Path, run_id: str, timeframes: Sequence[str]
+    artifacts_root: Path, run_id: str, timeframes: Sequence[str], source: str = "real"
 ) -> list[ProfileInput]:
     """The passing profiles of a stage-1 run (index + ``summary.json``), for ``timeframes``."""
     run_dir = artifacts_root / run_id / S01_STAGE
@@ -492,6 +496,11 @@ def read_stage1_passes(
                 raise ConfigError(
                     f"stage-1 run {run_id} is a control run: stage 2 reads real passes (T13 §10)"
                 )
+            if prof.identity.source != source:
+                raise ConfigError(
+                    f"stage-1 run {run_id} is source {prof.identity.source!r}, this run is "
+                    f"{source!r}: real and synthetic results are never mixed (D-654)"
+                )
             out.append(ProfileInput(profile=prof, parent_run_id=run_id))
     return sorted(
         out,
@@ -505,14 +514,14 @@ def read_stage1_passes(
 
 
 def stage1_pass_symbols(
-    artifacts_root: Path, run_id: str, timeframes: Sequence[str]
+    artifacts_root: Path, run_id: str, timeframes: Sequence[str], source: str = "real"
 ) -> tuple[str, ...]:
     """The symbols ``symbol_scope: stage_inputs`` expands to (T13 §3)."""
     return tuple(
         sorted(
             {
                 p.profile.identity.symbol
-                for p in read_stage1_passes(artifacts_root, run_id, timeframes)
+                for p in read_stage1_passes(artifacts_root, run_id, timeframes, source)
             }
         )
     )
@@ -554,7 +563,9 @@ class ScreenStage:
         wanted = set(inputs)
         profiles = [
             p
-            for p in read_stage1_passes(ctx.artifacts_root, parent_run, ctx.config.timeframes)
+            for p in read_stage1_passes(
+                ctx.artifacts_root, parent_run, ctx.config.timeframes, ctx.config.source_id
+            )
             if (p.profile.identity.symbol, p.profile.identity.timeframe) in wanted
         ]
         universe = load_universe(ctx.config.universe).by_symbol()
@@ -616,6 +627,7 @@ class ScreenStage:
                         method=m,
                         control=ctx.config.control,
                         stage_config_hash=s_hash,
+                        source=ctx.config.source_id,  # D-670
                     ),
                     bars=bars,
                     costs=costs,
@@ -819,6 +831,7 @@ class ScreenStage:
                 stage_config_hash=s_hash,
                 code_version=ctx.code_version,
                 control=ctx.config.control,
+                source=ctx.config.source_id,
                 unconfirmed=work.unconfirmed,
             ),
             grid=grid,
