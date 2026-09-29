@@ -33,6 +33,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
+from strategy_factory.gates.engine import count_meeting
 from strategy_factory.pipeline.stage_run import artifacts_root
 
 MIN = {"1D": 30, "1H": 100}  # the s02/s03 trade minimum (gate YAML), as stages 1 and 2
@@ -268,20 +269,21 @@ def cmd_analyse() -> None:
                 )
     out = pl.DataFrame(rows, infer_schema_length=None)
     out.write_csv(OUT / "T14_plan_variants.csv")
-    with pl.Config(tbl_rows=200, tbl_cols=20, tbl_width_chars=250):
+    # Every count uses the gate's own comparison (count_meeting, D-651 (1) amended): a NaN or a
+    # missing value never meets a threshold. A polars comparison would count ``NaN >= 0.8`` as
+    # true -- the T14 plan's stability counts went wrong exactly that way (review section 3).
+    print("control      treatment half  n  pass stab_ok area_ok both_ok spp_ok failed_h1 failed_h2")
+    for (ctl, how, rule), g in sorted(
+        out.group_by(["control", "treatment", "half_min"]), key=lambda kv: kv[0]
+    ):
         print(
-            out.group_by(["control", "treatment", "half_min"])
-            .agg(
-                pl.len().alias("n"),
-                pl.col("passed").sum().alias("pass"),
-                (pl.col("stability") >= STAB).sum().alias("stab_ok"),
-                (pl.col("plateau_area") >= AREA).sum().alias("area_ok"),
-                pl.col("in_both").sum().alias("both_ok"),
-                (pl.col("spp_median") > 0).sum().alias("spp_ok"),
-                pl.col("failed_h1").sum(),
-                pl.col("failed_h2").sum(),
-            )
-            .sort(["control", "treatment", "half_min"])
+            f"{ctl:12} {how:9} {rule:5} {g.height:2} "
+            f"{count_meeting(g['passed'].to_list(), '==', 1):4} "
+            f"{count_meeting(g['stability'].to_list(), '>=', STAB):7} "
+            f"{count_meeting(g['plateau_area'].to_list(), '>=', AREA):7} "
+            f"{count_meeting(g['in_both'].to_list(), '==', 1):7} "
+            f"{count_meeting(g['spp_median'].to_list(), '>', 0):6} "
+            f"{int(g['failed_h1'].sum()):9} {int(g['failed_h2'].sum()):9}"
         )
 
 

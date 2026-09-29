@@ -48,7 +48,7 @@ import datetime as dt
 import math
 import zoneinfo
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 import numpy as np
@@ -159,6 +159,21 @@ class CostArrays:
         """Commission of one order; both sides use the same model (``side`` is informative)."""
         del side
         return commission_kernel(*self.commission_params, qty, price)
+
+    def segment(self, start: int, end: int) -> CostArrays:
+        """The per-bar arrays cut to bars ``[start, end)``; the cost model itself unchanged.
+
+        Stage 3 simulates each half on its own bars with the costs built once for the whole
+        development window (T14, D-641), so both halves pay the same cost model."""
+        return replace(
+            self,
+            half_spread=self.half_spread[start:end],
+            slippage_fixed=self.slippage_fixed[start:end],
+            swap_long_per_notional_day=self.swap_long_per_notional_day[start:end],
+            swap_short_per_notional_day=self.swap_short_per_notional_day[start:end],
+            rollover_mask=self.rollover_mask[start:end],
+            triple_mask=self.triple_mask[start:end],
+        )
 
 
 def _amount(a: Amount, ref_price: F64, pip_size: float | None) -> F64:

@@ -216,3 +216,23 @@ def test_F_0_8_1_results_written_to_registry(registry_engine: Engine) -> None:
     assert rows["ess"].reason == "failed: 48 >= 50"
     assert rows["accepted_probe_groups"].metric_value is None
     assert rows["accepted_probe_groups"].reason == "metric_missing"
+
+
+def test_F_0_8_1_count_meeting_never_counts_nan_or_missing() -> None:
+    """D-651 (1), amended: a count behind a decision cannot let NaN pass a comparison. polars
+    (the plan's tool) says ``NaN >= 0.8`` is true; the gate's count must not."""
+    import math
+
+    import polars as pl
+
+    from strategy_factory.gates.engine import count_meeting
+
+    values = [0.9, 0.8, 0.79, math.nan, None, float("inf"), -math.inf]
+    assert count_meeting(values, ">=", 0.8) == 3  # 0.9, 0.8, inf
+    assert count_meeting(values, "<", 0.8) == 2  # 0.79, -inf
+    assert count_meeting([math.nan] * 5, ">=", 0.0) == 0
+    assert count_meeting([math.nan] * 5, "<=", 0.0) == 0
+    # the defect this guards against, pinned: polars counts the NaN
+    s = pl.Series([0.9, math.nan])
+    assert int((s >= 0.8).sum()) == 2
+    assert count_meeting(s.to_list(), ">=", 0.8) == 1

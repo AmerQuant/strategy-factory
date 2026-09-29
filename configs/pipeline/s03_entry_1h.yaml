@@ -1,0 +1,6 @@
+# T14: stage 3 over the selections of T13's full 1H run (6025ef15-35cb-4acd-a4c8-5f936329d78f); all unconfirmed (D-621, D-645).
+symbol_scope: stage_inputs
+stage_inputs: {s02_screen: 6025ef15-35cb-4acd-a4c8-5f936329d78f}
+timeframes: [1H]
+stages: [s03_entry]
+seed: 42

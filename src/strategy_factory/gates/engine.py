@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import math
 import operator
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -202,6 +202,18 @@ def check(criterion: GateCriterion, value: Any) -> CriterionResult:
     ok = OPS[criterion.op](v, criterion.threshold)
     word = "ok" if ok else "failed"
     return result(ok, f"{word}: {v:g} {criterion.op} {criterion.threshold:g}")
+
+
+def count_meeting(values: Iterable[Any], op: str, threshold: float) -> int:
+    """How many ``values`` meet ``op threshold`` -- with the gate's own semantics: a missing or
+    NaN value **never** meets it (D-651 (1), amended). Every count that a decision rests on uses
+    this, not a dataframe comparison: polars orders NaN above every number, so ``NaN >= 0.8`` is
+    true there, which is how the T14 plan's stability counts went wrong."""
+    return sum(
+        1
+        for v in values
+        if (f := _as_float(v)) is not None and not math.isnan(f) and OPS[op](f, threshold)
+    )
 
 
 def is_borderline(items: tuple[CriterionResult, ...], tolerance: float) -> bool:

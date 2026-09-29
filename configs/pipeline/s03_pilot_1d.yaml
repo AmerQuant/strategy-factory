@@ -1,0 +1,7 @@
+# T14 pilot (RUNBOOK_T14 step 7): every 1D selection on MSFT and TXN, run twice, identical.
+symbol_scope: listed
+symbols: [MSFT, TXN]
+stage_inputs: {s02_screen: dea1d423-6621-43f9-8057-227e6e576ee0}
+timeframes: [1D]
+stages: [s03_entry]
+seed: 42

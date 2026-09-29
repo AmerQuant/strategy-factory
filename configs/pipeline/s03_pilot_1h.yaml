@@ -1,0 +1,7 @@
+# T14 pilot (RUNBOOK_T14 step 7): BAC's 1H selection (unconfirmed), run twice, identical.
+symbol_scope: listed
+symbols: [BAC]
+stage_inputs: {s02_screen: 6025ef15-35cb-4acd-a4c8-5f936329d78f}
+timeframes: [1H]
+stages: [s03_entry]
+seed: 42

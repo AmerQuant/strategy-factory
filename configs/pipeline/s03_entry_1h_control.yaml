@@ -1,0 +1,7 @@
+# T14, the 1H control (D-644, D-651 (b)): the real 1H selections on reshuffled returns.
+symbol_scope: stage_inputs
+stage_inputs: {s02_screen: 6025ef15-35cb-4acd-a4c8-5f936329d78f}
+control: random_walk
+timeframes: [1H]
+stages: [s03_entry]
+seed: 42

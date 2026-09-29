@@ -212,6 +212,7 @@ _ALL: tuple[MetricName, ...] = (
     _m("spp_median_target", "ratio", "Median target metric of the SPP distribution", "s03_entry"),
     _m("stability_ratio", "ratio", "Neighbourhood target metric / selected point", "s03_entry"),
     _m("plateau_area", "share", "Share of the search space inside the plateau", "s03_entry"),
+    _m("plateau_cells", "count", "Fine-grid cells inside the plateau (D-648)", "s03_entry"),
     _m(
         "selected_in_both_halves",
         "flag",

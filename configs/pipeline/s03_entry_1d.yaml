@@ -1,0 +1,7 @@
+# T14: stage 3 over the selections of T13's full 1D run (dea1d423-6621-43f9-8057-227e6e576ee0, docs/reviews/T13_review.md).
+# symbol_scope stage_inputs expands to the selected symbols at resolution (T14 section 3).
+symbol_scope: stage_inputs
+stage_inputs: {s02_screen: dea1d423-6621-43f9-8057-227e6e576ee0}
+timeframes: [1D]
+stages: [s03_entry]
+seed: 42
