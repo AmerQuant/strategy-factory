@@ -54,14 +54,11 @@ from strategy_factory.components.base import Bars
 from strategy_factory.components.exits.probe import probe_exit_signals
 from strategy_factory.components.registry import default_registry
 from strategy_factory.core.config import EngineConfig, canonical_json, config_hash
-from strategy_factory.core.errors import ConfigError, DataError
-from strategy_factory.costs.arrays import CostArrays, build_cost_arrays, resolve_from_data
+from strategy_factory.core.errors import DataError
+from strategy_factory.costs.arrays import CostArrays
 from strategy_factory.costs.profile import (
-    SpreadBrokerScaled,
-    SpreadFromData,
     load_assignments,
     load_profiles,
-    resolve_profile,
 )
 from strategy_factory.data.result_io import write_run_result
 from strategy_factory.data.split import HistoryTooShortError
@@ -79,6 +76,7 @@ from strategy_factory.pipeline.backtest import (
 )
 from strategy_factory.pipeline.executor import unit_seed
 from strategy_factory.stages.base import ArtifactRef, RunContext, StageResult
+from strategy_factory.stages.common import UnsupportedSymbol, cost_arrays, require_research_engine
 from strategy_factory.stages.config import (
     PROBE_STAGE,
     STAGE,
@@ -422,50 +420,11 @@ def compute_profile(task: ProfileTask) -> ProfileOutput:
 # --------------------------------------------------------------------------------------
 # The stage (parent side): build the units, run them, write everything
 # --------------------------------------------------------------------------------------
-class UnsupportedSymbol(Exception):
-    """A symbol stage 1 cannot run yet: it is listed as skipped with the reason, never aborts."""
-
-
-def _cost_arrays(
-    symbol: str,
-    asset_class: str,
-    timeframe: str,
-    bars: dict[str, np.ndarray],
-    costs_dir: Path,
-    profiles: Any,
-    assignments: Any,
-) -> CostArrays:
-    profile = resolve_profile(symbol, asset_class, profiles, assignments, costs_dir)
-    if isinstance(profile.spread, SpreadFromData | SpreadBrokerScaled):
-        profile, _ = resolve_from_data(profile, bars)  # development bars only (D-340)
-    costs = build_cost_arrays(bars, profile, timeframe=timeframe)
-    if costs.quote_ccy != "USD":
-        raise UnsupportedSymbol(
-            f"quote currency {costs.quote_ccy}: stage 1 runs USD-quoted symbols only for now "
-            "(no conversion arrays are wired in; P-105)"
-        )
-    return costs
-
-
 def _write_json(path: Path, data: Any) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False)
     path.write_text(text, encoding="utf-8", newline="\n")
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _require_research_engine(ctx: RunContext) -> None:
-    """D-354 (1): the engine settings come from the run's config -- and stage 1 is a research
-    stage, so a parity setting there is refused rather than silently ignored."""
-    problems = []
-    if ctx.config.intrabar_mode != "pessimistic":
-        problems.append(f"intrabar_mode {ctx.config.intrabar_mode!r} (research runs 'pessimistic')")
-    if ctx.config.engine.entry_requires_flat_at_signal:
-        problems.append("engine.entry_requires_flat_at_signal (a parity-only option, D-367)")
-    if problems:
-        raise ConfigError(
-            "stage 1 runs research settings only; the config sets " + "; ".join(problems)
-        )
 
 
 INDEX_COLUMNS = (
@@ -503,7 +462,7 @@ class EdgeStage:
 
     def run(self, inputs: Sequence[tuple[str, str]], ctx: RunContext) -> StageResult:
         cfg = load_s01_config(self.stage_config_path)
-        _require_research_engine(ctx)
+        require_research_engine(ctx, STAGE)
         from strategy_factory.core.universe import load_universe
 
         universe = load_universe(ctx.config.universe).by_symbol()
@@ -540,7 +499,7 @@ class EdgeStage:
                 bars = permute_returns(bars, unit_seed(ctx.seed, f"{symbol}|{tf}|random_walk"))
             asset_class = universe[symbol].asset_class
             try:
-                costs = _cost_arrays(
+                costs = cost_arrays(
                     symbol, asset_class, tf, bars, self.costs_dir, profiles, assignments
                 )
             except UnsupportedSymbol as exc:

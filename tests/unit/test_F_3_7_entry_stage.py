@@ -242,7 +242,7 @@ def test_F_3_7_d642_the_plateau_is_selected_after_costs(
     """With heavy costs the after-cost and zero-cost surfaces disagree; the selection must follow
     the after-cost one. Swapping the surfaces in :func:`compute_entry` fails this test."""
     monkeypatch.setattr(
-        opt, "_cost_arrays", lambda sym, ac, tf, bars, *a: flat_costs(bars["close"].shape[0], 0.6)
+        opt, "cost_arrays", lambda sym, ac, tf, bars, *a: flat_costs(bars["close"].shape[0], 0.6)
     )
     out, _ = run(tmp_path)
     arts = [a for a in summaries(out) if a.selection.params is not None]
