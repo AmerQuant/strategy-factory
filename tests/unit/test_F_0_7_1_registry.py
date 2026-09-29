@@ -155,9 +155,27 @@ def test_F_0_7_1_round_trip_every_table(registry_engine: Engine) -> None:
     w.add_decision("cand-1", "analyst-a", "return", "needs more OOS", return_to_stage="s06_robust")
     assert one(registry_engine, T.decisions)["return_to_stage"] == "s06_robust"
 
+    # D-663 (T15a): the funnel-run link
+    from strategy_factory.registry.funnel import FunnelRegistry
+
+    fr = FunnelRegistry(registry_engine)
+    fid = fr.start_funnel(
+        config={"timeframes": ["1D"]}, config_hash="h", funnel_key="k", code_version="c" * 40,
+        seed=7, source="real", control=True,
+    )  # fmt: skip
+    assert fr.resumable("k") == fid
+    fr.start_stage(fid, ("1D", "s01_edge", "real"), "sk", 12)
+    fr.set_stage_run(fid, ("1D", "s01_edge", "real"), str(run_id))
+    fr.finish_stage(fid, ("1D", "s01_edge", "real"), "done")
+    row = fr.stages(fid)[("1D", "s01_edge", "real")]
+    assert (row.stage_key, row.run_id, row.status, row.inputs) == ("sk", str(run_id), "done", 12)
+    fr.finish_funnel(fid, "done")
+    assert fr.resumable("k") is None and fr.funnel(fid)["control"] is True
+
     w.finish_run(run_id, "done")
     run = one(registry_engine, T.pipeline_runs)
     assert run["status"] == "done" and run["finished_at"] is not None
+    assert run["source"] == "real"  # D-663: no `source` in the config = a real run
     assert set(row_counts(registry_engine).values()) == {1}
 
 
@@ -267,12 +285,15 @@ def test_F_0_7_1_config_hash_and_git_sha(registry_engine: Engine) -> None:
 # -- migrations ------------------------------------------------------------------------------
 @pytest.mark.db
 def test_F_0_7_1_migrations_up_down_up_and_match_tables(registry_engine: Engine) -> None:
-    assert current_revision(registry_engine) == head_revision() == "0001_initial"
+    assert current_revision(registry_engine) == head_revision() == "0002_funnel_runs"
     downgrade(registry_engine, "base")
     assert current_revision(registry_engine) is None
     assert set(inspect(registry_engine).get_table_names()) <= {"alembic_version"}
-    upgrade(registry_engine, "head")
+    upgrade(registry_engine, "0001_initial")
     assert current_revision(registry_engine) == "0001_initial"
+    assert "funnel_runs" not in inspect(registry_engine).get_table_names()
+    upgrade(registry_engine, "head")
+    assert current_revision(registry_engine) == "0002_funnel_runs"
     with registry_engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), T.metadata)
     assert diff == []  # migration and tables.py describe the same schema
@@ -315,3 +336,32 @@ def test_F_0_7_1_missing_db_url_is_a_clear_error(
     monkeypatch.chdir(tmp_path)  # type: ignore[arg-type]
     with pytest.raises(RegistryError, match="SFAC_DB_URL is not set"):
         make_engine()
+
+
+@pytest.mark.db
+def test_F_0_7_1_d663_a_synthetic_run_is_marked_and_statuses_are_checked(
+    registry_engine: Engine,
+) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    from strategy_factory.registry.funnel import FunnelRegistry
+
+    w = RegistryWriter(registry_engine)
+    synthetic = {**CONFIG, "source": {"kind": "null", "seed": 1, "generator": {}}}
+    w.start_run(synthetic, seed=7, code_version="c" * 40)
+    assert one(registry_engine, T.pipeline_runs)["source"] == "null"
+    fr = FunnelRegistry(registry_engine)
+    fid = fr.start_funnel(
+        config={}, config_hash="h", funnel_key="k", code_version="c", seed=1, source="planted",
+        control=False,
+    )  # fmt: skip
+    fr.start_stage(fid, ("1H", "s02_screen", "control"), "sk", 0)
+    fr.finish_stage(fid, ("1H", "s02_screen", "control"), "empty")
+    assert fr.stages(fid)[("1H", "s02_screen", "control")].status == "empty"
+    with pytest.raises(IntegrityError):
+        fr.start_stage(fid, ("1H", "s03_entry", "nonsense"), "sk", 0)
+    with pytest.raises(IntegrityError):
+        fr.start_funnel(
+            config={}, config_hash="h", funnel_key="k2", code_version="c", seed=1,
+            source="imaginary", control=True,
+        )  # fmt: skip

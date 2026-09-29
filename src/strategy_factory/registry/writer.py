@@ -170,6 +170,14 @@ def git_dirty(cwd: Path | None = None) -> bool:
     return False
 
 
+def run_source(config: Mapping[str, Any]) -> str:
+    """``real``, or the synthetic kind of the config's ``source`` (D-654, D-663)."""
+    source = config.get("source")
+    if not source:
+        return "real"
+    return str(source["kind"])
+
+
 def code_version(cwd: Path | None = None) -> str:
     """What ran: ``<40-hex sha>``, ``<sha>-dirty`` or ``unknown`` (T10b).
 
@@ -309,6 +317,7 @@ class RegistryWriter:
                     seed=seed,
                     status="running",
                     notes=notes,
+                    source=run_source(config),
                 )
             )
         log.info("registry: run %s started (seed %d)", run_id, seed)
