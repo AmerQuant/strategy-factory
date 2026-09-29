@@ -365,7 +365,7 @@ def test_F_X_9_repo_migrations_have_one_head() -> None:
     migrations = read_migrations(ALEMBIC)
     assert migrations, "the repo must have migrations"
     assert check_single_head(migrations) == []
-    assert alembic_heads(migrations) == ["0001_initial"]
+    assert alembic_heads(migrations) == ["0002_funnel_runs"]  # T15a, D-663
 
 
 def test_F_X_9_repo_alembic_heads_matches_alembic_itself() -> None:

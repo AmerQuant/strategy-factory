@@ -51,7 +51,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
 Stream A has used **D-360 … D-379**, **D-800 … D-807**, **P-40 … P-59** and **P-100 … P-133**;
-all answered — **stream A has no open question** (P-124 … P-133 → D-662 … D-671). **Next free here: D-808, P-134.** Supervisor
+P-124 … P-133 answered (D-662 … D-671); **P-134 is open** (the planted ladder). **Next free here: D-808, P-135.** Supervisor
 rows written by stream A: D-601 … D-656 and D-662 … D-671 (D-651 (1) amended on the T14 review;
 D-652 … D-656 from the T15a task file, D-662 … D-671 its plan's answers; **D-657 … D-661 are
 assigned elsewhere**: D-657, D-661 to stream B's T04j, D-658 … D-660 to T16); **next free
@@ -106,13 +106,7 @@ supervisor id D-672**. Everything through D-651 and D-807 is on `main` (#54, #55
 
 ## Status — 2026-09-29
 
-**T15a plan approved (2026-09-29); P-124 … P-133 answered as D-662 … D-671** (all as proposed; the
-user decided Latin digits). Plan `docs/tasks/T15a_plan.md`, runbook `docs/tasks/RUNBOOK_T15a.md`.
-Headline, in two parts (D-671): **stage 1 admits noise** — the calibrated null reaches the end of
-stage 3 on 1.23 % of daily symbols (6 of 486) against the real 0.41 % (2 of 486) — **and misses real
-edges** — a planted MR edge on every symbol is found 0 % of the time at 1 ATR and 40 % at 3 ATR, TF
-3–10 %; the reshuffled control's zeros understated the false-positive rate (ATR 17–30 % too high).
-Next: the T16 preparatory PR (stream B waits on it), then T15a's implementation to the planted pilot.
+**T15a: stopped at the planted pilot (RUNBOOK_T15a step 8), on `a/T15a-orchestrator`.** Plan merged (#59); D-662 … D-671 recorded. Built and tested: the clean-up (item 9), `synthetic/` (the calibrated null, the planted edge, `SyntheticDataAccess`), `source` in the stage identities and ids, migration `0002_funnel_runs`, the orchestrator (`sfac funnel run / status / reproduce`), the funnel configs. **Pilot** (`docs/reviews/T15a_pilot.md`, funnel `a3ace3cb…`): stage-1 power at the ladders' top MR long 100 %, MR short 60 %, TF 0 % at 0.8 σ (60 % at 0.5); stage 1's MR verdict is not direction-specific; stage 3's control arm passed 2. **Open: P-134** (the ladder). **On the user:** run `scripts/fetch_vazirmatn.ps1` (the report's font, D-666). **Next:** step 7 (the report, moved after the pilot because it needs the font), then P-129's timings, the acceptance runs, the review. The T16 preparatory PR #60 waits for "Approved. Merge".
 
 **T14 is merged (#54 plan, #55 stage; merge commit `85870be`). Stream A has nothing open and waits
 for the next task file.** `main` is at `85870be` plus this status (HANDOFF v10).
@@ -304,7 +298,7 @@ real edges, so T15b is a redesign of how stage 1 decides, not only a tuning of t
 1. **The next task** — wait for the supervisor's task file; then plan (D-403), measuring on real
    data and on the control before proposing, and stop for "Plan approved". Stage 4 would read the
    passing `EntryOptimisation` artifacts of `f72b80ee…` (1D) and `ce348ae8…` (1H).
-2. **Next free ids:** D-808, P-134 (stream A); supervisor D-672.
+2. **Next free ids:** D-808, P-135 (stream A); supervisor D-672.
 3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
    no regeneration.
 4. **T11b** when the user exports (D-802). **T15b** owns the calibration list above (16 items; D-652, D-671).
