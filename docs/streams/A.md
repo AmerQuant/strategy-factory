@@ -3,9 +3,8 @@
 Working copy: `D:\AmerAndish\Projects\Trade\StrategyFactory` (the repository's main worktree).
 Governed by **D-355** and **D-357**; the full rules are in `docs/streams/PROTOCOL.md` and the
 path ownership in `docs/streams/ownership.yaml`. This file is stream A's status; `HANDOFF.md`
-(v8, 2026-09-28) is written **only by stream A**, at merges, from this file and
-`docs/streams/B.md`. From D-802 on, this file lives on `main` (before, it lived on the
-`a/T11b-parity-tie` branch only).
+(v9, 2026-09-29) is written **only by stream A**, at merges, from this file and
+`docs/streams/B.md`. From D-802 on, this file lives on `main`.
 
 New branches here carry the **`a/`** prefix. Run the guards locally with
 `uv run sfac streams check --base origin/main`.
@@ -22,10 +21,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 
 1. **Session check** (D-357 (1)): `uv run sfac streams session --stream A`. Omit `--stream` if
    you are a spawned or helper session — and then you need your **own** worktree.
-2. Read `HANDOFF.md` (v8) and this file; for stage work also `docs/streams/B_data_state.md`.
-3. Work branches start from `origin/main`. `a/T11b-parity-tie` held only this file's updates
-   while T11b waited; it is retired by D-802 (not deleted). `a/fix-metrics-fixture-prices` is
-   obsolete (superseded by #31); deleting either needs the supervisor's word.
+2. Read `HANDOFF.md` (v9) and this file; for stage work also `docs/streams/B_data_state.md`,
+   `docs/reviews/T12_review.md` (stage 1) and `docs/reviews/T13_review.md` (stage 2).
+3. Work branches start from `origin/main`. Obsolete stream-A branches (listed under "Open")
+   are not deleted without the supervisor's word.
 4. If `git worktree list` shows scratch entries under `AppData\Local\Temp\claude\…`, run
    `git worktree prune`. `StrategyFactory_dl` (detached) is not stream A's; leave it.
 
@@ -34,12 +33,13 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 1. Batch 2b, **T11** (#26), **D-368** (#31) — **merged**.
 2. **T11b** — **parked (D-802)**; the plan stands in `docs/tasks/T11b_parity_tie_reentry.md`.
 3. Stream and CI tooling — D-611/D-612 ownership, D-377 encodings, D-378 range, D-379 UTF-8
-   output, D-800 Windows job, D-801 one `checks` run per PR update — **merged** (#33 … #43).
-4. **T12 — stage 1, edge discovery** (D-611, critical per D-402) — ✅ **merged (#47)**.
-5. **D-806 — pinned runner images, weekly Hypothesis back to 10×** — ✅ **merged (#48)**.
-6. **T13, stage 2 (method screening) — full run done, reviewed; stopped for "Approved".** Plan on
-   `a/T13-plan` (approved; D-622 … D-637); implementation, pilot and full run on
-   `a/T13-method-screening` (stacked). Review: `docs/reviews/T13_review.md`.
+   output, D-800 Windows job, D-801 one `checks` run per PR update, D-806 pinned runners —
+   **merged** (#33 … #43, #48).
+4. **T12 — stage 1, edge discovery** (critical, D-402) — ✅ **merged (#47)**.
+5. **T13 — stage 2, method screening** — ✅ **merged (#51)**.
+6. **Next: T14, stage 3 (entry optimisation) — waits for its task file.** As for T12 and T13, the
+   supervisor and the user settle the design in chat first; until the task file arrives stream A
+   neither plans nor starts it.
 
 ## ID ranges (D-355, D-378)
 
@@ -49,10 +49,10 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | **stream A (this one)** | **D-360 … D-379** (used up) **and D-800 … D-899** | **P-40 … P-59** (used up) **and P-100 … P-149** (D-803) |
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
-Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-115**
-(all answered: P-107 … P-115 by D-629 … D-637). **Next free here: D-807, P-116.**
-Supervisor rows written by stream A: D-601 … D-637; next free supervisor id **D-638**. **Everything through D-806 is
-on `main`** (#47 and #48).
+Stream A has used **D-360 … D-379**, **D-800 … D-806**, **P-40 … P-59** and **P-100 … P-115**,
+all answered — **stream A has no open question**. **Next free here: D-807, P-116.** Supervisor
+rows written by stream A: D-601 … D-638; **next free supervisor id D-639**. Everything through
+D-638 is on `main` (#51).
 
 ## Rules that bind this stream (D-355, D-357)
 
@@ -65,188 +65,105 @@ on `main`** (#47 and #48).
   Stream B uses `sfac_b`. Never point this `.env` at stream B's database. A new worktree needs a
   copy of `.env` (it is git-ignored).
 - **Data root:** **stream A does not write to `SFAC_DATA_ROOT`.** Stream A reads the store and
-  reads `SFAC_RAW_ROOT` read-only (D-028, rule 11). The one exception so far: `manifest.json` in
-  the parity reference folder, written by `scripts/write_parity_manifest.ps1` on the
-  supervisor's instruction.
+  reads `SFAC_RAW_ROOT` read-only (D-028, rule 11). Stage artifacts go to `SFAC_ARTIFACTS_ROOT`
+  (`D:/SfacData/artifacts`). The one store exception so far: `manifest.json` in the parity
+  reference folder, written by `scripts/write_parity_manifest.ps1` on the supervisor's
+  instruction.
 - **`configs/universe.yaml` is stream A's (D-394).** After a stream-B merge that moves a symbol,
   run `sfac universe generate`.
 - **Docs:** decision and pending edits go on stream A's own branch; a conflict in
   `decisions_log.md` or `pending.md` is resolved by **keeping every row in ID order**, one row
   per ID (the most-resolved version wins). A row may be **amended in place** only within stream
   A's ranges or the supervisor's, never deleted (D-369).
+- **Measure before proposing** (the T13 plan's method): a grid, a gate or a threshold is checked
+  on real data **and on the D-615 control** before it is proposed; the control is what exposed the
+  drift in T13's first gate (D-629).
 - **Guard tests are mutation-checked against the real file**: break the thing on its real shape
   and watch the test fail before claiming the test catches it.
+- **Mirror rule (D-626, D-632):** a short is the long rule on `Bars.mirrored()` (`p → −p`). Ratio
+  rules must be written in the `|ref|` form (`x < ref − f·|ref|`) or their mirror breaks — Connors
+  RSI's ROC did, and the engine-truncation gate's vacuity check (F-0.3.9) caught it.
+- **Rule-definition constants (D-638):** the fixed parts of a rule's definition (MACD 12/26/9,
+  Connors 2/100, stochastic smoothing, KAMA 2/30, the user rules' ATR 5/10) may be class constants;
+  rule 1 governs thresholds, weights and free parameters.
 - **Runner images are pinned (D-806).** `ubuntu-24.04` and `windows-2025`; no job may use a
   `-latest` label (`tests/unit/test_F_X_9_pinned_runners.py`). Moving a pin is its own decision.
 - **Encodings (D-377, D-379):** every text-mode subprocess and file access passes `encoding=`;
   the static guard fails otherwise. After a change to the `sfac` entry point, run `uv sync`.
   PowerShell scripts written from now on set `[Console]::OutputEncoding` to UTF-8 before
   calling `sfac`.
+- **A file committed "unchanged" must be byte-identical**: the repository normalises text to LF
+  (`* text=auto eol=lf`), so a CRLF original needs a `-text` rule in `.gitattributes` (done for
+  `tools/tradingview/user_mr_suite.pine`, as D-359 does for the parity fixtures).
 - **Benchmarks** run only when stream B is idle — they take every core.
 - Every branch **rebases onto `main`** right before its merge; merges one at a time. D-401 and
   D-402 unchanged.
 - **The venv can break silently.** If `mypy` suddenly reports `Failed to find builtin module
   "mypy_extensions"` or a wall of pydantic `import-untyped` errors: `uv sync --reinstall`.
 
-## Status — 2026-09-28
+## Status — 2026-09-29
 
-**T13 is done and reviewed; stopped for "Approved"** (T13 §0). Branches `a/T13-plan` (plan,
-D-622 … D-637) and `a/T13-method-screening` (stacked), pushed; the PR is open. `main` is at
-`3db2edc` (#50).
+**T13 is merged (#51, merge commit `e432b80`). Stream A has nothing open and waits for T14's
+task file.** `main` is at `e432b80`.
 
-**The full run** (`docs/reviews/T13_review.md`, committed tree `b71563a`): **both controls pass 0
-methods** (1D 0 of 280, 1H 0 of 60) — 45 and 11 methods are stopped by `method_q_value` alone
-(D-629). Real: 1D 14 profiles, 4,256 cells, **25 selected**; 1H (unconfirmed) 4 profiles, 1,008
-cells, **6 selected**. **11 of 14 daily and all 4 hourly profiles end with fewer than 3**
-candidates (D-625, D-637): MR methods with the fixed 5-bar exit hold the same bars. 22 of the 31
-selections are the user's rules. ETN long keeps one method at q 0.092. The acceptance reviewer
-found nothing blocking and recomputed every number (0 mismatches); its should-fix items are fixed
-(review §11). For the supervisor: §8 item 15 (rule-definition constants as class constants).
+> **The repository is public since 2026-09-28.** Everything pushed here is public immediately,
+> and going private again would not undo it. **Turn on secret scanning and push protection** —
+> free for public repositories, and it scans the history retroactively. The pre-public audit of
+> the whole history (2026-09-27) found no secret ever committed and no workflow that could expose
+> one (details: `HANDOFF.md` §7 and this file's history at `ac20c9c`).
 
-> **The repository is public since 2026-09-28** (`private=False`, 07:34 UTC). Two consequences.
-> **(1)** Actions minutes are free, which is what unblocked CI — GitHub had been refusing to start
-> jobs with "recent account payments have failed or your spending limit needs to be increased"; both
-> jobs of both PRs failed in ~2 s with no log until the repository went public, after which the same
-> commits passed unchanged (nothing in the code was touched to fix it). **(2)** Everything pushed
-> here is public immediately, and going private again would not undo it. **Turn on secret scanning
-> and push protection** — free for public repositories, and it scans the history retroactively.
+### T13 — stage 2, method screening (#51)
 
-### The two merges
+Plan `docs/tasks/T13_plan.md` (measured on real data and on the control before proposing), pilot
+`docs/reviews/T13_pilot.md`, review `docs/reviews/T13_review.md` (the PR body). Decisions
+**D-622 … D-638**. Approved on 2026-09-29.
 
-| PR | CI on the merged head | result |
-|---|---|---|
-| **#47** T12, stage 1 (critical, D-402; the review is the PR body) | `0f912a5`: `checks` 3 min, `windows-fast` 4 min, both green | merged `8b9ebe0`, pre-authorised for green CI, **no exception recorded** |
-| **#48** D-806 runner pins + 10× weekly | rebased onto `main` as `d10f547`, re-run green | merged `3e2675c` |
+| run (committed tree `b71563a`) | run id | profiles | methods / cells | pass the gate | selected |
+|---|---|---|---|---|---|
+| 1D | `dea1d423…` | 14 | 280 / 4,256 | 25 | **25** |
+| 1H (`unconfirmed`, D-621) | `6025ef15…` | 4 | 60 / 1,008 | 6 | **6** |
+| **1D control** (D-615) | `dd27baf5…` | 14 | 280 / 4,256 | **0** | 0 |
+| **1H control** | `ae578471…` | 4 | 60 / 1,008 | **0** | 0 |
 
-The pins were verified on the merged run, not just from the docs: `checks` reports
-`Image: ubuntu-24.04` and `windows-fast` reports `Image: windows-2025-vs2026` — the same images the
-suite was already green on, so `windows-2025` is confirmed as the right label. The fast suite on the
-rebased pin branch was **1,794 passed** (T12's suite plus the 6 new guards).
+- **The control first:** 0 methods pass; **45 daily and 11 hourly methods clear every other
+  criterion** on the permuted series and are stopped only by `method_q_value` (D-629: the
+  good-region median cell against its matched baseline, BH within the profile). The gate as first
+  specified had no comparison with chance and passed 43 of 266 in the plan's measurement.
+- **11 of 14 daily profiles and all 4 hourly ones end with fewer than 3 candidates** (D-625):
+  mean-reversion methods with the fixed 5-bar exit hold the same bars, and D-637 counts a nested
+  method as overlapping. 111 daily methods passed every criterion but the overlap.
+- **22 of the 31 selections are the user's rules** (`mr_macd_hist_falling` #17 and `mr_n_day_low`
+  #5 on four profiles each). **ETN long keeps one method at q 0.092**, at the threshold.
+- Costs take a third to three quarters of the daily edge (after-cost grid medians 40–70 % of
+  the zero-cost ones on the selected methods), and every selected method stays positive.
+- What was built: 35 stage-2 methods (20 MR, 15 TF; dual momentum deferred, D-635), the 2–4
+  values grid rule (D-630), `metrics/family.py` (family score, good region, weighted rank-sum,
+  overlap, diversity walk), `stages/screen.py` (`s02_screen`), the `MethodScreen` artifact
+  (stage 3's input), `stage_inputs` in `PipelineConfig` (old hashes unchanged, 34/34
+  recomputed), `sfac run` for `s02_screen`. The engine is untouched; no new dependency.
+- Acceptance on Windows: fast suite **2,464**, parity/leakage/oracle **858**, db **23 / 0 skipped**,
+  slow **20**, ruff, format, mypy (both platforms), stream guards — all green; the acceptance
+  reviewer recomputed every number (0 mismatches) and its findings are fixed (review §11).
 
-The supervisor approved the review **with two conditions; both are met** (review §14):
+### T12 — stage 1 (#47), in one paragraph
 
-1. **`pytest -m db -rs` on the final code with 0 skipped** — done, **22 passed, 0 skipped**. The
-   test named in the condition turned out to be **already** marked `db`; the real defect was that
-   it called `make_engine` directly instead of a skipping fixture, so it *failed* where the others
-   skipped. Fixed at that cause (`fixtures.registry_db.require_database`).
-2. **P-106 → D-805: the stage-config hash is part of the candidate id**, so a T15 recalibration is
-   a different candidate and can never overwrite this run's rows. Two tests, both failing if the
-   hash is dropped.
-
-### What is done
-
-1. **Plan approved** (D-403) with P-55 … P-59 answered as **D-613 … D-617**; stream A's second
-   pending range **P-100 … P-149** (D-803).
-2. **Stage 1 built** (runbook steps 0–7): the statistics (`stats/edge.py`), the stage config and
-   ESS, the `probe_q_value` gate criterion, the probe exits, the matched baseline, the stage
-   framework (`RunContext` without a split manager), `s01_edge`, `sfac run` (stage 1 only), the
-   random-walk control. **The engine is untouched** and no dependency was added.
-3. **The pilot found a flaw in my own D-615 proposal** (P-100): a second disaster stop in the
-   baseline made trend-following long probes look significant on market drift. **D-618** fixed
-   it; both random-walk controls then passed 0 of 40, and the pilot's three 1H passes vanished.
-   Also **D-619** (P-101) and **D-620** (P-102).
-4. **Full run (step 9), all four runs complete.** Report: `docs/reviews/T12_review.md`; the pilot
-   report `docs/reviews/T12_pilot.md` (§7–§13 supersede §1–§6).
-
-   | run | profiles | passed | time |
-   |---|---|---|---|
-   | 1D | 1,944 | **14** (all mean reversion) | 22 min |
-   | 1D control | 1,944 | 0 | 32 min |
-   | 1H | 1,468 (3 skipped, D-008) | **4** (all TF long) | 42 min |
-   | 1H control | 1,468 | 1 | 37 min |
-
-5. **Wall-time mystery solved and fixed** (P-103 → **D-804**): Windows was scheduling runs onto
-   this machine's four **efficiency cores** (3–4× slower: 6.5 s vs 21.1 s per symbol). Affinity
-   and machine load were ruled out by measurement. `sfac run` and its workers now opt out of
-   efficiency mode (config `efficiency_mode_opt_out`, default on, never able to stop a run).
-6. **The acceptance reviewer ran and its findings are fixed** (see below).
-
-### What the acceptance reviewer found, and what was fixed
-
-It recomputed every number in the review from the artifacts, and they held. Its findings:
-
-- **Blocking:** the stage's wiring of **D-602, D-613 (3), D-614 (1)** and the **D-615 control**
-  had no test that would fail if it broke — it proved this by breaking each one while 105 tests
-  still passed. Fixed: `tests/unit/test_F_1_5_stage_wiring.py` (9 tests), every one
-  mutation-checked against exactly those breaks.
-- The **leakage claim was overstated**: the test re-implemented the probe run with hard-coded
-  settings. Fixed: one `probe_run` shared by the stage and the test, settings from
-  `EngineConfig`; the claim reworded to what it proves.
-- The **D-610 caveat reader had no test**. Fixed: `tests/unit/test_F_1_9_d610_caveats.py`
-  against a real temporary catalog.
-- The **stage config was in neither the run hash nor the registry**. Fixed: `stage_config_hash`
-  on every trial; the candidate id is **P-106**.
-- **D-354 (1):** a parity setting was silently ignored. Fixed: refused with a `ConfigError`.
-- **Non-USD symbols aborted the run**, an undeclared rule. Fixed: skipped and listed (**P-105**).
-- Undeclared deviations, stale text, literal values in code, an untested `sfac run` refusal, and
-  the stage modules' reach into the writable catalog — all fixed (review §9, §12).
-- **A re-run of the 1D pilot on the fixed code is identical** in all 40 profiles and in the
-  index, so the full run's numbers still describe this code.
-
-### Acceptance, as run on 2026-09-27 after the rebase
-
-Everything green on the rebased tree, on Windows: fast suite **1,788 passed**;
-parity + leakage + oracle **398**; **`-m db -rs` 22 passed, 0 skipped** (Docker up);
-`-m slow` **20 passed**; ruff, `ruff format --check` (360 files), mypy `src` **and**
-`--platform linux`, and `sfac streams check` clean.
-
-No stage-1 behaviour changed over the rebase: stream B's #45 touches `data/split.py`, which stage
-1 reads through `DataAccess`, but stage 1 takes no auxiliary series, so the four evidence runs
-still describe this code.
-
-### The pre-public secret audit (2026-09-27, supervisor request)
-
-Asked for before the repository was made public: scan the **whole** history for secrets, and confirm
-no workflow runs fork code with access to secrets. **The repository went public on 2026-09-28 on the
-strength of this audit** — so if a future change adds a credential, it is public the moment it is
-pushed. Keep it honest.
-
-- **No secret has ever been committed; nothing to rotate.** 310 commits reachable from 115 refs
-  **plus 225 unreachable** (rebase/force-push leftovers, from `git fsck --unreachable` and all
-  reflogs) = 535 trees; 501 distinct paths; all 13 committed binaries decompressed and scanned
-  (~54 M chars); every commit message. **No `.env` was ever committed**, and all four
-  `.env.example` versions have `ALPACA_API_KEY=` / `ALPACA_API_SECRET=` **empty**. The only hits
-  were `PKFAKEKEY1234567890` (a test fake), the local-dev `postgresql+psycopg://sfac:sfac@localhost`
-  default (`.env.example`, `ci.yml`, `docker-compose.yml`) and a `FAKE_PASSWORD` fixture.
-- `docs/reviews/T04a_review.md:98` says "revoke the old hard-coded key". That key was **never in
-  this repository** (the script read the environment in its first and only versions, and no
-  `PK…`/`AK…` literal exists in any tree) — it lived outside the repo, and whether it was actually
-  revoked is not something this repository can show.
-- **No workflow can leak a secret:** one workflow file has ever existed; **no `pull_request_target`
-  and no `workflow_run`** in any version; **no `secrets.*` reference** in any version; and there is
-  nothing to steal — 0 Actions secrets, 0 variables, 0 Dependabot secrets, 0 environments, 0 deploy
-  keys, 0 self-hosted runners. Default `GITHUB_TOKEN` permission is **read**. The
-  attacker-controlled `pull_request.head.ref` reaches the guard step through `env:` and quoted
-  `"$BRANCH"`, never inlined in the script body.
-- **Still to do when it is public:** GitHub secret scanning is **disabled** (API 404) and Advanced
-  Security is unavailable while private, so GitHub has never scanned this history. **Turn on secret
-  scanning + push protection as soon as it is public** (free there; it scans the history
-  retroactively). While public, any key committed must be treated as leaked — going private again
-  does not undo publication, and forks made meanwhile survive.
-- Non-secret disclosure that comes with going public, flagged for the supervisor, not acted on: the
-  Persian spec/design/features documents, the whole decisions log and every review (the method and
-  the current findings), the Moneta cost profiles derived from a broker specification, ~24 MiB of
-  TradingView and Dukascopy fixture exports (vendor-licence question), and local absolute paths.
+14 of 1,944 daily profiles pass against 0 on the control, all short-horizon mean reversion on
+large US names; on 1H, 4 passes against 1 on the control, treated as `unconfirmed` (D-621). The
+review is `docs/reviews/T12_review.md`; its §6 is T15's calibration list, carried below. T12's
+evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope anyway).
 
 ### Open, and on whom
 
-- **On the supervisor:** "Approved" for T13 (PR), and §8 item 15 of the review.
-- **On the user: turn on secret scanning and push protection** now that the repository is public.
-- **P-104 … P-106 are answered** (D-621, D-805): the `auto`-budget question goes to **T15**;
-  skipping and listing non-USD symbols stands until **T04j** lands the Dukascopy references; the
-  stage-config hash is in the candidate id now.
-- **Carried into T13 (D-621):** the **four 1H passes go to stage 2 flagged `unconfirmed`** —
-  D-609 sends every pass forward, but stage 2 **reports them separately** and they never stand in
-  for the daily mean-reversion finding. T13 is built knowing the **14 daily passes may move** when
-  the battery is corrected at T15.
-- **Not re-run (supervisor, 2026-09-28):** the four evidence runs predate D-805, so their
-  candidate ids carry no stage-config hash. **They are not re-run now**: T15's recalibration
-  re-runs the full scope anyway, and a 1.6 h re-run that moves no number buys nothing.
+- **Nothing is open on stream A**; the next task, **T14**, waits for the supervisor's task file.
+- **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
-- **`a/fix-metrics-fixture-prices`**, **`a/T11b-parity-tie`**, **`a/docs-T12-plan`** — obsolete
-  or folded in; deleting any of them needs the supervisor's word.
+- **Obsolete branches, not deleted** (the supervisor's word is needed): `a/fix-metrics-fixture-prices`,
+  `a/T11b-parity-tie`, `a/docs-T12-plan`, `a/stream-a-status`, `a/stream-a-idle-t13`, `a/T13-plan`
+  (folded into #51).
 
-### What T15 must calibrate (from the full run; review §6)
+### What T15 must calibrate
+
+From T12 (review §6):
 
 1. **The magnitude target of 0.10 ATR is too generous** — the primary target. Magnitude carries
    11.0 of 30 ESS points on 1D against 3.9 of 20 for significance, and the **control** earns 8.05
@@ -258,10 +175,23 @@ pushed. Keep it honest.
    against D-130's 2 %, which was written for an optimised exit).
 4. **Two band/channel probes are the same rule** (`close_below_bb_lower` ≡ `zscore_below_minus_2`,
    identical in 972/972 profiles): it double-weights one rule in the ESS medians and inflates the
-   trial count. It does **not** inflate breadth.
+   trial count. It does **not** inflate breadth. (Stage 2 already keeps only the z-score form.)
 5. **The reshuffled-returns control is conservative** (its percentiles average 28–46, not 50), so
    its 0–1 passes are a **lower bound**; the calibrated null is the synthetic random walk.
 6. **Residual biases after D-618** (TF short slightly high, MR short low on synthetic data).
+7. **P-104:** whether the executor's `auto` budget should discount efficiency cores and
+   hyper-threads (D-621 (2)).
+
+From T13 (supervisor, 2026-09-29):
+
+8. **11 of 14 daily profiles below three candidates** (and 4 of 4 hourly): partly the fixed
+   5-bar exit (D-622, D-637) — the MR methods hold the same bars; re-measure once stage 4 frees
+   the exits.
+9. **Cleanup of private cross-module helpers** (T13 review §8 item 16): `stages/screen.py` uses
+   stage 1's `_cost_arrays` and `_require_research_engine` (whose message still says "stage 1"),
+   and `components/entries/methods_tf.py` imports the MR module's parameter helpers.
+10. **T13's family-score constants** (D-636: median target 1.0, excess target 0.10 ATR,
+    consistency floor 0.5, 5 trades per year) are provisional like D-606's.
 
 ### For stream B (relayed by the supervisor — D-357, no direct messages)
 
@@ -277,14 +207,17 @@ pushed. Keep it honest.
   included; `checks` no longer runs on pushes to non-`main` branches, so open a PR to get CI.
 - **D-378 (#40):** **D-800 … D-899 is stream A's**; `docs/streams/B.md`'s ID table still shows
   stream A with D-360 … D-379 only.
-- **D-611 / D-612:** T12 is stream A's; `configs/gates/`, `metrics/`, `stages/`, `baseline/`,
-  `components/`, `configs/stages/` are stream A's paths.
+- **D-611 / D-612:** `configs/gates/`, `metrics/`, `stages/`, `baseline/`, `components/`,
+  `configs/stages/` are stream A's paths. **T13 (#51)** added `method_q_value` to the gates,
+  `PipelineConfig.stage_inputs` (a new optional field; existing configs and hashes unchanged) and
+  the D-630 grid rule (2–4 values per parameter) in `components/base.py`.
 
 ### Next actions, in order
 
-1. **Wait for "Approved" on T13**, then "Approved. Merge" with green CI (D-401); then HANDOFF
-   v9. **T15** owns the calibration list above.
-2. **Next free ids:** D-807, P-116 (stream A); supervisor D-638.
-3. `configs/universe.yaml` — checked at these merges: stream B's #45/#46 moved **no traded symbol**
-   (they add `configs/universe/aux_yahoo.csv`, an aux-series list), so D-394 owes no regeneration.
-4. **T11b** when the user exports (D-802).
+1. **T14 (stage 3)** — wait for the supervisor's task file; then plan (D-403), measuring on real
+   data and on the control before proposing, and stop for "Plan approved". Stage 3 reads the
+   `MethodScreen` artifacts of T13's runs (`dea1d423…`, `6025ef15…`).
+2. **Next free ids:** D-807, P-116 (stream A); supervisor D-639.
+3. `configs/universe.yaml` — no stream-B merge since #45/#46 moved a traded symbol, so D-394 owes
+   no regeneration.
+4. **T11b** when the user exports (D-802). **T15** owns the calibration list above.
