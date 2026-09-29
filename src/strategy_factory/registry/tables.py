@@ -31,6 +31,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 RUN_STATUSES = ("running", "done", "failed", "aborted")
+#: D-654, D-663: where a run's bars come from (the synthetic kinds are never mixed with real)
+SOURCES = ("real", "null", "planted")
+#: D-663: a funnel stage run can also be `empty` -- no input from upstream, nothing run
+FUNNEL_STAGE_STATUSES = ("running", "done", "failed", "empty")
+ARMS = ("real", "control")
 CANDIDATE_STATUSES = ("active", "rejected", "approved", "retired")
 DIRECTIONS = ("long", "short")
 GATE_OPS = (">=", "<=", ">", "<", "==")
@@ -68,7 +73,10 @@ pipeline_runs = Table(
     Column("finished_at", DateTime(timezone=True)),
     Column("status", Text, nullable=False, server_default="running"),
     Column("notes", Text, nullable=False, server_default=""),
+    # D-654, D-663 (migration 0002): real, or the synthetic kind the run's bars came from
+    Column("source", Text, nullable=False, server_default="real"),
     CheckConstraint(_in("status", RUN_STATUSES), name="status"),
+    CheckConstraint(_in("source", SOURCES), name="source"),
 )
 
 # Same key as the T02 catalog: one row per (content hash, source, symbol, timeframe).
@@ -229,6 +237,46 @@ decisions = Table(
     ),
 )
 
+# D-663 (T15a, migration 0002): one funnel run links its stage runs -- per timeframe, stage and
+# arm (the real series and its reshuffled control, D-662) -- and resumes by `stage_key`.
+funnel_runs = Table(
+    "funnel_runs",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("config", JSONB, nullable=False),
+    Column("config_hash", Text, nullable=False),
+    Column("funnel_key", Text, nullable=False),
+    Column("code_version", Text, nullable=False),
+    Column("seed", BigInteger, nullable=False),
+    Column("source", Text, nullable=False, server_default="real"),
+    Column("control", Boolean, nullable=False),  # false only with --no-control (D-653)
+    Column("started_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("finished_at", DateTime(timezone=True)),
+    Column("status", Text, nullable=False, server_default="running"),
+    Column("notes", Text, nullable=False, server_default=""),
+    CheckConstraint(_in("status", RUN_STATUSES), name="status"),
+    CheckConstraint(_in("source", SOURCES), name="source"),
+    Index(None, "funnel_key"),
+)
+
+funnel_stage_runs = Table(
+    "funnel_stage_runs",
+    metadata,
+    Column("funnel_run_id", UUID(as_uuid=True), ForeignKey("funnel_runs.id"), primary_key=True),
+    Column("timeframe", Text, primary_key=True),
+    Column("stage", Text, primary_key=True),
+    Column("arm", Text, primary_key=True),
+    Column("stage_key", Text, nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("pipeline_runs.id")),
+    Column("status", Text, nullable=False, server_default="running"),
+    Column("inputs", Integer),
+    Column("started_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("finished_at", DateTime(timezone=True)),
+    CheckConstraint(_in("status", FUNNEL_STAGE_STATUSES), name="status"),
+    CheckConstraint(_in("arm", ARMS), name="arm"),
+)
+
+
 ALL_TABLES = (
     pipeline_runs,
     data_snapshots,
@@ -240,4 +288,6 @@ ALL_TABLES = (
     holdout_access,
     reports,
     decisions,
+    funnel_runs,
+    funnel_stage_runs,
 )
