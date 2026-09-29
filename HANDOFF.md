@@ -1,4 +1,4 @@
-# HANDOFF — Strategy Factory (v9, 2026-09-29)
+# HANDOFF — Strategy Factory (v10, 2026-09-29)
 
 Read together with `CLAUDE.md`, `docs/decisions/decisions_log.md` (source of truth #0),
 `docs/decisions/pending.md`, the spec (`docs/spec/spec_v1.2.md`), the design (`docs/design.md`)
@@ -8,7 +8,8 @@ and the feature list (`docs/features.md`).
 written **only by stream A, at merges**, from both of them:
 
 - `docs/streams/A.md` — stream A, the main folder: parity (T11 done, **T11b parked**), the
-  stream and CI tooling, **T12 (#47)** and **T13 (#51)**, merged; **T14 waits for its task file**.
+  stream and CI tooling, **T12 (#47)**, **T13 (#51)** and **T14 (#54, #55)**, merged;
+  **the next task waits for its task file** (the supervisor and the user settle it first).
 - `docs/streams/B.md` — stream B, the worktree `../StrategyFactory_B`: the data layer (complete
   for the MVP). `docs/streams/B_data_state.md` is the data state at the handover into T12 and is
   the authority on data facts; §6 below is folded from it.
@@ -32,7 +33,7 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 - **Supervisor (Claude chat, inside the Claude Project connected to this repo):** architect and reviewer. Keeps the decisions log, answers `pending.md`, reviews plans and PRs. After every merge, press **Sync** in the Project so the supervisor sees the current `main`.
 - **Claude Code, two streams.** Both follow `docs/STANDING_PROMPT.md`: plan (task files + runbook, assumptions to `pending.md`, stop for "Plan approved"), execute (tests first, acceptance commands, the `acceptance-reviewer` subagent, review file), PR with `gh`; merge only on "Approved. Merge …" with green CI (D-401). Critical tasks (D-402) stop after their review for "Approved".
 - **Stream protocol** (`docs/streams/PROTOCOL.md`, `docs/streams/ownership.yaml`, enforced in CI by `sfac streams check`): one folder and one session per stream, each session in its own worktree (D-357 (1)); `a/` and `b/` branch prefixes; streams connect only through `main`; merges one at a time, rebased onto the latest `main`; **no direct messages between streams** — cross-stream notes go in the status files and through the supervisor.
-- **ID ranges:** supervisor D-355 … D-359 (used up) and D-600 … D-699; stream A D-360 … D-379 (used up) and **D-800 … D-899** (D-378), P-40 … P-59; stream B D-380 … D-399 (used up) and D-700 … D-799, P-60 … P-99.
+- **ID ranges:** supervisor D-355 … D-359 (used up) and D-600 … D-699 (next free **D-652**); stream A D-360 … D-379 (used up) and **D-800 … D-899** (D-378; next free **D-808**), P-40 … P-59 (used up) and **P-100 … P-149** (D-803; next free **P-124**); stream B D-380 … D-399 (used up) and D-700 … D-799, P-60 … P-99.
 - **Path ownership (stream A only):** `HANDOFF.md`, `CLAUDE.md`, `docs/STANDING_PROMPT.md`, `.github/`, `pyproject.toml`, `uv.lock`, the Alembic migrations, `configs/universe.yaml` (D-394), and the T12 paths `components/`, `stages/`, `baseline/`, `metrics/`, `configs/gates/`, `configs/stages/` (D-611, D-612). **Stream B:** `configs/universe/`. Everything else is shared.
 - **Only stream B writes `SFAC_DATA_ROOT`**; both read `SFAC_RAW_ROOT` read-only. Each stream has its own test database (`sfac` / `sfac_b`) on the shared Postgres (port 5433, D-305).
 - Code, identifiers, commits and repo docs are in English; user-facing reports are Persian (RTL, Vazirmatn).
@@ -55,9 +56,10 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | D-368 task | Metrics fixture, pinned examples, weekly randomized Hypothesis job | ✅ merged (#31) |
 | **T11b** | Targeted parity reference for D-335 / D-336 | ⏸ **parked (D-802)** — the gap stays open (§8) |
 | **T12** | **Stage 1 — edge discovery (s01_edge), critical (D-402)** | ✅ **merged (#47)**: built, run at full scope, reviewed (`docs/reviews/T12_review.md`), approved with two conditions, both met. **14 of 1,944 daily profiles pass against 0 of 1,944 on the calibrated control**, all mean reversion; the **4 hourly passes go forward flagged `unconfirmed` (D-621)** |
+| **T14** | **Stage 3 — entry optimisation (s03_entry)** | ✅ **merged (#54 plan, #55 stage)**: planned on 132,408 measured runs, built, piloted, run at full scope, reviewed (`docs/reviews/T14_review.md`), approved. **The control passes 0 of 31**; **6 of 31 pass** — 1D SHW long `mr_connors_rsi` and TXN long `mr_ema_slope_drop` (a boundary pass, plateau 0.100), 1H ARKK, BAC, TSLA ×2 (`unconfirmed`); **no short passes**; the stability threshold decides no verdict (D-651 (1), amended) |
 | **T13** | **Stage 2 — method screening (s02_screen)** | ✅ **merged (#51)**: planned on measured grids, built, piloted, run at full scope, reviewed (`docs/reviews/T13_review.md`), approved. **Both controls pass 0 methods** (45 daily and 11 hourly stopped by `method_q_value` alone, D-629); 25 daily and 6 hourly (`unconfirmed`) methods selected; **11 of 14 daily profiles end with fewer than 3** (D-625, D-637) |
 
-## 4. Merged since v6 (PRs #18 … #51)
+## 4. Merged since v6 (PRs #18 … #55)
 
 | PR | Content |
 |---|---|
@@ -73,11 +75,21 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
 | **#47** | **T12 — stage 1, edge discovery** (F-1.1 … F-1.9). Also **D-618** (the matched baseline carries no disaster stop — the original rule manufactured edge from drift), **D-804** (Windows efficiency-mode opt-out: runs were being scheduled onto efficiency cores, 3–4× slower), **D-805** (the stage-config hash is part of the candidate id, so a recalibrated re-run can never overwrite this one), **D-621** (the hourly passes are `unconfirmed`), D-613 … D-620, D-803 |
 | **#48** | **D-806** — runner images pinned (`ubuntu-24.04`, `windows-2025`; `ubuntu-latest` would migrate to Ubuntu 26 on 2026-10-19) and the weekly Hypothesis search back to 10× |
 | #49, #50 | stream A status and HANDOFF v8; the idle state before T13 |
+| #52, #53 | stream A status and HANDOFF v9; four obsolete stream-A branches deleted (each checked merged), two kept |
+| **#54** | **T14 plan**: the task file, **D-639 … D-651** (the fine grid, the halves, the after-cost plateau, the control as headline; the plan's answers D-646 … D-651, D-649 amending D-120), the measured plan and runbook |
+| **#55** | **T14 — stage 3, entry optimisation** (F-3.1, F-3.3 … F-3.7): `stages/optimize*.py`, `metrics/plateau.py`, `robustness/spp.py`, the `EntryOptimisation` artifact (surfaces as data), `method_run` segments (stage 2 unchanged), `sfac run` for `s03_entry`, `plateau_cells >= 3` in the gates; **D-651 (1) amended** (the plan's stability counts were wrong — polars counts `NaN >= 0.8` as true — and any count behind a decision now uses `gates.engine.count_meeting`, tested); **D-807** (the gate values that shape the surfaces are in the candidate id) |
 | **#51** | **T13 — stage 2, method screening** (F-2.1 … F-2.7): 35 stage-2 methods (the spec's library plus the user's MR suite, deduplicated), `metrics/family.py`, `stages/screen.py`, the `MethodScreen` artifact, `PipelineConfig.stage_inputs` (old hashes unchanged), `sfac run` for `s02_screen`; decisions **D-622 … D-638** |
 
 ## 5. Decisions to carry forward
 
 - **D-802 — T11b parked; the parity ledger stays at 3 of 5.** See the box at the top and §8.
+- **T14 (D-639 … D-651, D-807):** the fine grid is stage 2's good region plus a coarse step,
+  choices fixed, coarsened (never Sobol) above 2,000 cells; the plateau is found on half 1
+  after costs and must hold in half 2; failed cells count as min(worst, 0); the full trade
+  minimum in each half; a plateau needs 3 cells; the reshuffled-returns control heads every stage
+  review and a control pass stops the stage (D-644). **Any count behind a decision is computed so
+  that NaN cannot pass** (D-651 (1)). Candidate ids hash the stage config (D-805) and the gate
+  values that shape the result (D-807).
 - **T12 (D-601 … D-612):** the percentile statistic, zero-cost probes with a separate PF, the
   broker universe on 1D and 1H, one profile per (symbol, timeframe, edge type, direction), three
   layers of multiple-testing control, the ESS formula (provisional until T15), baseline seeding,
@@ -130,12 +142,13 @@ Strategy Factory is an internal framework that runs every trading-strategy idea 
   expose one — the method and the result are in `docs/streams/A.md`. From now on, anything
   committed here is public the moment it is pushed, and making the repository private again would
   not undo that.
-- **T15 owes a calibration pass**: the ten items are listed in `docs/streams/A.md` — from T12
+- **T15 owes a calibration pass**: the twelve items are listed in `docs/streams/A.md` — from T12
   the magnitude target, TF exits on 1D, the disaster-stop hit rate against D-130's 2 %, one
   duplicated probe, which control is the calibrated null, residual biases, P-104; from T13 the
   11 of 14 daily profiles below three candidates (partly the fixed 5-bar exit, D-637), the
   cleanup of private cross-module helpers (T13 review §8 item 16), and T13's provisional
-  family-score constants (D-636).
+  family-score constants (D-636); from T14 the stability threshold that decides no verdict
+  (D-651 (1)), and the 3-cell grids stage 3 cannot optimise (D-648).
 - **`scripts/analysis/T04k_assert_provenance.py`** indexes by hash alone; key it by
   `(source, symbol, timeframe, snapshot_hash)` when next touched (T04l review §6.1.4).
 - **D-377 exemptions** — three text calls in stream B's paths lack an encoding (listed in
