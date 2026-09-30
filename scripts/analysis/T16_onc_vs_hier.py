@@ -11,7 +11,9 @@ computes only what is missing (ONC and hierarchical separately). At the end the 
 to ``docs/reviews/T16_onc_vs_hier_summary.csv``.
 
 * **ONC** is the library's ``stats.neff.onc`` (faithful to Lopez de Prado's published code:
-  k = 2 .. n - 1, 10 restarts, the recursive re-clustering), seed 0.
+  k = 2 .. n - 1, 10 restarts, the recursive re-clustering), seed 0, **with** the identical-trials
+  guard (the 54 cases imported from the interrupted run ran with it too). Wherever the guard
+  fires, the case also runs **without** it (``onc_unguarded``), so both variants are in the table.
 * **Hierarchical** is average linkage on ``d = sqrt((1 - rho) / 2)`` cut where the linkage
   distance reaches ``d(rho_cut)``, for rho_cut in 0.2, 0.3, 0.4, 0.5 (scipy's ``linkage`` and
   ``fcluster``: the calls the library makes once scipy is declared).
@@ -38,7 +40,7 @@ from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
 from strategy_factory.cli import utf8_output
-from strategy_factory.stats.neff import correlation, distance, onc
+from strategy_factory.stats.neff import correlation, distance, identical_guard_fires, onc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import T16_plan_neff as plan
@@ -76,8 +78,10 @@ def matrix(name: str, seed: int) -> np.ndarray:
     return make(rng)
 
 
-def job(args: tuple[str, int | None, int | None, int, bool, bool]) -> list[dict[str, object]]:
-    name, truth, cap, seed, need_hier, need_onc = args
+def job(
+    args: tuple[str, int | None, int | None, int, bool, bool, bool],
+) -> list[dict[str, object]]:
+    name, truth, cap, seed, need_hier, need_onc, need_unguarded = args
     x = matrix(name, seed)
     n = x.shape[0]
     rows: list[dict[str, object]] = []
@@ -103,25 +107,45 @@ def job(args: tuple[str, int | None, int | None, int, bool, bool]) -> list[dict[
              "sr0": round(plan.sr0(r.n_effective), 4),
              "note": f"ONC capped at k <= {cap}" if cap else ""}
         )  # fmt: skip
+    if need_unguarded:  # the published method without the identical-trials guard (D-722)
+        t0 = time.perf_counter()
+        r = onc(x, seed=0, max_clusters=cap, identical_guard=False)
+        rows.append(
+            {"scenario": name, "truth": truth, "n_trials": n, "seed": seed,
+             "method": "onc_unguarded", "n_eff": r.n_effective,
+             "seconds": round(time.perf_counter() - t0, 1),
+             "sr0": round(plan.sr0(r.n_effective), 4),
+             "note": "the guard fires on this case; ONC without it"}
+        )  # fmt: skip
     return rows
 
 
-def _done() -> tuple[set[tuple[str, int]], set[tuple[str, int]]]:
+def guard_fires(name: str, seed: int) -> bool:
+    return identical_guard_fires(correlation(matrix(name, seed)))
+
+
+def _done() -> tuple[set[tuple[str, int]], set[tuple[str, int]], set[tuple[str, int]]]:
     onc_done: set[tuple[str, int]] = set()
     hier_done: set[tuple[str, int]] = set()
+    unguarded_done: set[tuple[str, int]] = set()
     if OUT.is_file():
         with OUT.open(encoding="utf-8", newline="") as fh:
             for row in csv.DictReader(fh):
                 key = (row["scenario"], int(row["seed"]))
-                (onc_done if row["method"] == "onc" else hier_done).add(key)
-    return onc_done, hier_done
+                if row["method"] == "onc":
+                    onc_done.add(key)
+                elif row["method"] == "onc_unguarded":
+                    unguarded_done.add(key)
+                else:
+                    hier_done.add(key)
+    return onc_done, hier_done, unguarded_done
 
 
 def seed_from_log(log: Path) -> int:
     """Import the ONC results of an interrupted run's log (lines ``<scenario> <seed> onc <n>``);
     they carry no timing and say so."""
     meta = {name: (truth, trials) for name, truth, _, trials in scenarios()}
-    onc_done, _ = _done()
+    onc_done, _, _ = _done()
     rows = []
     for line in log.read_text(encoding="utf-8").splitlines():
         parts = line.rsplit(" ", 3)
@@ -156,13 +180,18 @@ def main() -> int:
     args = parser.parse_args()
     if args.seed_from_log:
         print(f"imported {seed_from_log(args.seed_from_log)} ONC result(s)", flush=True)
-    onc_done, hier_done = _done()
+    onc_done, hier_done, unguarded_done = _done()
+    fires = {(n, s): guard_fires(n, s) for n, _, _, _ in scenarios() for s in SEEDS}
+    print(
+        f"identical-trials guard fires on: {sorted(k for k, v in fires.items() if v)}", flush=True
+    )
     jobs = [
-        (n, tr, cap, s, (n, s) not in hier_done, (n, s) not in onc_done)
+        (n, tr, cap, s, (n, s) not in hier_done, (n, s) not in onc_done,
+         fires[(n, s)] and (n, s) not in unguarded_done)
         for n, tr, cap, _ in scenarios()
         for s in SEEDS
-        if (n, s) not in hier_done or (n, s) not in onc_done
-    ]
+    ]  # fmt: skip
+    jobs = [j for j in jobs if j[4] or j[5] or j[6]]
     print(f"{time.strftime('%H:%M:%S')} {len(jobs)} case(s) to run", flush=True)
     workers = int(os.environ.get("T16_WORKERS", "1"))
     with ProcessPoolExecutor(max_workers=workers) as pool:
@@ -181,6 +210,16 @@ def main() -> int:
         pl.col("n_eff").max().alias("n_eff_max"),
         pl.col("sr0").mean().round(3).alias("sr0_mean"),
         pl.col("seconds").mean().round(2).alias("seconds_mean"),
+    )
+    summary = summary.with_columns(
+        pl.struct("scenario", "method")
+        .map_elements(
+            lambda r: (
+                any(fires[(r["scenario"], s)] for s in SEEDS) if r["method"] == "onc" else None
+            ),
+            return_dtype=pl.Boolean,
+        )
+        .alias("guard_fired_on_a_seed")
     )
     summary.write_csv(SUMMARY)
     pl.Config.set_tbl_rows(200)

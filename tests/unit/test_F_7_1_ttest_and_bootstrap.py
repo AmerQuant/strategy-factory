@@ -81,3 +81,9 @@ def test_F_7_1_block_length_adapts_and_the_interval_is_deterministic() -> None:
     assert a.lower < a.estimate < a.upper and a.block_length >= 1
     with pytest.raises(ValueError):
         bootstrap_interval([1.0] * 5, "sharpe", **kw)  # type: ignore[arg-type]
+
+
+def test_F_7_1_D725_defaults_are_the_stationary_percentile_pair() -> None:
+    x = _ar1(300, 0.2, np.random.default_rng(12), 0.05)
+    r = bootstrap_interval(x, "expectancy", level=0.9, reps=99, seed=1)
+    assert (r.scheme, r.method) == ("stationary", "percentile")

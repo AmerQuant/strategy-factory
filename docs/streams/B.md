@@ -24,7 +24,19 @@ The worktree is on `b/T16-stats-library`.
 
 ### T16 — where it stands (stop point: the two measurement tables)
 
-- **Waiting on the user:** `powershell -ExecutionPolicy Bypass -File scripts\pilots\T16_overnight.ps1`
+- **Tonight's run is combined with stream A's queue into one script; stream B's part runs after
+  stream A's.** Its two commands, in order, from this worktree (each resumable, `--no-sync` because
+  the download may hold `sfac.exe`):
+  `uv run --no-sync python scripts\analysis\T16_onc_vs_hier.py` then
+  `uv run --no-sync python scripts\analysis\T16_spa_block.py`.
+  (`scripts\pilots\T16_overnight.ps1` runs the same two with their logs, if used on its own.)
+- **D-725** (2026-09-30): the bootstrap defaults are the stationary scheme and the percentile
+  interval (measured with exactly that pair: 93.2-94.5 % with the Politis-White length).
+- **The ONC guard** (a design choice under comparison): the 54 imported cases ran **with** it; it
+  fires only on `identical N=200` seeds 2 and 3, whose unguarded runs are queued for tonight. On
+  exactly identical trials the published method returns 1 anyway; on seed 1 (identical up to
+  rounding, distance 7.5e-9) the guard does not fire and ONC read 2.
+- **Was:** `powershell -ExecutionPolicy Bypass -File scripts\pilots\T16_overnight.ps1`
   (unattended; resumable; logs `artifacts\T16\onc_vs_hier.log`, `spa_block.log`, "done" at the
   end). It finishes the ONC-vs-hierarchical comparison (D-722; 54 of 63 ONC cases already in
   `docs/reviews/T16_onc_vs_hier.csv`, imported from the interrupted run without timings) and runs

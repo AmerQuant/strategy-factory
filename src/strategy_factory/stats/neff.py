@@ -17,9 +17,13 @@ as uncorrelated (rho = 0), as in the reference code.
    are pooled and re-clustered recursively on their own correlation matrix; the new partition
    replaces the old only if its mean cluster t-statistic is higher than the re-clustered ones'.
 
-One guard, documented: when every trial is identical (all distances 0), the method has no
-partition to score (it never tries ``k = 1``); the result is then one cluster, as F-7.3's
-acceptance requires ("close to 1 on perfectly correlated trials").
+One guard, a design choice under comparison (D-722; ``identical_guard``): when every pairwise
+distance is at most ``IDENTICAL_DISTANCE``, the result is one cluster, as F-7.3's acceptance
+requires ("close to 1 on perfectly correlated trials"). Measured: on **exactly** identical trials
+the published method already returns one cluster (every distance is 0, so k-means puts every trial
+on its first centre), so the guard changes nothing there; on trials identical up to floating-point
+rounding (``corrcoef`` leaves distances near 1e-8) the guard does not fire and the method can
+return 2.
 
 ``n_effective`` is the number of clusters. The default between this and hierarchical clustering
 with a correlation cut is the supervisor's choice from the comparison (D-722).
@@ -174,16 +178,33 @@ def _onc_top(
     return new, new_s
 
 
+#: the identical-trials guard fires when every distance is at most this (a design choice under
+#: comparison, D-722: floating-point rounding can leave identical trials just above it)
+IDENTICAL_DISTANCE = 1e-12
+
+
+def identical_guard_fires(corr: FloatArray) -> bool:
+    """Whether every pairwise correlation distance is at most ``IDENTICAL_DISTANCE``."""
+    return float(distance(corr).max()) <= IDENTICAL_DISTANCE
+
+
 def onc(
-    returns: npt.ArrayLike, *, seed: int, n_init: int = 10, max_clusters: int | None = None
+    returns: npt.ArrayLike,
+    *,
+    seed: int,
+    n_init: int = 10,
+    max_clusters: int | None = None,
+    identical_guard: bool = True,
 ) -> NeffResult:
     """F-7.3 by ONC: the clusters of a trials x time return matrix and their count.
 
     ``max_clusters`` caps ``k`` (the reference default is ``n - 1``); ``n_init`` restarts each ``k``
-    (the reference default is 10). Randomness only through ``seed`` (D-660)."""
+    (the reference default is 10). ``identical_guard`` returns one cluster for identical trials
+    (see the module docstring); ``False`` runs the published method unchanged. Randomness only
+    through ``seed`` (D-660)."""
     corr = correlation(returns)
     n = len(corr)
-    if float(distance(corr).max()) <= 1e-12:  # identical trials: one cluster (see the docstring)
+    if identical_guard and identical_guard_fires(corr):  # one cluster (see the docstring)
         labels = np.zeros(n, dtype=np.int64)
     else:
         labels, _ = _onc_top(corr, max_clusters, n_init, np.random.default_rng(seed))

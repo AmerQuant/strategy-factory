@@ -6,8 +6,8 @@ White (2004) with the Patton, Politis & White (2009) correction, ``arch``'s
 (D-659). Measured: the block bootstraps cover 92.5-94.5 % where i.i.d. resampling covers 88 % on
 AR(1) phi 0.2 returns (``docs/tasks/T16_plan.md`` §3).
 
-The **scheme** (stationary or circular block) and the **interval method** are explicit arguments:
-D-723 fixes the automatic block length, not these two. A circular block bootstrap needs an integer
+The **scheme** defaults to the stationary bootstrap and the **interval** to the percentile interval
+(D-725); both stay arguments. A circular block bootstrap needs an integer
 block, so its automatic length is rounded up. The Sharpe ratio is per observation (the mean over the
 sample standard deviation, ddof 1). Randomness only through ``seed`` (D-660).
 """
@@ -55,11 +55,11 @@ def bootstrap_interval(
     returns: npt.ArrayLike,
     statistic: Statistic,
     *,
-    scheme: Scheme,
-    method: Method,
     level: float,
     reps: int,
     seed: int,
+    scheme: Scheme = "stationary",
+    method: Method = "percentile",
     block_length: float | None = None,
 ) -> IntervalResult:
     """F-7.1: a ``level`` interval for ``statistic`` of ``returns``; the block length is automatic

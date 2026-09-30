@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from strategy_factory.stats.neff import _silhouette, correlation, onc
+from strategy_factory.stats.neff import _silhouette, correlation, identical_guard_fires, onc
 
 
 def _blocks(sizes: list[int], rho: float, t: int, seed: int) -> np.ndarray:
@@ -59,3 +59,13 @@ def test_F_7_3_input_checks_and_a_constant_trial() -> None:
     c = correlation(x)
     assert np.isfinite(c).all() and c[0, 1] == 0.0
     assert onc(x, seed=0).n_raw == 12
+
+
+def test_F_7_3_the_identical_trials_guard_is_a_switch() -> None:
+    """D-722: the guard is a design choice under comparison. On **exactly** identical trials every
+    distance is 0, k-means puts every trial on its first centre, and the published method returns
+    one cluster anyway -- with or without the guard (measured; the guard decides nothing here)."""
+    x = np.tile(np.random.default_rng(2).standard_normal(300), (25, 1))
+    assert identical_guard_fires(correlation(x))
+    assert onc(x, seed=0).n_effective == 1
+    assert onc(x, seed=0, identical_guard=False).n_effective == 1
