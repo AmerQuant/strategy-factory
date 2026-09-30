@@ -16,10 +16,10 @@ from strategy_factory.data.cli_alpaca import coverage_app, download_app, ingest_
 from strategy_factory.data.config import (
     DukascopyConfig,
     QualityConfig,
-    ResampleConfig,
     SplitConfig,
     load_dukascopy_config,
     load_quality_config,
+    load_resample_config,
     load_split_config,
 )
 from strategy_factory.data.coverage import (
@@ -128,10 +128,19 @@ def ingest_dukascopy(
             help="Re-ingest to hash_version 2 and move the reference (event note 'rehash v1→v2').",
         ),
     ] = False,
+    expect_window: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--expect-window",
+            help="SYMBOL=FIRST..LAST (YYYY-MM): the window a caller measured (D-717); an "
+            "instrument whose window has moved since is refused and nothing is written for it.",
+        ),
+    ] = None,
     config: ConfigOpt = None,
 ) -> None:
     """Raw bid/ask months -> mid snapshots with spread + catalog, over each instrument's complete
-    window (D-661)."""
+    window (D-661). The D-717 re-measure is the resume command's (scripts/pilots/T04j_resume.py),
+    which passes the windows it measured with --expect-window."""
     if series != "h1":
         raise _fail("only --series h1 is ingested (m1 is used later by the spread-profile task)")
     try:
@@ -143,15 +152,27 @@ def ingest_dukascopy(
         # across a gap, never with a month still being written (``is_settled``). No window, or a
         # window too short for D-008: it waits and nothing is written for it. No --allow-gaps.
         windows = dukascopy_windows(_coverage(root, series, insts, cfg))
+        expected = _parse_expected(expect_window or [])
         adapter = DukascopyAdapter(cfg)
         split_cfg, quality = load_split_config(), load_quality_config()
         waiting: dict[str, str] = {}
         failed = 0
         ready: list[tuple[Instrument, Window, pl.DataFrame, SeriesMetadata]] = []
         for inst in insts:
-            w = windows[inst.symbol]
-            if w.first is None:
-                waiting[inst.symbol] = f"no complete window ({w.bounding_gap} missing)"
+            w = windows.get(inst.symbol)
+            if w is None or w.first is None:
+                gap = w.bounding_gap if w else "no required month"
+                waiting[inst.symbol] = f"no complete window ({gap} missing)"
+                continue
+            if inst.symbol in expected and expected[inst.symbol] != (w.first, w.last):
+                failed += 1
+                first, last = expected[inst.symbol]
+                typer.echo(
+                    f"{inst.symbol}: REFUSED the window moved since it was measured "
+                    f"({first}..{last} -> {w.first}..{w.last}); nothing written, re-run the "
+                    "resume command",
+                    err=True,
+                )
                 continue
             try:
                 bid, ask = raw_pairs(root, series, inst.instrument_id)
@@ -223,13 +244,25 @@ def ingest_dukascopy(
         raise typer.Exit(code=2)
 
 
+def _parse_expected(values: list[str]) -> dict[str, tuple[str, str]]:
+    """``SYMBOL=FIRST..LAST`` -> ``{SYMBOL: (FIRST, LAST)}``."""
+    out: dict[str, tuple[str, str]] = {}
+    for value in values:
+        symbol, sep, span = value.partition("=")
+        first, dots, last = span.partition("..")
+        if not (sep and dots and first and last):
+            raise SfacError(f"--expect-window must be SYMBOL=YYYY-MM..YYYY-MM, got {value!r}")
+        out[symbol.strip().upper()] = (first.strip(), last.strip())
+    return out
+
+
 def d008_short(
     bars: pl.DataFrame, meta: SeriesMetadata, split_cfg: SplitConfig, quality: QualityConfig
 ) -> str | None:
     """``None`` when the 1H bars and their D-032 daily series (research mode, in memory) both
     admit a D-008 split; else the timeframe(s) that do not (D-661: such a window waits)."""
     key = meta.model_copy(update={"snapshot_hash": "0" * 64}).key()
-    daily = resample_bars(bars.sort("ts"), meta, "1D", "research", ResampleConfig(), quality)
+    daily = resample_bars(bars.sort("ts"), meta, "1D", "research", load_resample_config(), quality)
     short = []
     for tf, ts in (("1H", bars.sort("ts")["ts"]), ("1D", daily.bars["ts"])):
         try:
@@ -246,7 +279,9 @@ def _today() -> dt.date:
 COVERAGE_REPORT = "dukascopy_coverage_{series}.csv"
 
 
-def _coverage(root: Path, series: str, insts: list, cfg: DukascopyConfig) -> pl.DataFrame:  # type: ignore[type-arg]
+def _coverage(
+    root: Path, series: str, insts: list[Instrument], cfg: DukascopyConfig
+) -> pl.DataFrame:
     return dukascopy_coverage_frame(root, series, insts, cfg.h1_start, _today())
 
 

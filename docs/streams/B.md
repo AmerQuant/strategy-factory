@@ -5,7 +5,7 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
-## Resume here (2026-09-29) — the state a fresh session starts from
+## Resume here (2026-09-30) — the state a fresh session starts from
 
 Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The
 protocol is `docs/streams/PROTOCOL.md` (ownership, ID ranges; `uv run sfac streams check` before
@@ -13,61 +13,61 @@ every push). Talk to stream A only through this file and `docs/streams/A.md`, ne
 
 ### Branches
 
-The worktree is left on **`b/T04j-dukascopy-ingest`** (rebased onto `main` `ed15982` on
-2026-09-29, every decision and pending row kept in ID order; `uv sync` run for D-379).
-
 | branch | state | waiting on |
 |---|---|---|
-| `b/D377-encoding` | [PR #58](https://github.com/AmerQuant/strategy-factory/pull/58): the three D-377 exemptions fixed, `ALLOWED` empty | CI, then **"Approved. Merge"** |
-| `b/T04j-dukascopy-ingest` | pushed, **no PR**: D-657 built; **nothing ingested** | **the user**: the Dukascopy download |
+| `b/D377-encoding` | **merged** 2026-09-30: PR #58, `main` = `1413069` | nobody |
+| `b/T04j-dukascopy-ingest` | **PR open**, rebased onto `1413069`; review `docs/reviews/T04j_review.md` | **"Approved. Merge"** |
 
-### T04j — Dukascopy h1 (D-657, amended by D-661: the complete window)
+The worktree is on `b/T04j-dukascopy-ingest`. **The user's Dukascopy download runs from this
+worktree's venv** (`sfac data download dukascopy`): do not run `uv sync` while it runs (it cannot
+replace `.venv/Scripts/sfac.exe`). #60's `arch` was installed at its locked 8.0.0 with `uv pip`.
+Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that reason only.
 
-- **D-661 (supervisor, 2026-09-29, amends D-657):** an incomplete instrument is ingested over its
-  longest contiguous complete window ending at the last complete month; shorter than D-008 → it
-  waits; a closed gap later → re-derived as a new versioned snapshot.
-- **Supervisor 2026-09-29:** go ahead with D-661 as written for EURUSD, GBPUSD, USDJPY, USDCHF,
-  GBPCHF and XAUUSD (the user chose XAUUSD over its 2019-12… window).
-- **Built and tested:** the D-661 window in `sfac data ingest dukascopy` (settled months of the
-  window only; D-008 checked on the window's 1H and in-memory 1D bars before writing; a partial
-  window's snapshot notes `D-661 window …`; a closed gap re-derives a new versioned snapshot) and in
-  `scripts/pilots/T04j_resume.py` (done = the 1H reference spans exactly the current window, so a
-  grown window is re-ingested); `T04j_defects.py` measures over the window. Full fast suite 2,560
-  passed, parity + leakage 866, db 24 (0 skipped), ruff / format / mypy clean.
-- **D-672 (P-94, 2026-09-29; D-662 … D-671 were stream A's T15a answers, so D-672):** USDCHF's
-  2015-01-15 09:00 UTC bar (the SNB) is a verified event in `configs/data/dukascopy.yaml`,
-  reported and never a stop; the D-717 stop is per instrument; AUDUSD joins over 2014-06….
-- **Ingested 2026-09-29 (`T04j_resume.py`, for real):** **GBPUSD, USDJPY** (2010-01…, complete),
-  **AUDUSD** (2014-06…), **GBPCHF** (2013-03…), **XAUUSD** (2019-12…, pilot re-hashed v1→v2, the
-  old snapshot kept) — 1H + 1D references (1D derived from 1H, 0 weekend bars), quality (1H
-  `warning`, 1D `ok`), `costs show` resolves. A dry re-run shows all five done (writes nothing).
-- **STOPPED — P-95:** the store refused **EURUSD** and **USDCHF** (`ohlc_outside_range`): their
-  Dukascopy **2024-10** files have bars whose open/close is 1 pip outside high/low (also EURAUD's
-  ask, not yet ingestible). Nothing written for them. Recommendation (a): a bounded repair in the
-  adapter (≤ 0.00002, config), counted in the notes.
-- **Next, on P-95's answer:** implement it, re-run the resume script (EURUSD with `--rehash`, the
-  v1 pilot), then the review (window table at ingest time, the XAUUSD note, the USDCHF event), the
-  acceptance reviewer, the PR, stop for "Approved. Merge".
-- **Changed test, flag in the review:** `test_F_0_1_3_T04j_the_verdict_ignores_manifest_fields`
-  (was `..._ignores_the_manifest`): a data file without its manifest is now *not yet written*,
-  i.e. a gap. D-711 still holds — no manifest **field** decides coverage.
+### T04j — Dukascopy h1 (D-657, D-661, D-672, D-673)
+
+- **Ingested (8 of 29), each 1H + 1D references, quality, costs:** EURUSD, GBPUSD, USDJPY, USDCHF
+  (2010-01…, complete); GBPCHF (2013-03…), AUDUSD (2014-06…), USDCAD (2016-04…), XAUUSD (2019-12…)
+  over their D-661 windows. USDCAD was **not** among the seven named: its window completed between
+  runs and D-661 admits it; stated in the review.
+- **21 wait** on the running download. **The resume path is one command:**
+  `uv run python scripts/pilots/T04j_resume.py` (`--dry-run`, `--symbols`). It ingests what has a
+  window meeting D-008 and passing D-717 (per instrument; USDCHF's SNB bar is a verified event,
+  D-672), re-derives an instrument only when a gap closes (the window starts earlier), and writes
+  nothing for the rest. A new month at the end does not re-derive: **P-96** (open, not blocking).
+- **D-673:** the adapter widens a high/low to cover an open/close outside it by <= 0.00002;
+  EURUSD 41 and USDCHF 14 side bars (all 2024-10); EURAUD's 2024-10 ask has 5 more (0.00002).
+- **XAUUSD's window** is bounded by scattered one-sided months (failed fetches); a later pass may
+  extend it; the resume command then re-derives it as a new versioned snapshot.
 
 ### Waiting on whom
 
-- **User:** the Dukascopy download (above); optionally S&P DJI PDFs (SPX, DJI close times);
-  emptying `<store>/_quarantine/T04k_D-702_*` and `T04l_D-714_20260922T080918Z`.
-- **Supervisor:** "Approved. Merge" for #58; whoever takes **P-93**.
-- **Stream A, from T04j (D-716), once T04j merges:** the daily FX cost read in T12 — the spread
-  table from the **1H development segment**; `build_cost_arrays(..., timeframe="1D")` charges
-  `week_open` on Monday and hour 0 on Tuesday to Friday; a fill inside a daily bar uses the broker
-  spread (the table's bar-weighted average).
-- **Done for stream A's notes (A.md "For stream B"):** D-377's three exemptions (#58); `uv sync`
-  after the rebase. Noted: D-800 … D-899 is stream A's (D-378).
+- **Supervisor:** "Approved. Merge" for the T04j PR; **P-96**; whoever takes **P-93**.
+- **User:** the Dukascopy download (running); emptying the quarantine folders
+  `<store>/_quarantine/T04k_D-702_*`, `T04l_D-714_20260922T080918Z`.
+- **Stream A, after the T04j merge:**
+  1. **Regenerate `configs/universe.yaml` (D-394).** Dukascopy instruments with references now:
+     `EURUSD GBPUSD USDJPY USDCHF AUDUSD USDCAD GBPCHF XAUUSD` (no row added to or removed from
+     `configs/universe/*.csv`; the references are new). Regenerate again after any later resume
+     run that ingests or re-derives an instrument; stream B lists each one here.
+  2. **The daily FX cost read in T12 (D-716):** the spread table from the **1H development
+     segment**; `build_cost_arrays(..., timeframe="1D")` charges `week_open` on Monday and hour 0
+     Tuesday to Friday; a fill inside a daily bar uses the broker spread.
+  3. For the record: the T04i `daily_extreme_unsupported` check skips Dukascopy 1D ("no hourly
+     series"); harmless (the daily bar is built from its own hours), noted in the T04j review.
+
+### Next steps, in order
+
+1. On "Approved. Merge": rebase onto the latest `main`, CI green, merge, update this file.
+2. **Then T16** (the supervisor: stream B's next task), **only once stream A's #60 is on `main`**
+   — it is (`0c95b82`, 2026-09-30). Start from its task file `docs/tasks/T16_stats_library.md`.
+3. Whenever the download completes more instruments: the resume command, then list them here for
+   stream A (D-394).
 
 ### IDs
 
-Next free: **D-722**, **P-96**; supervisor **D-673**. D-715 … D-717, D-657, D-661 and D-672 (supervisor) and P-87, P-88, P-94, P-95 (open) live on
-the T04j branch until it merges.
+Next free: **D-722**, **P-97**; supervisor **D-674**. D-715 … D-717, D-657, D-661, D-672, D-673
+(supervisor) and P-87, P-88, P-94, P-95 (answered), P-96 (open) are on the T04j branch until it
+merges. D-662 … D-671 are stream A's T15a answers (on `main`).
 
 ## Scope
 

@@ -25,9 +25,9 @@ from strategy_factory.cli import utf8_output
 from strategy_factory.core.errors import SfacError
 from strategy_factory.data.adapters.dukascopy import DukascopyAdapter
 from strategy_factory.data.config import (
-    ResampleConfig,
     load_dukascopy_config,
     load_quality_config,
+    load_resample_config,
     load_split_config,
 )
 from strategy_factory.data.coverage import (
@@ -95,7 +95,7 @@ def main() -> int:
                     asset_class=inst.asset_class,
                 )  # fmt: skip
                 bars = bars.sort("ts")
-                daily = resample_bars(bars, meta, "1D", "research", ResampleConfig(), quality)
+                daily = resample_bars(bars, meta, "1D", "research", load_resample_config(), quality)
                 key = meta.model_copy(update={"snapshot_hash": "0" * 64}).key()
                 row |= {
                     "bars_1h": bars.height,

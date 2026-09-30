@@ -7,7 +7,8 @@ week-open spread key, D-716). **Branch:** `b/T04j-dukascopy-ingest`. **Stream B.
 **Decisions:** D-715, D-716, D-717 (the plan), **D-657** (the gate is per instrument), **D-661**
 (the complete window), **D-672** (a verified market event; the D-717 stop is per instrument),
 **D-673** (the bounded OHLC repair) — the last four the supervisor's, on the user's choices.
-P-87, P-88, P-94, P-95 answered. Nothing open.
+P-87, P-88, P-94, P-95 answered. **Open, not blocking: P-96** (whether a series is extended month
+by month; the resume command does not, see below).
 
 **The task is partial by decision.** The download is still running. D-657 and D-661 let the complete
 instruments in now, and the rest follow through one command as their downloads complete (below).
@@ -40,9 +41,16 @@ instruments in now, and the rest follow through one command as their downloads c
 6. **The single resume command.** `uv run python scripts/pilots/T04j_resume.py` (`--dry-run`,
    `--symbols`): windows → status → D-008 → D-717 → ingest 1H (a hash-version-1 pilot with
    `--rehash`) → 1D (`sfac data resample --to 1D --set-reference`) → quality → `sfac costs show`.
-   *Done* means the 1H reference is v2 over **exactly** the current window, the 1D reference is
-   derived from it and both have a quality status. So a re-run writes nothing, and a grown window
-   is re-derived. The download script ends by naming it.
+   Its per-instrument state is `data/window_state.reference_state`:
+   - `ingested`: nothing to do, so a re-run writes nothing;
+   - `incomplete`: the 1D or a quality report is missing, so derive without a new ingest;
+   - `absent`, `pilot` (hash version 1) or `grown`: ingest. `grown` means a gap closed and the
+     window now starts earlier than the reference.
+
+   A new month at the end of the window does **not** re-derive (P-96). The ingest gets
+   `--expect-window` set to the windows D-717 measured; if the download moved one in between, it
+   refuses that instrument and writes nothing, so D-717 always covers exactly what is written. The
+   download script ends by naming the command.
 7. **The download script** checks Node.js and `tools/dukascopy/node_modules/dukascopy-node` before
    step 1 and prints the `npm ci` step (exit 3), instead of failing inside the download.
 8. **The week-open spread key (D-716)**, built in the plan phase: `week_open_mask`,
@@ -136,10 +144,16 @@ Measured on **every** settled raw month file (29 instruments, both sides): the d
 
 The counts are in the snapshot notes: EURUSD `41 side bar(s) … 2024-10: bid 13, ask 28`; USDCHF
 `14 side bar(s) … 2024-10: bid 14, ask 0`. **It is not an optimistic repair:**
-- A wider range is harsher on stops: a stop inside it is hit, never spared.
+- A wider range is harsher on stops: a stop inside it is hit, never spared. It can also fill a
+  take-profit or limit order the source high/low did not reach, but only up to the bar's own open
+  or close, a price that did print in that hour. The effect is at most 0.00002 on about 55 bars.
 - No open or close moves; those are the prices a backtest fills at and marks to.
 - Re-downloading would not fix it: the 2024-10 files fetched on 2026-09-19, -21 and -29 agree bar
   for bar, so the defect is in the source.
+- **Units:** D-673's wording says "two pips". The limit that applies is the config value, 0.00002,
+  which is 2 *pipettes* (0.2 pip) on a 5-decimal pair like EURUSD. The observed excesses are
+  0.00001, a tenth of a pip.
+- `_REPAIR_SLACK = 1e-9` in the adapter is a floating-point comparison slack, not a threshold.
 
 The six other ingested instruments needed no repair, so their notes, data and hashes are exactly
 what they were before D-673. The five ingested on 2026-09-29 kept the same snapshot hashes.
@@ -172,8 +186,8 @@ what they were before D-673. The five ingested on 2026-09-29 kept the same snaps
     these instruments have one. The T04i check looks only for the Alpaca hourly series (see the
     deviations).
 - **A re-run writes nothing:** after the ingest, `T04j_resume.py --dry-run` reports all eight as
-  *ingested*; the resume run of 2026-09-30 left the five ingested on 2026-09-29 untouched. The
-  tests do the same at chunk level.
+  *ingested* with nothing to do, and the resume run of 2026-09-30 left the five ingested on
+  2026-09-29 untouched. Tested at chunk level and at resume-state level (below).
 - **D-008 splittable (the candidate universe):** all **8** instruments, in **both** 1H and 1D.
 
 ## Costs (`sfac costs show`, the 1H development segment, D-523 / D-350)
@@ -210,7 +224,9 @@ and XAUUSD (0.199) are the largest adjustments.
 | D-673: widen within the limit, never a price, larger refused, counted per month | `test_F_0_1_3_D673_an_excess_within_the_limit_widens_the_range_and_keeps_every_price`, `…_an_excess_above_the_limit_is_left_for_the_store_to_refuse`, `…_the_adapter_counts_the_repair_per_month_in_the_notes` (an untouched series keeps its notes) |
 | Every snapshot has a quality report; no schedule check `skipped` | store evidence |
 | `sfac costs show` resolves | costs table |
-| A re-run writes nothing | `…_D657_a_rerun_of_an_ingested_instrument_writes_nothing`; store: the dry re-run shows all eight done |
+| A re-run writes nothing | `…_D657_a_rerun_of_an_ingested_instrument_writes_nothing`; `…_D661_resume_state_absent_incomplete_ingested_and_a_rerun_is_done`; store: the dry re-run shows all eight done |
+| The resume re-derives a closed gap, not a new month; a pilot is re-hashed | `…_D661_resume_re_derives_a_closed_gap_but_not_a_new_month`, `…_D661_resume_state_of_a_pilot` |
+| D-717 covers exactly what is written, while the download runs | `…_D717_the_ingest_refuses_a_window_that_moved_since_it_was_measured` |
 | The week-open key (D-716), and the leakage gate still passes | `tests/unit/test_F_0_2_2_week_open_spread.py` (6 tests); `tests/leakage/test_F_0_2_2_broker_scaling_dev_only.py` |
 
 ## Files changed
@@ -218,7 +234,9 @@ and XAUUSD (0.199) are the largest adjustments.
 - `src/strategy_factory/data/coverage.py`: the Dukascopy coverage frame (settled months),
   `Window` / `dukascopy_windows` (D-661), `verified_flags` (D-672).
 - `src/strategy_factory/data/cli_dukascopy.py`: `coverage dukascopy`; `ingest dukascopy` per
-  instrument over the window, with `d008_short` before writing.
+  instrument over the window, with `d008_short` before writing and `--expect-window`.
+- `src/strategy_factory/data/window_state.py` (new): `reference_state`, the resume command's
+  per-instrument state.
 - `src/strategy_factory/data/adapters/dukascopy.py`: `repair_ohlc` and its note (D-673).
 - `src/strategy_factory/data/download/rawfiles.py`: `is_settled`.
   `src/strategy_factory/data/download/dukascopy.py`: `raw_pairs` reads settled months only.
@@ -255,6 +273,58 @@ and XAUUSD (0.199) are the largest adjustments.
    - regenerate `configs/universe.yaml` (D-394): eight Dukascopy instruments now have references;
    - regenerate it again after any later resume run that adds an instrument or re-derives one.
 
+## The acceptance reviewer's findings and what was done
+
+No blockers. Should-fix:
+
+1. **The D-717 measurement and the ingest could see different windows** while the download runs,
+   and an unmeasured window could then become the reference. **Fixed:** the resume command passes
+   the measured windows with `--expect-window`, and the ingest refuses an instrument whose window
+   moved, writing nothing for it. Tested.
+2. **The resume re-derived on a new month as well as a closed gap**, which D-661 does not say.
+   **Fixed:** `reference_state` re-derives only when the window starts earlier (a gap closed); a new
+   month at the end, or a month not yet downloaded, leaves an ingested instrument `ingested`.
+   Tested. The question itself is raised as **P-96** (not blocking).
+3. **`d008_short` and the two analysis scripts used `ResampleConfig()` defaults.** **Fixed:** they
+   use `load_resample_config()`. The YAML equals the defaults today, so no number changed.
+4. **No tests for the resume state.** **Fixed:** the logic moved to `data/window_state.py`, with
+   three tests (absent → incomplete → ingested; a closed gap versus a new month; a pilot).
+5. **The review's gates were empty and it said "nothing open".** **Fixed:** below and at the top.
+
+Nits:
+- **Done:** `VerifiedEvent.ts` is an `AwareDatetime`, so a naive time in YAML is refused at load
+  rather than silently never matching. An instrument with no required month no longer raises
+  `KeyError` in the ingest. `list[Instrument]` replaces the `type: ignore`. The TP / limit
+  argument and the pip units are stated in the D-673 section.
+- **Left, with the reason:**
+  - `T04j_defects.py` keeps cwd-relative paths; it is run from the repo root like every
+    `scripts/analysis` script.
+  - `T04j_defects.py` still upserts its measurement CSV under a dry run: it is a measurement, not
+    the store. The ingest-time copy is the one committed.
+  - `SPREAD_SPIKE_X` is measurement only, as its comment says.
+  - `week_open_mask` on a slice that starts after the real week open marks the next bar, which is
+    pessimistic, not look-ahead.
+  - `paths` is not re-checked against both sides inside the ingest: the running download never
+    writes a `--refresh` version.
+
 ## Gates
 
-Filled in after the final run on the rebased branch, below.
+Final run on the branch rebased onto `main` `1413069` (#58 and #60 in):
+
+| gate | result |
+|---|---|
+| `ruff check .`, `ruff format --check .`, `mypy src` | clean |
+| `pytest -m "not slow"` | 2,575 passed, 1 failed (the local-only case below) |
+| `pytest tests/parity tests/leakage` | 866 passed |
+| `pytest -m db -rs` | 24 passed, 0 skipped |
+| `sfac streams check --base origin/main` | ok (ownership, ids, one Alembic head) |
+
+**One local-only failure, expected:** `test_F_X_9_repo_alembic_heads_matches_alembic_itself` runs
+`uv run alembic heads`. That tries to re-sync the venv, which cannot replace `.venv/Scripts/sfac.exe`
+while the user's Dukascopy download holds it. The code is not at fault:
+- `uv run --no-sync alembic heads` gives the single head `0001_initial`, which is what the test
+  asserts;
+- CI runs the test on a clean venv.
+
+The dependency `arch`, which #60 added, was installed at its locked version (8.0.0), and
+`uv sync --dry-run` shows the venv matching the lock except for the editable project itself.

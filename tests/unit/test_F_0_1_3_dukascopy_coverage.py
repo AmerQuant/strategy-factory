@@ -32,6 +32,7 @@ from strategy_factory.data.coverage import (
 )
 from strategy_factory.data.download.dukascopy import Instrument, month_dir, raw_pairs
 from strategy_factory.data.store import SnapshotStore
+from strategy_factory.data.window_state import reference_state
 
 TODAY = dt.date(2011, 3, 15)  # 2010-01 .. 2011-02 complete, 2011-03 current
 START = dt.date(2010, 1, 1)
@@ -433,3 +434,74 @@ def test_F_0_1_3_T04j_D672_the_usdchf_snb_bar_is_listed_with_its_source() -> Non
         "D-672",
     )
     assert "Swiss National Bank" in event.source
+
+
+# -- the resume command's state (D-661) and --expect-window (D-717) ------------------------------
+
+
+def _state(env: Path, today: dt.date = INGEST_TODAY) -> str:
+    cfg = load_dukascopy_config(env / "dukascopy.yaml")
+    frame = dukascopy_coverage_frame(env / "raw", "h1", [EURUSD], cfg.h1_start, today)
+    return reference_state(Catalog(), "EURUSD", dukascopy_windows(frame).get("EURUSD"))
+
+
+RESAMPLE = ["data", "resample", "--symbol", "EURUSD", "--from", "1H", "--to", "1D",
+            "--set-reference"]  # fmt: skip
+
+
+def test_F_0_1_3_T04j_D661_resume_state_absent_incomplete_ingested_and_a_rerun_is_done(
+    ingest_env: Path,
+) -> None:
+    assert _state(ingest_env) == "absent"
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    assert _state(ingest_env) == "incomplete"  # no 1D yet
+    assert CliRunner().invoke(app, RESAMPLE).exit_code == 0
+    assert _state(ingest_env) == "incomplete"  # no quality report yet
+    out = CliRunner().invoke(app, ["data", "quality", "--symbol", "EURUSD"])
+    assert out.exit_code == 0, out.output
+    assert _state(ingest_env) == "ingested"  # the resume command skips it: a re-run writes nothing
+
+
+def test_F_0_1_3_T04j_D661_resume_re_derives_a_closed_gap_but_not_a_new_month(
+    ingest_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = ingest_env / "raw"
+    (month_dir(raw, "h1", "eurusd", "bid") / "2024-02.csv.gz").unlink()
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    assert CliRunner().invoke(app, RESAMPLE).exit_code == 0
+    assert CliRunner().invoke(app, ["data", "quality", "--symbol", "EURUSD"]).exit_code == 0
+    assert _state(ingest_env) == "ingested"  # over 2024-03..2024-05
+    for side in ("bid", "ask"):  # a new month arrives at the end: not a re-derive
+        _synthetic_month(raw, EURUSD, side, "2024-06")
+    assert _state(ingest_env, dt.date(2024, 7, 15)) == "ingested"
+    assert _state(ingest_env, dt.date(2024, 8, 15)) == "ingested"  # 2024-07 not there: no window
+    _synthetic_month(raw, EURUSD, "bid", "2024-02")  # the gap closes: the window starts earlier
+    assert _state(ingest_env) == "grown"
+
+
+def test_F_0_1_3_T04j_D661_resume_state_of_a_pilot(ingest_env: Path) -> None:
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    catalog = Catalog()
+    ref = catalog.get_reference("EURUSD", "1H")
+    pilot = ref.model_copy(update={"hash_version": 1})
+    monkey = catalog.get_reference
+    catalog.get_reference = lambda s, tf: pilot if tf == "1H" else monkey(s, tf)  # type: ignore[method-assign]
+    assert reference_state(catalog, "EURUSD", None) == "pilot"
+
+
+def test_F_0_1_3_T04j_D717_the_ingest_refuses_a_window_that_moved_since_it_was_measured(
+    ingest_env: Path,
+) -> None:
+    out = _invoke(
+        ingest_env, "ingest", "dukascopy", "--instruments", "eurusd", "--set-reference",
+        "--expect-window", "EURUSD=2024-03..2024-05",
+    )  # fmt: skip
+    assert out.exit_code == 2
+    assert "REFUSED the window moved since it was measured" in out.output
+    assert "2024-03..2024-05 -> 2024-01..2024-05" in out.output
+    assert not (ingest_env / "store" / "dukascopy").exists()
+    ok = _invoke(
+        ingest_env, "ingest", "dukascopy", "--instruments", "eurusd", "--set-reference",
+        "--expect-window", "EURUSD=2024-01..2024-05",
+    )  # fmt: skip
+    assert ok.exit_code == 0, ok.output

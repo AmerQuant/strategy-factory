@@ -43,11 +43,11 @@ from strategy_factory.data.clean_daily import wick_outliers
 from strategy_factory.data.config import (
     AlpacaConfig,
     QualityConfig,
-    ResampleConfig,
     SplitConfig,
     load_alpaca_config,
     load_dukascopy_config,
     load_quality_config,
+    load_resample_config,
     load_split_config,
 )
 from strategy_factory.data.coverage import (
@@ -126,7 +126,7 @@ def measure(
         & pl.col("ts").dt.weekday().is_in([2, 3, 4, 5])
     )
     missing_hours = int((holes["d"].dt.total_hours() - 1).sum())
-    daily = resample_bars(bars, meta, "1D", "research", ResampleConfig(), quality)
+    daily = resample_bars(bars, meta, "1D", "research", load_resample_config(), quality)
     key = meta.model_copy(update={"snapshot_hash": "0" * 64}).key()  # in memory: no hash
     split_h = split_d = True
     try:

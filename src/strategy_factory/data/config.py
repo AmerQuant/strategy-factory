@@ -14,6 +14,7 @@ from typing import Literal
 
 import yaml
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
@@ -221,7 +222,7 @@ class VerifiedEvent(_Frozen):
     re-measure and never a stop. Correcting or removing it would make backtests optimistic."""
 
     symbol: str
-    ts: dt.datetime  # the bar's start, UTC
+    ts: AwareDatetime  # the bar's start, UTC (a naive time would never match)
     family: Literal["wick_flags"]
     source: str  # what verifies it
     decision: str  # the decision that admits it
