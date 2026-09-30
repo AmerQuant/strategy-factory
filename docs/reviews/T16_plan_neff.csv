@@ -1,0 +1,398 @@
+scenario,kind,n_trials,truth,seed,estimator,n_eff,seconds,sr0_v1
+blocks K=1 rho=0.95,equal,200,1,1,avg_corr,1.05,0.0,-0.4681
+blocks K=1 rho=0.95,equal,200,1,1,eig_participation,1.11,0.0032,-0.2922
+blocks K=1 rho=0.95,equal,200,1,1,eig_li_ji,12.0,0.0013,1.6648
+blocks K=1 rho=0.95,equal,200,1,1,eig_mp,1.0,0.0013,0.0
+blocks K=1 rho=0.95,equal,200,1,1,hier_avg_0.5,1.0,0.001,0.0
+blocks K=1 rho=0.95,equal,200,1,1,hier_avg_0.3,1.0,0.0006,0.0
+blocks K=1 rho=0.95,equal,200,1,1,onc,2.0,12.4578,0.5198
+blocks K=1 rho=0.95,equal,200,1,2,avg_corr,1.05,0.0,-0.4793
+blocks K=1 rho=0.95,equal,200,1,2,eig_participation,1.1,0.0027,-0.306
+blocks K=1 rho=0.95,equal,200,1,2,eig_li_ji,11.0,0.0028,1.6222
+blocks K=1 rho=0.95,equal,200,1,2,eig_mp,1.0,0.0027,0.0
+blocks K=1 rho=0.95,equal,200,1,2,hier_avg_0.5,1.0,0.0015,0.0
+blocks K=1 rho=0.95,equal,200,1,2,hier_avg_0.3,1.0,0.0012,0.0
+blocks K=1 rho=0.95,equal,200,1,2,onc,2.0,13.8041,0.5198
+blocks K=1 rho=0.95,equal,200,1,3,avg_corr,1.05,0.0,-0.4773
+blocks K=1 rho=0.95,equal,200,1,3,eig_participation,1.11,0.0028,-0.3036
+blocks K=1 rho=0.95,equal,200,1,3,eig_li_ji,11.0,0.0025,1.6222
+blocks K=1 rho=0.95,equal,200,1,3,eig_mp,1.0,0.0025,0.0
+blocks K=1 rho=0.95,equal,200,1,3,hier_avg_0.5,1.0,0.0015,0.0
+blocks K=1 rho=0.95,equal,200,1,3,hier_avg_0.3,1.0,0.0013,0.0
+blocks K=1 rho=0.95,equal,200,1,3,onc,2.0,13.5382,0.5198
+blocks K=1 rho=0.7,equal,200,1,1,avg_corr,1.44,0.0001,0.161
+blocks K=1 rho=0.7,equal,200,1,1,eig_participation,2.06,0.0029,0.5469
+blocks K=1 rho=0.7,equal,200,1,1,eig_li_ji,62.0,0.0028,2.3576
+blocks K=1 rho=0.7,equal,200,1,1,eig_mp,1.0,0.0028,0.0
+blocks K=1 rho=0.7,equal,200,1,1,hier_avg_0.5,1.0,0.0017,0.0
+blocks K=1 rho=0.7,equal,200,1,1,hier_avg_0.3,1.0,0.0015,0.0
+blocks K=1 rho=0.7,equal,200,1,1,onc,2.0,13.7781,0.5198
+blocks K=1 rho=0.7,equal,200,1,2,avg_corr,1.41,0.0,0.1404
+blocks K=1 rho=0.7,equal,200,1,2,eig_participation,2.0,0.0027,0.5182
+blocks K=1 rho=0.7,equal,200,1,2,eig_li_ji,60.0,0.0024,2.3453
+blocks K=1 rho=0.7,equal,200,1,2,eig_mp,1.0,0.0025,0.0
+blocks K=1 rho=0.7,equal,200,1,2,hier_avg_0.5,1.0,0.0015,0.0
+blocks K=1 rho=0.7,equal,200,1,2,hier_avg_0.3,1.0,0.0018,0.0
+blocks K=1 rho=0.7,equal,200,1,2,onc,2.0,13.8611,0.5198
+blocks K=1 rho=0.7,equal,200,1,3,avg_corr,1.42,0.0,0.1437
+blocks K=1 rho=0.7,equal,200,1,3,eig_participation,2.01,0.0032,0.5228
+blocks K=1 rho=0.7,equal,200,1,3,eig_li_ji,60.0,0.0032,2.3453
+blocks K=1 rho=0.7,equal,200,1,3,eig_mp,1.0,0.0027,0.0
+blocks K=1 rho=0.7,equal,200,1,3,hier_avg_0.5,1.0,0.0016,0.0
+blocks K=1 rho=0.7,equal,200,1,3,hier_avg_0.3,1.0,0.0016,0.0
+blocks K=1 rho=0.7,equal,200,1,3,onc,2.0,14.1787,0.5198
+blocks K=1 rho=0.4,equal,200,1,1,avg_corr,2.52,0.0,0.7191
+blocks K=1 rho=0.4,equal,200,1,1,eig_participation,6.26,0.0027,1.3243
+blocks K=1 rho=0.4,equal,200,1,1,eig_li_ji,122.0,0.0026,2.5998
+blocks K=1 rho=0.4,equal,200,1,1,eig_mp,1.0,0.0032,0.0
+blocks K=1 rho=0.4,equal,200,1,1,hier_avg_0.5,200.0,0.0017,2.7655
+blocks K=1 rho=0.4,equal,200,1,1,hier_avg_0.3,1.0,0.0014,0.0
+blocks K=1 rho=0.4,equal,200,1,1,onc,2.0,14.4844,0.5198
+blocks K=1 rho=0.4,equal,200,1,2,avg_corr,2.44,0.0,0.6926
+blocks K=1 rho=0.4,equal,200,1,2,eig_participation,5.87,0.0031,1.2873
+blocks K=1 rho=0.4,equal,200,1,2,eig_li_ji,119.0,0.0028,2.5912
+blocks K=1 rho=0.4,equal,200,1,2,eig_mp,1.0,0.0026,0.0
+blocks K=1 rho=0.4,equal,200,1,2,hier_avg_0.5,199.0,0.0016,2.7639
+blocks K=1 rho=0.4,equal,200,1,2,hier_avg_0.3,1.0,0.0016,0.0
+blocks K=1 rho=0.4,equal,200,1,2,onc,2.0,16.1532,0.5198
+blocks K=1 rho=0.4,equal,200,1,3,avg_corr,2.45,0.0,0.6964
+blocks K=1 rho=0.4,equal,200,1,3,eig_participation,5.92,0.0107,1.2928
+blocks K=1 rho=0.4,equal,200,1,3,eig_li_ji,120.0,0.0099,2.5941
+blocks K=1 rho=0.4,equal,200,1,3,eig_mp,1.0,0.0116,0.0
+blocks K=1 rho=0.4,equal,200,1,3,hier_avg_0.5,198.0,0.0091,2.7622
+blocks K=1 rho=0.4,equal,200,1,3,hier_avg_0.3,1.0,0.0014,0.0
+blocks K=1 rho=0.4,equal,200,1,3,onc,2.0,21.7513,0.5198
+blocks K=5 rho=0.95,equal,200,5,1,avg_corr,5.52,0.0001,1.2522
+blocks K=5 rho=0.95,equal,200,5,1,eig_participation,5.5,0.0042,1.2493
+blocks K=5 rho=0.95,equal,200,5,1,eig_li_ji,17.0,0.003,1.8281
+blocks K=5 rho=0.95,equal,200,5,1,eig_mp,5.0,0.0026,1.1926
+blocks K=5 rho=0.95,equal,200,5,1,hier_avg_0.5,5.0,0.0012,1.1926
+blocks K=5 rho=0.95,equal,200,5,1,hier_avg_0.3,5.0,0.0026,1.1926
+blocks K=5 rho=0.95,equal,200,5,1,onc,5.0,23.3182,1.1926
+blocks K=5 rho=0.95,equal,200,5,2,avg_corr,5.23,0.0,1.2196
+blocks K=5 rho=0.95,equal,200,5,2,eig_participation,5.51,0.0042,1.2509
+blocks K=5 rho=0.95,equal,200,5,2,eig_li_ji,16.0,0.0064,1.8005
+blocks K=5 rho=0.95,equal,200,5,2,eig_mp,5.0,0.003,1.1926
+blocks K=5 rho=0.95,equal,200,5,2,hier_avg_0.5,5.0,0.002,1.1926
+blocks K=5 rho=0.95,equal,200,5,2,hier_avg_0.3,5.0,0.0028,1.1926
+blocks K=5 rho=0.95,equal,200,5,2,onc,5.0,17.7826,1.1926
+blocks K=5 rho=0.95,equal,200,5,3,avg_corr,5.24,0.0,1.2207
+blocks K=5 rho=0.95,equal,200,5,3,eig_participation,5.47,0.0043,1.2468
+blocks K=5 rho=0.95,equal,200,5,3,eig_li_ji,17.0,0.0026,1.8281
+blocks K=5 rho=0.95,equal,200,5,3,eig_mp,5.0,0.0033,1.1926
+blocks K=5 rho=0.95,equal,200,5,3,hier_avg_0.5,5.0,0.0014,1.1926
+blocks K=5 rho=0.95,equal,200,5,3,hier_avg_0.3,5.0,0.0014,1.1926
+blocks K=5 rho=0.95,equal,200,5,3,onc,5.0,16.861,1.1926
+blocks K=5 rho=0.7,equal,200,5,1,avg_corr,7.43,0.0,1.4194
+blocks K=5 rho=0.7,equal,200,5,1,eig_participation,9.87,0.0065,1.568
+blocks K=5 rho=0.7,equal,200,5,1,eig_li_ji,66.0,0.0026,2.3808
+blocks K=5 rho=0.7,equal,200,5,1,eig_mp,5.0,0.0027,1.1926
+blocks K=5 rho=0.7,equal,200,5,1,hier_avg_0.5,5.0,0.0014,1.1926
+blocks K=5 rho=0.7,equal,200,5,1,hier_avg_0.3,5.0,0.0012,1.1926
+blocks K=5 rho=0.7,equal,200,5,1,onc,5.0,17.8269,1.1926
+blocks K=5 rho=0.7,equal,200,5,2,avg_corr,7.08,0.0,1.3929
+blocks K=5 rho=0.7,equal,200,5,2,eig_participation,9.88,0.0029,1.5684
+blocks K=5 rho=0.7,equal,200,5,2,eig_li_ji,65.0,0.0037,2.3751
+blocks K=5 rho=0.7,equal,200,5,2,eig_mp,5.0,0.0032,1.1926
+blocks K=5 rho=0.7,equal,200,5,2,hier_avg_0.5,5.0,0.0016,1.1926
+blocks K=5 rho=0.7,equal,200,5,2,hier_avg_0.3,5.0,0.0013,1.1926
+blocks K=5 rho=0.7,equal,200,5,2,onc,5.0,18.7421,1.1926
+blocks K=5 rho=0.7,equal,200,5,3,avg_corr,7.0,0.0,1.3868
+blocks K=5 rho=0.7,equal,200,5,3,eig_participation,9.73,0.0031,1.5609
+blocks K=5 rho=0.7,equal,200,5,3,eig_li_ji,65.0,0.0038,2.3751
+blocks K=5 rho=0.7,equal,200,5,3,eig_mp,5.0,0.0037,1.1926
+blocks K=5 rho=0.7,equal,200,5,3,hier_avg_0.5,5.0,0.0017,1.1926
+blocks K=5 rho=0.7,equal,200,5,3,hier_avg_0.3,5.0,0.0026,1.1926
+blocks K=5 rho=0.7,equal,200,5,3,onc,5.0,18.363,1.1926
+blocks K=5 rho=0.4,equal,200,5,1,avg_corr,12.69,0.0,1.6918
+blocks K=5 rho=0.4,equal,200,5,1,eig_participation,27.11,0.0029,2.0313
+blocks K=5 rho=0.4,equal,200,5,1,eig_li_ji,124.0,0.0027,2.6054
+blocks K=5 rho=0.4,equal,200,5,1,eig_mp,5.0,0.003,1.1926
+blocks K=5 rho=0.4,equal,200,5,1,hier_avg_0.5,200.0,0.0017,2.7655
+blocks K=5 rho=0.4,equal,200,5,1,hier_avg_0.3,5.0,0.0016,1.1926
+blocks K=5 rho=0.4,equal,200,5,1,onc,5.0,15.9244,1.1926
+blocks K=5 rho=0.4,equal,200,5,2,avg_corr,12.18,0.0,1.672
+blocks K=5 rho=0.4,equal,200,5,2,eig_participation,26.97,0.0028,2.0291
+blocks K=5 rho=0.4,equal,200,5,2,eig_li_ji,124.0,0.0028,2.6054
+blocks K=5 rho=0.4,equal,200,5,2,eig_mp,5.0,0.0027,1.1926
+blocks K=5 rho=0.4,equal,200,5,2,hier_avg_0.5,200.0,0.0016,2.7655
+blocks K=5 rho=0.4,equal,200,5,2,hier_avg_0.3,5.0,0.0014,1.1926
+blocks K=5 rho=0.4,equal,200,5,2,onc,5.0,15.1229,1.1926
+blocks K=5 rho=0.4,equal,200,5,3,avg_corr,11.83,0.0,1.6581
+blocks K=5 rho=0.4,equal,200,5,3,eig_participation,26.3,0.0029,2.0185
+blocks K=5 rho=0.4,equal,200,5,3,eig_li_ji,123.0,0.0027,2.6026
+blocks K=5 rho=0.4,equal,200,5,3,eig_mp,5.0,0.0027,1.1926
+blocks K=5 rho=0.4,equal,200,5,3,hier_avg_0.5,200.0,0.0016,2.7655
+blocks K=5 rho=0.4,equal,200,5,3,hier_avg_0.3,5.0,0.0013,1.1926
+blocks K=5 rho=0.4,equal,200,5,3,onc,5.0,15.3785,1.1926
+blocks K=20 rho=0.95,equal,200,20,1,avg_corr,21.65,0.0,1.9354
+blocks K=20 rho=0.95,equal,200,20,1,eig_participation,21.43,0.0035,1.931
+blocks K=20 rho=0.95,equal,200,20,1,eig_li_ji,39.0,0.0027,2.1795
+blocks K=20 rho=0.95,equal,200,20,1,eig_mp,20.0,0.0027,1.9007
+blocks K=20 rho=0.95,equal,200,20,1,hier_avg_0.5,20.0,0.0015,1.9007
+blocks K=20 rho=0.95,equal,200,20,1,hier_avg_0.3,20.0,0.0019,1.9007
+blocks K=20 rho=0.95,equal,200,20,1,onc,20.0,15.5513,1.9007
+blocks K=20 rho=0.95,equal,200,20,2,avg_corr,22.12,0.0,1.9446
+blocks K=20 rho=0.95,equal,200,20,2,eig_participation,21.55,0.0027,1.9333
+blocks K=20 rho=0.95,equal,200,20,2,eig_li_ji,40.0,0.0026,2.1895
+blocks K=20 rho=0.95,equal,200,20,2,eig_mp,20.0,0.0025,1.9007
+blocks K=20 rho=0.95,equal,200,20,2,hier_avg_0.5,20.0,0.0023,1.9007
+blocks K=20 rho=0.95,equal,200,20,2,hier_avg_0.3,20.0,0.0014,1.9007
+blocks K=20 rho=0.95,equal,200,20,2,onc,20.0,16.4199,1.9007
+blocks K=20 rho=0.95,equal,200,20,3,avg_corr,21.2,0.0,1.9263
+blocks K=20 rho=0.95,equal,200,20,3,eig_participation,21.54,0.003,1.9332
+blocks K=20 rho=0.95,equal,200,20,3,eig_li_ji,38.0,0.0045,2.1691
+blocks K=20 rho=0.95,equal,200,20,3,eig_mp,20.0,0.0029,1.9007
+blocks K=20 rho=0.95,equal,200,20,3,hier_avg_0.5,20.0,0.0016,1.9007
+blocks K=20 rho=0.95,equal,200,20,3,hier_avg_0.3,20.0,0.0016,1.9007
+blocks K=20 rho=0.95,equal,200,20,3,onc,20.0,15.5119,1.9007
+blocks K=20 rho=0.7,equal,200,20,1,avg_corr,28.41,0.0,2.0508
+blocks K=20 rho=0.7,equal,200,20,1,eig_participation,35.72,0.0026,2.1444
+blocks K=20 rho=0.7,equal,200,20,1,eig_li_ji,81.0,0.0025,2.4556
+blocks K=20 rho=0.7,equal,200,20,1,eig_mp,20.0,0.0024,1.9007
+blocks K=20 rho=0.7,equal,200,20,1,hier_avg_0.5,20.0,0.0014,1.9007
+blocks K=20 rho=0.7,equal,200,20,1,hier_avg_0.3,20.0,0.0014,1.9007
+blocks K=20 rho=0.7,equal,200,20,1,onc,2.0,14.2372,0.5198
+blocks K=20 rho=0.7,equal,200,20,2,avg_corr,28.95,0.0,2.0587
+blocks K=20 rho=0.7,equal,200,20,2,eig_participation,35.83,0.0026,2.1457
+blocks K=20 rho=0.7,equal,200,20,2,eig_li_ji,86.0,0.0027,2.4771
+blocks K=20 rho=0.7,equal,200,20,2,eig_mp,20.0,0.0025,1.9007
+blocks K=20 rho=0.7,equal,200,20,2,hier_avg_0.5,20.0,0.0015,1.9007
+blocks K=20 rho=0.7,equal,200,20,2,hier_avg_0.3,20.0,0.0016,1.9007
+blocks K=20 rho=0.7,equal,200,20,2,onc,3.0,14.2808,0.8528
+blocks K=20 rho=0.7,equal,200,20,3,avg_corr,27.84,0.0,2.0424
+blocks K=20 rho=0.7,equal,200,20,3,eig_participation,35.82,0.0029,2.1455
+blocks K=20 rho=0.7,equal,200,20,3,eig_li_ji,82.0,0.0026,2.46
+blocks K=20 rho=0.7,equal,200,20,3,eig_mp,20.0,0.0025,1.9007
+blocks K=20 rho=0.7,equal,200,20,3,hier_avg_0.5,20.0,0.0015,1.9007
+blocks K=20 rho=0.7,equal,200,20,3,hier_avg_0.3,20.0,0.0013,1.9007
+blocks K=20 rho=0.7,equal,200,20,3,onc,2.0,15.0203,0.5198
+blocks K=20 rho=0.4,equal,200,20,1,avg_corr,45.11,0.0,2.2366
+blocks K=20 rho=0.4,equal,200,20,1,eig_participation,75.93,0.0033,2.4321
+blocks K=20 rho=0.4,equal,200,20,1,eig_li_ji,136.0,0.003,2.637
+blocks K=20 rho=0.4,equal,200,20,1,eig_mp,20.0,0.0026,1.9007
+blocks K=20 rho=0.4,equal,200,20,1,hier_avg_0.5,200.0,0.0014,2.7655
+blocks K=20 rho=0.4,equal,200,20,1,hier_avg_0.3,20.0,0.0012,1.9007
+blocks K=20 rho=0.4,equal,200,20,1,onc,2.0,13.9584,0.5198
+blocks K=20 rho=0.4,equal,200,20,2,avg_corr,45.84,0.0,2.2428
+blocks K=20 rho=0.4,equal,200,20,2,eig_participation,76.02,0.0025,2.4326
+blocks K=20 rho=0.4,equal,200,20,2,eig_li_ji,137.0,0.0023,2.6394
+blocks K=20 rho=0.4,equal,200,20,2,eig_mp,20.0,0.0022,1.9007
+blocks K=20 rho=0.4,equal,200,20,2,hier_avg_0.5,200.0,0.0014,2.7655
+blocks K=20 rho=0.4,equal,200,20,2,hier_avg_0.3,20.0,0.0013,1.9007
+blocks K=20 rho=0.4,equal,200,20,2,onc,6.0,13.1026,1.3001
+blocks K=20 rho=0.4,equal,200,20,3,avg_corr,44.29,0.0,2.2294
+blocks K=20 rho=0.4,equal,200,20,3,eig_participation,75.88,0.0033,2.4319
+blocks K=20 rho=0.4,equal,200,20,3,eig_li_ji,136.0,0.0023,2.637
+blocks K=20 rho=0.4,equal,200,20,3,eig_mp,20.0,0.0024,1.9007
+blocks K=20 rho=0.4,equal,200,20,3,hier_avg_0.5,200.0,0.0013,2.7655
+blocks K=20 rho=0.4,equal,200,20,3,hier_avg_0.3,20.0,0.0012,1.9007
+blocks K=20 rho=0.4,equal,200,20,3,onc,3.0,13.6327,0.8528
+blocks K=50 rho=0.95,equal,200,50,1,avg_corr,54.82,0.0,2.3113
+blocks K=50 rho=0.95,equal,200,50,1,eig_participation,51.27,0.0027,2.2859
+blocks K=50 rho=0.95,equal,200,50,1,eig_li_ji,83.0,0.0028,2.4643
+blocks K=50 rho=0.95,equal,200,50,1,eig_mp,50.0,0.0024,2.2763
+blocks K=50 rho=0.95,equal,200,50,1,hier_avg_0.5,50.0,0.0014,2.2763
+blocks K=50 rho=0.95,equal,200,50,1,hier_avg_0.3,50.0,0.0012,2.2763
+blocks K=50 rho=0.95,equal,200,50,1,onc,49.0,12.9887,2.2686
+blocks K=50 rho=0.95,equal,200,50,2,avg_corr,56.56,0.0,2.3231
+blocks K=50 rho=0.95,equal,200,50,2,eig_participation,51.23,0.0027,2.2856
+blocks K=50 rho=0.95,equal,200,50,2,eig_li_ji,84.0,0.0023,2.4686
+blocks K=50 rho=0.95,equal,200,50,2,eig_mp,50.0,0.0023,2.2763
+blocks K=50 rho=0.95,equal,200,50,2,hier_avg_0.5,50.0,0.0017,2.2763
+blocks K=50 rho=0.95,equal,200,50,2,hier_avg_0.3,50.0,0.0014,2.2763
+blocks K=50 rho=0.95,equal,200,50,2,onc,49.0,13.945,2.2686
+blocks K=50 rho=0.95,equal,200,50,3,avg_corr,51.21,0.0,2.2855
+blocks K=50 rho=0.95,equal,200,50,3,eig_participation,51.4,0.0013,2.2868
+blocks K=50 rho=0.95,equal,200,50,3,eig_li_ji,83.0,0.0012,2.4643
+blocks K=50 rho=0.95,equal,200,50,3,eig_mp,50.0,0.0011,2.2763
+blocks K=50 rho=0.95,equal,200,50,3,hier_avg_0.5,50.0,0.0006,2.2763
+blocks K=50 rho=0.95,equal,200,50,3,hier_avg_0.3,50.0,0.0006,2.2763
+blocks K=50 rho=0.95,equal,200,50,3,onc,4.0,8.3125,1.0521
+blocks K=50 rho=0.7,equal,200,50,1,avg_corr,67.52,0.0,2.3892
+blocks K=50 rho=0.7,equal,200,50,1,eig_participation,75.23,0.0017,2.4288
+blocks K=50 rho=0.7,equal,200,50,1,eig_li_ji,115.0,0.0019,2.5794
+blocks K=50 rho=0.7,equal,200,50,1,eig_mp,47.0,0.0013,2.2525
+blocks K=50 rho=0.7,equal,200,50,1,hier_avg_0.5,50.0,0.0007,2.2763
+blocks K=50 rho=0.7,equal,200,50,1,hier_avg_0.3,50.0,0.0006,2.2763
+blocks K=50 rho=0.7,equal,200,50,1,onc,4.0,11.6956,1.0521
+blocks K=50 rho=0.7,equal,200,50,2,avg_corr,71.13,0.0,2.4083
+blocks K=50 rho=0.7,equal,200,50,2,eig_participation,75.06,0.0028,2.428
+blocks K=50 rho=0.7,equal,200,50,2,eig_li_ji,116.0,0.0023,2.5824
+blocks K=50 rho=0.7,equal,200,50,2,eig_mp,47.0,0.0021,2.2525
+blocks K=50 rho=0.7,equal,200,50,2,hier_avg_0.5,50.0,0.0014,2.2763
+blocks K=50 rho=0.7,equal,200,50,2,hier_avg_0.3,50.0,0.0013,2.2763
+blocks K=50 rho=0.7,equal,200,50,2,onc,3.0,13.2813,0.8528
+blocks K=50 rho=0.7,equal,200,50,3,avg_corr,63.78,0.0,2.3681
+blocks K=50 rho=0.7,equal,200,50,3,eig_participation,75.31,0.003,2.4292
+blocks K=50 rho=0.7,equal,200,50,3,eig_li_ji,118.0,0.0025,2.5883
+blocks K=50 rho=0.7,equal,200,50,3,eig_mp,48.0,0.0023,2.2606
+blocks K=50 rho=0.7,equal,200,50,3,hier_avg_0.5,50.0,0.0013,2.2763
+blocks K=50 rho=0.7,equal,200,50,3,hier_avg_0.3,50.0,0.0012,2.2763
+blocks K=50 rho=0.7,equal,200,50,3,onc,9.0,13.5142,1.5208
+blocks K=50 rho=0.4,equal,200,50,1,avg_corr,94.26,0.0,2.5097
+blocks K=50 rho=0.4,equal,200,50,1,eig_participation,119.57,0.0028,2.5929
+blocks K=50 rho=0.4,equal,200,50,1,eig_li_ji,160.0,0.0025,2.6918
+blocks K=50 rho=0.4,equal,200,50,1,eig_mp,32.0,0.0022,2.0999
+blocks K=50 rho=0.4,equal,200,50,1,hier_avg_0.5,200.0,0.0014,2.7655
+blocks K=50 rho=0.4,equal,200,50,1,hier_avg_0.3,50.0,0.0014,2.2763
+blocks K=50 rho=0.4,equal,200,50,1,onc,2.0,15.6084,0.5198
+blocks K=50 rho=0.4,equal,200,50,2,avg_corr,100.05,0.0001,2.5308
+blocks K=50 rho=0.4,equal,200,50,2,eig_participation,119.29,0.0026,2.5921
+blocks K=50 rho=0.4,equal,200,50,2,eig_li_ji,161.0,0.0023,2.6938
+blocks K=50 rho=0.4,equal,200,50,2,eig_mp,32.0,0.003,2.0999
+blocks K=50 rho=0.4,equal,200,50,2,hier_avg_0.5,200.0,0.0013,2.7655
+blocks K=50 rho=0.4,equal,200,50,2,hier_avg_0.3,50.0,0.0011,2.2763
+blocks K=50 rho=0.4,equal,200,50,2,onc,2.0,13.4768,0.5198
+blocks K=50 rho=0.4,equal,200,50,3,avg_corr,90.43,0.0,2.495
+blocks K=50 rho=0.4,equal,200,50,3,eig_participation,119.6,0.0031,2.5929
+blocks K=50 rho=0.4,equal,200,50,3,eig_li_ji,161.0,0.0027,2.6938
+blocks K=50 rho=0.4,equal,200,50,3,eig_mp,30.0,0.0023,2.0734
+blocks K=50 rho=0.4,equal,200,50,3,hier_avg_0.5,200.0,0.0014,2.7655
+blocks K=50 rho=0.4,equal,200,50,3,hier_avg_0.3,50.0,0.0013,2.2763
+blocks K=50 rho=0.4,equal,200,50,3,onc,2.0,13.2414,0.5198
+unequal K=10 rho=0.7,unequal,200,10,1,avg_corr,4.59,0.0,1.14
+unequal K=10 rho=0.7,unequal,200,10,1,eig_participation,6.55,0.0045,1.3498
+unequal K=10 rho=0.7,unequal,200,10,1,eig_li_ji,73.0,0.0026,2.4178
+unequal K=10 rho=0.7,unequal,200,10,1,eig_mp,9.0,0.0024,1.5208
+unequal K=10 rho=0.7,unequal,200,10,1,hier_avg_0.5,10.0,0.0014,1.5746
+unequal K=10 rho=0.7,unequal,200,10,1,hier_avg_0.3,10.0,0.0012,1.5746
+unequal K=10 rho=0.7,unequal,200,10,1,onc,8.0,13.1952,1.459
+unequal K=10 rho=0.7,unequal,200,10,2,avg_corr,4.53,0.0,1.1319
+unequal K=10 rho=0.7,unequal,200,10,2,eig_participation,6.42,0.0027,1.3389
+unequal K=10 rho=0.7,unequal,200,10,2,eig_li_ji,72.0,0.0026,2.4128
+unequal K=10 rho=0.7,unequal,200,10,2,eig_mp,9.0,0.0026,1.5208
+unequal K=10 rho=0.7,unequal,200,10,2,hier_avg_0.5,10.0,0.0013,1.5746
+unequal K=10 rho=0.7,unequal,200,10,2,hier_avg_0.3,10.0,0.0012,1.5746
+unequal K=10 rho=0.7,unequal,200,10,2,onc,8.0,13.4943,1.459
+unequal K=10 rho=0.7,unequal,200,10,3,avg_corr,4.52,0.0,1.1299
+unequal K=10 rho=0.7,unequal,200,10,3,eig_participation,6.44,0.0026,1.3401
+unequal K=10 rho=0.7,unequal,200,10,3,eig_li_ji,72.0,0.0025,2.4128
+unequal K=10 rho=0.7,unequal,200,10,3,eig_mp,9.0,0.0026,1.5208
+unequal K=10 rho=0.7,unequal,200,10,3,hier_avg_0.5,10.0,0.0016,1.5746
+unequal K=10 rho=0.7,unequal,200,10,3,hier_avg_0.3,10.0,0.0013,1.5746
+unequal K=10 rho=0.7,unequal,200,10,3,onc,8.0,13.6965,1.459
+independent N=200,independent,200,200,1,avg_corr,200.0,0.0,2.7655
+independent N=200,independent,200,200,1,eig_participation,166.79,0.0027,2.7056
+independent N=200,independent,200,200,1,eig_li_ji,197.0,0.0026,2.7606
+independent N=200,independent,200,200,1,eig_mp,1.0,0.0025,0.0
+independent N=200,independent,200,200,1,hier_avg_0.5,200.0,0.0016,2.7655
+independent N=200,independent,200,200,1,hier_avg_0.3,200.0,0.0015,2.7655
+independent N=200,independent,200,200,1,onc,2.0,14.7118,0.5198
+independent N=200,independent,200,200,2,avg_corr,200.0,0.0,2.7655
+independent N=200,independent,200,200,2,eig_participation,167.07,0.0035,2.7062
+independent N=200,independent,200,200,2,eig_li_ji,197.0,0.0025,2.7606
+independent N=200,independent,200,200,2,eig_mp,1.0,0.0023,0.0
+independent N=200,independent,200,200,2,hier_avg_0.5,200.0,0.0014,2.7655
+independent N=200,independent,200,200,2,hier_avg_0.3,200.0,0.0011,2.7655
+independent N=200,independent,200,200,2,onc,2.0,15.3682,0.5198
+independent N=200,independent,200,200,3,avg_corr,200.0,0.0,2.7655
+independent N=200,independent,200,200,3,eig_participation,166.66,0.0029,2.7054
+independent N=200,independent,200,200,3,eig_li_ji,198.0,0.0027,2.7622
+independent N=200,independent,200,200,3,eig_mp,1.0,0.0027,0.0
+independent N=200,independent,200,200,3,hier_avg_0.5,200.0,0.0012,2.7655
+independent N=200,independent,200,200,3,hier_avg_0.3,200.0,0.0015,2.7655
+independent N=200,independent,200,200,3,onc,2.0,13.7189,0.5198
+identical N=200,identical,200,1,1,avg_corr,1.0,0.0,0.0
+identical N=200,identical,200,1,1,eig_participation,1.0,0.0028,-3.0341
+identical N=200,identical,200,1,1,eig_li_ji,2.0,0.0022,0.5198
+identical N=200,identical,200,1,1,eig_mp,1.0,0.0022,0.0
+identical N=200,identical,200,1,1,hier_avg_0.5,1.0,0.0013,0.0
+identical N=200,identical,200,1,1,hier_avg_0.3,1.0,0.001,0.0
+identical N=200,identical,200,1,1,onc,1.0,13.1087,0.0
+identical N=200,identical,200,1,2,avg_corr,1.0,0.0,0.0
+identical N=200,identical,200,1,2,eig_participation,1.0,0.003,-3.0319
+identical N=200,identical,200,1,2,eig_li_ji,1.0,0.0025,-2.7699
+identical N=200,identical,200,1,2,eig_mp,1.0,0.0025,0.0
+identical N=200,identical,200,1,2,hier_avg_0.5,1.0,0.0013,0.0
+identical N=200,identical,200,1,2,hier_avg_0.3,1.0,0.0011,0.0
+identical N=200,identical,200,1,2,onc,1.0,9.2071,0.0
+identical N=200,identical,200,1,3,avg_corr,1.0,0.0,0.0
+identical N=200,identical,200,1,3,eig_participation,1.0,0.0028,-3.0319
+identical N=200,identical,200,1,3,eig_li_ji,1.0,0.0025,-2.7699
+identical N=200,identical,200,1,3,eig_mp,1.0,0.0022,0.0
+identical N=200,identical,200,1,3,hier_avg_0.5,1.0,0.0012,0.0
+identical N=200,identical,200,1,3,hier_avg_0.3,1.0,0.001,0.0
+identical N=200,identical,200,1,3,onc,1.0,9.2497,0.0
+grid L=5,grid (no single answer),200,,1,avg_corr,20.31,0.0,1.9076
+grid L=5,grid (no single answer),200,,1,eig_participation,38.42,0.0021,2.1735
+grid L=5,grid (no single answer),200,,1,eig_li_ji,95.0,0.0021,2.5125
+grid L=5,grid (no single answer),200,,1,eig_mp,25.0,0.002,1.9971
+grid L=5,grid (no single answer),200,,1,hier_avg_0.5,40.0,0.0014,2.1895
+grid L=5,grid (no single answer),200,,1,hier_avg_0.3,22.0,0.0012,1.9423
+grid L=5,grid (no single answer),200,,1,onc,2.0,8.7887,0.5198
+grid L=5,grid (no single answer),200,,2,avg_corr,20.45,0.0,1.9105
+grid L=5,grid (no single answer),200,,2,eig_participation,38.81,0.0017,2.1775
+grid L=5,grid (no single answer),200,,2,eig_li_ji,95.0,0.002,2.5125
+grid L=5,grid (no single answer),200,,2,eig_mp,26.0,0.0016,2.0137
+grid L=5,grid (no single answer),200,,2,hier_avg_0.5,38.0,0.0007,2.1691
+grid L=5,grid (no single answer),200,,2,hier_avg_0.3,20.0,0.0006,1.9007
+grid L=5,grid (no single answer),200,,2,onc,2.0,9.3918,0.5198
+grid L=5,grid (no single answer),200,,3,avg_corr,20.76,0.0,1.917
+grid L=5,grid (no single answer),200,,3,eig_participation,38.23,0.0035,2.1715
+grid L=5,grid (no single answer),200,,3,eig_li_ji,91.0,0.0032,2.4972
+grid L=5,grid (no single answer),200,,3,eig_mp,25.0,0.0028,1.9971
+grid L=5,grid (no single answer),200,,3,hier_avg_0.5,35.0,0.0016,2.1362
+grid L=5,grid (no single answer),200,,3,hier_avg_0.3,20.0,0.0011,1.9007
+grid L=5,grid (no single answer),200,,3,onc,3.0,15.4902,0.8528
+grid L=20,grid (no single answer),200,,1,avg_corr,5.56,0.0,1.2555
+grid L=20,grid (no single answer),200,,1,eig_participation,10.43,0.0029,1.5959
+grid L=20,grid (no single answer),200,,1,eig_li_ji,48.0,0.0024,2.2606
+grid L=20,grid (no single answer),200,,1,eig_mp,14.0,0.0022,1.7384
+grid L=20,grid (no single answer),200,,1,hier_avg_0.5,8.0,0.0013,1.459
+grid L=20,grid (no single answer),200,,1,hier_avg_0.3,5.0,0.0012,1.1926
+grid L=20,grid (no single answer),200,,1,onc,2.0,12.9211,0.5198
+grid L=20,grid (no single answer),200,,2,avg_corr,5.51,0.0,1.2505
+grid L=20,grid (no single answer),200,,2,eig_participation,10.38,0.0025,1.5933
+grid L=20,grid (no single answer),200,,2,eig_li_ji,48.0,0.0024,2.2606
+grid L=20,grid (no single answer),200,,2,eig_mp,14.0,0.0028,1.7384
+grid L=20,grid (no single answer),200,,2,hier_avg_0.5,9.0,0.0014,1.5208
+grid L=20,grid (no single answer),200,,2,hier_avg_0.3,5.0,0.0012,1.1926
+grid L=20,grid (no single answer),200,,2,onc,2.0,13.4291,0.5198
+grid L=20,grid (no single answer),200,,3,avg_corr,5.56,0.0,1.2564
+grid L=20,grid (no single answer),200,,3,eig_participation,10.46,0.0026,1.597
+grid L=20,grid (no single answer),200,,3,eig_li_ji,48.0,0.0025,2.2606
+grid L=20,grid (no single answer),200,,3,eig_mp,14.0,0.0026,1.7384
+grid L=20,grid (no single answer),200,,3,hier_avg_0.5,9.0,0.0014,1.5208
+grid L=20,grid (no single answer),200,,3,hier_avg_0.3,6.0,0.0012,1.3001
+grid L=20,grid (no single answer),200,,3,onc,2.0,13.0713,0.5198
+nested 4x5x10,nested (4 / 20 / 200),200,,1,avg_corr,10.17,0.0,1.5831
+nested 4x5x10,nested (4 / 20 / 200),200,,1,eig_participation,19.8,0.003,1.8963
+nested 4x5x10,nested (4 / 20 / 200),200,,1,eig_li_ji,78.0,0.0023,2.4419
+nested 4x5x10,nested (4 / 20 / 200),200,,1,eig_mp,20.0,0.0022,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,1,hier_avg_0.5,20.0,0.0013,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,1,hier_avg_0.3,5.0,0.0012,1.1926
+nested 4x5x10,nested (4 / 20 / 200),200,,1,onc,4.0,13.1883,1.0521
+nested 4x5x10,nested (4 / 20 / 200),200,,2,avg_corr,10.05,0.0,1.5773
+nested 4x5x10,nested (4 / 20 / 200),200,,2,eig_participation,20.09,0.0024,1.9026
+nested 4x5x10,nested (4 / 20 / 200),200,,2,eig_li_ji,78.0,0.0027,2.4419
+nested 4x5x10,nested (4 / 20 / 200),200,,2,eig_mp,20.0,0.0022,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,2,hier_avg_0.5,20.0,0.0013,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,2,hier_avg_0.3,5.0,0.0012,1.1926
+nested 4x5x10,nested (4 / 20 / 200),200,,2,onc,4.0,13.1168,1.0521
+nested 4x5x10,nested (4 / 20 / 200),200,,3,avg_corr,9.67,0.0,1.5573
+nested 4x5x10,nested (4 / 20 / 200),200,,3,eig_participation,19.75,0.0024,1.8952
+nested 4x5x10,nested (4 / 20 / 200),200,,3,eig_li_ji,77.0,0.0023,2.4372
+nested 4x5x10,nested (4 / 20 / 200),200,,3,eig_mp,20.0,0.0025,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,3,hier_avg_0.5,20.0,0.0013,1.9007
+nested 4x5x10,nested (4 / 20 / 200),200,,3,hier_avg_0.3,5.0,0.0012,1.1926
+nested 4x5x10,nested (4 / 20 / 200),200,,3,onc,4.0,15.9739,1.0521
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,avg_corr,75.85,0.0006,2.4318
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,eig_participation,88.83,0.116,2.4887
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,eig_li_ji,346.0,0.2109,2.9401
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,eig_mp,50.0,0.246,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,hier_avg_0.5,50.0,0.0246,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,hier_avg_0.3,50.0,0.0267,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,1,onc,4.0,226.9324,1.0521
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,avg_corr,76.4,0.0014,2.4344
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,eig_participation,88.82,0.1895,2.4886
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,eig_li_ji,346.0,0.1988,2.9401
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,eig_mp,50.0,0.1957,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,hier_avg_0.5,50.0,0.0249,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,2,hier_avg_0.3,50.0,0.0259,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,avg_corr,68.39,0.0013,2.3939
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,eig_participation,88.99,0.1943,2.4893
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,eig_li_ji,348.0,0.2102,2.9419
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,eig_mp,50.0,0.2017,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,hier_avg_0.5,50.0,0.0245,2.2763
+scale K=50 rho=0.7 N=1000,"equal, N=1000",1000,50,3,hier_avg_0.3,50.0,0.0255,2.2763

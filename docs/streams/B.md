@@ -5,7 +5,7 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
-## Resume here (2026-09-30) — the state a fresh session starts from
+## Resume here (2026-09-30, T16 plan) — the state a fresh session starts from
 
 Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The
 protocol is `docs/streams/PROTOCOL.md` (ownership, ID ranges; `uv run sfac streams check` before
@@ -16,9 +16,10 @@ every push). Talk to stream A only through this file and `docs/streams/A.md`, ne
 | branch | state | waiting on |
 |---|---|---|
 | `b/D377-encoding` | **merged** 2026-09-30: PR #58, `main` = `1413069` | nobody |
-| `b/T04j-dukascopy-ingest` | **PR open**, rebased onto `1413069`; review `docs/reviews/T04j_review.md` | **"Approved. Merge"** |
+| `b/T04j-dukascopy-ingest` | **merged** 2026-09-30: PR #61, `main` = `7617337` | nobody |
+| `b/T16-plan` | the T16 plan (D-403): `docs/tasks/T16_plan.md`, `RUNBOOK_T16.md`, P-97 … P-99 | **"Plan approved"** |
 
-The worktree is on `b/T04j-dukascopy-ingest`. **The user's Dukascopy download runs from this
+The worktree is on `b/T16-plan`. **The user's Dukascopy download runs from this
 worktree's venv** (`sfac data download dukascopy`): do not run `uv sync` while it runs (it cannot
 replace `.venv/Scripts/sfac.exe`). #60's `arch` was installed at its locked 8.0.0 with `uv pip`.
 Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that reason only.
@@ -66,15 +67,23 @@ report the duplicate until then.
 
 ### Next steps, in order
 
-1. On "Approved. Merge": rebase onto the latest `main`, CI green, merge, update this file.
-2. **Then T16** (the supervisor: stream B's next task), **only once stream A's #60 is on `main`**
-   — it is (`0c95b82`, 2026-09-30). Start from its task file `docs/tasks/T16_stats_library.md`.
-3. Whenever the download completes more instruments: the resume command, then list them here for
+1. **T16 plan** is written and stopped for **"Plan approved"** (P-97 … P-99). Then
+   `b/T16-stats-library`, stacked on `b/T16-plan`, per `docs/tasks/RUNBOOK_T16.md`.
+2. Whenever the download completes more instruments: the resume command, then list them here for
    stream A (D-394).
+
+### For stream A / the supervisor — from the T16 plan
+
+- **Stream B's pending range is nearly used up:** P-97 … P-99 are the last of `P-80 … P-99`.
+  Stream B asks for a third pending range (for example `P-150 … P-179`); until then T16's
+  questions are folded into three rows.
+- **`scipy` is imported by the library** (the normal and t distributions, hierarchical clustering)
+  but reaches the venv only through `arch`. Declaring it in `pyproject.toml` is stream A's
+  (D-357); the T16 plan asks for it (plan §8).
 
 ### IDs
 
-Next free: **D-722**, **P-97**; supervisor: the next after D-674 goes to stream A's renumbered P-134 answer. D-715 … D-717, D-657, D-661, D-672, D-673
+Next free: **D-722**, **P-97** (the last three: P-97 … P-99); supervisor: the next after D-674 goes to stream A's renumbered P-134 answer. D-715 … D-717, D-657, D-661, D-672, D-673
 (supervisor) and P-87, P-88, P-94, P-95, P-96 (answered), D-674 are on the T04j branch until it
 merges. D-662 … D-671 are stream A's T15a answers (on `main`).
 

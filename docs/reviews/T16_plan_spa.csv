@@ -1,0 +1,7 @@
+n_models,case,rejection_pct,sims,seconds_per_call
+10,null,5.0,200,0.277
+10,planted,69.0,200,0.22
+100,null,10.0,50,0.505
+100,planted,60.0,50,0.471
+1000,null,0.0,10,7.43
+1000,planted,30.0,10,6.347
