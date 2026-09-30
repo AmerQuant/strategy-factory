@@ -1,0 +1,55 @@
+scenario,truth,n_trials,seed,method,n_eff,seconds,sr0,note
+blocks K=1 rho=0.95,1,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.95,1,200,2,onc,3,,0.8528,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.95,1,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.7,1,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.7,1,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.7,1,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.4,1,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.4,1,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=1 rho=0.4,1,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.95,5,200,1,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.95,5,200,2,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.95,5,200,3,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.7,5,200,1,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.7,5,200,2,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.7,5,200,3,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.4,5,200,1,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.4,5,200,2,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=5 rho=0.4,5,200,3,onc,5,,1.1926,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.95,20,200,1,onc,20,,1.9007,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.95,20,200,2,onc,20,,1.9007,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.95,20,200,3,onc,20,,1.9007,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.7,20,200,1,onc,20,,1.9007,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.7,20,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.7,20,200,3,onc,15,,1.7707,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.4,20,200,1,onc,12,,1.6648,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.4,20,200,2,onc,12,,1.6648,interrupted run of 2026-09-30: no timing
+blocks K=20 rho=0.4,20,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.95,50,200,1,onc,50,,2.2763,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.95,50,200,2,onc,50,,2.2763,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.95,50,200,3,onc,44,,2.2269,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.7,50,200,1,onc,24,,1.9798,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.7,50,200,2,onc,35,,2.1362,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.7,50,200,3,onc,18,,1.8539,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.4,50,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.4,50,200,2,onc,22,,1.9423,interrupted run of 2026-09-30: no timing
+blocks K=50 rho=0.4,50,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+unequal K=10 rho=0.7,10,200,1,onc,10,,1.5746,interrupted run of 2026-09-30: no timing
+unequal K=10 rho=0.7,10,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+unequal K=10 rho=0.7,10,200,3,onc,10,,1.5746,interrupted run of 2026-09-30: no timing
+independent N=200,200,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+independent N=200,200,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+independent N=200,200,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+identical N=200,1,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+identical N=200,1,200,2,onc,1,,0.0,interrupted run of 2026-09-30: no timing
+identical N=200,1,200,3,onc,1,,0.0,interrupted run of 2026-09-30: no timing
+grid L=5,,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+grid L=5,,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+grid L=5,,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+grid L=20,,200,1,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+grid L=20,,200,2,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+grid L=20,,200,3,onc,2,,0.5198,interrupted run of 2026-09-30: no timing
+nested 4x5x10,,200,1,onc,12,,1.6648,interrupted run of 2026-09-30: no timing
+nested 4x5x10,,200,2,onc,4,,1.0521,interrupted run of 2026-09-30: no timing
+nested 4x5x10,,200,3,onc,12,,1.6648,interrupted run of 2026-09-30: no timing

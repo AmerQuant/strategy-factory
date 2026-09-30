@@ -5,7 +5,7 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
-## Resume here (2026-09-30, T16 plan) — the state a fresh session starts from
+## Resume here (2026-09-30, T16 executing) — the state a fresh session starts from
 
 Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The
 protocol is `docs/streams/PROTOCOL.md` (ownership, ID ranges; `uv run sfac streams check` before
@@ -17,9 +17,24 @@ every push). Talk to stream A only through this file and `docs/streams/A.md`, ne
 |---|---|---|
 | `b/D377-encoding` | **merged** 2026-09-30: PR #58, `main` = `1413069` | nobody |
 | `b/T04j-dukascopy-ingest` | **merged** 2026-09-30: PR #61, `main` = `7617337` | nobody |
-| `b/T16-plan` | the T16 plan (D-403): `docs/tasks/T16_plan.md`, `RUNBOOK_T16.md`, P-97 … P-99 | **"Plan approved"** |
+| `b/T16-plan` | plan approved 2026-09-30; D-722 … D-724 (P-97 … P-99 answered) | — |
+| `b/T16-stats-library` | stacked on `b/T16-plan`; F-7.1 … F-7.7 built except the Student-t trade test and hierarchical clustering (they wait for `scipy`) | **the user's overnight run**, then the supervisor's F-7.3 and SPA-block choices |
 
-The worktree is on `b/T16-plan`. **The user's Dukascopy download runs from this
+The worktree is on `b/T16-stats-library`.
+
+### T16 — where it stands (stop point: the two measurement tables)
+
+- **Waiting on the user:** `powershell -ExecutionPolicy Bypass -File scripts\pilots\T16_overnight.ps1`
+  (unattended; resumable; logs `artifacts\T16\onc_vs_hier.log`, `spa_block.log`, "done" at the
+  end). It finishes the ONC-vs-hierarchical comparison (D-722; 54 of 63 ONC cases already in
+  `docs/reviews/T16_onc_vs_hier.csv`, imported from the interrupted run without timings) and runs
+  the SPA block-length measurement (D-723 (4), amended in place: the block length is pending it).
+- **Then stop** with both tables together for the supervisor: F-7.3's default (ONC or a
+  hierarchical cut) and the SPA block rule (`pw_max`, `pw_median`, `pw_best`, `cube_root`).
+- **Waiting on stream A:** `scipy` in `pyproject.toml` (then the Student-t trade test and
+  hierarchical clustering go into the library) and the pending range `P-150 … P-199` (stream B's
+  `P-80 … P-99` is used up; new questions go in the stop report until then).
+- The machine is the user's for light work until the overnight run; nothing heavy from here. **The user's Dukascopy download runs from this
 worktree's venv** (`sfac data download dukascopy`): do not run `uv sync` while it runs (it cannot
 replace `.venv/Scripts/sfac.exe`). #60's `arch` was installed at its locked 8.0.0 with `uv pip`.
 Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that reason only.

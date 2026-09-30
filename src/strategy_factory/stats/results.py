@@ -105,6 +105,7 @@ class SPAResult(_Result):
     p_upper: float
     n_models: int
     n_obs: int
+    block_rule: str  # the rule that chose the block (D-723: pending the measurement)
     block_size: int
     reps: int
     seed: int

@@ -1,8 +1,14 @@
 """T16, D-722: the faithful ONC against hierarchical clustering with a correlation cut, on the same
 synthetic trial matrices as the plan (docs/tasks/T16_plan.md §2), plus a 2-D parameter grid.
-Measurement only; the supervisor chooses F-7.3's default from it::
+Measurement only; the supervisor chooses F-7.3's default from it. **Resumable**::
 
-    uv run python scripts/analysis/T16_onc_vs_hier.py      # -> docs/reviews/T16_onc_vs_hier.csv
+    uv run python scripts/analysis/T16_onc_vs_hier.py
+        [--seed-from-log <the interrupted run's log>]   # once: import its finished ONC results
+
+Every finished case is appended to ``docs/reviews/T16_onc_vs_hier.csv`` at once, with a progress
+line on stdout, so a stop loses at most the case in flight; a re-run skips what the CSV holds and
+computes only what is missing (ONC and hierarchical separately). At the end the summary is written
+to ``docs/reviews/T16_onc_vs_hier_summary.csv``.
 
 * **ONC** is the library's ``stats.neff.onc`` (faithful to Lopez de Prado's published code:
   k = 2 .. n - 1, 10 restarts, the recursive re-clustering), seed 0.
@@ -12,12 +18,14 @@ Measurement only; the supervisor chooses F-7.3's default from it::
 
 Per scenario and seed: N_eff, seconds, and SR_0 (the DSR's expected maximum Sharpe of N_eff null
 trials, in units of the trials' Sharpe standard deviation) -- what the choice does to the DSR bar.
-The 1,000-trial scenario runs ONC capped at k <= 100 (the uncapped sweep would take hours); the
-cap is stated in its row.
+The 1,000-trial scenario runs ONC capped at k <= 100 (the uncapped sweep would take hours).
+Cases run one at a time by default (``T16_WORKERS`` to change it), so the timings are clean.
 """
 
 from __future__ import annotations
 
+import argparse
+import csv
 import os
 import sys
 import time
@@ -36,9 +44,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import T16_plan_neff as plan
 
 OUT = Path("docs") / "reviews" / "T16_onc_vs_hier.csv"
+SUMMARY = Path("docs") / "reviews" / "T16_onc_vs_hier_summary.csv"
 CUTS = (0.2, 0.3, 0.4, 0.5)
 SEEDS = (1, 2, 3)
-WORKERS = 6
+COLUMNS = ("scenario", "truth", "n_trials", "seed", "method", "n_eff", "seconds", "sr0", "note")
 
 
 def grid2d(side: int, length: float, t: int, rng: np.random.Generator) -> np.ndarray:
@@ -49,12 +58,13 @@ def grid2d(side: int, length: float, t: int, rng: np.random.Generator) -> np.nda
     return chol @ rng.standard_normal((side * side, t))
 
 
-def scenarios() -> list[tuple[str, int | None, int | None]]:
-    """(name, truth, ONC cap); the matrices are rebuilt in each worker from ``plan`` + seeds."""
-    out: list[tuple[str, int | None, int | None]] = [
-        (name, truth, 100 if "N=1000" in name else None) for name, _, truth, _ in plan.scenarios()
+def scenarios() -> list[tuple[str, int | None, int | None, int]]:
+    """(name, truth, ONC cap, trials); the matrices are rebuilt from ``plan`` and the seeds."""
+    out = [
+        (name, truth, 100 if "N=1000" in name else None, 1000 if "N=1000" in name else 200)
+        for name, _, truth, _ in plan.scenarios()
     ]
-    out += [("grid2d 15x15 L=2", None, None), ("grid2d 15x15 L=5", None, None)]
+    out += [("grid2d 15x15 L=2", None, None, 225), ("grid2d 15x15 L=5", None, None, 225)]
     return out
 
 
@@ -66,51 +76,117 @@ def matrix(name: str, seed: int) -> np.ndarray:
     return make(rng)
 
 
-def job(args: tuple[str, int | None, int | None, int]) -> list[dict[str, object]]:
-    name, truth, cap, seed = args
+def job(args: tuple[str, int | None, int | None, int, bool, bool]) -> list[dict[str, object]]:
+    name, truth, cap, seed, need_hier, need_onc = args
     x = matrix(name, seed)
-    c = correlation(x)
+    n = x.shape[0]
     rows: list[dict[str, object]] = []
-    t0 = time.perf_counter()
-    z = linkage(squareform(distance(c), checks=False), method="average")
-    link_s = time.perf_counter() - t0
-    for cut in CUTS:
-        t1 = time.perf_counter()
-        k = int(fcluster(z, t=np.sqrt((1 - cut) / 2), criterion="distance").max())
+    if need_hier:
+        t0 = time.perf_counter()
+        z = linkage(squareform(distance(correlation(x)), checks=False), method="average")
+        link_s = time.perf_counter() - t0
+        for cut in CUTS:
+            t1 = time.perf_counter()
+            k = int(fcluster(z, t=np.sqrt((1 - cut) / 2), criterion="distance").max())
+            rows.append(
+                {"scenario": name, "truth": truth, "n_trials": n, "seed": seed,
+                 "method": f"hier_{cut}", "n_eff": k,
+                 "seconds": round(link_s + time.perf_counter() - t1, 3),
+                 "sr0": round(plan.sr0(k), 4), "note": ""}
+            )  # fmt: skip
+    if need_onc:
+        t0 = time.perf_counter()
+        r = onc(x, seed=0, max_clusters=cap)
         rows.append(
-            {"scenario": name, "truth": truth, "n_trials": len(c), "seed": seed,
-             "method": f"hier_{cut}", "n_eff": k,
-             "seconds": round(link_s + time.perf_counter() - t1, 3), "sr0": round(plan.sr0(k), 4),
-             "note": ""}
+            {"scenario": name, "truth": truth, "n_trials": n, "seed": seed, "method": "onc",
+             "n_eff": r.n_effective, "seconds": round(time.perf_counter() - t0, 1),
+             "sr0": round(plan.sr0(r.n_effective), 4),
+             "note": f"ONC capped at k <= {cap}" if cap else ""}
         )  # fmt: skip
-    t0 = time.perf_counter()
-    r = onc(x, seed=0, max_clusters=cap)
-    rows.append(
-        {"scenario": name, "truth": truth, "n_trials": len(c), "seed": seed, "method": "onc",
-         "n_eff": r.n_effective, "seconds": round(time.perf_counter() - t0, 1),
-         "sr0": round(plan.sr0(r.n_effective), 4),
-         "note": f"ONC capped at k <= {cap}" if cap else ""}
-    )  # fmt: skip
     return rows
+
+
+def _done() -> tuple[set[tuple[str, int]], set[tuple[str, int]]]:
+    onc_done: set[tuple[str, int]] = set()
+    hier_done: set[tuple[str, int]] = set()
+    if OUT.is_file():
+        with OUT.open(encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                key = (row["scenario"], int(row["seed"]))
+                (onc_done if row["method"] == "onc" else hier_done).add(key)
+    return onc_done, hier_done
+
+
+def seed_from_log(log: Path) -> int:
+    """Import the ONC results of an interrupted run's log (lines ``<scenario> <seed> onc <n>``);
+    they carry no timing and say so."""
+    meta = {name: (truth, trials) for name, truth, _, trials in scenarios()}
+    onc_done, _ = _done()
+    rows = []
+    for line in log.read_text(encoding="utf-8").splitlines():
+        parts = line.rsplit(" ", 3)
+        if len(parts) != 4 or parts[2] != "onc" or parts[0] not in meta:
+            continue
+        name, seed, n_eff = parts[0], int(parts[1]), int(parts[3])
+        if (name, seed) in onc_done:
+            continue
+        truth, trials = meta[name]
+        rows.append(
+            {"scenario": name, "truth": truth, "n_trials": trials, "seed": seed, "method": "onc",
+             "n_eff": n_eff, "seconds": "", "sr0": round(plan.sr0(n_eff), 4),
+             "note": "interrupted run of 2026-09-30: no timing"}
+        )  # fmt: skip
+    _append(rows)
+    return len(rows)
+
+
+def _append(rows: list[dict[str, object]]) -> None:
+    new = not OUT.is_file()
+    with OUT.open("a", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=COLUMNS)
+        if new:
+            w.writeheader()
+        w.writerows(rows)
 
 
 def main() -> int:
     utf8_output()
-    jobs = [(n, tr, cap, s) for n, tr, cap in scenarios() for s in SEEDS]
-    rows: list[dict[str, object]] = []
-    workers = int(os.environ.get("T16_WORKERS", WORKERS))
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--seed-from-log", type=Path, help="An interrupted run's log to import.")
+    args = parser.parse_args()
+    if args.seed_from_log:
+        print(f"imported {seed_from_log(args.seed_from_log)} ONC result(s)", flush=True)
+    onc_done, hier_done = _done()
+    jobs = [
+        (n, tr, cap, s, (n, s) not in hier_done, (n, s) not in onc_done)
+        for n, tr, cap, _ in scenarios()
+        for s in SEEDS
+        if (n, s) not in hier_done or (n, s) not in onc_done
+    ]
+    print(f"{time.strftime('%H:%M:%S')} {len(jobs)} case(s) to run", flush=True)
+    workers = int(os.environ.get("T16_WORKERS", "1"))
     with ProcessPoolExecutor(max_workers=workers) as pool:
-        for out in pool.map(job, jobs):
-            rows.extend(out)
-            print(out[-1]["scenario"], out[-1]["seed"], "onc", out[-1]["n_eff"], flush=True)
-    df = pl.DataFrame(rows)
-    df.write_csv(OUT)
+        for spec, out in zip(jobs, pool.map(job, jobs), strict=True):
+            _append(out)
+            got = {r["method"]: r["n_eff"] for r in out}
+            secs = next((r["seconds"] for r in out if r["method"] == "onc"), "-")
+            print(
+                f"{time.strftime('%H:%M:%S')} {spec[0]} seed {spec[3]}: {got} onc {secs}s",
+                flush=True,
+            )
+    df = pl.read_csv(OUT)
     summary = df.group_by("scenario", "truth", "method", maintain_order=True).agg(
-        pl.col("n_eff").mean().round(1)
+        pl.col("n_eff").mean().round(1).alias("n_eff_mean"),
+        pl.col("n_eff").min().alias("n_eff_min"),
+        pl.col("n_eff").max().alias("n_eff_max"),
+        pl.col("sr0").mean().round(3).alias("sr0_mean"),
+        pl.col("seconds").mean().round(2).alias("seconds_mean"),
     )
+    summary.write_csv(SUMMARY)
     pl.Config.set_tbl_rows(200)
     pl.Config.set_tbl_formatting("ASCII_MARKDOWN")
-    print(summary.pivot(on="method", index=["scenario", "truth"], values="n_eff"))
+    print(summary.pivot(on="method", index=["scenario", "truth"], values="n_eff_mean"))
+    print("done", flush=True)
     return 0
 
 
