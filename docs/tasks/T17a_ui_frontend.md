@@ -2,8 +2,9 @@
 
 **Stream B, second worktree `StrategyFactory_UI` (the UI session).** Plan first (D-403): draft, stop
 for "Plan approved", then implement; stop for the review before merge.
-Read with: `docs/tasks/T17_admin_ui.md` (the decisions, §2) and `docs/tasks/UI_spec.md` (the screens,
-their content, the visual system). **`UI_spec.md` is the authority for layout and look.** The design
+Read with: `docs/tasks/T17_admin_ui.md` (the decisions, §2), `docs/tasks/UI_spec.md` (the screens,
+their content) and `docs/tasks/UI_tokens.md` (the colours, type and spacing of both themes, extracted
+from the canvas). **`UI_spec.md` and `UI_tokens.md` are the authority for layout and look.** The design
 canvas lives on claude.ai and cannot be opened from Claude Code; where `UI_spec.md` is silent, raise it,
 do not invent.
 
@@ -52,22 +53,27 @@ One JSON object per event. Every event has:
 
 | `type` | extra fields |
 |---|---|
-| `funnel_started` | `source` (`real` \| `null` \| `planted`), `seed` (int or null), `profile` (null until T17c), `control` (bool), `plan`: ordered list of `{stage_id, timeframe, arm}` |
-| `stage_started` | `stage_id`, `timeframe` (`1D` \| `1H`), `arm` (`real` \| `control`), `stage_run_id`, `units_total`, `unit_kind` (`profile` \| `method` \| `candidate` \| …) |
+| `funnel_started` | `name` (the user's, or generated), `config_id`, `config_hash`, `profile_hash` (null until T17c), `code_version` `{git_sha, dirty}`, `source` (`real` \| `null` \| `planted`), `seed` (int or null), `control` (bool), `plan`: ordered list of `{stage_id, timeframe, arm}` |
+| `funnel_resumed` | `code_version`; `seq` continues, the `funnel_run_id` is the same |
+| `stage_started` | `stage_id`, `timeframe` (`1D` \| `1H`), `arm` (`real` \| `control`), `stage_run_id`, `units_total`, `unit_kind` (`profile` \| `method` \| `candidate` \| …), `reused` (bool — true when a resume takes the stage's completed result instead of running it; then `stage_finished` follows at once) |
 | `progress` | `stage_run_id`, `units_done`, `units_total`, `elapsed_s`, `eta_s` (null until estimable) |
 | `stage_finished` | `stage_run_id`, `elapsed_s`, `n_in`, `n_passed` |
 | `stage_failed` | `stage_run_id`, `elapsed_s`, `error_kind`, `message` |
 | `funnel_finished` | `elapsed_s` |
 | `funnel_failed` | `elapsed_s`, `error_kind`, `message` |
+| `funnel_stopped` | `elapsed_s`, `stage_run_id` of the interrupted stage (its partial output is discarded, never reused) |
 
-Rules: `progress` events are throttled by the producer (at most one per second per stage run); a stage
-reuses its `stage_run_id` when a resumed funnel skips it (the UI shows it as reused); unknown fields
-are ignored by the UI and unknown `type`s are shown, not dropped (forward compatibility).
+Rules: `progress` events are throttled by the producer (at most one per second per stage run); a
+resume keeps the `funnel_run_id`, continues `seq`, and marks each completed stage with `reused: true`;
+unknown fields are ignored by the UI and unknown `type`s are shown, not dropped (forward compatibility).
+A stopped or failed run can be resumed.
 
 ### 3.2 Live delivery
 
-Server-Sent Events. The SSE `id` is `seq`; a reconnect with `Last-Event-ID` resumes after it, and
-a client with no id receives the whole history of the run first. The UI must handle a reconnect in
+Server-Sent Events. The SSE `id` is `seq`; a reconnect with the `Last-Event-ID` header **or the query
+parameter `?last_event_id=`** (for a page reload, where the browser's `EventSource` cannot send the
+header) resumes after it, and a client with neither receives the whole history of the run first. The
+UI also drops any `seq` it has already applied. The UI must handle a reconnect in
 the middle of a stage without duplicating or losing progress.
 
 ### 3.3 Endpoints (the mock implements them; T17a-BE implements the same)
@@ -77,7 +83,23 @@ the middle of a stage without duplicating or losing progress.
 - `GET  /api/funnel-runs/{id}/events` — SSE, §3.2
 - `POST /api/funnel-runs` — start: `{config, source, seed, control}` → `{funnel_run_id}`
 - `POST /api/funnel-runs/{id}/resume` → `{funnel_run_id}`
-- `GET  /api/configs` — the funnel configs a run can start from
+- `POST /api/funnel-runs/{id}/stop` → `{funnel_run_id}`; the run ends with `funnel_stopped`
+- `GET  /api/configs` — the funnel configs a run can start from; each item
+  `{id, name, config_hash, stages, timeframes, universe: {name, n_symbols}, planted_ladder}`
+  (`planted_ladder` null when the config has none). In phase 1 the wizard shows the scope read-only
+  from the chosen config.
+- `GET  /api/status` — server status and the open-item banners: `{server: {host, version},
+  banners: [{id, level, title, text}]}` (today: calibration pending, D-802 parity gap)
+
+**Shapes.** A run summary is the `funnel_started` fields plus `status` (`queued`, `running`,
+`finished`, `failed`, `stopped`), `started_at`, `finished_at`, `elapsed_s`, and per stage run
+`{stage_id, timeframe, arm, stage_run_id, status, reused, elapsed_s, n_in, n_passed}`. A list item is
+the summary without the per-stage list, plus per-stage-id counts real against control. A refused
+request answers 409 or 422 with `{error_kind, message}`.
+
+**Deferred, shown disabled with the phase that brings it:** the Downloads page (T17a-BE, with its own
+endpoint), time estimates for queued stages, open report, reproduce and compare (phase 2), profiles
+(T17c).
 
 If building the screens shows the contract lacks something, **raise it in the plan**; do not extend it
 unilaterally — stream A builds to this text.
