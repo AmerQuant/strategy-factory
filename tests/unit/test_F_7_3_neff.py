@@ -1,0 +1,61 @@
+"""F-7.3: the effective number of trials by ONC (T16, D-722). The default between ONC and
+hierarchical clustering is the supervisor's (D-722); these tests hold for ONC as implemented."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from strategy_factory.stats.neff import _silhouette, correlation, onc
+
+
+def _blocks(sizes: list[int], rho: float, t: int, seed: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    f = rng.standard_normal((len(sizes), t))
+    g = np.repeat(np.arange(len(sizes)), sizes)
+    return np.sqrt(rho) * f[g] + np.sqrt(1 - rho) * rng.standard_normal((sum(sizes), t))
+
+
+def test_F_7_3_finds_planted_groups() -> None:
+    r = onc(_blocks([10, 10, 10, 10], 0.9, 500, seed=1), seed=0)
+    assert (r.n_raw, r.n_effective) == (40, 4)
+    labels = np.array(r.labels)
+    assert all(len(set(labels[i : i + 10])) == 1 for i in range(0, 40, 10))  # each group whole
+
+
+def test_F_7_3_identical_trials_are_one_cluster() -> None:
+    x = np.tile(np.random.default_rng(2).standard_normal(300), (25, 1))
+    assert onc(x, seed=0).n_effective == 1
+
+
+def test_F_7_3_is_deterministic_with_a_seed() -> None:
+    x = _blocks([8, 8, 8], 0.6, 300, seed=3)
+    assert onc(x, seed=5) == onc(x, seed=5)
+
+
+@settings(max_examples=15, deadline=None)
+@given(st.integers(3, 25), st.floats(0.0, 0.95), st.integers(0, 10_000))
+def test_F_7_3_n_effective_never_exceeds_n_raw(n: int, rho: float, seed: int) -> None:
+    x = _blocks([n], rho, 120, seed) + np.random.default_rng(seed).standard_normal((n, 120))
+    r = onc(x, seed=seed, n_init=2)
+    assert 1 <= r.n_effective <= r.n_raw == n
+
+
+def test_F_7_3_silhouette_by_hand() -> None:
+    """Points 0, 1 at distance 1; point 2 at distance 4 from both: labels {0, 1} and {2}."""
+    pair = np.array([[0.0, 1.0, 4.0], [1.0, 0.0, 4.0], [4.0, 4.0, 0.0]])
+    s = _silhouette(pair, np.array([0, 0, 1]))
+    assert s[0] == pytest.approx((4 - 1) / 4) and s[1] == pytest.approx(0.75)
+    assert s[2] == 0.0  # a singleton
+
+
+def test_F_7_3_input_checks_and_a_constant_trial() -> None:
+    with pytest.raises(ValueError):
+        onc(np.full((5, 50), np.nan), seed=0)
+    x = _blocks([6, 6], 0.9, 200, seed=4)
+    x[0] = 1.0  # constant: correlates 0 with everything, no NaN
+    c = correlation(x)
+    assert np.isfinite(c).all() and c[0, 1] == 0.0
+    assert onc(x, seed=0).n_raw == 12
