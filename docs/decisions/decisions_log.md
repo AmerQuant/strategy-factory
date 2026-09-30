@@ -289,6 +289,23 @@ Settled by the supervisor for T16 (`docs/tasks/T16_stats_library.md` §2), super
 | D-659 | **(supervisor)** (T16, 2026-09-29) **`arch` is a production dependency**, chosen by the user, for Hansen's SPA and the time-series bootstraps (stationary and block). The rest — the effective number of trials, the Deflated Sharpe Ratio, PBO by CSCV, the Minimum Track Record Length, the t-test with HAC, the permutation test — is implemented in the library and tested against published reference values or independent implementations. Adding `arch` must not move the numba/numpy pins (D-330); if it would, that is raised, not absorbed. *Added as `arch>=8.0.0` (8.0.0): numpy 2.5.3, numba 0.67.0 and llvmlite 0.49.0 unchanged; new in the lock: scipy 1.18.1, statsmodels 0.15.0, patsy, formulaic, interface-meta, narwhals, wrapt.* | accepted |
 | D-660 | **(supervisor)** (T16, 2026-09-29) **The library is pure**: numpy arrays (and plain Python values) in, frozen result objects out; no I/O, no registry, no config loading, no global state; randomness only through an explicit seed argument. Every threshold of the stage-7 gate stays in `configs/gates/` and is applied by the later stage, never inside the library. | accepted |
 
+## I-S6. Supervisor: admin UI and dashboard (T17)
+Settled with the user for T17 (`docs/tasks/T17_admin_ui.md` §2), supervisor range; recorded by stream B's UI session (T17a-FE). D-675 is left free: stream A renumbers its duplicate D-673 (P-134's answer) to the next free supervisor id after D-674 (`docs/streams/B.md`).
+
+| ID | Decision | Status |
+|---|---|---|
+| D-676 | **(supervisor)** (T17 §2.1, 2026-09-30) **Stack of the admin UI: a FastAPI backend (Python) and a React + TypeScript frontend.** The CLI (`sfac funnel run`, T15a) stays the engine; the UI drives it and reads what it records. | accepted |
+| D-677 | **(supervisor)** (T17 §2.2, 2026-09-30) **UI components: Mantine.** | accepted |
+| D-678 | **(supervisor)** (T17 §2.3, 2026-09-30) **Charts: ECharts for the dashboard and metrics; Plotly.js for the scientific plots** (parameter surfaces, heatmaps, distributions), matching the T15a report (D-655). `docs/tasks/UI_spec.md` names the library of every chart (E / P). | accepted |
+| D-679 | **(supervisor)** (T17 §2.4, 2026-09-30) **Live progress reaches the UI as Server-Sent Events from the backend.** | accepted |
+| D-680 | **(supervisor)** (T17 §2.5, 2026-09-30) **Single user, local, no login or accounts. The server binds to `127.0.0.1` only** and must not be reachable from the network; a test proves non-local connections are refused. | accepted |
+| D-681 | **(supervisor)** (T17 §2.6, 2026-09-30) **The UI edits parameters and settings only** — enabling or disabling strategies, their grids, gate thresholds, universes, costs and executor settings. New strategy logic stays code: the user supplies the rule (as with his Pine suite) and it becomes a tested component. Composing strategies from existing parts is a possible later phase, not now. | accepted |
+| D-682 | **(supervisor)** (T17 §2.7, 2026-09-30) **Edits live in versioned, named config profiles, never in the repository's config files.** A run is started with a profile; the profile's content hash enters the run's config hash, so every run stays reproducible (CLAUDE.md rule 8). The repository's configs remain the defaults a profile starts from. | accepted |
+| D-683 | **(supervisor)** (T17 §2.8, 2026-09-30) **Stream B builds the UI, after T16**, so the calibration work (T15b) is not delayed. The frontend of phase 1 is built first by stream B's UI session in its own worktree (`StrategyFactory_UI`, `b/ui-…` branches, decision ids D-780 … D-799), against a mock of the supervisor's API contract (`docs/tasks/T17a_ui_frontend.md` §3). | accepted |
+| D-684 | **(supervisor)** (T17 §2.9, 2026-09-30) **Three phases, each its own task and PR, each usable on its own:** 1 run and monitor (T17a; frontend T17a-FE, then backend T17a-BE), 2 results dashboard (T17b), 3 administration and config profiles (T17c). Phases 2 and 3 are designed with the user before their task files. | accepted |
+| D-685 | **(supervisor)** (T17 §2.10, 2026-09-30) **Costs, data derivation and parity are read-only domains:** shown in full, never editable in a profile; changing them is a data task (`docs/tasks/UI_spec.md` §8), because they decide how the stored data is built. | accepted |
+| D-686 | **(supervisor)** (T17 §2.11, 2026-09-30) **Themes: dark and light, switchable, both as drawn on the approved design canvas.** `docs/tasks/UI_spec.md` is the authority for content; the canvas for look; a disagreement is raised, not chosen. | accepted |
+
 ## F. Tooling (ADR-001 … ADR-011) and workflow
 | ID | Decision | Status |
 |---|---|---|
