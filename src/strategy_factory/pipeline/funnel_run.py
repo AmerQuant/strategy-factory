@@ -21,7 +21,7 @@ from strategy_factory.core.config import (
     expand_broker_scope,
     resolve_config,
 )
-from strategy_factory.core.errors import ConfigError
+from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.data.catalog import Catalog
 from strategy_factory.data.config import load_split_config
 from strategy_factory.data.split import RegistryLedger, SplitManager
@@ -116,7 +116,7 @@ def build_source(cfg: FunnelConfig, runner: DefaultRunner) -> SourceRef | None:
     spec = cfg.source
     if spec.kind == "real":
         return None
-    seed = spec.seed or cfg.seed
+    seed = cfg.seed if spec.seed is None else spec.seed
     if spec.kind == "null":
         null = load_null_config(spec.generator or DEFAULT_NULL_CONFIG)
         return SourceRef(kind="null", seed=seed, generator=null.model_dump(mode="json"))
@@ -144,7 +144,7 @@ def write_truth(
         for sym in runner.scope(cfg, tf):
             try:
                 truth, ts = data.truth(sym, tf)
-            except Exception as exc:
+            except (DataError, ConfigError) as exc:  # e.g. too short for a split (D-008)
                 per[sym] = {"error": str(exc)}
                 continue
             per[sym] = truth.as_json(ts)
@@ -215,12 +215,15 @@ def reproduce(funnel_id: str, workers: int | None = None) -> Any:
         executor = make_executor(ex_cfg)
     runner = DefaultRunner(executor)
 
-    def run_config_hash(run_id: str) -> str:
+    def run_config(run_id: str) -> dict[str, Any]:
         with engine.connect() as conn:
             value = conn.execute(
-                select(pipeline_runs.c.config_hash).where(pipeline_runs.c.id == uuid.UUID(run_id))
+                select(pipeline_runs.c.config).where(pipeline_runs.c.id == uuid.UUID(run_id))
             ).scalar_one()
-        return str(value)
+        return dict(value)
+
+    def truth(result: FunnelResult) -> Path | None:
+        return write_truth(result, cfg, runner, funnel_folder(runner.root, result.funnel_id))
 
     report, new = reproduce_funnel(
         funnel_id,
@@ -228,7 +231,8 @@ def reproduce(funnel_id: str, workers: int | None = None) -> Any:
         runner=runner,
         hashes=funnel_hashes(cfg),
         artifacts=runner.root,
-        run_config_hash=run_config_hash,
+        run_config=run_config,
+        truth=truth,
     )
     write_funnel_summary(new, funnel_folder(runner.root, new.funnel_id))
     return report

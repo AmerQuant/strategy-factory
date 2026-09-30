@@ -46,7 +46,7 @@ class MemoryRegistry:
         return fid
 
     def resumable(self, funnel_key: str) -> uuid.UUID | None:
-        open_ = ("running", "failed")
+        open_ = ("failed",)
         hits = [
             f
             for f, r in self.funnels.items()
@@ -343,7 +343,7 @@ def _reproduce(
         runner=runner,
         hashes=hashes,
         artifacts=runner.root,
-        run_config_hash=lambda rid: config_hash(runner.configs[rid].canonical()),
+        run_config=lambda rid: runner.configs[rid].canonical(),
     )
 
 
@@ -381,3 +381,63 @@ def test_F_0_7_4_funnel_reproduce_refuses_other_or_dirty_code(tmp_path: Path) ->
     run = funnel(CFG, reg, runner, hashes=dirty).run()
     with pytest.raises(ConfigError, match="not reproducible"):
         _reproduce(reg, runner, run.funnel_id, dirty)
+
+
+# -- F-X.2: every MVP operation of stages 1-3 from the CLI -----------------------------------------
+def test_F_X_2_the_command_tree_covers_the_mvp_operations() -> None:
+    import typer.main
+    from typer.testing import CliRunner
+
+    from strategy_factory.cli import app
+
+    root = typer.main.get_command(app)
+    commands = root.commands  # type: ignore[attr-defined]
+    assert {"run", "reproduce", "funnel"} <= set(commands)  # one stage; a trial; the funnel
+    assert set(commands["funnel"].commands) == {"run", "status", "reproduce", "report"}
+    runner = CliRunner()
+    for args in (["funnel", "--help"], ["funnel", "run", "--help"], ["funnel", "report", "--help"]):
+        res = runner.invoke(app, args)
+        assert res.exit_code == 0, (args, res.output)
+    assert "--no-control" in runner.invoke(app, ["funnel", "run", "--help"]).output
+
+
+# -- D-654: the synthetic series never reach the store --------------------------------------------
+def test_F_X_5_d654_the_synthetic_modules_cannot_write_the_store() -> None:
+    """Static: nothing under `synthetic/` imports the store, the catalog's writers or the split
+    manager, or opens a file for writing; the series live in memory (the truth is written by the
+    orchestrator under the artifacts root)."""
+    import ast
+
+    for path in sorted((REPO / "src" / "strategy_factory" / "synthetic").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                banned = ("store", "catalog", "ingest")
+                assert not any(mod == f"strategy_factory.data.{b}" for b in banned), mod
+                names = {a.name for a in node.names}
+                assert not names & {"SnapshotStore", "Catalog", "write_snapshot"}, (
+                    path.name,
+                    names,
+                )
+            if isinstance(node, ast.Call) and getattr(node.func, "attr", "") in (
+                "write_text",
+                "write_bytes",
+                "write_parquet",
+                "write_csv",
+                "mkdir",
+            ):
+                raise AssertionError(f"{path.name} writes a file")
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "open":
+                raise AssertionError(f"{path.name} opens a file")
+
+
+def test_F_0_7_4_funnel_reproduce_names_a_moved_input(tmp_path: Path) -> None:
+    """A recorded stage config that differs from the reproduction's (a reference snapshot moved,
+    a cost input changed) is reported as that config key, not silently re-resolved."""
+    reg, runner = MemoryRegistry(), ArtifactRunner(tmp_path)
+    first = funnel(CFG, reg, runner).run()
+    rid = str(first.run_of("1D", "s01_edge", "real"))
+    runner.configs[rid] = runner.configs[rid].model_copy(update={"seed": 7})
+    report, _ = _reproduce(reg, runner, first.funnel_id)
+    assert "('1D', 's01_edge', 'real'): config seed differs" in report.differences

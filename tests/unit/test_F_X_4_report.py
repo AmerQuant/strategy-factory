@@ -326,3 +326,16 @@ def test_F_X_3_ci_runs_the_browser_test_and_fails_on_a_skip() -> None:
     ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "pytest -m browser -rs --junitxml=browser-junit.xml" in ci
     assert "Fail if the browser test was skipped" in ci
+
+
+def test_F_X_4_d668_a_three_axis_candidate_without_a_selection_is_drawn() -> None:
+    """D-647: a candidate with no valid cell has no selection (MRNA 1H `tf_ichimoku` in T14);
+    its slices go through each other axis's middle value, labelled -- never a crash."""
+    art = _stage3([("a", [1, 2, 3]), ("b", [5, 6]), ("c", [7, 8, 9, 10])])
+    art["selection"] = {"params": None}
+    figs = F.stage3_surfaces(art, "h1")
+    assert len(figs) == 3
+    assert "no selection" in figs[0]["layout"]["title"]["text"]
+    ab = figs[0]["data"][0]  # c at its middle value, 9 (index 2)
+    assert ab["z"][0][0] == 1 + 1000 + 3 * 1000**2
+    assert all(d.get("name") != "selected" for d in figs[0]["data"])

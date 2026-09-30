@@ -143,6 +143,17 @@ def quality_split(run: StageRun) -> list[dict[str, Any]]:
     return out
 
 
+def truth_errors(ctx: FunnelContext) -> dict[str, int]:
+    """Per timeframe, the symbols the truth could not be built for (no series, e.g. too short
+    for a split): they are left out of every power denominator, and the report says how many."""
+    if ctx.truth is None:
+        return {}
+    return {
+        tf: sum(1 for t in per.values() if "error" in t)
+        for tf, per in ctx.truth["timeframes"].items()
+    }
+
+
 def planted_truth(ctx: FunnelContext) -> list[dict[str, Any]]:
     """Planted runs: per timeframe and cell, the symbols and how many of them have their planted
     profile at each stage (a TF plant is two-sided: long or short counts)."""

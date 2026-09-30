@@ -3,5 +3,5 @@
 max_candidate_sections: 40      # D-668: every stage-3 entrant gets a section, passes first; the rest a table
 spp_bins: 30                    # the SPP histogram's bins (presentation of the stored surface cells)
 heatmap_max_symbols: 600        # the universe heatmap draws at most this many symbols per timeframe
-font_file: src/strategy_factory/reports/assets/fonts/Vazirmatn-VariableFont_wght.ttf   # D-666
-font_licence: src/strategy_factory/reports/assets/fonts/OFL.txt
+# font_file / font_licence default to the package's assets/fonts (D-666)
+null_target_share: 0.01         # D-656: T15b's target on the calibrated null

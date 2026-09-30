@@ -170,7 +170,13 @@ def stage3_surfaces(stage3: dict[str, Any], segment: str) -> list[Fig]:
     out = []
     for p, q in pairs:
         ay, ax = axes[p], axes[q]
-        fixed = {a["name"]: sel.get(a["name"]) for k, a in enumerate(axes) if k not in (p, q)}
+        # the slice goes through the selected cell; a candidate without a selection (no valid
+        # cell, D-647) is sliced at each other axis's middle value, and the title says so
+        fixed = {
+            a["name"]: sel[a["name"]] if a["name"] in sel else a["values"][len(a["values"]) // 2]
+            for k, a in enumerate(axes)
+            if k not in (p, q)
+        }
         z: list[list[Any]] = []
         mask: list[list[int]] = []
         for yv in ay["values"]:
@@ -216,6 +222,8 @@ def stage3_surfaces(stage3: dict[str, Any], segment: str) -> list[Fig]:
                 }
             )
         slice_note = ", ".join(f"{k}={v}" for k, v in fixed.items())
+        if fixed and not sel:
+            slice_note += " · no selection: middle values"
         out.append(
             {
                 "data": data,
@@ -223,7 +231,7 @@ def stage3_surfaces(stage3: dict[str, Any], segment: str) -> list[Fig]:
                     f"{title} · {ay['name']} x {ax['name']}"
                     + (f" ({slice_note})" if slice_note else ""),
                     height=380,
-                showlegend=False,
+                    showlegend=False,
                     xaxis={"title": {"text": ax["name"]}},
                     yaxis={"title": {"text": ay["name"]}},
                 ),

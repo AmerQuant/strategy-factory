@@ -35,6 +35,7 @@ from strategy_factory.reports.read import (
     failing_criteria,
     planted_truth,
     quality_split,
+    truth_errors,
 )
 
 #: Latin digits in their own left-to-right run (D-666: the user's decision)
@@ -175,8 +176,10 @@ def render(ctx: FunnelContext, cfg: ReportConfig) -> str:
         candidates=candidates,
         rest=ctx.candidates[cfg.max_candidate_sections :],
         truth=truth,
+        truth_errors=truth_errors(ctx),
         power=power,
         stage_fa=STAGE_FA,
+        null_target=cfg.null_target_share,
         arm_fa=ARM_FA,
         font_b64=_font(cfg),
         plotly_js=Markup(_plotly_js()),

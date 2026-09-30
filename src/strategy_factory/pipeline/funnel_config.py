@@ -27,7 +27,7 @@ class SourceSpec(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     kind: Literal["real", "null", "planted"] = "real"
-    seed: int = 0
+    seed: int | None = None  # None: the funnel's seed
     generator: Path | None = None  # default: configs/synthetic/<kind>.yaml
 
 

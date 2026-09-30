@@ -5,6 +5,7 @@ base:
   innovations: student_t
   df_min: 4.5
   df_max: 60.0
+  kurtosis_floor: 0.1
   vol_path: true
   half_life_bars: {1D: 20.0, 1H: 140.0}
   slot_cap: {1D: 0, 1H: 6}

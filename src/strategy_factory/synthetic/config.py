@@ -34,6 +34,8 @@ class NullConfig(_Frozen):
     innovations: Literal["student_t", "gaussian"] = "student_t"
     df_min: float = Field(default=4.5, gt=4.0)  # t excess kurtosis 6 / (df - 4): finite above 4
     df_max: float = Field(default=60.0, gt=4.0)
+    #: the excess kurtosis used for df is at least this (a near-Gaussian series gets df_max)
+    kurtosis_floor: float = Field(default=0.1, gt=0)
     #: multiply the innovations by the real series' own causal EWMA volatility path
     vol_path: bool = True
     #: EWMA half-life of the volatility path, in bars of each timeframe

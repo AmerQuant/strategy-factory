@@ -132,7 +132,7 @@ footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
   </tbody>
 </table>
 {% if ctx.source_kind == "null" %}
-<p>هدف <bdi dir="ltr">T15b</bdi> برای تهیِ کالیبره: حداکثر <bdi dir="ltr">1 %</bdi> از نمادها به پایان مرحلهٔ <bdi dir="ltr">3</bdi> برسند (<bdi dir="ltr">D-656</bdi>).</p>
+<p>هدف <bdi dir="ltr">T15b</bdi> برای تهیِ کالیبره: حداکثر {{ null_target|pct }} از نمادها به پایان مرحلهٔ <bdi dir="ltr">3</bdi> برسند (<bdi dir="ltr">D-656</bdi>).</p>
 {% endif %}
 
 {% if truth %}
@@ -149,6 +149,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
   {% endfor %}
   </tbody>
 </table>
+{% for tf, n in truth_errors.items() if n %}
+<p class="meta">{{ tf|ltr }}: {{ n|ltr }} نماد بدون سری (مثلاً کوتاه‌تر از حد تقسیم، <bdi dir="ltr">D-008</bdi>) از مخرج‌ها کنار گذاشته شده‌اند.</p>
+{% endfor %}
 {{ power }}
 {% endif %}
 

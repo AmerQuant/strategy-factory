@@ -7,6 +7,7 @@
 innovations: student_t          # student_t (the null) | gaussian (the reported sensitivity)
 df_min: 4.5                     # df from the real kurtosis, bounded
 df_max: 60.0
+kurtosis_floor: 0.1            # df = 4 + 6 / max(kurtosis, floor)
 vol_path: true
 half_life_bars: {1D: 20.0, 1H: 140.0}   # EWMA half-life of the volatility path, in bars
 slot_cap: {1D: 0, 1H: 6}                # slot = position in the UTC trading date, capped

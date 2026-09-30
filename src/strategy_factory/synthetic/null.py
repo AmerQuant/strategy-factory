@@ -127,7 +127,7 @@ def vol_path(bars: Bars, slot: Ints, half_life: float) -> Floats:
 def _innovations(rng: np.random.Generator, n: int, cfg: NullConfig, kurt: float) -> Floats:
     if cfg.innovations == "gaussian":
         return rng.standard_normal(n)
-    df = min(max(4.0 + 6.0 / max(kurt, 0.1), cfg.df_min), cfg.df_max)
+    df = min(max(4.0 + 6.0 / max(kurt, cfg.kurtosis_floor), cfg.df_min), cfg.df_max)
     out: Floats = rng.standard_t(df, n) / np.sqrt(df / (df - 2.0))
     return out
 

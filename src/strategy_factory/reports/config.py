@@ -11,7 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from strategy_factory.core.errors import ConfigError
 
 DEFAULT_REPORT_CONFIG = Path("configs") / "reports" / "funnel.yaml"
-FONTS = Path("src") / "strategy_factory" / "reports" / "assets" / "fonts"
+#: inside the package, so the report builds from any working directory
+FONTS = Path(__file__).resolve().parent / "assets" / "fonts"
 
 
 class ReportConfig(BaseModel):
@@ -22,11 +23,15 @@ class ReportConfig(BaseModel):
     heatmap_max_symbols: int = Field(default=600, ge=1)
     font_file: Path = FONTS / "Vazirmatn-VariableFont_wght.ttf"  # D-666
     font_licence: Path = FONTS / "OFL.txt"
+    #: D-656: T15b's target on the calibrated null, printed on a null run's first page
+    null_target_share: float = Field(default=0.01, gt=0, lt=1)
 
 
 def load_report_config(path: Path | None = None) -> ReportConfig:
     target = path or DEFAULT_REPORT_CONFIG
     if not target.is_file():
+        if path is not None:  # an explicit config that is missing is an error
+            raise ConfigError("report config not found", config_path=path)
         return ReportConfig()
     try:
         return ReportConfig.model_validate(yaml.safe_load(target.read_text(encoding="utf-8")) or {})

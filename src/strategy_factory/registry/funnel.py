@@ -68,12 +68,13 @@ class FunnelRegistry:
         return funnel_id
 
     def resumable(self, funnel_key: str) -> uuid.UUID | None:
-        """The latest unfinished funnel run with this key (``running`` or ``failed``)."""
+        """The latest **failed** funnel run with this key. A ``running`` one is never resumed:
+        it may be alive in another worktree sharing the registry."""
         with self.engine.connect() as conn:
             row = conn.execute(
                 select(funnel_runs.c.id)
                 .where(funnel_runs.c.funnel_key == funnel_key)
-                .where(funnel_runs.c.status.in_(("running", "failed")))
+                .where(funnel_runs.c.status == "failed")
                 .order_by(funnel_runs.c.started_at.desc())
                 .limit(1)
             ).first()

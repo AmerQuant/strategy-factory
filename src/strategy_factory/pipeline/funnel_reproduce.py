@@ -12,13 +12,14 @@ run id (D-805), so they must match as they are.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from strategy_factory.core.config import SourceRef
+from strategy_factory.core.config import SourceRef, canonical_json, config_hash
 from strategy_factory.core.errors import ConfigError
 from strategy_factory.pipeline.funnel import Funnel, FunnelResult, Hashes, StageRunner
 from strategy_factory.pipeline.funnel_config import FunnelConfig
@@ -71,7 +72,8 @@ def reproduce_funnel(
     runner: StageRunner,
     hashes: Hashes,
     artifacts: Path,
-    run_config_hash: Callable[[str], str],
+    run_config: Callable[[str], dict[str, Any]],
+    truth: Callable[[FunnelResult], Path | None] | None = None,
 ) -> tuple[ReproduceReport, FunnelResult]:
     fid = uuid.UUID(funnel_id)
     row: dict[str, Any] = registry.funnel(fid)
@@ -101,8 +103,9 @@ def reproduce_funnel(
             continue
         assert before.run_id is not None and o.run_id is not None
         token = f"<{tf}|{stage}|{arm}>"
-        map_a = {before.run_id: f"run{token}", run_config_hash(before.run_id): f"cfg{token}"}
-        map_b = {o.run_id: f"run{token}", run_config_hash(o.run_id): f"cfg{token}"}
+        cfg_a, cfg_b = run_config(before.run_id), run_config(o.run_id)
+        map_a = {before.run_id: f"run{token}", config_hash(cfg_a): f"cfg{token}"}
+        map_b = {o.run_id: f"run{token}", config_hash(cfg_b): f"cfg{token}"}
         upstream = [p for p in new.stages if p.slot[0] == tf and p.slot[2] == "real"]
         for p in upstream:  # the upstream real runs appear in stage_inputs / parent_run_id
             q = original.get(p.slot)
@@ -110,9 +113,31 @@ def reproduce_funnel(
                 t = f"<{p.slot[0]}|{p.slot[1]}|real>"
                 map_a[q.run_id] = f"run{t}"
                 map_b[p.run_id] = f"run{t}"
+        # the recorded configs must match once the run ids are named alike: a moved reference
+        # snapshot or a changed cost input is a different input, named here, not a re-resolution
+        moved = _config_diff(cfg_a, cfg_b, map_a, map_b)
+        report.differences += [f"{o.slot}: config {k} differs" for k in moved]
         n, diffs = compare_dirs(
             artifacts / before.run_id / stage, artifacts / o.run_id / stage, map_a, map_b
         )
         report.compared_files += n
         report.differences += [f"{o.slot}: {d}" for d in diffs]
+    if truth is not None and source is not None:
+        folder = artifacts / "funnels"
+        before_truth = folder / funnel_id / "truth.json"
+        after_truth = truth(new)
+        if after_truth is None or not before_truth.is_file():
+            report.differences.append("truth.json: missing")
+        elif before_truth.read_bytes() != after_truth.read_bytes():
+            report.differences.append("truth.json differs")
+        report.compared_files += 1
     return report, new
+
+
+def _config_diff(
+    a: dict[str, Any], b: dict[str, Any], map_a: dict[str, str], map_b: dict[str, str]
+) -> list[str]:
+    """Top-level keys of two run configs that differ after the run ids are normalised."""
+    na = json.loads(normalise(canonical_json(a).encode("utf-8"), map_a))
+    nb = json.loads(normalise(canonical_json(b).encode("utf-8"), map_b))
+    return sorted(k for k in set(na) | set(nb) if na.get(k) != nb.get(k))

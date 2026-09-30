@@ -1,0 +1,10 @@
+check,run,timeframe,stage,arm,artifacts,unchanged
+candidate_id,dd27baf5,1D,s02_screen,control,280,280
+candidate_id,dea1d423,1D,s02_screen,real,280,280
+candidate_id,0a4fb887,1D,s03_entry,control,25,25
+candidate_id,f72b80ee,1D,s03_entry,real,25,25
+candidate_id,ae578471,1H,s02_screen,control,60,60
+candidate_id,6025ef15,1H,s02_screen,real,60,60
+candidate_id,9d37799d,1H,s03_entry,control,6,6
+candidate_id,ce348ae8,1H,s03_entry,real,6,6
+config_hash,all pipeline_runs,,,,65,65
