@@ -33,7 +33,12 @@ from strategy_factory.core.errors import ConfigError, DataError
 from strategy_factory.core.logging import get_logger
 from strategy_factory.data.config import DukascopyConfig
 from strategy_factory.data.download.ratelimit import TLSVerificationError
-from strategy_factory.data.download.rawfiles import next_version_path, versions, write_immutable
+from strategy_factory.data.download.rawfiles import (
+    is_settled,
+    next_version_path,
+    versions,
+    write_immutable,
+)
 
 log = get_logger(__name__)
 
@@ -364,8 +369,10 @@ def latest_months(raw_root: Path, series: str, instrument: str, side: str) -> li
 
 
 def raw_pairs(raw_root: Path, series: str, instrument: str) -> tuple[list[Path], list[Path]]:
-    bid = latest_months(raw_root, series, instrument, "bid")
-    ask = latest_months(raw_root, series, instrument, "ask")
+    """The settled month files of each side (``is_settled``: never a month still being written
+    by a download running alongside)."""
+    bid = [p for p in latest_months(raw_root, series, instrument, "bid") if is_settled(p)]
+    ask = [p for p in latest_months(raw_root, series, instrument, "ask") if is_settled(p)]
     if not bid or not ask:
         raise DataError(
             f"no raw {series} bid/ask files for {instrument}", symbol=instrument.upper()

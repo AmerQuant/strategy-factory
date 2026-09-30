@@ -1,0 +1,7 @@
+symbol,asset_class,months_both_sides,bars_1h,first,last,frozen_stretches,frozen_bars,long_gaps,longest_gap_days,wick_flags,spread_spikes,zero_or_neg_spread,saturday_bars,sunday_bars,weekday_missing_hours,bars_1d,thin_days_flagged,weekend_daily_bars,d008_1h,d008_1d
+EURUSD,fx,186,96709,2010-01-01,2026-08-31,0,0,0,33,0,1145,1,0,2156,74,4045,20,0,true,true
+GBPUSD,fx,184,95638,2010-01-01,2026-08-31,0,0,0,62,0,830,0,0,2129,70,4001,20,0,true,true
+GBPCHF,fx,189,98233,2010-11-01,2026-08-31,0,0,0,28,0,590,0,0,2172,97,4108,19,0,true,true
+CADJPY,fx,185,96208,2010-05-02,2026-08-31,0,0,0,122,0,679,0,0,2131,77,4022,17,0,true,true
+XAUUSD,metal,194,96571,2010-01-01,2026-08-31,0,0,0,32,0,67,0,0,1386,1806,4194,23,0,true,true
+XAGUSD,metal,188,93447,2010-01-01,2026-08-31,0,0,0,33,0,32,1,0,1340,1848,4065,23,0,true,true

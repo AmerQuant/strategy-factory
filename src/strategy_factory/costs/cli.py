@@ -104,6 +104,9 @@ def _print_table(t: HourlySpread, basis: str, pip: float | None) -> None:
         pips = f" | {v / pip:.2f}" if pip else ""
         mark = " (fallback)" if h in t.fallback_hours else ""
         typer.echo(f"{h:>8} | {int(t.counts[h]):>4} | {v:.6g}{pips}{mark}")
+    if t.week_open is not None:
+        pips = f" | {t.week_open / pip:.2f}" if pip else ""
+        typer.echo(f"week open | {t.week_open_count:>4} | {t.week_open:.6g}{pips} (D-716)")
 
 
 @costs_app.command("show")
@@ -154,7 +157,7 @@ def show_cmd(
             )
             scaled, factor = broker_scaled_table(ts, sp, prof.spread.broker_spread)
             _print_table(scaled, f"{basis}, scaled x {factor:.6g}", prof.pip_size)
-            mean = float(np.sum(scaled.full_spread * scaled.counts) / scaled.counts.sum())
+            mean = scaled.bar_weighted_mean()
             typer.echo(
                 f"bar-weighted mean after scaling: {mean:.6g} "
                 f"(broker spread {prof.spread.broker_spread:.6g})"

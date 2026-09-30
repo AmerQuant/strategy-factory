@@ -4,7 +4,9 @@ Inputs are NumPy arrays (``ts`` = int64 microseconds UTC, bar start; ``open``; `
 optionally ``spread``). Prices for ``bps`` / ``pip`` amounts are converted with the bar's
 **open**, the base price of fills at the open (design section 6).
 
-* ``half_spread[n]`` = full spread / 2 (fixed, or the profile's value for the bar's UTC hour);
+* ``half_spread[n]`` = full spread / 2 (fixed, or the profile's value for the bar's UTC hour;
+  a bar that **opens the trading week** takes the profile's ``week_open`` value instead, when it
+  has one -- see :func:`week_open_mask`, D-716);
 * ``slippage_fixed[n]`` and ``slippage_atr_frac``: slippage = fixed + frac x ATR(signal bar);
 * ``swap_long_per_notional_day[n]``, ``swap_short_per_notional_day[n]``: credit per unit of
   notional per day at the bar's close (negative = charge). The engine multiplies them by the
@@ -190,24 +192,70 @@ def utc_hours(ts_us: I64) -> I64:
     return (ts_us // US_PER_HOUR) % 24
 
 
+US_PER_DAY = 24 * US_PER_HOUR
+# 1970-01-01 was a Thursday: weekday (Monday = 0) = (days since the epoch + 3) % 7, and the
+# trading week is keyed from Saturday 00:00 UTC (1970-01-03), which no 24x5 session spans.
+_EPOCH_WEEKDAY = 3
+_WEEK_FROM_SATURDAY_US = 2 * US_PER_DAY
+MONDAY, SUNDAY = 0, 6
+
+
+def week_open_mask(ts_us: I64, timeframe: str) -> BOOL:
+    """Bars that **open a trading week** (D-716): the first bar of its week, keyed from
+    Saturday 00:00 UTC, that starts on a **Sunday** -- or, for ``1D``, on a **Monday**, the
+    daily bar whose open is the Sunday open under D-010.
+
+    A market without Sunday hours (US equities) has no such intraday bar, so a table resolved
+    from its bars has no ``week_open`` value and nothing changes for it. ``ts_us`` is ascending.
+    """
+    ts = np.asarray(ts_us, dtype=np.int64)
+    if ts.size == 0:
+        return np.zeros(0, dtype=np.bool_)
+    week = (ts - _WEEK_FROM_SATURDAY_US) // (7 * US_PER_DAY)
+    first = np.ones(ts.size, dtype=np.bool_)
+    first[1:] = week[1:] != week[:-1]
+    weekday = (ts // US_PER_DAY + _EPOCH_WEEKDAY) % 7
+    out: BOOL = first & (weekday == (MONDAY if timeframe == "1D" else SUNDAY))
+    return out
+
+
 @dataclass(frozen=True)
 class HourlySpread:
-    full_spread: F64  # 24 values (price units), UTC hour of the bar start
+    full_spread: F64  # 24 values (price units), UTC hour of the bar start, week opens excluded
     counts: I64  # data points per hour
     fallback_hours: tuple[int, ...]
+    # The Sunday open, its own key (D-716): the median over the bars that open a trading week
+    # (price units); None when the data has none (no Sunday hours).
+    week_open: float | None = None
+    week_open_count: int = 0
+
+    def bar_weighted_mean(self) -> float:
+        """Mean over the development bars: every hour and the week opens, weighted by bars."""
+        has = self.counts > 0
+        total = float(np.sum(self.full_spread[has] * self.counts[has]))
+        n = int(self.counts.sum())
+        if self.week_open is not None:
+            total += self.week_open * self.week_open_count
+            n += self.week_open_count
+        return total / n
 
 
 def hourly_spread_table(
     ts_us: I64, spread: F64, scale: float, fallback: float | None
 ) -> HourlySpread:
-    """Median ``spread`` per UTC hour x ``scale``; ``fallback`` (price units) for empty hours."""
+    """Median ``spread`` per UTC hour x ``scale``; ``fallback`` (price units) for empty hours.
+
+    The bars that open a trading week (:func:`week_open_mask`) are **not** in their UTC hour:
+    they form the separate ``week_open`` key, so weekday 21:00 means weekday 21:00 (D-716).
+    """
     hours = utc_hours(ts_us)
     ok = np.isfinite(spread)
+    opens = week_open_mask(ts_us, "1H")
     table = np.empty(24)
     counts = np.zeros(24, dtype=np.int64)
     missing: list[int] = []
     for h in range(24):
-        vals = spread[(hours == h) & ok]
+        vals = spread[(hours == h) & ok & ~opens]
         counts[h] = vals.size
         if vals.size:
             table[h] = float(np.median(vals)) * scale
@@ -216,7 +264,9 @@ def hourly_spread_table(
             missing.append(h)
         else:
             raise DataError(f"no spread data for UTC hour {h} and no fallback in the profile")
-    return HourlySpread(table, counts, tuple(missing))
+    wk = spread[opens & ok]
+    week_open = float(np.median(wk)) * scale if wk.size else None
+    return HourlySpread(table, counts, tuple(missing), week_open, int(wk.size))
 
 
 def broker_scaled_table(
@@ -224,21 +274,27 @@ def broker_scaled_table(
 ) -> tuple[HourlySpread, float]:
     """Hourly median shape scaled so its bar-weighted mean equals ``broker_spread`` (D-523).
 
-    The weights are the bars per UTC hour. A UTC hour without data gets the **maximum of the
-    scaled profile** (D-350 (2)), the most conservative hour, not the broker reference; those
+    The weights are the bars per UTC hour **and** the bars that open a trading week, which are
+    their own key (``week_open``, D-716). A UTC hour without data gets the **maximum of the
+    scaled hours** (D-350 (2)), the most conservative hour, not the broker reference; those
     hours are listed in ``fallback_hours``. Hours without data carry no bars, so the
     bar-weighted mean over the development bars still equals ``broker_spread``.
     Returns the table and the scale factor.
     """
     raw = hourly_spread_table(ts_us, spread, 1.0, math.nan)
     has = raw.counts > 0
-    weighted = float(np.sum(raw.full_spread[has] * raw.counts[has]))
-    if not has.any() or weighted <= 0:
+    if not has.any():
         raise DataError("no positive spread data to scale to the broker spread")
-    scale = broker_spread * float(raw.counts.sum()) / weighted
+    weighted = raw.bar_weighted_mean()
+    if weighted <= 0:
+        raise DataError("no positive spread data to scale to the broker spread")
+    scale = broker_spread / weighted
     scaled = raw.full_spread * scale
     table = np.where(has, scaled, float(np.max(scaled[has])))
-    return HourlySpread(table, raw.counts, raw.fallback_hours), scale
+    week_open = None if raw.week_open is None else raw.week_open * scale
+    return HourlySpread(
+        table, raw.counts, raw.fallback_hours, week_open, raw.week_open_count
+    ), scale
 
 
 def resolve_from_data(
@@ -267,15 +323,23 @@ def resolve_from_data(
     )
     note = (
         f"{profile.source_note} [spread: median per UTC hour x {sp.scale:g} over "
-        f"{int(table.counts.sum())} development bars; fallback hours {list(table.fallback_hours)}]"
+        f"{int(table.counts.sum())} development bars; fallback hours {list(table.fallback_hours)}"
+        f"{_week_open_note(table)}]"
     ).strip()
-    resolved = profile.model_copy(
-        update={
-            "spread": SpreadHourly(hourly=tuple(float(v) for v in table.full_spread)),
-            "source_note": note,
-        }
-    )
+    resolved = profile.model_copy(update={"spread": _hourly(table), "source_note": note})
     return resolved, table
+
+
+def _hourly(table: HourlySpread) -> SpreadHourly:
+    return SpreadHourly(
+        hourly=tuple(float(v) for v in table.full_spread), week_open=table.week_open
+    )
+
+
+def _week_open_note(table: HourlySpread) -> str:
+    if table.week_open is None:
+        return ""
+    return f"; week open {table.week_open:.6g} over {table.week_open_count} bars (D-716)"
 
 
 def _resolve_broker_scaled(
@@ -298,10 +362,10 @@ def _resolve_broker_scaled(
         f"{profile.source_note} [spread: hourly median shape x {scale:.6g} so the mean over "
         f"{int(table.counts.sum())} development bars = broker {sp.broker_spread:g}; "
         f"{filled} UTC hour(s) without data filled with the profile maximum "
-        f"{float(np.max(table.full_spread)):.6g} (D-350): {list(table.fallback_hours)}]"
+        f"{float(np.max(table.full_spread)):.6g} (D-350): {list(table.fallback_hours)}"
+        f"{_week_open_note(table)}]"
     ).strip()
-    hourly = SpreadHourly(hourly=tuple(float(v) for v in table.full_spread))
-    return profile.model_copy(update={"spread": hourly, "source_note": note}), table
+    return profile.model_copy(update={"spread": _hourly(table), "source_note": note}), table
 
 
 def rollover_instants(first_us: int, last_us: int, swap: RolloverRules) -> tuple[I64, BOOL]:
@@ -357,6 +421,8 @@ def build_cost_arrays(
     else:
         assert isinstance(sp, SpreadHourly)
         per_hour = np.asarray(sp.hourly, dtype=np.float64)[utc_hours(ts)]
+        if sp.week_open is not None:
+            per_hour = np.where(week_open_mask(ts, timeframe), sp.week_open, per_hour)
         if sp.unit == "bps":
             full = per_hour * 1e-4 * ref
         elif sp.unit == "pip":

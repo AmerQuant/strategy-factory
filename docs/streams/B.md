@@ -5,7 +5,7 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
-## Resume here (2026-09-22) — the state a fresh session starts from
+## Resume here (2026-09-30) — the state a fresh session starts from
 
 Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The
 protocol is `docs/streams/PROTOCOL.md` (ownership, ID ranges; `uv run sfac streams check` before
@@ -13,105 +13,70 @@ every push). Talk to stream A only through this file and `docs/streams/A.md`, ne
 
 ### Branches
 
-The worktree is left checked out on **`b/T04j-dukascopy-ingest`**: the user's download script
-exists only on that branch. Both branches carry this same copy of `B.md`.
+| branch | state | waiting on |
+|---|---|---|
+| `b/D377-encoding` | **merged** 2026-09-30: PR #58, `main` = `1413069` | nobody |
+| `b/T04j-dukascopy-ingest` | **PR open**, rebased onto `1413069`; review `docs/reviews/T04j_review.md` | **"Approved. Merge"** |
 
-| branch | head | state | waiting on |
-|---|---|---|---|
-| `b/T04m-yahoo-aux` | `7dd6eb3` | **merged** 2026-09-22: [PR #45](https://github.com/AmerQuant/strategy-factory/pull/45), `main` = `4cf6aaf` | nobody |
-| `b/docs-P93-aux-collision` | pushed, **no PR** | this file plus **P-93** (below), from `main` `4cf6aaf` | a docs PR when the supervisor wants it merged |
-| `b/T04j-dukascopy-ingest` | `3f324f4`, pushed, **no PR** | **paused** mid-task: plan approved, coverage gate and the week-open spread key built; nothing ingested | **the user**: the Dukascopy h1 download (several more days) |
+The worktree is on `b/T04j-dukascopy-ingest`. **The user's Dukascopy download runs from this
+worktree's venv** (`sfac data download dukascopy`): do not run `uv sync` while it runs (it cannot
+replace `.venv/Scripts/sfac.exe`). #60's `arch` was installed at its locked 8.0.0 with `uv pip`.
+Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that reason only.
 
-### T04m — Yahoo aux series (merged, PR #45)
+### T04j — Dukascopy h1 (D-657, D-661, D-672, D-673)
 
-- **Built:** 7 aux references in the store (VIX, SPX, NDX, RUT, DJI, TNX, DXY; `1D`,
-  `asset_class aux`, hash version 2), each with a quality report whose schedule checks run on its
-  own calendar (D-720).
-- **The as-of join, F-0.1.11:**
-  - `data/auxiliary.py` holds the join itself.
-  - `DataAccess.aux` reads over a traded symbol's development window.
-  - `SplitManager.open_holdout_with_inputs(..., aux=)` reads at stage 6, in one access.
-  - A guard refuses an aux series as a traded symbol.
-- **Close times (D-718):** VIX 16:15, NDX 17:15 and DXY 19:15 New York are verified.
-  - SPX, DJI, RUT and TNX stay at the conservative reading (24:00 local + 1 day). **The supervisor
-    said to keep that exactly as it is.** A series moves to `verified` only on a provider document;
-    the user could supply S&P DJI's PDFs, which answer 403 to automated reads.
-- **Staleness (D-719):** `max_stale_sessions: 5`, in traded sessions of the consuming symbol.
-- **Lesson recorded in the review (read it before any stage-6 input path):** every stage-6 input
-  must be fully built **before** `open_holdout` records the one-shot access. The reviewer's
-  blocker B1 had a failing aux input burn the candidate's holdout. It is fixed and tested
-  (`test_F_0_1_11_a_failing_aux_input_keeps_the_holdout_access`).
-- **Decisions D-718 … D-721; P-89 … P-92 answered.**
-- **Open: P-93** (raised 2026-09-22 on the supervisor's instruction, not to be fixed now). A
-  collision between an aux name and a tradeable name is caught only when something reads it. The
-  case is concrete: the aux `SPX` versus the Moneta share CFD `SPX` (Spirax Group Plc). Options:
-  a guard at every ingest and at `set_reference`; keying references by asset class; or namespaced
-  aux symbols. Stream B leans to the first; it is left for whoever takes it.
-
-### T04j — Dukascopy h1 (paused; everything is on its branch, not on `main`)
-
-- **Task file:** `docs/tasks/T04j_dukascopy_ingest.md` (on the T04j branch).
-- **Decisions on that branch only:** D-715 (P-88: no D-020 amendment; T04j does not block T12),
-  D-716 (the week open is its own spread key; a median hides a rare extreme; the leakage-gate
-  change approved), and D-717 (no cleaning pass, on condition of re-measuring).
-- **Built and tested:**
-  - `sfac data coverage dukascopy`, the gate. `sfac data ingest dukascopy` refuses a gapped set
-    before writing anything, with no override. On 2026-09-22: 0 of 29 instruments complete, 3,890
-    months missing.
-  - `scripts/pilots/T04j_dukascopy_download.ps1`: the user's resumable download, which ends by
-    printing the remaining gaps.
-  - The week-open key in `costs/` (`week_open_mask`, `SpreadHourly.week_open`), with its
-    measurement.
-- **The user runs, and re-runs until it prints `coverage gate: passed`:**
-  `powershell -ExecutionPolicy Bypass -File scripts\pilots\T04j_dukascopy_download.ps1`
-  (from this worktree, **on the T04j branch**).
-- **When the user reports the gate passed, resume the task file's scope 2–7:**
-  1. Rebase T04j onto `main`, which by then holds T04m. Conflicts are expected in `B.md`,
-     `decisions_log.md` and `pending.md`: keep every row, in ID order.
-  2. Re-run `scripts/analysis/T04j_defects.py` on all 29. **Stop and raise if any defect family
-     appears** (D-717).
-  3. Ingest 1H with `--set-reference`; the three pilots with `--rehash` (v1 → v2).
-  4. Build 1D (D-032) with `sfac data resample --target 1D --mode research --set-reference`
-     (D-714: retire and re-run once before the first reference, if derived more than once).
-  5. Quality for all 58 snapshots. `sfac costs show` for all 29. Update `B_data_state.md`.
-  6. Write the review and run the acceptance reviewer. Open the PR and stop for "Approved. Merge".
-- **Do not ingest anything before the gate passes** (the supervisor's order).
+- **Ingested (8 of 29), each 1H + 1D references, quality, costs:** EURUSD, GBPUSD, USDJPY, USDCHF
+  (2010-01…, complete); GBPCHF (2013-03…), AUDUSD (2014-06…), USDCAD (2016-04…), XAUUSD (2019-12…)
+  over their D-661 windows. USDCAD was **not** among the seven named: its window completed between
+  runs and D-661 admits it; stated in the review.
+- **21 wait** on the running download. **The resume path is one command:**
+  `uv run python scripts/pilots/T04j_resume.py` (`--dry-run`, `--symbols`). It ingests what has a
+  window meeting D-008 and passing D-717 (per instrument; USDCHF's SNB bar is a verified event,
+  D-672), re-derives an instrument only when a gap closes (the window starts earlier), and writes
+  nothing for the rest. A new month at the end does not re-derive (**D-674**, P-96).
+- **D-673:** the adapter widens a high/low to cover an open/close outside it by <= 0.00002;
+  EURUSD 41 and USDCHF 14 side bars (all 2024-10); EURAUD's 2024-10 ask has 5 more (0.00002).
+- **XAUUSD's window** is bounded by scattered one-sided months (failed fetches); a later pass may
+  extend it; the resume command then re-derives it as a new versioned snapshot.
 
 ### Waiting on whom
 
-- **Supervisor:**
-  - the next task for stream B (none is assigned beyond T04j);
-  - whoever takes **P-93**.
-- **User:**
-  - the Dukascopy download (the script above);
-  - optionally, S&P DJI methodology PDFs (SPX, DJI close times);
-  - emptying the quarantine folders `<store>/_quarantine/T04k_D-702_*` and
-    `T04l_D-714_20260922T080918Z` (moved, never deleted, with manifests).
-- **Stream A**, open items from T04m (#45 is merged, so these are due now):
-  1. **Regenerate `configs/universe.yaml`** (D-394). The aux calendars now come from the `calendar`
-     column of `configs/universe/aux_yahoo.csv` (D-720): TNX, SPX, NDX, RUT and DJI change from
-     `24x5` to `nyse`, and nothing else changes (checked).
-  2. **Keep the seven aux series (`asset_class aux`) out of stage 1's candidates.** `DataAccess`
-     and `SplitManager` refuse them with a `DataError`.
-  3. **Record `AuxView.key` with every run that reads an aux series** (rule 8). A stage-5 filter
-     reads `DataAccess.aux(aux, traded, tf)`, computes on the aux bars and reads at `idx` (`-1` =
-     none or stale). At stage 6 it uses `open_holdout_with_inputs(..., aux=...)`.
-- **Stream A, from T04j (D-716), once T04j merges:** the daily FX cost read in T12.
-  - Resolve the spread table from the **1H development segment**.
-  - `build_cost_arrays(..., timeframe="1D")` already charges `week_open` on Monday and hour 0 on
-    Tuesday to Friday.
-  - A fill inside a daily bar uses the broker spread (the table's bar-weighted average).
+- **Supervisor:** whoever takes **P-93**.
+- **User:** the Dukascopy download (running); emptying the quarantine folders
+  `<store>/_quarantine/T04k_D-702_*`, `T04l_D-714_20260922T080918Z`.
+- **Stream A, after the T04j merge:**
+  1. **Regenerate `configs/universe.yaml` (D-394).** Dukascopy instruments with references now:
+     `EURUSD GBPUSD USDJPY USDCHF AUDUSD USDCAD GBPCHF XAUUSD` (no row added to or removed from
+     `configs/universe/*.csv`; the references are new). Regenerate again after any later resume
+     run that ingests or re-derives an instrument; stream B lists each one here.
+  2. **The daily FX cost read in T12 (D-716):** the spread table from the **1H development
+     segment**; `build_cost_arrays(..., timeframe="1D")` charges `week_open` on Monday and hour 0
+     Tuesday to Friday; a fill inside a daily bar uses the broker spread.
+  3. For the record: the T04i `daily_extreme_unsupported` check skips Dukascopy 1D ("no hourly
+     series"); harmless (the daily bar is built from its own hours), noted in the T04j review.
+
+### For stream A — a decision-ID collision (relay, supervisor-approved 2026-09-30)
+
+**D-673 is used twice.** Stream B's PR #61 records **D-673 = the bounded OHLC repair** (P-95), and
+that ID is already written into the EURUSD and USDCHF 1H snapshot notes in the store, which are not
+rewritten. `a/T15a-orchestrator` (`a5597ef`) records **D-673 = P-134's answer** (the T15a planted
+ladders). The user chose: **stream A renumbers its P-134 answer** to the next free supervisor ID
+after D-674 (P-96's answer, below) when it rebases onto `main` with #61. `sfac streams check` will
+report the duplicate until then.
 
 ### Next steps, in order
 
-1. On the user's "coverage gate: passed": resume T04j as above. Its rebase onto `main` now picks
-   up T04m and this file.
-2. Otherwise stream B has no assigned task: wait for the supervisor.
+1. On "Approved. Merge": rebase onto the latest `main`, CI green, merge, update this file.
+2. **Then T16** (the supervisor: stream B's next task), **only once stream A's #60 is on `main`**
+   — it is (`0c95b82`, 2026-09-30). Start from its task file `docs/tasks/T16_stats_library.md`.
+3. Whenever the download completes more instruments: the resume command, then list them here for
+   stream A (D-394).
 
 ### IDs
 
-Next free: **D-722**, **P-94**. D-715 … D-717 and P-87, P-88 live on the T04j branch until it
-merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/docs-P93-aux-collision`.
+Next free: **D-722**, **P-97**; supervisor: the next after D-674 goes to stream A's renumbered P-134 answer. D-715 … D-717, D-657, D-661, D-672, D-673
+(supervisor) and P-87, P-88, P-94, P-95, P-96 (answered), D-674 are on the T04j branch until it
+merges. D-662 … D-671 are stream A's T15a answers (on `main`).
 
 ## Scope
 
@@ -129,7 +94,7 @@ merges; D-718 … D-721 and P-89 … P-92 are on `main` (#45); P-93 is on `b/doc
 | | decisions | pending |
 |---|---|---|
 | supervisor | D-355 … D-359 (used up), **D-600 … D-699** | — |
-| stream A | D-360 … D-379 | P-40 … P-59 |
+| stream A | D-360 … D-379, D-800 … D-899 (D-378) | P-40 … P-59, P-100 … P-149 (D-803) |
 | **stream B (this one)** | D-380 … D-399 (**used up**), **D-700 … D-799** | **P-60 … P-79** |
 
 Next free here: **D-722**, **P-94** (see Resume here). Pending range **P-80 … P-99** granted 2026-09-21 and in `ownership.yaml` (stream A, D-376, PR #27). The range **D-700 … D-799** is merged into

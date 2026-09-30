@@ -7,6 +7,10 @@
 * ``open/high/low/close`` = (bid + ask) / 2 per field. **The mid high/low is an
   approximation**: the bid high and the ask high need not occur at the same instant, so
   (bid_high + ask_high) / 2 can differ from the true highest mid price of the bar.
+* **D-673:** per side and before the mid, a bar whose open or close lies outside its own high/low
+  by at most ``ohlc_repair_max`` has that high or low widened just enough to cover it; an open or
+  close is never changed, and a larger excess is left for the store's validation to refuse. The
+  repaired bars are counted per side and month in the snapshot notes.
 * ``spread`` = ask_close - bid_close; any negative spread is critical.
 * ``volume`` = bid-side volume (Dukascopy's own volume; ``volume_quality="partial"``).
 """
@@ -65,6 +69,51 @@ def read_side(paths: list[Path]) -> pl.DataFrame:
     return pl.concat(frames).unique(subset="ts", keep="first", maintain_order=True).sort("ts")
 
 
+#: float slack when comparing an excess with the limit (quotes carry at most 6 decimals)
+_REPAIR_SLACK = 1e-9
+
+
+def repair_ohlc(side: pl.DataFrame, limit: float) -> tuple[pl.DataFrame, dict[str, int]]:
+    """D-673: widen ``high`` / ``low`` to cover an ``open`` / ``close`` that lies outside them by at
+    most ``limit``; never change an open or close. Returns the side and ``{YYYY-MM: bars}``.
+
+    A bar whose excess is larger is returned unchanged, so the store's bar validation refuses it.
+    """
+    top = pl.max_horizontal("open", "close")
+    bottom = pl.min_horizontal("open", "close")
+    over = (top - pl.col("high")).clip(lower_bound=0)
+    under = (pl.col("low") - bottom).clip(lower_bound=0)
+    fixable = (pl.max_horizontal(over, under) > 0) & (
+        pl.max_horizontal(over, under) <= limit + _REPAIR_SLACK
+    )
+    marked = side.with_columns(fixable.alias("_repair"))
+    counts = (
+        marked.filter("_repair")
+        .group_by(pl.col("ts").dt.strftime("%Y-%m").alias("month"))
+        .len()
+        .sort("month")
+    )
+    repaired = marked.with_columns(
+        pl.when("_repair").then(pl.max_horizontal("high", top)).otherwise("high").alias("high"),
+        pl.when("_repair").then(pl.min_horizontal("low", bottom)).otherwise("low").alias("low"),
+    ).drop("_repair")
+    return repaired, dict(counts.rows())
+
+
+def _repair_note(bid: dict[str, int], ask: dict[str, int], limit: float) -> str:
+    """The snapshot-notes line for D-673 (empty when nothing was repaired, so the notes of an
+    untouched series are exactly as before)."""
+    if not bid and not ask:
+        return ""
+    months = sorted(set(bid) | set(ask))
+    per = "; ".join(f"{m}: bid {bid.get(m, 0)}, ask {ask.get(m, 0)}" for m in months)
+    total = sum(bid.values()) + sum(ask.values())
+    return (
+        f" OHLC repair (D-673): {total} side bar(s) with open/close outside high/low by <= "
+        f"{limit:g} had high/low widened (prices unchanged) -- {per}."
+    )
+
+
 def as_asset_class(value: str, symbol: str) -> AssetClass:
     """Universe-file asset class -> the fixed enumeration (unknown values are errors)."""
     if value not in get_args(AssetClass):
@@ -90,6 +139,8 @@ class DukascopyAdapter:
         bid_paths = [p for p in raw_paths if p.parent.name == "bid"]
         ask_paths = [p for p in raw_paths if p.parent.name == "ask"]
         bid, ask = read_side(bid_paths), read_side(ask_paths)
+        limit = self.config.ohlc_repair_max
+        (bid, bid_fixed), (ask, ask_fixed) = repair_ohlc(bid, limit), repair_ohlc(ask, limit)
         joined = bid.join(ask, on="ts", how="full", suffix="_ask", coalesce=True)
         one_sided = joined.filter(pl.col("close").is_null() | pl.col("close_ask").is_null()).height
         total = joined.height
@@ -129,6 +180,7 @@ class DukascopyAdapter:
             MID_NOTE
             + f" One-sided bars dropped: {one_sided}."
             + (f" Tool: {', '.join(tool)}." if tool else "")
+            + _repair_note(bid_fixed, ask_fixed, limit)
         )
         meta = SeriesMetadata(
             source="dukascopy",

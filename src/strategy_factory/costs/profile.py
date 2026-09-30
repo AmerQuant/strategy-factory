@@ -39,7 +39,16 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from strategy_factory.core.errors import ConfigError
 
@@ -70,11 +79,19 @@ class SpreadFixed(_Frozen):
 
 
 class SpreadHourly(_Frozen):
-    """24 full-spread values, index = UTC hour of the bar start."""
+    """24 full-spread values, index = UTC hour of the bar start.
+
+    ``week_open`` (optional) is the spread of a bar that **opens the trading week** -- the Sunday
+    open, which under D-010 is also the open of Monday's daily bar. It is its own key, not the
+    Sunday bar's UTC hour, because the week open is far wider than a weekday bar at that hour
+    (D-716). ``None`` = no separate value; it is then left out of the dump, so every profile
+    without it keeps its content hash.
+    """
 
     mode: Literal["hourly_profile"] = "hourly_profile"
     hourly: tuple[float, ...]
     unit: Unit = "price"
+    week_open: float | None = Field(default=None, ge=0)
 
     @field_validator("hourly")
     @classmethod
@@ -82,6 +99,13 @@ class SpreadHourly(_Frozen):
         if len(value) != 24 or any(v < 0 for v in value):
             raise ValueError("hourly_profile needs 24 non-negative values (UTC hours 0..23)")
         return value
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_week_open(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if data.get("week_open") is None:
+            data.pop("week_open", None)
+        return data
 
 
 class SpreadFromData(_Frozen):
