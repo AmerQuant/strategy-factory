@@ -157,10 +157,16 @@ class Ownership(BaseModel):
         return self
 
     def owner_of(self, path: str) -> str | None:
-        """The stream owning ``path``, by longest matching prefix; ``None`` = shared."""
+        """The stream owning ``path``, by longest matching pattern; ``None`` = shared.
+
+        A pattern is a path prefix, or -- if it contains ``*`` -- a glob over the whole path
+        (D-658): ``*`` matches within one path segment, ``**/`` any number of whole segments.
+        Among the patterns that match, the longest wins, so ``tests/**/test_F_7_*`` beats the
+        shared ``tests/`` and a file beats its folder.
+        """
         best: tuple[int, str | None] = (-1, None)
         for pattern, owner in self.owners.items():
-            if (path == pattern or path.startswith(pattern)) and len(pattern) > best[0]:
+            if _matches(pattern, path) and len(pattern) > best[0]:
                 best = (len(pattern), owner)
         return best[1]
 
@@ -170,6 +176,29 @@ class Ownership(BaseModel):
             if branch.startswith(spec.branch_prefix):
                 return key
         return None
+
+
+def _glob_regex(pattern: str) -> re.Pattern[str]:
+    out = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:[^/]+/)*")
+            i += 3
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def _matches(pattern: str, path: str) -> bool:
+    """``path`` falls under ``pattern``: a prefix, or a whole-path glob if it has a ``*``."""
+    if "*" in pattern:
+        return _glob_regex(pattern).match(path) is not None
+    return path == pattern or path.startswith(pattern)
 
 
 def load_ownership(path: Path | None = None) -> Ownership:

@@ -4,7 +4,9 @@
 # `sfac streams check` refuses a branch that changes a path owned by the *other* stream.
 # Branches without a prefix are grandfathered and are not checked (D-357).
 #
-# Matching: the longest matching prefix wins, so a specific file can override its folder.
+# Matching: the longest matching pattern wins, so a specific file can override its folder. A
+# pattern is a path prefix, or a whole-path glob when it contains `*` (`*` within one segment,
+# `**/` any number of whole segments; D-658).
 # `shared` paths may be changed by either stream; everything not listed is shared.
 
 # The supervisor's own ranges (D-355). A decision the supervisor dictates may be written by
@@ -58,9 +60,16 @@ owners:
   configs/stages/: A                  # D-612: T12 writes configs/stages/s01_edge.yaml
   docs/streams/A.md: A
 
+  # D-658 (T16): the stage-7 statistics library is stream B's. `stats/edge.py` predates it: it is
+  # stage 1's and stage 2's statistic (percentile, empirical p, Benjamini-Hochberg; T12, D-611),
+  # imported by `stages/`, so the file stays stream A's -- the longest pattern wins.
+  src/strategy_factory/stats/edge.py: A
+
   # -- stream B only -------------------------------------------------------------------------
   configs/universe/: B                # the symbol lists and symbol_changes.csv (D-394)
   docs/streams/B.md: B
+  src/strategy_factory/stats/: B      # D-658: the stage-7 statistics library (T16)
+  tests/**/test_F_7_*: B              # D-658: its tests, in any test folder (a glob, see below)
 
 # Append-only for everyone, per the stream's own ID range (D-357 (2)); the ID guard checks the
 # range, not the ownership.
