@@ -272,7 +272,7 @@ def main() -> None:
         table = planted(root, args.funnel[0])
     if args.csv:
         with args.csv.open("w", encoding="utf-8", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(table[0]))
+            w = csv.DictWriter(fh, fieldnames=list(table[0]), lineterminator="\n")
             w.writeheader()
             w.writerows(table)
     for r in table:
