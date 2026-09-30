@@ -306,6 +306,30 @@ Settled with the user for T17 (`docs/tasks/T17_admin_ui.md` §2), supervisor ran
 | D-685 | **(supervisor)** (T17 §2.10, 2026-09-30) **Costs, data derivation and parity are read-only domains:** shown in full, never editable in a profile; changing them is a data task (`docs/tasks/UI_spec.md` §8), because they decide how the stored data is built. | accepted |
 | D-686 | **(supervisor)** (T17 §2.11, 2026-09-30) **Themes: dark and light, switchable, both as drawn on the approved design canvas.** `docs/tasks/UI_spec.md` is the authority for content; the canvas for look; a disagreement is raised, not chosen. | accepted |
 
+### I-S6a. Stream B's UI session: T17a-FE plan answers (D-780 … D-799)
+Answers to `docs/tasks/T17a-FE_plan.md` (§3 library choices, §4 Q1-Q10), 2026-09-30, with "Plan approved". Library choices are the user's; contract answers the supervisor's (the contract text is `docs/tasks/T17a_ui_frontend.md` §3 as extended on 2026-09-30).
+
+| ID | Decision | Status |
+|---|---|---|
+| D-780 | **(user)** (T17a-FE plan §3.1-3.2) **Build tool Vite; package manager npm** (the same as `tools/dukascopy`); `ui/package-lock.json` committed. **Node 26** is declared in `ui/package.json` `engines` (`>=26 <27`) and `ui/.nvmrc`. | accepted |
+| D-781 | **(user)** (plan §3.3-3.4) **Routing TanStack Router** (code routes, typed and validated search params, so the history filters live in the URL); **server state TanStack Query** (start, resume and stop are mutations that invalidate the run queries). | accepted |
+| D-782 | **(user)** (plan §3.4) **SSE with the browser's own `EventSource`**: its automatic reconnect sends `Last-Event-ID`; a fresh connection (reload, a reopened monitor) passes the last applied `seq` as `?last_event_id=` (D-791); the client also drops any `seq` it has already applied, as a second guard. | accepted |
+| D-783 | **(user)** (plan §3.5) **The mock layer is MSW, for dev and tests; every API response is validated with zod** at the client boundary (the zod schemas are the contract types; the mock imports the same ones). **Confirmed before building:** the installed **MSW 2.15.0** exports `sse()` with SSE ids, the request's headers (so `Last-Event-ID`) and `client.error()` to drop a connection. The 2.x line is pinned (3.0.0 was released on 2026-09-28). The worker script is served from `node_modules` by a dev-only Vite plugin, so it is neither committed nor in the production build. | accepted |
+| D-784 | **(user)** (plan §3.6) **Vitest with Testing Library on jsdom** for unit and component tests; **Playwright** (Chromium only) for the end-to-end test and the review screenshots; **ESLint + Prettier** (typescript-eslint, react-hooks). TypeScript is pinned to 6.0 because typescript-eslint 8.71 supports `<6.1`. | accepted |
+| D-785 | **(user)** (plan §3.7) **ECharts through a thin wrapper of our own** (init with the theme, resize, dispose; `echarts/core` with tree-shaken imports), not `echarts-for-react`. | accepted |
+| D-786 | **(user)** (plan §3.8) **Fonts bundled** with `@fontsource` (Manrope, JetBrains Mono); no Google Fonts: the app looks right offline. | accepted |
+| D-787 | **(user)** (plan §3.9) **In T17a-BE, FastAPI serves the built frontend** (`ui/dist`, with the SPA fallback for non-`/api` paths); in development the Vite dev server proxies `/api` to the backend. | accepted |
+| D-788 | **(supervisor)** (Q1) **Downloads is out of T17a-FE:** a disabled navigation entry; it comes with its endpoint in T17a-BE. | accepted |
+| D-789 | **(supervisor)** (Q2) **Stop is in the contract:** `POST /api/funnel-runs/{id}/stop`, the run ends with `funnel_stopped` (the interrupted stage's partial output is discarded, never reused); built against the mock. | accepted |
+| D-790 | **(supervisor)** (Q3) **The wizard shows the scope read-only from the chosen config** (stages, timeframes, universe, planted ladder from `GET /api/configs`); `POST` stays `{config, source, seed, control}`; a refusal is 409 or 422 `{error_kind, message}`, shown verbatim. | accepted |
+| D-791 | **(supervisor)** (Q4) **The server accepts `?last_event_id=` as well as the `Last-Event-ID` header**; the UI keeps the `seq` dedup as a second guard. | accepted |
+| D-792 | **(supervisor)** (Q5) **A resume keeps the `funnel_run_id`**, `seq` continues, a `funnel_resumed` event is emitted, and `stage_started` carries an explicit `reused` field (then `stage_finished` follows at once). A stopped or failed run can be resumed. | accepted |
+| D-793 | **(supervisor)** (Q6) **The mock's T15a fixture uses the real timings given** (1D s01 13/12 min, s02 15/16, s03 7/7; 1H s01 29/27, s02 real 6, real/control); **the rest (1H s02 control, 1H s03) and all unit counts are marked illustrative** in the fixture, to be replaced from `docs/streams/A.md` after the next run. | accepted |
+| D-794 | **(supervisor)** (Q7) **Theme values come from `docs/tasks/UI_tokens.md`** (extracted from the canvas; entries marked "derived" were chosen by the supervisor). | accepted |
+| D-795 | **(supervisor)** (Q8) **List and summary shapes are T17a-FE §3.1 (the new `funnel_started` fields: name, config id and hash, profile hash, code version) and §3.3 (status enum, times, per-stage runs, per-stage-id counts real against control).** | accepted |
+| D-796 | **(supervisor)** (Q9) **`GET /api/status` gives the server status and the open-item banners**; everything else without a source is shown disabled with the phase that brings it (queued-stage estimates, open report, reproduce, compare: phase 2; profiles: T17c; global search and the notifications bell: phase 2). | accepted |
+| D-797 | **(supervisor)** (Q10) **D-031 covers data downloads, not package installs:** a session may run `npm install` and Playwright's browser download itself (the npm registry and Playwright's CDN). Network runs against data sources stay the user's. | accepted |
+
 ## F. Tooling (ADR-001 … ADR-011) and workflow
 | ID | Decision | Status |
 |---|---|---|

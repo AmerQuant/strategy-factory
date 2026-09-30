@@ -3,7 +3,33 @@
 Plan for `docs/tasks/T17a_ui_frontend.md` (D-403), with `docs/tasks/T17_admin_ui.md` (decisions
 D-676 … D-686, recorded from its §2) and `docs/tasks/UI_spec.md` (the authority for layout and look).
 Stream B's UI session, worktree `StrategyFactory_UI`, branch `b/ui-T17a-frontend`, decision ids
-D-780 … D-799. **Nothing is built until "Plan approved" and the library choices of §3.**
+D-780 … D-799.
+
+## 0. Approved (2026-09-30) — what changed since the draft
+
+"Plan approved" with the user's library choices and the supervisor's answers, recorded as
+**D-780 … D-797**; the contract (`T17a_ui_frontend.md` §3) was extended and `UI_tokens.md` added.
+Where this section and the rest of the plan differ, this section wins.
+
+| item | now |
+|---|---|
+| libraries (§3) | Vite, npm, Node 26 in `engines` (D-780); TanStack Router + Query (D-781); native `EventSource` + `?last_event_id=` + seq dedup (D-782); MSW 2.15.0 (SSE confirmed) + zod on every response (D-783); Vitest + Testing Library (jsdom) + Playwright, ESLint + Prettier, TypeScript 6.0 (D-784); own ECharts wrapper (D-785); `@fontsource` fonts (D-786); FastAPI serves `ui/dist`, Vite proxies `/api` in dev (D-787) |
+| Q1 Downloads | out; disabled nav entry (D-788) |
+| Q2 Stop | `POST …/stop` → `funnel_stopped`; built (D-789) |
+| Q3 wizard | scope read-only from `GET /api/configs` items; refusal 409/422 `{error_kind, message}` shown verbatim (D-790) |
+| Q4 reconnect | server takes `?last_event_id=` or the header; seq dedup kept (D-791) |
+| Q5 resume | same id, seq continues, `funnel_resumed`, `reused` on `stage_started` (D-792) |
+| Q6 timings | real ones used; the rest and all unit counts marked illustrative (D-793) |
+| Q7 tokens | `UI_tokens.md` (D-794) |
+| Q8 shapes | §3.1 / §3.3 (D-795) |
+| Q9 shell | `GET /api/status` for server status and banners; the rest disabled with its phase (D-796) |
+| Q10 installs | this session runs `npm install` and Playwright's browser download (D-797) |
+
+Build details fixed by these: the mock serves the eight endpoints of §3.3 (list, summary, events,
+start, resume, stop, configs, status); the monitor's actions are Stop (running) and Resume (failed or
+stopped); the wizard's steps are Config → Source → Control → Review (Profile shown disabled, T17c);
+the history adds name, config hash and code version (dirty flagged) columns; the queue shows planned
+stage runs as "queued" without an estimate. The rest of this file is the draft as approved.
 
 ## 1. What gets built
 
