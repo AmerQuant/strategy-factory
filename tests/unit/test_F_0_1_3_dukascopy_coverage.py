@@ -31,6 +31,7 @@ from strategy_factory.data.coverage import (
     verified_flags,
 )
 from strategy_factory.data.download.dukascopy import Instrument, month_dir, raw_pairs
+from strategy_factory.data.store import SnapshotStore
 
 TODAY = dt.date(2011, 3, 15)  # 2010-01 .. 2011-02 complete, 2011-03 current
 START = dt.date(2010, 1, 1)
@@ -156,14 +157,16 @@ INGEST_TODAY = dt.date(2024, 6, 15)  # required: 2024-01 .. 2024-05
 
 
 def _synthetic_month(root: Path, inst: Instrument, side: str, month: str) -> None:
-    """Weekday hourly bars of ``month``, the ask 2 pips above the bid, plus the manifest."""
+    """Hourly bars of ``month`` on the FX week (Sunday 22:00 UTC to Friday), the ask above the bid
+    by 1 pip + 0.01 pip per UTC hour (so each hour's spread is distinct), plus the manifest."""
     y, m = map(int, month.split("-"))
     ts = dt.datetime(y, m, 1, tzinfo=dt.UTC)
     lines = ["timestamp,open,high,low,close,volume"]
     k = 0
     while ts.month == m:
-        if ts.weekday() < 5:
-            px = 1.1 + 0.0001 * (k % 50) + (0.0002 if side == "ask" else 0.0)
+        if ts.weekday() < 5 or (ts.weekday() == 6 and ts.hour >= 22):
+            spread = 0.0001 + 0.000001 * ts.hour
+            px = 1.1 + 0.0001 * (k % 50) + (spread if side == "ask" else 0.0)
             lines.append(f"{int(ts.timestamp() * 1000)},{px},{px + 0.0005},{px - 0.0005},{px},1000")
             k += 1
         ts += dt.timedelta(hours=1)
@@ -294,6 +297,51 @@ def test_F_0_1_3_T04j_D661_a_closed_gap_re_derives_a_new_versioned_snapshot(
     assert set(before) <= set(after) and len(after) == len(before) + 1  # nothing overwritten
     hashes = Catalog().table().filter(pl.col("symbol") == "EURUSD")["snapshot_hash"].to_list()
     assert {old.snapshot_hash, new.snapshot_hash} <= set(hashes)
+
+
+def test_F_0_1_3_T04j_end_to_end_ingest_then_the_D032_daily_reference(ingest_env: Path) -> None:
+    """Fixture months of both sides -> 1H reference -> ``sfac data resample --to 1D``: the 1D
+    reference is ``derived_from`` the 1H one; Sunday's bars open Monday (D-010); no daily bar is
+    stamped on a weekend; the daily ``spread`` is the last hour's (D-032)."""
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    out = CliRunner().invoke(
+        app, ["data", "resample", "--symbol", "EURUSD", "--from", "1H", "--to", "1D",
+              "--set-reference"],
+    )  # fmt: skip
+    assert out.exit_code == 0, out.output
+    catalog = Catalog()
+    h1, d1 = catalog.get_reference("EURUSD", "1H"), catalog.get_reference("EURUSD", "1D")
+    assert d1.derived_from is not None and d1.derived_from.snapshot_hash == h1.snapshot_hash
+    store = SnapshotStore()
+    hourly = store.read_snapshot("dukascopy", "EURUSD", "1H", h1.snapshot_hash or "")
+    daily = store.read_snapshot("dukascopy", "EURUSD", "1D", d1.snapshot_hash or "")
+    assert hourly["ts"].dt.weekday().is_in([7]).any()  # the fixture has Sunday bars ...
+    assert not daily["ts"].dt.weekday().is_in([6, 7]).any()  # ... and no daily weekend stamp
+    monday = dt.datetime(2024, 3, 4, tzinfo=dt.UTC)  # Sunday 03-03 22:00 and 23:00 open it
+    day = daily.filter(pl.col("ts") == monday).row(0, named=True)
+    sunday = hourly.filter(
+        (pl.col("ts") >= monday - dt.timedelta(hours=2)) & (pl.col("ts") < monday)
+    )
+    assert sunday.height == 2 and day["open"] == sunday["open"][0]
+    assert day["spread"] == pytest.approx(0.0001 + 0.000001 * 23)  # the last hour's spread
+
+
+def test_F_0_1_3_T04j_the_1D_reference_moves_only_when_the_1H_one_does(ingest_env: Path) -> None:
+    raw = ingest_env / "raw"
+    (month_dir(raw, "h1", "eurusd", "bid") / "2024-02.csv.gz").unlink()
+    resample = ["data", "resample", "--symbol", "EURUSD", "--from", "1H", "--to", "1D",
+                "--set-reference"]  # fmt: skip
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    assert CliRunner().invoke(app, resample).exit_code == 0
+    first = Catalog().get_reference("EURUSD", "1D")
+    assert CliRunner().invoke(app, resample).exit_code == 0  # same 1H: the 1D stays put
+    assert Catalog().get_reference("EURUSD", "1D").snapshot_hash == first.snapshot_hash
+    _synthetic_month(raw, EURUSD, "bid", "2024-02")  # the 1H reference moves (D-661) ...
+    assert _invoke(ingest_env, "ingest", "dukascopy", "--set-reference").exit_code == 0
+    assert CliRunner().invoke(app, resample).exit_code == 0
+    moved, h1 = Catalog().get_reference("EURUSD", "1D"), Catalog().get_reference("EURUSD", "1H")
+    assert moved.snapshot_hash != first.snapshot_hash  # ... and so does the 1D, derived from it
+    assert moved.derived_from is not None and moved.derived_from.snapshot_hash == h1.snapshot_hash
 
 
 # -- D-661: the complete window; reading alongside a running download --------------------------

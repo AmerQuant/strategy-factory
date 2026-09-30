@@ -8,6 +8,8 @@ h1_start: 2010-01-01          # research series: h1 bid+ask from here (or instru
 m1_months: 24                 # m1 bid+ask for the last N complete months (on demand)
 universe_file: configs/universe/dukascopy.csv
 max_one_sided_share: 0.001    # bars present on one side only: critical above 0.1 %
+ohlc_repair_max: 0.00002       # D-673: open/close outside its own high/low by <= this -> widen
+                              # the high/low (never move a price); larger -> the store refuses
 
 tool:                         # pinned dukascopy-node (tools/dukascopy, npm ci)
   directory: tools/dukascopy

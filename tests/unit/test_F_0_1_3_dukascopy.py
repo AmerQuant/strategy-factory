@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 from strategy_factory.core.errors import DataError
-from strategy_factory.data.adapters.dukascopy import DukascopyAdapter
+from strategy_factory.data.adapters.dukascopy import DukascopyAdapter, repair_ohlc
 from strategy_factory.data.config import DukascopyConfig
 from strategy_factory.data.download import dukascopy as dk
 from strategy_factory.data.download.ratelimit import TLSVerificationError
@@ -265,3 +265,64 @@ def test_F_0_1_3_throttled_month_is_retried_with_backoff(tmp_path: Path) -> None
     )  # fmt: skip
     assert rep.stored == 2 and not rep.failed
     assert sleeps == [30.0, 60.0]  # config backoff 30 s x 2**attempt
+
+
+# -- D-673: the bounded OHLC repair -------------------------------------------------------------
+
+
+def _side(rows: list[tuple[str, float, float, float, float]]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "ts": [dt.datetime.fromisoformat(r[0]).replace(tzinfo=dt.UTC) for r in rows],
+            "open": [r[1] for r in rows],
+            "high": [r[2] for r in rows],
+            "low": [r[3] for r in rows],
+            "close": [r[4] for r in rows],
+            "volume": [1.0] * len(rows),
+        }
+    ).with_columns(pl.col("ts").dt.cast_time_unit("us"))
+
+
+def test_F_0_1_3_D673_an_excess_within_the_limit_widens_the_range_and_keeps_every_price() -> None:
+    side = _side(
+        [
+            ("2024-10-10 20:00", 1.09344, 1.09376, 1.09286, 1.09285),  # close 1 pip under the low
+            ("2024-10-10 21:00", 1.09386, 1.09385, 1.09347, 1.09362),  # open 1 pip over the high
+            ("2024-11-01 00:00", 1.08000, 1.08010, 1.07990, 1.08000),  # consistent
+        ]
+    )
+    fixed, counts = repair_ohlc(side, 0.00002)
+    assert counts == {"2024-10": 2}
+    assert fixed["low"][0] == 1.09285 and fixed["high"][0] == 1.09376
+    assert fixed["high"][1] == 1.09386 and fixed["low"][1] == 1.09347
+    assert fixed.select("ts", "open", "close", "volume").equals(
+        side.select("ts", "open", "close", "volume")
+    )  # never an open or close
+    assert fixed.row(2) == side.row(2)
+
+
+def test_F_0_1_3_D673_an_excess_above_the_limit_is_left_for_the_store_to_refuse() -> None:
+    side = _side([("2024-10-10 20:00", 1.09344, 1.09376, 1.09286, 1.09283)])  # 3 pips under
+    fixed, counts = repair_ohlc(side, 0.00002)
+    assert counts == {} and fixed.equals(side)
+
+
+def test_F_0_1_3_D673_the_adapter_counts_the_repair_per_month_in_the_notes(tmp_path: Path) -> None:
+    for side in ("bid", "ask"):
+        d = tmp_path / side
+        d.mkdir()
+        df = pl.read_csv(FIX / side / "2024-03.csv.gz")
+        if side == "bid":  # push one close 1 pip under its low
+            df = df.with_columns(
+                pl.when(pl.int_range(pl.len()) == 5)
+                .then(pl.col("low") - 0.00001)
+                .otherwise(pl.col("close"))
+                .alias("close")
+            )
+        (d / "2024-03.csv.gz").write_bytes(gzip.compress(df.write_csv().encode("utf-8")))
+    bars, meta = adapt([tmp_path / "bid" / "2024-03.csv.gz", tmp_path / "ask" / "2024-03.csv.gz"])
+    assert "OHLC repair (D-673): 1 side bar(s)" in meta.notes
+    assert "2024-03: bid 1, ask 0" in meta.notes
+    assert bars.select((pl.col("low") <= pl.min_horizontal("open", "close")).all()).item()
+    _, clean = adapt(fixture_paths())
+    assert "D-673" not in clean.notes  # an untouched series keeps its notes (and its hash)

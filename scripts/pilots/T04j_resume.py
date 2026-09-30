@@ -5,6 +5,7 @@ run from the stream B worktree, as often as the download progresses::
 
     uv run python scripts/pilots/T04j_resume.py              # measure, ingest, derive, report
     uv run python scripts/pilots/T04j_resume.py --dry-run    # windows, status and D-717 only
+    uv run python scripts/pilots/T04j_resume.py --symbols EURUSD,USDCHF   # only these
 
 Only **settled** raw months are read (``rawfiles.is_settled``: the data file and its manifest
 written, no ``.partial``), so a month the download is still writing is never read. Per instrument,
@@ -114,11 +115,20 @@ def is_pilot(catalog: Catalog, symbol: str) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true", help="Windows, status and D-717 only.")
+    parser.add_argument(
+        "--symbols", help="Comma-separated symbols to consider (default: every instrument)."
+    )
     args = parser.parse_args(argv)
     utf8_output()
 
     cfg = load_dukascopy_config()
     insts: list[Instrument] = load_instruments(cfg.universe_file)
+    if args.symbols:
+        wanted = {s.strip().upper() for s in args.symbols.split(",") if s.strip()}
+        unknown = wanted - {i.symbol for i in insts}
+        if unknown:
+            parser.error(f"not in the Dukascopy universe: {sorted(unknown)}")
+        insts = [i for i in insts if i.symbol in wanted]
     today = dt.datetime.now(dt.UTC).date()
     frame = dukascopy_coverage_frame(raw_root(), "h1", insts, cfg.h1_start, today)
     windows = dukascopy_windows(frame)
@@ -205,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             for i in insts
         ]
     )
-    if not args.dry_run:
+    if not args.dry_run and not args.symbols:  # the status file always covers all 29
         status.write_csv(STATUS)
     print()
     for r in status.iter_rows(named=True):
