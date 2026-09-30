@@ -53,8 +53,8 @@ def test_F_X_9_repo_ownership_file_is_valid(rules: Ownership) -> None:
     assert rules.streams["A"].pending == ((40, 59), (100, 149))
     # D-372: stream B's first range is used up, so it holds two
     assert rules.streams["B"].decisions == ((380, 399), (700, 799))
-    # D-376: and its first pending range too
-    assert rules.streams["B"].pending == ((60, 79), (80, 99))
+    # D-376: and its first pending range too; D-676: a third
+    assert rules.streams["B"].pending == ((60, 79), (80, 99), (150, 199))
     assert rules.append_only == (
         "docs/decisions/decisions_log.md",
         "docs/decisions/pending.md",
@@ -938,3 +938,27 @@ def test_F_X_9_d376_an_inverted_or_empty_pending_range_is_refused(tmp_path: Path
     for bad in ([[99, 80]], [[60, 79], [99, 80]], []):
         with pytest.raises(ConfigError):
             written(tmp_path, spec(bad))
+
+
+# -- D-676: stream B's third pending range, P-150 … P-199 ----------------------------------
+def test_F_X_9_d676_stream_b_may_use_its_third_pending_range(rules: Ownership) -> None:
+    for number in (150, 175, 199):
+        assert check_ids("B", [f"| P-{number} | stream B |"], [], rules) == [], number
+    assert check_ids("B", ["| P-85 | still fine |"], [], rules) == []
+
+
+def test_F_X_9_d676_the_third_pending_range_is_stream_bs_own(rules: Ownership) -> None:
+    for number in (150, 175, 199):
+        problems = check_ids("A", [f"| P-{number} | stream A reaching |"], [], rules)
+        assert len(problems) == 1 and "outside stream A's range" in problems[0], number
+    # the edges: P-149 is stream A's, P-200 is nobody's
+    assert len(check_ids("B", ["| P-149 | stream A's |"], [], rules)) == 1
+    assert len(check_ids("B", ["| P-200 | past the end |"], [], rules)) == 1
+    assert len(check_ids("A", ["| P-200 | past the end |"], [], rules)) == 1
+
+
+def test_F_X_9_d676_protocol_and_log_state_it() -> None:
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "P-150 … P-199" in protocol and "D-676" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    assert any(line.startswith("| D-676 |") and "P-150" in line for line in log.splitlines())
