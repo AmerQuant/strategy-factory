@@ -178,7 +178,22 @@ def run_funnel(
     write_funnel_summary(result, folder)
     if source is not None:
         write_truth(result, cfg, runner, folder)
+    if cfg.report:
+        write_funnel_report(result.funnel_id)
     return result, folder
+
+
+def write_funnel_report(funnel_id: str, config: Path | None = None) -> Path:
+    """``<artifacts>/funnels/<funnel_id>/report.html`` (D-655), from the artifacts only."""
+    import uuid
+
+    from strategy_factory.reports.config import load_report_config
+    from strategy_factory.reports.read import read_funnel
+    from strategy_factory.reports.render import write_report
+
+    row = FunnelRegistry(make_engine()).funnel(uuid.UUID(funnel_id))
+    ctx = read_funnel(funnel_id, artifacts_root(), row)
+    return write_report(ctx, load_report_config(config))
 
 
 def reproduce(funnel_id: str, workers: int | None = None) -> Any:

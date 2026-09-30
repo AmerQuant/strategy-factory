@@ -87,3 +87,17 @@ def funnel_reproduce(
     for d in report.differences[:50]:
         typer.echo(f"  {d}", err=True)
     raise typer.Exit(code=1)
+
+
+@funnel_app.command("report")
+def funnel_report(
+    funnel_id: Annotated[str, typer.Argument(help="Funnel run id.")],
+    config: Annotated[
+        Path | None, typer.Option("--config", help="Report config (configs/reports/funnel.yaml).")
+    ] = None,
+) -> None:
+    """(Re)build a funnel run's Persian HTML report from its artifacts (D-655)."""
+    from strategy_factory.pipeline.funnel_run import write_funnel_report
+
+    path = write_funnel_report(funnel_id, config)
+    typer.echo(f"report     : {path} ({path.stat().st_size / 1e6:.1f} MB)")

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>گزارش قیف {{ ctx.funnel_id }}</title>
+<style>
+@font-face {
+  font-family: "Vazirmatn";
+  src: url(data:font/ttf;base64,{{ font_b64 }}) format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+}
+:root {
+  --bg: #ffffff; --fg: #1d1f24; --muted: #5d6470; --line: #d9dde3; --panel: #f5f7fa;
+  --warn-bg: #fff4e0; --warn-line: #e0a030; --info-bg: #e8f1fb; --info-line: #3b7dd8;
+  --bad-bg: #fdeaea; --bad-line: #d04545; --good: #1e7f4f; --bad: #b3261e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+       font-family: "Vazirmatn", Tahoma, sans-serif; font-size: 15px; line-height: 1.7; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 21px; margin: 40px 0 12px; border-bottom: 2px solid var(--line); padding-bottom: 4px; }
+h3 { font-size: 17px; margin: 24px 0 8px; }
+.meta { color: var(--muted); font-size: 13px; }
+.banner { border-inline-start: 5px solid; padding: 10px 14px; margin: 10px 0; border-radius: 4px; }
+.banner.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.banner.info { background: var(--info-bg); border-color: var(--info-line); }
+.banner.bad { background: var(--bad-bg); border-color: var(--bad-line); }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 14px; }
+th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: start; vertical-align: top; }
+th { background: var(--panel); font-weight: 600; }
+td.num { text-align: end; }
+.pass { color: var(--good); font-weight: 600; }
+.fail { color: var(--bad); font-weight: 600; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; margin: 18px 0; }
+.card.passed { border-inline-start: 5px solid var(--good); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.fig { width: 100%; min-height: 260px; }
+bdi[dir="ltr"] { unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+<h1>گزارش قیف</h1>
+<div class="meta">
+  شناسهٔ اجرای قیف {{ ctx.funnel_id|ltr }} ·
+  نسخهٔ کد {{ ctx.row.code_version|ltr }} ·
+  بذر {{ ctx.row.seed|ltr }} ·
+  منبع داده {{ ctx.row.source|ltr }}
+</div>
+
+{% if ctx.source_kind == "null" %}
+<div class="banner bad" data-banner="synthetic">
+  <strong>اجرای مصنوعی — تهیِ کالیبره.</strong>
+  هر سری با تهیِ کالیبره‌شدهٔ خودش جایگزین شده است؛ هر عبوری در این گزارش <strong>مثبت کاذب</strong> است
+  (<bdi dir="ltr">D-654</bdi>، <bdi dir="ltr">D-664</bdi>). این نتایج هرگز با نتایج دادهٔ واقعی آمیخته نمی‌شوند.
+</div>
+{% elif ctx.source_kind == "planted" %}
+<div class="banner bad" data-banner="synthetic">
+  <strong>اجرای مصنوعی — اج کاشته‌شده.</strong>
+  روی تهیِ کالیبره، اجی با قدرت معلوم کاشته شده است؛ حقیقت هر نماد در بخش «حقیقت کاشته‌شده» آمده است
+  (<bdi dir="ltr">D-654</bdi>، <bdi dir="ltr">D-665</bdi>). این نتایج هرگز با نتایج دادهٔ واقعی آمیخته نمی‌شوند.
+</div>
+{% endif %}
+{% if ctx.control %}
+<div class="banner info" data-banner="control">
+  کنترل — همان ورودی‌ها روی بازده‌های بازچیده — در کنار هر مرحله اجرا شده است
+  (<bdi dir="ltr">D-615</bdi>، <bdi dir="ltr">D-653</bdi>، <bdi dir="ltr">D-662</bdi>).
+  کنترل محافظه‌کار است: شکل میله‌ها را به هم می‌زند و نرخ مثبت کاذب را کمتر از واقع نشان می‌دهد؛
+  معیار کالیبراسیون، تهیِ کالیبره است (<bdi dir="ltr">D-656</bdi>، <bdi dir="ltr">D-671</bdi>).
+</div>
+{% else %}
+<div class="banner bad" data-banner="no-control">
+  <strong>هشدار: این اجرا بدون کنترل است</strong> (<bdi dir="ltr">--no-control</bdi>، <bdi dir="ltr">D-653</bdi>).
+  هیچ نتیجه‌ای در این گزارش با کنترل مقایسه نشده است.
+</div>
+{% endif %}
+<div class="banner warn" data-banner="parity">
+  <strong>شکاف تطابق باز است</strong> (<bdi dir="ltr">D-802</bdi>):
+  <bdi dir="ltr">D-335</bdi> و <bdi dir="ltr">D-336</bdi> در برابر <bdi dir="ltr">TradingView</bdi> تأیید نشده‌اند.
+  <bdi dir="ltr">D-336</bdi> پیش‌فرض پژوهش است و همهٔ اجراهای میانگین‌گرا را شکل می‌دهد؛ اگر
+  <bdi dir="ltr">T11b</bdi> تفاوتی نشان دهد، این نتایج ممکن است نیاز به اجرای دوباره داشته باشند.
+</div>
+
+<h2>خلاصهٔ قیف</h2>
+<table id="funnel-table">
+  <thead>
+    <tr>
+      <th>بازهٔ زمانی</th><th>مرحله</th>
+      <th>ورودی (داده)</th><th>عبور (داده)</th><th>نمادهای عبورکرده (داده)</th>
+      <th>ورودی (کنترل)</th><th>عبور (کنترل)</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in table %}
+    <tr>
+      <td>{{ r.timeframe|ltr }}</td>
+      <td>{{ stage_fa[r.stage] }}</td>
+      {% if r.real %}
+      <td class="num" data-slot="{{ r.timeframe }}|{{ r.stage }}|real|entered">{{ r.real.entered|ltr }}</td>
+      <td class="num" data-slot="{{ r.timeframe }}|{{ r.stage }}|real|passed">{{ r.real.passed|ltr }}</td>
+      <td class="num" data-slot="{{ r.timeframe }}|{{ r.stage }}|real|symbols_passed">{{ r.real.symbols_passed|ltr }}</td>
+      {% else %}
+      <td>—</td><td>—</td><td>—</td>
+      {% endif %}
+      {% if r.control %}
+      <td class="num" data-slot="{{ r.timeframe }}|{{ r.stage }}|control|entered">{{ r.control.entered|ltr }}</td>
+      <td class="num" data-slot="{{ r.timeframe }}|{{ r.stage }}|control|passed">{{ r.control.passed|ltr }}</td>
+      {% else %}
+      <td>—</td><td>—</td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>نمادهایی که به پایان مرحلهٔ <bdi dir="ltr">3</bdi> می‌رسند</h3>
+<table id="end-of-stage3">
+  <thead><tr><th>بازهٔ زمانی</th><th>نمادها در مرحلهٔ <bdi dir="ltr">1</bdi></th><th>به پایان مرحلهٔ <bdi dir="ltr">3</bdi> رسیده</th><th>سهم</th></tr></thead>
+  <tbody>
+  {% for e in ended %}
+    <tr>
+      <td>{{ e.timeframe|ltr }}</td>
+      <td class="num" data-slot="{{ e.timeframe }}|end|scope">{{ e.scope|ltr }}</td>
+      <td class="num" data-slot="{{ e.timeframe }}|end|ended">{{ e.ended|ltr }}</td>
+      <td class="num">{{ e.share|pct }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if ctx.source_kind == "null" %}
+<p>هدف <bdi dir="ltr">T15b</bdi> برای تهیِ کالیبره: حداکثر <bdi dir="ltr">1 %</bdi> از نمادها به پایان مرحلهٔ <bdi dir="ltr">3</bdi> برسند (<bdi dir="ltr">D-656</bdi>).</p>
+{% endif %}
+
+{% if truth %}
+<h2>حقیقت کاشته‌شده</h2>
+<p>برای هر خانه (نوع، جهت، قدرت): تعداد نمادهایی که پروفایل کاشته‌شده‌شان در هر مرحله عبور کرده است. اجِ روندی دوطرفه است (<bdi dir="ltr">D-665</bdi>).</p>
+<table id="planted-truth">
+  <thead><tr><th>بازهٔ زمانی</th><th>خانه</th><th>نمادها</th><th>{{ stage_fa["s01_edge"] }}</th><th>{{ stage_fa["s02_screen"] }}</th><th>{{ stage_fa["s03_entry"] }}</th></tr></thead>
+  <tbody>
+  {% for t in truth %}
+    <tr>
+      <td>{{ t.timeframe|ltr }}</td><td>{{ t.cell|ltr }}</td><td class="num">{{ t.symbols|ltr }}</td>
+      <td class="num">{{ t.s01_edge|ltr }}</td><td class="num">{{ t.s02_screen|ltr }}</td><td class="num">{{ t.s03_entry|ltr }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{{ power }}
+{% endif %}
+
+<h2>مرحله به مرحله</h2>
+{% for s in stages %}
+<h3>{{ s.run.timeframe|ltr }} · {{ stage_fa[s.run.stage] }} · {{ arm_fa[s.run.arm] }}</h3>
+{% if s.run.status == "empty" %}
+<p>ورودی نداشت و اجرا نشد (<bdi dir="ltr">D-663</bdi>).</p>
+{% else %}
+<p class="meta">اجرای ثبت‌شده {{ s.run.run_id|ltr }}</p>
+{% if s.criteria %}
+<table>
+  <thead><tr><th>معیار رد</th><th>دفعات</th></tr></thead>
+  <tbody>
+  {% for name, n in s.criteria %}<tr><td>{{ name|ltr }}</td><td class="num">{{ n|ltr }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if s.quality %}
+<table>
+  <thead><tr><th>وضعیت کیفیت داده</th><th>پروفایل‌ها</th><th>عبور</th></tr></thead>
+  <tbody>
+  {% for q in s.quality %}<tr><td>{{ q.status|ltr }}</td><td class="num">{{ q.profiles|ltr }}</td><td class="num">{{ q.passed|ltr }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if s.run.stage == "s01_edge" and s.run.arm == "real" and heatmaps.get(s.run.timeframe) %}
+<p>نقشهٔ حرارتی یونیورس: <bdi dir="ltr">ESS</bdi> هر نماد در چهار پروفایل (<bdi dir="ltr">F-1.9</bdi>).</p>
+{{ heatmaps[s.run.timeframe] }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+<h2>نامزدهای مرحلهٔ <bdi dir="ltr">3</bdi></h2>
+{% if not candidates %}
+<p>هیچ نامزدی به مرحلهٔ <bdi dir="ltr">3</bdi> نرسید.</p>
+{% endif %}
+{% for k in candidates %}
+{% set c = k.c %}
+{% set i = c.stage3.identity %}
+<section class="card{% if c.passed %} passed{% endif %}" id="cand-{{ c.key }}">
+  <h3>{{ i.symbol|ltr }} · {{ i.timeframe|ltr }} · {{ i.edge_type|ltr }} {{ i.direction|ltr }} · {{ i.method|ltr }} —
+    {% if c.passed %}<span class="pass">عبور</span>{% else %}<span class="fail">رد</span>{% endif %}
+    {% if i.unconfirmed %} · <span class="fail">تأییدنشده</span> (<bdi dir="ltr">unconfirmed</bdi>، <bdi dir="ltr">D-621</bdi>){% endif %}
+  </h3>
+  <p><strong>تبار:</strong> پروفایل {{ i.parent_id[:12]|ltr }} ← روش {{ i.method|ltr }} ← پارامترهای انتخاب‌شده
+    {{ (c.stage3.selection.params or {})|tojson|ltr }}</p>
+  {% if c.stage3.gate %}
+  <table>
+    <thead><tr><th>معیار</th><th>مقدار</th><th>آستانه</th><th>نتیجه</th></tr></thead>
+    <tbody>
+    {% for g in c.stage3.gate %}
+      <tr><td>{{ g.metric|ltr }}</td><td class="num">{{ g.value|ltr }}</td><td class="num">{{ (g.op ~ " " ~ g.threshold)|ltr }}</td>
+      <td>{% if g.passed %}<span class="pass">✓</span>{% else %}<span class="fail">✗</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if c.stage1 %}
+  <h3>{{ stage_fa["s01_edge"] }}: پروب‌ها و <bdi dir="ltr">ESS</bdi></h3>
+  <table>
+    <thead><tr><th>پروب</th><th>گروه</th><th>معاملات</th><th>صدک</th><th>مازاد (<bdi dir="ltr">ATR</bdi>)</th><th><bdi dir="ltr">q</bdi></th><th>پذیرفته</th></tr></thead>
+    <tbody>
+    {% for p in c.stage1.probes %}
+      <tr><td>{{ p.name|ltr }}</td><td>{{ p.group|ltr }}</td><td class="num">{{ p.n_closed_trades|ltr }}</td>
+      <td class="num">{{ p.percentile|ltr }}</td><td class="num">{{ p.excess_atr|ltr }}</td><td class="num">{{ p.q_value|ltr }}</td>
+      <td>{% if p.accepted %}<span class="pass">✓</span>{% else %}✗{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {{ k.ess }}
+  {% endif %}
+
+  {% if c.stage2 %}
+  <h3>{{ stage_fa["s02_screen"] }}: گرید و امتیاز خانواده</h3>
+  <p>امتیاز خانواده {{ c.stage2.family.total|ltr }} · رتبه {{ c.stage2.family.rank|ltr }} ·
+    <bdi dir="ltr">q</bdi> روش {{ c.stage2.baseline.q_value|ltr }}</p>
+  {{ k.grid }}
+  {% endif %}
+
+  <h3>{{ stage_fa["s03_entry"] }}: سطح‌ها — نیمهٔ <bdi dir="ltr">1</bdi> و نیمهٔ <bdi dir="ltr">2</bdi></h3>
+  <p>پلاتو {{ c.stage3.selection.plateau_cells|ltr }} خانه · مساحت {{ c.stage3.selection.plateau_area|ltr }} ·
+    نسبت پایداری {{ c.stage3.selection.stability_ratio|ltr }} · نیمهٔ <bdi dir="ltr">2</bdi> در نقطهٔ انتخابی
+    {{ c.stage3.half2.raw|ltr }} ({% if c.stage3.half2.accepted %}<span class="pass">پذیرفته</span>{% else %}<span class="fail">نپذیرفته</span>{% endif %})</p>
+  <div class="grid2">
+    {% for f in k.h1 %}{{ f }}{% endfor %}
+    {% for f in k.h2 %}{{ f }}{% endfor %}
+  </div>
+  <h3>توزیع <bdi dir="ltr">SPP</bdi> و هزینه‌ها</h3>
+  <p><bdi dir="ltr">SPP</bdi>: میانه {{ c.stage3.spp.median|ltr }} · بازه {{ c.stage3.spp.p_low|ltr }} تا {{ c.stage3.spp.p_high|ltr }} ·
+    پلاتوی بدون هزینه {{ (c.stage3.zero_cost.params or {})|tojson|ltr }}، جابه‌جایی {{ c.stage3.zero_cost.shift_steps|ltr }} گام (<bdi dir="ltr">D-642</bdi>)</p>
+  {% if c.stage3.whole %}
+  <table>
+    <thead><tr><th></th><th>معاملات</th><th>هدف</th></tr></thead>
+    <tbody>
+      <tr><td>بدون هزینه</td><td class="num">{{ c.stage3.whole.n_trades_zero|ltr }}</td><td class="num">{{ c.stage3.whole.target_zero|ltr }}</td></tr>
+      <tr><td>پس از هزینه</td><td class="num">{{ c.stage3.whole.n_trades_cost|ltr }}</td><td class="num">{{ c.stage3.whole.target_cost|ltr }}</td></tr>
+    </tbody>
+  </table>
+  {% endif %}
+  {{ k.spp }}
+  {% if c.stage3.overlaps %}
+  <h3>هم‌پوشانی‌ها (<bdi dir="ltr">D-643</bdi>)</h3>
+  <table>
+    <thead><tr><th>روش</th><th>هم‌پوشانی</th><th>عبور</th></tr></thead>
+    <tbody>
+    {% for o in c.stage3.overlaps %}<tr><td>{{ o.method|ltr }}</td><td class="num">{{ o.overlap|ltr }}</td><td>{{ o.gate_passed|ltr }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <h3>هشدارهای داده (<bdi dir="ltr">D-610</bdi>)</h3>
+  <p>کیفیت {{ c.stage3.caveats.quality_status|ltr }}
+    {% if c.stage3.caveats.warning_checks %} · بررسی‌های هشدار {{ c.stage3.caveats.warning_checks|join(", ")|ltr }}{% endif %}
+    {% if c.stage3.caveats.research_window %} · پنجرهٔ پژوهشی{% endif %}
+    {% if c.stage3.caveats.trimmed %} · بریده‌شده{% endif %}</p>
+</section>
+{% endfor %}
+{% if rest %}
+<h3>نامزدهای دیگر (فقط جدول، <bdi dir="ltr">D-668</bdi>)</h3>
+<table>
+  <thead><tr><th>نماد</th><th>بازهٔ زمانی</th><th>جهت</th><th>روش</th><th>نتیجه</th></tr></thead>
+  <tbody>
+  {% for c in rest %}{% set i = c.stage3.identity %}
+    <tr><td>{{ i.symbol|ltr }}</td><td>{{ i.timeframe|ltr }}</td><td>{{ (i.edge_type ~ " " ~ i.direction)|ltr }}</td><td>{{ i.method|ltr }}</td>
+    <td>{% if c.passed %}<span class="pass">عبور</span>{% else %}<span class="fail">رد</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<footer>
+  فونت <bdi dir="ltr">Vazirmatn 33.003</bdi> — مجوز <bdi dir="ltr">SIL Open Font License 1.1</bdi>
+  (<bdi dir="ltr">© 2015 The Vazirmatn Project Authors</bdi>). همهٔ اعداد از آرتیفکت‌ها خوانده شده‌اند (<bdi dir="ltr">D-655</bdi>).
+</footer>
+</main>
+<script>{{ plotly_js }}</script>
+<script>
+(function () {
+  var ids = {{ figure_ids|tojson }};
+  var config = {displaylogo: false, responsive: true, displayModeBar: false};
+  for (var k = 0; k < ids.length; k++) {
+    var el = document.getElementById(ids[k]);
+    var fig = JSON.parse(document.getElementById(ids[k] + "-data").textContent);
+    Plotly.newPlot(el, fig.data, fig.layout, config);
+  }
+})();
+</script>
+</body>
+</html>

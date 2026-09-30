@@ -8,8 +8,10 @@ dependencies = [
     "alembic>=1.20.0",
     "alpaca-py>=0.44.0",
     "arch>=8.0.0",
+    "jinja2>=3.1.6",
     "numba>=0.67.0",
     "numpy>=2.5.3",
+    "plotly>=7.1.0",
     "polars>=1.30",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.8",
@@ -130,9 +132,9 @@ no_implicit_reexport = true
 strict_equality = true
 extra_checks = true
 
-# yfinance, numba and openpyxl ship no type information (py.typed / stubs)
+# yfinance, numba, openpyxl and plotly ship no type information (py.typed / stubs)
 [[tool.mypy.overrides]]
-module = ["yfinance", "numba", "numba.*", "openpyxl"]
+module = ["yfinance", "numba", "numba.*", "openpyxl", "plotly.*"]
 ignore_missing_imports = true
 
 # --------------------------------------------------------------------------- pytest
@@ -145,4 +147,5 @@ markers = [
     "leakage: data-truncation / look-ahead tests (mandatory gate)",
     "oracle: comparison against the vectorbt oracle (test-only dependency)",
     "db: needs the PostgreSQL registry (docker compose up -d); must not be skipped in CI",
+    "browser: needs a headless Chromium (Chrome or Edge); must not be skipped in CI (T15a, D-655)",
 ]
