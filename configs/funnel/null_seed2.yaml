@@ -1,0 +1,11 @@
+# T15a: the funnel on the calibrated null, seed 2 of 3 (plan §12: D-656 read over several seeds);
+# otherwise configs/funnel/null.yaml. The funnel on the calibrated null (D-654, D-664) -- every series replaced by its null
+# (configs/synthetic/null.yaml); every pass is a false positive. D-656 reads the share of symbols
+# reaching the end of stage 3 here (T15b's target: at most 1 %).
+source: {kind: "null", seed: 202609210}
+symbol_scope: broker
+timeframes: [1D, 1H]
+stages: [s01_edge, s02_screen, s03_entry]
+control: true
+seed: 42
+report: true
