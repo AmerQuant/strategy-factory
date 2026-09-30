@@ -7,8 +7,8 @@ week-open spread key, D-716). **Branch:** `b/T04j-dukascopy-ingest`. **Stream B.
 **Decisions:** D-715, D-716, D-717 (the plan), **D-657** (the gate is per instrument), **D-661**
 (the complete window), **D-672** (a verified market event; the D-717 stop is per instrument),
 **D-673** (the bounded OHLC repair) — the last four the supervisor's, on the user's choices.
-P-87, P-88, P-94, P-95 answered. **Open, not blocking: P-96** (whether a series is extended month
-by month; the resume command does not, see below).
+P-87, P-88, P-94, P-95 answered; **P-96 answered as D-674** (no monthly extension; re-derived only
+when a gap closes; USDCAD stays). Nothing open.
 
 **The task is partial by decision.** The download is still running. D-657 and D-661 let the complete
 instruments in now, and the rest follow through one command as their downloads complete (below).

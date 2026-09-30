@@ -33,7 +33,7 @@ Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that re
   `uv run python scripts/pilots/T04j_resume.py` (`--dry-run`, `--symbols`). It ingests what has a
   window meeting D-008 and passing D-717 (per instrument; USDCHF's SNB bar is a verified event,
   D-672), re-derives an instrument only when a gap closes (the window starts earlier), and writes
-  nothing for the rest. A new month at the end does not re-derive: **P-96** (open, not blocking).
+  nothing for the rest. A new month at the end does not re-derive (**D-674**, P-96).
 - **D-673:** the adapter widens a high/low to cover an open/close outside it by <= 0.00002;
   EURUSD 41 and USDCHF 14 side bars (all 2024-10); EURAUD's 2024-10 ask has 5 more (0.00002).
 - **XAUUSD's window** is bounded by scattered one-sided months (failed fetches); a later pass may
@@ -41,7 +41,7 @@ Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that re
 
 ### Waiting on whom
 
-- **Supervisor:** "Approved. Merge" for the T04j PR; **P-96**; whoever takes **P-93**.
+- **Supervisor:** whoever takes **P-93**.
 - **User:** the Dukascopy download (running); emptying the quarantine folders
   `<store>/_quarantine/T04k_D-702_*`, `T04l_D-714_20260922T080918Z`.
 - **Stream A, after the T04j merge:**
@@ -55,6 +55,15 @@ Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that re
   3. For the record: the T04i `daily_extreme_unsupported` check skips Dukascopy 1D ("no hourly
      series"); harmless (the daily bar is built from its own hours), noted in the T04j review.
 
+### For stream A — a decision-ID collision (relay, supervisor-approved 2026-09-30)
+
+**D-673 is used twice.** Stream B's PR #61 records **D-673 = the bounded OHLC repair** (P-95), and
+that ID is already written into the EURUSD and USDCHF 1H snapshot notes in the store, which are not
+rewritten. `a/T15a-orchestrator` (`a5597ef`) records **D-673 = P-134's answer** (the T15a planted
+ladders). The user chose: **stream A renumbers its P-134 answer** to the next free supervisor ID
+after D-674 (P-96's answer, below) when it rebases onto `main` with #61. `sfac streams check` will
+report the duplicate until then.
+
 ### Next steps, in order
 
 1. On "Approved. Merge": rebase onto the latest `main`, CI green, merge, update this file.
@@ -65,8 +74,8 @@ Locally `test_F_X_9_repo_alembic_heads_matches_alembic_itself` fails for that re
 
 ### IDs
 
-Next free: **D-722**, **P-97**; supervisor **D-674**. D-715 … D-717, D-657, D-661, D-672, D-673
-(supervisor) and P-87, P-88, P-94, P-95 (answered), P-96 (open) are on the T04j branch until it
+Next free: **D-722**, **P-97**; supervisor: the next after D-674 goes to stream A's renumbered P-134 answer. D-715 … D-717, D-657, D-661, D-672, D-673
+(supervisor) and P-87, P-88, P-94, P-95, P-96 (answered), D-674 are on the T04j branch until it
 merges. D-662 … D-671 are stream A's T15a answers (on `main`).
 
 ## Scope
