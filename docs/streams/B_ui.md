@@ -10,11 +10,12 @@ is stream B's main session's. No messages to other sessions — notes here, rela
 
 | branch | state | waiting on |
 |---|---|---|
-| `b/ui-T17a-frontend` | plan committed (`docs/tasks/T17a-FE_plan.md`); T17 §2 recorded as **D-676 … D-686** | **"Plan approved"** and the library choices (plan §3) |
+| `b/ui-T17a-frontend` | T17a-FE implemented; review `docs/reviews/T17a-FE_review.md` with 26 screenshots (`docs/reviews/T17a-FE/`); plan approved, D-780 … D-797 recorded | **"Approved. Merge"**, and the supervisor's word on review §5 (contract points 1–9 for stream A before T17a-BE; colour choices 12–15; a UI feature id, 19) |
 
 Task: **T17a-FE** — phase 1 of the admin UI, frontend only, in `ui/`, against a mock of the
 supervisor's contract (`docs/tasks/T17a_ui_frontend.md` §3). Nothing outside `ui/` changes except
-this file, the task/plan/review docs and the decisions log rows above.
+this file, the task/plan/review docs and the decisions log rows above. Next: T17a-BE (after stream
+A's prerequisites).
 
 ## Notes for the supervisor (to relay)
 
@@ -25,5 +26,11 @@ this file, the task/plan/review docs and the decisions log rows above.
   untracked), not in this worktree. They were **copied** here (identical to the user's Downloads
   copies) and committed on this branch; stream A's folder was not touched. The untracked copies there
   should be removed by the user or stream A, so they are not committed twice.
-- For stream A (after T17a-FE is reviewed): the `ui` CI job's commands will be in
-  `docs/reviews/T17a-FE_review.md`.
+- **For stream A (T17a-BE and the `ui` CI job):** the CI commands are in `docs/reviews/T17a-FE_review.md`
+  §7; the contract points the mock had to choose (stage-run status enum, `stage_counts`, list filter
+  names, nullable fields, 404, SSE close and header-over-query) are in §5 — T17a-BE should match
+  whatever the supervisor rules. The `Last-Event-ID` header path could not be exercised end to end on
+  MSW (§5.10): T17a-BE's test must prove it over real HTTP.
+- **The updated task files were again found untracked in stream A's folder** (`StrategyFactory/docs/tasks/`:
+  `T17a_ui_frontend.md`, `UI_tokens.md`, and the earlier `T17_admin_ui.md`, `UI_spec.md`); they were
+  copied here (identical to the Downloads copies) and committed. The copies there should be removed.
