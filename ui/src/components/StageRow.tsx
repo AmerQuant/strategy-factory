@@ -105,7 +105,7 @@ export function StageRow({ slot }: { slot: Slot }) {
               padding: '3px 7px',
               fontSize: 10,
             }}
-            title="Taken from the completed stage by the resume (D-792)"
+            title="Taken from the completed stage by the resume (D-783)"
           >
             <IconRecycle size={11} /> reused
           </span>

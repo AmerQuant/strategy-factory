@@ -1,5 +1,5 @@
 /**
- * A thin ECharts wrapper of our own (D-785): init with the scheme's theme, resize with the container,
+ * A thin ECharts wrapper of our own (D-776): init with the scheme's theme, resize with the container,
  * dispose on unmount. Tree-shaken imports from `echarts/core`: register a chart type here before use.
  */
 import { useComputedColorScheme } from '@mantine/core';

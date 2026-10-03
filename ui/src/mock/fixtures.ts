@@ -1,7 +1,7 @@
 /**
  * Mock only: the funnel configs, their per-stage timings and the history fixtures.
  *
- * Timings of the planted funnel (D-793): the **real** T15a timings given by the supervisor are
+ * Timings of the planted funnel (D-784): the **real** T15a timings given by the supervisor are
  * 1D s01 13/12 min, s02 15/16, s03 7/7 and 1H s01 29/27, s02 real 6 (real/control). Everything marked
  * `ILLUSTRATIVE` (1H s02 control, 1H s03, every unit count and every n_in / n_passed, config names and
  * hashes, the planted ladder) is not measured: replace it from docs/streams/A.md after the next run.

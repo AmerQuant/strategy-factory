@@ -131,6 +131,6 @@ Also state the Node version in use and whether it matches what the Dukascopy too
 - Status in **`docs/streams/B_ui.md`** (this session's own file; `docs/streams/B.md` is stream B's
   main session's). No messages to other sessions; notes for them go in `B_ui.md` and through the
   supervisor.
-- Decision ids **D-780 … D-799** (carved from stream B's range for this session). No pending ids until
+- Decision ids **D-760 … D-799** (carved from stream B's range for this session). No pending ids until
   stream A lands P-150 … P-199; put questions in the stop report.
 - Heavy commands (full test runs, builds) are light next to the funnel, but do not run benchmarks.

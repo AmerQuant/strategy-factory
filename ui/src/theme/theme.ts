@@ -1,4 +1,4 @@
-/** The Mantine theme and the CSS variables of both schemes, from tokens.ts (UI_tokens.md, D-794). */
+/** The Mantine theme and the CSS variables of both schemes, from tokens.ts (UI_tokens.md, D-785). */
 import {
   colorsTuple,
   createTheme,

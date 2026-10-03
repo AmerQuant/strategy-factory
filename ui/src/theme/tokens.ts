@@ -1,5 +1,5 @@
 /**
- * Design tokens, transcribed from docs/tasks/UI_tokens.md (D-794). Values marked "derived" there were
+ * Design tokens, transcribed from docs/tasks/UI_tokens.md (D-785). Values marked "derived" there were
  * chosen by the supervisor; nothing here is invented. Exposed as CSS variables `--sf-<name>` per
  * colour scheme (theme.ts).
  */

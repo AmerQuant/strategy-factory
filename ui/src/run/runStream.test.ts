@@ -1,5 +1,5 @@
 /**
- * The run stream's connection handling (D-782): the first connection carries no id, a reopen carries
+ * The run stream's connection handling (D-773): the first connection carries no id, a reopen carries
  * ?last_event_id=, a drop while running is left to the browser's reconnect, the server closing an
  * ended run stops it.
  */

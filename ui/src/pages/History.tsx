@@ -1,7 +1,7 @@
 /**
  * Run history (UI_spec §2.3): every funnel run; filters (source, status, date — server side), search
- * (client side), sortable columns, column chooser, CSV export. The URL holds all of it (D-781).
- * Row actions open report, reproduce and compare are phase 2 (D-796).
+ * (client side), sortable columns, column chooser, CSV export. The URL holds all of it (D-772).
+ * Row actions open report, reproduce and compare are phase 2 (D-787).
  */
 import { ActionIcon, Button, Checkbox, Menu, Select, TextInput, Tooltip } from '@mantine/core';
 import {

@@ -1,7 +1,7 @@
 /**
  * The mock API (T17a-FE §2, §3.2-3.3): every fixture event and response matches the contract; the
  * event stream honours Last-Event-ID and ?last_event_id=; start, stop and resume; the refusals; the
- * T15a timings (D-793).
+ * T15a timings (D-784).
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -75,7 +75,7 @@ describe('T17a-FE mock: contract conformance', () => {
     expect(runs.some((r) => r.status === 'stopped')).toBe(true);
   });
 
-  it("uses T15a's real timings for the planted funnel (D-793)", () => {
+  it("uses T15a's real timings for the planted funnel (D-784)", () => {
     const minutes = (stage: string, tf: string, arm: string) =>
       (PLANTED_PILOT_SLOTS.find((s) => s.stage_id === stage && s.timeframe === tf && s.arm === arm)
         ?.duration_s ?? 0) / 60;

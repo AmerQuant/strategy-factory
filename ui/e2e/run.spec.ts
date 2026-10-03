@@ -49,7 +49,7 @@ test('T17a-FE start, watch, reconnect mid-stage, stop, resume, fail, resume, fin
   await expect(page.getByTestId('connection')).toContainText('open');
   // The browser reconnected by itself. Through MSW's service worker Chrome's Last-Event-ID header
   // does not reach the handler, so the mock replays the whole history and the client's seq dedup
-  // absorbs it (D-791's second guard); the header path is proven against T17a-BE's real HTTP.
+  // absorbs it (D-782's second guard); the header path is proven against T17a-BE's real HTTP.
   const conns = await page.evaluate(() => window.__sfacMock?.backend.connections ?? []);
   expect(conns).toHaveLength(2);
   // Progress never goes back while the stage continues.
@@ -66,7 +66,7 @@ test('T17a-FE start, watch, reconnect mid-stage, stop, resume, fail, resume, fin
   expect(Number(/duplicates dropped (\d+)/.exec(counters)?.[1])).toBeGreaterThan(0);
   expect(counters).toContain('gaps 0');
 
-  // --- stop (D-789) once the first stage is done, then resume: the finished stage is reused (D-792)
+  // --- stop (D-780) once the first stage is done, then resume: the finished stage is reused (D-783)
   await expect(row).toHaveAttribute('data-status', 'finished', { timeout: 30_000 });
   await page.getByTestId('stop').click();
   await page.getByTestId('confirm-stop').click();
@@ -95,7 +95,7 @@ test('T17a-FE start, watch, reconnect mid-stage, stop, resume, fail, resume, fin
     'data-status',
     /running|finished/,
   );
-  // The fresh connection after the resume carried ?last_event_id= (D-791).
+  // The fresh connection after the resume carried ?last_event_id= (D-782).
   const reopen = await page.evaluate(() => window.__sfacMock?.backend.connections.at(-1));
   expect(reopen?.last_event_id_query).toMatch(/^\d+$/);
 

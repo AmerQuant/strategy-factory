@@ -2,7 +2,7 @@
  * The run reducer: (RunState, events) -> RunState. Everything the live monitor shows is derived from
  * it. Pure from the caller's side: the input state is never mutated.
  *
- * - An event whose `seq` was already applied is dropped (D-782, D-791): replaying the whole history
+ * - An event whose `seq` was already applied is dropped (D-773, D-782): replaying the whole history
  *   after a reconnect can neither duplicate nor lose progress.
  * - A `seq` that skips ahead is applied and counted as a gap (the contract promises none).
  * - Unknown event types go to the log, never dropped (§3.1).
@@ -251,7 +251,7 @@ function applyKnown(d: Draft, e: KnownEvent): void {
       }
       d.byStageRun[e.stage_run_id] = key;
       if (e.reused && s.status === 'finished') {
-        // A resume takes this stage's completed result (D-792): keep its numbers and wall times.
+        // A resume takes this stage's completed result (D-783): keep its numbers and wall times.
         s.reused = true;
         s.stage_run_id = e.stage_run_id;
         break;
@@ -397,7 +397,7 @@ export interface RunProgressView {
   done: number;
   running: Slot[];
   queued: number;
-  /** The running stages' estimates (null when none is estimable yet); queued stages have none (D-796). */
+  /** The running stages' estimates (null when none is estimable yet); queued stages have none (D-787). */
   remaining_s: number | null;
 }
 

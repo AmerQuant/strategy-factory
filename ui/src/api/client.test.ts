@@ -1,4 +1,4 @@
-/** D-783: every response is validated at the boundary; unknown fields are ignored. */
+/** D-774: every response is validated at the boundary; unknown fields are ignored. */
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startMockServer } from '../test/render';

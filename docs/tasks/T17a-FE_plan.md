@@ -1,29 +1,29 @@
 # T17a-FE plan — admin UI phase 1, frontend first
 
 Plan for `docs/tasks/T17a_ui_frontend.md` (D-403), with `docs/tasks/T17_admin_ui.md` (decisions
-D-676 … D-686, recorded from its §2) and `docs/tasks/UI_spec.md` (the authority for layout and look).
+D-760 … D-770, recorded from its §2) and `docs/tasks/UI_spec.md` (the authority for layout and look).
 Stream B's UI session, worktree `StrategyFactory_UI`, branch `b/ui-T17a-frontend`, decision ids
-D-780 … D-799.
+D-760 … D-799.
 
 ## 0. Approved (2026-09-30) — what changed since the draft
 
 "Plan approved" with the user's library choices and the supervisor's answers, recorded as
-**D-780 … D-797**; the contract (`T17a_ui_frontend.md` §3) was extended and `UI_tokens.md` added.
+**D-771 … D-788**; the contract (`T17a_ui_frontend.md` §3) was extended and `UI_tokens.md` added.
 Where this section and the rest of the plan differ, this section wins.
 
 | item | now |
 |---|---|
-| libraries (§3) | Vite, npm, Node 26 in `engines` (D-780); TanStack Router + Query (D-781); native `EventSource` + `?last_event_id=` + seq dedup (D-782); MSW 2.15.0 (SSE confirmed) + zod on every response (D-783); Vitest + Testing Library (jsdom) + Playwright, ESLint + Prettier, TypeScript 6.0 (D-784); own ECharts wrapper (D-785); `@fontsource` fonts (D-786); FastAPI serves `ui/dist`, Vite proxies `/api` in dev (D-787) |
-| Q1 Downloads | out; disabled nav entry (D-788) |
-| Q2 Stop | `POST …/stop` → `funnel_stopped`; built (D-789) |
-| Q3 wizard | scope read-only from `GET /api/configs` items; refusal 409/422 `{error_kind, message}` shown verbatim (D-790) |
-| Q4 reconnect | server takes `?last_event_id=` or the header; seq dedup kept (D-791) |
-| Q5 resume | same id, seq continues, `funnel_resumed`, `reused` on `stage_started` (D-792) |
-| Q6 timings | real ones used; the rest and all unit counts marked illustrative (D-793) |
-| Q7 tokens | `UI_tokens.md` (D-794) |
-| Q8 shapes | §3.1 / §3.3 (D-795) |
-| Q9 shell | `GET /api/status` for server status and banners; the rest disabled with its phase (D-796) |
-| Q10 installs | this session runs `npm install` and Playwright's browser download (D-797) |
+| libraries (§3) | Vite, npm, Node 26 in `engines` (D-771); TanStack Router + Query (D-772); native `EventSource` + `?last_event_id=` + seq dedup (D-773); MSW 2.15.0 (SSE confirmed) + zod on every response (D-774); Vitest + Testing Library (jsdom) + Playwright, ESLint + Prettier, TypeScript 6.0 (D-775); own ECharts wrapper (D-776); `@fontsource` fonts (D-777); FastAPI serves `ui/dist`, Vite proxies `/api` in dev (D-778) |
+| Q1 Downloads | out; disabled nav entry (D-779) |
+| Q2 Stop | `POST …/stop` → `funnel_stopped`; built (D-780) |
+| Q3 wizard | scope read-only from `GET /api/configs` items; refusal 409/422 `{error_kind, message}` shown verbatim (D-781) |
+| Q4 reconnect | server takes `?last_event_id=` or the header; seq dedup kept (D-782) |
+| Q5 resume | same id, seq continues, `funnel_resumed`, `reused` on `stage_started` (D-783) |
+| Q6 timings | real ones used; the rest and all unit counts marked illustrative (D-784) |
+| Q7 tokens | `UI_tokens.md` (D-785) |
+| Q8 shapes | §3.1 / §3.3 (D-786) |
+| Q9 shell | `GET /api/status` for server status and banners; the rest disabled with its phase (D-787) |
+| Q10 installs | this session runs `npm install` and Playwright's browser download (D-788) |
 
 Build details fixed by these: the mock serves the eight endpoints of §3.3 (list, summary, events,
 start, resume, stop, configs, status); the monitor's actions are Stop (running) and Resume (failed or
@@ -86,7 +86,7 @@ No option is picked here. "Repo" = what lands in the repository; "BE" = the effe
 |---|---|---|---|---|
 | **Vite** (+ `@vitejs/plugin-react`) | the de-facto standard for a React SPA; instant dev server, HMR; a dev proxy for `/api` built in; output is plain static files | none significant for an SPA | `ui/vite.config.ts`, `ui/index.html`; BE serves `ui/dist` | `npm run dev` / `npm run build`; later `server.proxy['/api'] → 127.0.0.1:<be port>` |
 | **Rsbuild** (Rspack) | very fast builds, webpack-compatible plugins | smaller ecosystem; fewer examples with Mantine/Vitest | same shape as Vite | `rsbuild.config.ts`; same proxy idea |
-| **Next.js** (static export) | routing and conventions included | server-oriented; static export drops much of it; a second server concept next to FastAPI | `next.config`, `app/` tree; BE serves `out/` | fights the "FastAPI is the server" decision (D-676) |
+| **Next.js** (static export) | routing and conventions included | server-oriented; static export drops much of it; a second server concept next to FastAPI | `next.config`, `app/` tree; BE serves `out/` | fights the "FastAPI is the server" decision (D-760) |
 
 ### 3.2 Package manager
 
@@ -160,7 +160,7 @@ TypeScript types only.
 Repo: config files in `ui/` only. BE: the e2e test later runs against FastAPI with the same spec by
 switching its base URL.
 
-### 3.7 Charts in phase 1 (the Gantt and the progress bars; ECharts per D-678)
+### 3.7 Charts in phase 1 (the Gantt and the progress bars; ECharts per D-762)
 
 **`echarts-for-react`** (a thin wrapper, popular, lags ECharts releases) or **a small own wrapper**
 around `echarts/core` with tree-shaken imports (~40 lines, full control). Plotly is not needed in
@@ -227,7 +227,7 @@ Other questions (not contract):
 
 ## 5. Runbook
 
-1. (done) `B_ui.md`, task files and D-676 … D-686 committed on `b/ui-T17a-frontend`.
+1. (done) `B_ui.md`, task files and D-760 … D-770 committed on `b/ui-T17a-frontend`.
 2. On "Plan approved" + the §3 choices: scaffold `ui/` with the chosen tools; `contract.ts`; theme.
 3. Tests first: reducer, mock replay, then the components, then the e2e spec.
 4. Mock and fixtures; shell; history; launch; live monitor with the Gantt; overview skeleton.

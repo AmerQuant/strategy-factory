@@ -1,6 +1,6 @@
 /**
  * New funnel run (UI_spec §2.1): Profile (disabled until T17c) → Source → Scope (read-only from the
- * chosen funnel config, D-790) → Control (off shows the D-653 warning) → Review → Start. A refusal is
+ * chosen funnel config, D-781) → Control (off shows the D-653 warning) → Review → Start. A refusal is
  * shown verbatim (409 / 422 `{error_kind, message}`).
  */
 import { Button, Group, NumberInput, Select, Stepper, Switch } from '@mantine/core';
@@ -226,7 +226,7 @@ export function NewRunPage() {
                 allowDeselect={false}
                 data-testid="config-select"
               />
-              <div className="cap">Scope — read-only, from the config (D-790)</div>
+              <div className="cap">Scope — read-only, from the config (D-781)</div>
               {config ? <ScopeView config={config} /> : null}
             </div>
             {nav(config !== null)}

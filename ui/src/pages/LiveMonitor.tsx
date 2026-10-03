@@ -1,7 +1,7 @@
 /**
  * Live monitor (UI_spec §2.2): header (source, profile, control), summary, the timeline of every stage
- * run, the Gantt, the queue, the live log; actions stop and resume (D-789, D-792); open report is
- * phase 2 (D-796).
+ * run, the Gantt, the queue, the live log; actions stop and resume (D-780, D-783); open report is
+ * phase 2 (D-787).
  */
 import { Button, Group, Modal, Tooltip, useComputedColorScheme } from '@mantine/core';
 import { IconFileReport, IconPlayerPlay, IconPlayerStop } from '@tabler/icons-react';
@@ -83,7 +83,7 @@ function Queue({ slots }: { slots: Slot[] }) {
       title="Queue"
       caption={`${queued.length} stage runs waiting`}
       actions={
-        <Tooltip label="Estimates for queued stages come with phase 2 (D-796)">
+        <Tooltip label="Estimates for queued stages come with phase 2 (D-787)">
           <span>
             <PhaseTag phase="estimates: phase 2" />
           </span>

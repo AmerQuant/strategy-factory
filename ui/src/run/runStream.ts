@@ -1,5 +1,5 @@
 /**
- * The live connection to one run's events (D-782): the browser's EventSource, whose own reconnect
+ * The live connection to one run's events (D-773): the browser's EventSource, whose own reconnect
  * sends `Last-Event-ID`; a fresh connection passes the last applied seq as `?last_event_id=`; the
  * reducer drops any seq it has already applied.
  *

@@ -1,7 +1,7 @@
 /**
  * The T17a API contract (docs/tasks/T17a_ui_frontend.md §3), written once as zod schemas.
  *
- * The client validates every response with these (D-783) and the mock builds its responses from the
+ * The client validates every response with these (D-774) and the mock builds its responses from the
  * inferred types, so the mock cannot drift from the contract without a type error. Unknown fields are
  * stripped (ignored), never an error (§3.1 forward compatibility).
  */

@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
 });
 
 async function main() {
-  // The mock API (D-783): development only, unless VITE_MOCK=0 points the dev server at T17a-BE.
+  // The mock API (D-774): development only, unless VITE_MOCK=0 points the dev server at T17a-BE.
   // In a production build `import.meta.env.DEV` is false, so this branch and its chunk are removed.
   if (import.meta.env.DEV && import.meta.env.VITE_MOCK !== '0') {
     const { startMock } = await import('./mock/browser');

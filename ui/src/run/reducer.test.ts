@@ -1,5 +1,5 @@
 /**
- * The run reducer (T17a-FE §3.1-3.2, D-782, D-791, D-792): order, duplicates, gaps, unknown types and
+ * The run reducer (T17a-FE §3.1-3.2, D-773, D-782, D-783): order, duplicates, gaps, unknown types and
  * fields, reused stage runs, resume, stop, and a replay of the whole history from every cut point.
  */
 import { describe, expect, it } from 'vitest';

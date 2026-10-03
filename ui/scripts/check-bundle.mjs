@@ -1,4 +1,4 @@
-// Checks that the production build contains no part of the mock API (D-783): MSW, its worker, the
+// Checks that the production build contains no part of the mock API (D-774): MSW, its worker, the
 // mock backend or its fixtures. Part of `npm run build`.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';

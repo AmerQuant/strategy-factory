@@ -2,7 +2,7 @@
 
 Working copy: `D:\AmerAndish\Projects\Trade\StrategyFactory_UI`, a git worktree of its own (no stream
 owns the folder; `uv run sfac streams session` passes without `--stream`). A helper session of
-stream B for **T17** (the admin UI): branches `b/ui-…`, decision ids **D-780 … D-799**, no pending
+stream B for **T17** (the admin UI): branches `b/ui-…`, decision ids **D-760 … D-799**, no pending
 ids (questions go in the stop report). This file is this session's status only; `docs/streams/B.md`
 is stream B's main session's. No messages to other sessions — notes here, relayed by the supervisor.
 
@@ -10,7 +10,7 @@ is stream B's main session's. No messages to other sessions — notes here, rela
 
 | branch | state | waiting on |
 |---|---|---|
-| `b/ui-T17a-frontend` | T17a-FE implemented; review `docs/reviews/T17a-FE_review.md` with 26 screenshots (`docs/reviews/T17a-FE/`); plan approved, D-780 … D-797 recorded | **"Approved. Merge"**, and the supervisor's word on review §5 (contract points 1–9 for stream A before T17a-BE; colour choices 12–15; a UI feature id, 19) |
+| `b/ui-T17a-frontend` | T17a-FE implemented; review `docs/reviews/T17a-FE_review.md` with 26 screenshots (`docs/reviews/T17a-FE/`); plan approved, D-771 … D-788 recorded | **"Approved. Merge"**, and the supervisor's word on review §5 (contract points 1–9 for stream A before T17a-BE; colour choices 12–15; a UI feature id, 19) |
 
 Task: **T17a-FE** — phase 1 of the admin UI, frontend only, in `ui/`, against a mock of the
 supervisor's contract (`docs/tasks/T17a_ui_frontend.md` §3). Nothing outside `ui/` changes except
@@ -19,9 +19,11 @@ A's prerequisites).
 
 ## Notes for the supervisor (to relay)
 
-- **D-675 is left free on purpose.** Stream A renumbers its duplicate D-673 (P-134's answer) to "the
-  next free supervisor id after D-674" (`docs/streams/B.md`), which is D-675; T17's decisions start
-  at D-676 so the two cannot collide. If stream A used a different id, D-675 simply stays unused.
+- **Decision range corrected (supervisor, 2026-10-03):** this session's range is **D-760 … D-799**;
+  only stream A writes the supervisor range D-600 … D-699 (stream A's PR #62 takes D-676). T17's
+  decisions were renumbered D-676 … D-686 → **D-760 … D-770** (still marked supervisor), the library
+  choices and plan answers D-780 … D-797 → **D-771 … D-788**. Next free here: **D-789**. The branch's
+  earlier commit messages keep the old numbers; the files carry the new ones.
 - **The three T17 task files were found in stream A's folder** (`StrategyFactory/docs/tasks/`,
   untracked), not in this worktree. They were **copied** here (identical to the user's Downloads
   copies) and committed on this branch; stream A's folder was not touched. The untracked copies there

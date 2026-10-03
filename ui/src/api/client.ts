@@ -1,5 +1,5 @@
 /**
- * The HTTP client of §3.3. Every response is validated with the contract's zod schemas (D-783): a
+ * The HTTP client of §3.3. Every response is validated with the contract's zod schemas (D-774): a
  * backend that drifts from the contract fails here, at the boundary, with the offending path.
  */
 import type { z } from 'zod';

@@ -276,7 +276,7 @@ export class SimRun {
     this.finishedAtMs = Date.parse(this.nowIso());
   }
 
-  /** Resumes a failed or stopped run at wall time `atMs`: completed stages are reused (D-792). */
+  /** Resumes a failed or stopped run at wall time `atMs`: completed stages are reused (D-783). */
   resume(atMs: number, codeVersion: CodeVersion): void {
     if (this.status !== 'failed' && this.status !== 'stopped') return;
     this.tsBaseMs = atMs;
