@@ -11,8 +11,8 @@ export const SourceSchema = z.enum(['real', 'null', 'planted']);
 export const TimeframeSchema = z.enum(['1D', '1H']);
 export const ArmSchema = z.enum(['real', 'control']);
 export const RunStatusSchema = z.enum(['queued', 'running', 'finished', 'failed', 'stopped']);
-/** Not enumerated by §3.3; the mock uses these (raised in the review). */
-export const StageRunStatusSchema = z.enum(['running', 'finished', 'failed', 'stopped']);
+/** §3.4 (1); `queued` is a stage run in the plan that has not started (the mock lists none). */
+export const StageRunStatusSchema = z.enum(['queued', 'running', 'finished', 'failed', 'stopped']);
 
 export type Source = z.infer<typeof SourceSchema>;
 export type Timeframe = z.infer<typeof TimeframeSchema>;
@@ -195,9 +195,8 @@ export const RunSummarySchema = z.object({
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 
 /**
- * "Per-stage-id counts real against control" (§3.3): the field name and shape are not fixed by the
- * contract; this is the mock's (raised in the review). `real` / `control` are the passes summed over
- * the timeframes, null when that arm did not finish the stage.
+ * "Per-stage-id counts real against control" (§3.3, shape §3.4 (2)): `real` / `control` are the
+ * passes summed over the timeframes, null when that arm finished no run of the stage.
  */
 export const StageCountSchema = z.object({
   stage_id: z.string(),
@@ -213,7 +212,7 @@ export const RunListItemSchema = z.object({
 export type RunListItem = z.infer<typeof RunListItemSchema>;
 export const RunListSchema = z.array(RunListItemSchema);
 
-/** Filters of `GET /api/funnel-runs` (§3.3 names them; the parameter names are the mock's). */
+/** Filters of `GET /api/funnel-runs` (§3.4 (3)); the list is newest first (§3.4 (4)). */
 export interface RunListFilters {
   source?: Source;
   status?: RunStatus;
@@ -239,7 +238,7 @@ export const FunnelConfigSchema = z.object({
   stages: z.array(z.string()),
   timeframes: z.array(TimeframeSchema),
   universe: z.object({ name: z.string(), n_symbols: z.number().int().nonnegative() }),
-  /** Its shape is not fixed by §3.3; shown as given. */
+  /** An object or null; its fields are stream A's (§3.4 (6)); shown as given. */
   planted_ladder: z.unknown().nullable(),
 });
 export type FunnelConfig = z.infer<typeof FunnelConfigSchema>;

@@ -10,7 +10,7 @@ is stream B's main session's. No messages to other sessions — notes here, rela
 
 | branch | state | waiting on |
 |---|---|---|
-| `b/ui-T17a-frontend` | T17a-FE implemented; review `docs/reviews/T17a-FE_review.md` with 26 screenshots (`docs/reviews/T17a-FE/`); plan approved, D-771 … D-788 recorded | **"Approved. Merge"**, and the supervisor's word on review §5 (contract points 1–9 for stream A before T17a-BE; colour choices 12–15; a UI feature id, 19) |
+| `b/ui-T17a-frontend` | **Approved (2026-10-03)**; review rulings recorded as D-789 … D-793, contract §3.4 committed; PR opened, merging when CI is green | merge; then idle until T17a-BE |
 
 Task: **T17a-FE** — phase 1 of the admin UI, frontend only, in `ui/`, against a mock of the
 supervisor's contract (`docs/tasks/T17a_ui_frontend.md` §3). Nothing outside `ui/` changes except
@@ -22,7 +22,7 @@ A's prerequisites).
 - **Decision range corrected (supervisor, 2026-10-03):** this session's range is **D-760 … D-799**;
   only stream A writes the supervisor range D-600 … D-699 (stream A's PR #62 takes D-676). T17's
   decisions were renumbered D-676 … D-686 → **D-760 … D-770** (still marked supervisor), the library
-  choices and plan answers D-780 … D-797 → **D-771 … D-788**. Next free here: **D-789**. The branch's
+  choices and plan answers D-780 … D-797 → **D-771 … D-788**. Next free here: **D-794**. The branch's
   earlier commit messages keep the old numbers; the files carry the new ones.
 - **The three T17 task files were found in stream A's folder** (`StrategyFactory/docs/tasks/`,
   untracked), not in this worktree. They were **copied** here (identical to the user's Downloads
@@ -36,3 +36,10 @@ A's prerequisites).
 - **The updated task files were again found untracked in stream A's folder** (`StrategyFactory/docs/tasks/`:
   `T17a_ui_frontend.md`, `UI_tokens.md`, and the earlier `T17_admin_ui.md`, `UI_spec.md`); they were
   copied here (identical to the Downloads copies) and committed. The copies there should be removed.
+- **§3.4 (1) adds `queued` to a stage run's status** ("a stage run in the plan that has not
+  started"). The client's schema accepts it; the mock lists only started stage runs, as before. Open
+  for stream A: a queued entry has no `stage_run_id` yet, and §3.4 (5) does not list that field as
+  nullable — say whether queued entries appear in the summary, and with what id.
+- **The 2026-10-03 copy of `T17a_ui_frontend.md` still said "D-780 … D-799" in §6** (it predates the
+  range correction); committed with **D-760 … D-799**. The same file is again untracked in stream A's
+  folder (`StrategyFactory/docs/tasks/`).

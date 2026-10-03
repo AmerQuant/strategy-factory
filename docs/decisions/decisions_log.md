@@ -306,7 +306,7 @@ Settled with the user for T17 (`docs/tasks/T17_admin_ui.md` §2), marked *(super
 | D-769 | **(supervisor)** (T17 §2.10, 2026-09-30) **Costs, data derivation and parity are read-only domains:** shown in full, never editable in a profile; changing them is a data task (`docs/tasks/UI_spec.md` §8), because they decide how the stored data is built. | accepted |
 | D-770 | **(supervisor)** (T17 §2.11, 2026-09-30) **Themes: dark and light, switchable, both as drawn on the approved design canvas.** `docs/tasks/UI_spec.md` is the authority for content; the canvas for look; a disagreement is raised, not chosen. | accepted |
 
-### I-S6a. Stream B's UI session: T17a-FE plan answers (D-771 … D-788)
+### I-S6a. Stream B's UI session: T17a-FE plan answers and review rulings (D-771 … D-793)
 Answers to `docs/tasks/T17a-FE_plan.md` (§3 library choices, §4 Q1-Q10), 2026-09-30, with "Plan approved". Renumbered on 2026-10-03 from D-780 … D-797 (supervisor's correction of the session's range). Library choices are the user's; contract answers the supervisor's (the contract text is `docs/tasks/T17a_ui_frontend.md` §3 as extended on 2026-09-30).
 
 | ID | Decision | Status |
@@ -329,6 +329,11 @@ Answers to `docs/tasks/T17a-FE_plan.md` (§3 library choices, §4 Q1-Q10), 2026-
 | D-786 | **(supervisor)** (Q8) **List and summary shapes are T17a-FE §3.1 (the new `funnel_started` fields: name, config id and hash, profile hash, code version) and §3.3 (status enum, times, per-stage runs, per-stage-id counts real against control).** | accepted |
 | D-787 | **(supervisor)** (Q9) **`GET /api/status` gives the server status and the open-item banners**; everything else without a source is shown disabled with the phase that brings it (queued-stage estimates, open report, reproduce, compare: phase 2; profiles: T17c; global search and the notifications bell: phase 2). | accepted |
 | D-788 | **(supervisor)** (Q10) **D-031 covers data downloads, not package installs:** a session may run `npm install` and Playwright's browser download itself (the npm registry and Playwright's CDN). Network runs against data sources stay the user's. | accepted |
+| D-789 | **(user)** (T17a-FE review §5 (1-9), 2026-10-03) **The mock's choices become the contract**, written as `docs/tasks/T17a_ui_frontend.md` §3.4: a stage run's status `queued \| running \| finished \| failed \| stopped`; the list's `stage_counts: [{stage_id, real, control}]`; list filters `source`, `status`, `started_from`, `started_to`, a bare array newest first; the nullable run and stage-run fields and `funnel_stopped.stage_run_id`; 404 `not_found` for an unknown run; `schema_version` exactly 1; the server closes the stream after a terminal event (and at once for an ended run) and `Last-Event-ID` wins over `?last_event_id=`. **`planted_ladder`'s fields are stream A's** (from T15a's planted config); the mock's fixture follows them. The header resume and a reload during a live run are proven in T17a-BE's acceptance, not on the mock. | accepted |
+| D-790 | **(user)** (T17a-FE review §5 (12-15), 2026-10-03) **Colours that `UI_tokens.md` does not define are accepted as built:** stopped is amber (badge `amber-bg`/`amber-fg`, Gantt bar `amber`); reused is a neutral badge (`surface-alt`/`text-secondary`) and a dimmed bar; an `info` banner is neutral (`surface-2`/`text-secondary`); the primary button's hover stays at `accent`. | accepted |
+| D-791 | **(user)** (T17a-FE review §6, 2026-10-03) **Icons: `@tabler/icons-react`**, chosen over Lucide and Phosphor. | accepted |
+| D-792 | **(supervisor)** (2026-10-03) **No history rewrite for the renumbering** (D-676 … D-686 → D-760 … D-770, D-780 … D-797 → D-771 … D-788): the renumbering commit is enough; earlier commit messages on `b/ui-T17a-frontend` keep the old numbers. | accepted |
+| D-793 | **(supervisor)** (T17a-FE review §5 (19), 2026-10-03) **UI tests keep their task-id names (`T17a-FE …`)**; no feature ids for the UI for now. | accepted |
 
 ## F. Tooling (ADR-001 … ADR-011) and workflow
 | ID | Decision | Status |

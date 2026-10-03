@@ -101,6 +101,33 @@ request answers 409 or 422 with `{error_kind, message}`.
 endpoint), time estimates for queued stages, open report, reproduce and compare (phase 2), profiles
 (T17c).
 
+### 3.4 Ruled after the frontend review (2026-10-03; the mock's choices become the contract)
+
+T17a-FE's review §5 (1–9) listed what §3.1–3.3 left open; the user accepted the mock's choice for
+each. Stream A and T17a-BE build exactly this:
+
+1. **A stage run's `status`** in the summary: `queued`, `running`, `finished`, `failed`, `stopped`
+   (`queued` for a stage run in the plan that has not started).
+2. **The list's per-stage counts**: `stage_counts: [{stage_id, real, control}]` — passes summed over
+   the timeframes; `null` when that arm finished no run of the stage.
+3. **List filters**: `source`, `status`, `started_from`, `started_to` (dates, inclusive). The list is
+   a bare JSON array, no envelope, no pagination; search and sort are the client's.
+4. **The list's order**: newest `started_at` first (the UI sorts too).
+5. **Nullable**: `started_at`, `finished_at`, `elapsed_s` of a run (null until known); a stage run's
+   `elapsed_s`, `n_in`, `n_passed` (null while running); `funnel_stopped.stage_run_id` (null when
+   stopped between stages).
+6. **`planted_ladder`**: an object or null; **stream A defines its fields** from T15a's planted
+   config when it implements the contract, and the mock's fixture is updated to match. The UI shows
+   it as given, so no UI change follows.
+7. **An unknown run id** answers **404** `{error_kind: "not_found", message}`.
+8. **`schema_version`** is exactly `1`; an event of another version is a contract error, not parsed.
+9. **SSE**: the server **closes the stream after a run's terminal event**, and at once when a client
+   connects to a run that has already ended; when both `Last-Event-ID` and `?last_event_id=` are
+   present, **the header wins**.
+
+Proven only against the real server (T17a-BE's acceptance, not the mock's): the resume from the
+`Last-Event-ID` header end to end, and a page reload during a live run.
+
 If building the screens shows the contract lacks something, **raise it in the plan**; do not extend it
 unilaterally — stream A builds to this text.
 

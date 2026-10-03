@@ -166,7 +166,7 @@ Page title: 26 px, weight 800. Captions: 11 px uppercase. Numbers: JetBrains Mon
 
 ## 5. Deviations, choices and open questions (for the supervisor)
 
-**Contract points §3 does not fix.** The mock chose each one; stream A needs a ruling before T17a-BE.
+**Contract points §3 does not fix.** The mock chose each one. **Ruled (D-789):** they are now the contract, `T17a_ui_frontend.md` §3.4, with a stage run's status gaining `queued` and `planted_ladder`'s fields left to stream A.
 1. **Stage-run `status` enum** in the summary: the mock uses `running | finished | failed | stopped`.
 2. **The list's "per-stage-id counts real against control"**: the mock uses `stage_counts: [{stage_id, real, control}]`. `real`/`control` are passes summed over the timeframes; null when that arm finished no run of the stage.
 3. **List filter parameter names**: `source`, `status`, `started_from`, `started_to` (dates, inclusive). The list is a bare JSON array: no envelope, no pagination. Search and sort are client-side.
