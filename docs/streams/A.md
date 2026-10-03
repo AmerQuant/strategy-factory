@@ -51,7 +51,7 @@ New branches here carry the **`a/`** prefix. Run the guards locally with
 | stream B | D-380 … D-399 (used up) and D-700 … D-799 | P-60 … P-79 (used up) and P-80 … P-99 |
 
 Stream A has used **D-360 … D-379**, **D-800 … D-807**, **P-40 … P-59** and **P-100 … P-133**;
-all answered — **stream A has no open question** (P-124 … P-133 → D-662 … D-671). **Next free here: D-808, P-134.** Supervisor
+all answered — **stream A has no open question** (P-124 … P-133 → D-662 … D-671). **Next free here: D-808, P-135** (P-134 is on the T15a branch). Supervisor
 rows written by stream A: D-601 … D-656 and D-662 … D-671 (D-651 (1) amended on the T14 review;
 D-652 … D-656 from the T15a task file, D-662 … D-671 its plan's answers; **D-657 … D-661 are
 assigned elsewhere**: D-657, D-661 to stream B's T04j, D-658 … D-660 to T16); **next free
@@ -103,6 +103,38 @@ supervisor id D-672**. Everything through D-651 and D-807 is on `main` (#54, #55
   D-402 unchanged.
 - **The venv can break silently.** If `mypy` suddenly reports `Failed to find builtin module
   "mypy_extensions"` or a wall of pydantic `import-untyped` errors: `uv sync --reinstall`.
+
+## Status — 2026-09-30 (the T15a acceptance queue is paused)
+
+**T15a is paused mid-acceptance so the user can use the machine; this folder stays on
+`a/T15a-orchestrator`, untouched, until the resumed queue is done.** The implementation, the report
+and the acceptance review's fixes are on `a/T15a-orchestrator` (pushed); the pilot's code version is
+pinned by `a/T15a-pilot-code`. The acceptance funnels run in the helper worktree
+`../StrategyFactory_T15a_runs` (branch `a/T15a-runs`, clean at `cc7f73a`) so every stage run records
+one clean code version.
+
+**Stage runs complete and reusable** (registry `funnel_stage_runs`, all `done`):
+
+| funnel | id | state |
+|---|---|---|
+| planted | `e4b3e66b-2b37-460f-a48f-9d811bd23588` | **done** -- all 12 stage runs (1D, 1H x 3 stages x 2 arms); report built |
+| null, seed 1 | `70d46a07-ceee-45e7-b124-48d51d4fe551` | **done** -- all 12; report built (1D 4 of 490 = 0.82 %, 1H 1 of 371) |
+| real (MVP) | `9f26a370-0755-426d-9da8-5be19248e55f` | **failed (interrupted), resumable**: the 6 1D stage runs are `done` and are reused by the resume; 1H s01 real was interrupted -- its stage row is `failed` and its pipeline run `66adeb49…` is `aborted` (the resume re-runs it under a new run id; the partial folder `<artifacts>/66adeb49…` is an orphan, never read) |
+| null, seed 2 | -- | not started |
+| null, seed 3 | -- | not started |
+
+A `running` stage row is never accepted as complete (resume reuses only `done` rows under the same
+`stage_key`). **The resume command** (the user runs it, unattended; it resumes the real funnel, then
+null 2 and null 3 -- planted and null 1 are complete and are not re-run):
+
+```powershell
+Set-Location D:\AmerAndish\Projects\Trade\StrategyFactory_T15a_runs; $env:PYTHONIOENCODING='utf-8'; $log='D:\SfacData\artifacts\funnels\T15a_acceptance_resume.log'; foreach ($c in 'mvp','null_seed2','null_seed3') { "== $c $(Get-Date -Format u)" | Out-File -Append -Encoding utf8 $log; uv run sfac funnel run "configs/funnel/$c.yaml" --workers 6 --notes "T15a acceptance: $c" 2>&1 | Out-File -Append -Encoding utf8 $log; "== $c exit $LASTEXITCODE $(Get-Date -Format u)" | Out-File -Append -Encoding utf8 $log }
+```
+
+**On rebasing `a/T15a-orchestrator` onto `main` (after the queue):** stream B's #61 took **D-673**
+(the bounded OHLC repair, already written into store snapshot notes); **stream A's P-134 answer is
+renumbered to D-675** (the user's choice, relayed in `docs/streams/B.md`); every reference in the
+T15a documents moves with it. **D-676** grants stream B `P-150 … P-199` (PR `a/stream-b-pending-scipy`).
 
 ## Status — 2026-09-29
 
@@ -204,7 +236,10 @@ evidence runs predate D-805 and are **not re-run** (T15 re-runs the full scope a
 
 ### Open, and on whom
 
-- **Nothing is open on stream A**; the next task waits for its task file.
+- **T15a**: paused mid-acceptance (above); the prerequisite PRs for stream B run meanwhile from
+  the helper worktree `../StrategyFactory_A_prereq`, one at a time.
+- **Deferred by the user: speed optimisation of the funnel**, until the project is finished
+  (2026-09-30). The P-104 executor timings (D-667) are T15b's.
 - **On the user: turn on secret scanning and push protection** (the repository is public).
 - **T11b, P-50** — parked (D-802); they resume when the user exports.
 - **Obsolete branches (2026-09-29, the user's word):** deleted locally and on origin, each checked

@@ -37,7 +37,8 @@ streams:
     # D-700 … D-799 next to it.
     decisions: [[380, 399], [700, 799]]
     # D-376: P-60 … P-79 is used up too, so the supervisor granted P-80 … P-99 next to it.
-    pending: [[60, 79], [80, 99]]
+    # D-676: and P-150 … P-199 as its third pending range (2026-09-30), still its own.
+    pending: [[60, 79], [80, 99], [150, 199]]
 
 owners:
   # -- stream A only; a stream-B need for any of these is a P- question (D-357 (2)) ----------
