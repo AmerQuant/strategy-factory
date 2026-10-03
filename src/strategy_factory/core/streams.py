@@ -65,6 +65,18 @@ def describe(ranges: tuple[tuple[int, int], ...], kind: str = "D") -> str:
     return " and ".join(f"{kind}-{lo} … {kind}-{hi}" for lo, hi in ranges)
 
 
+class BranchDecisions(BaseModel):
+    """D-679: the decision ranges of one family of a stream's branches (the longest matching
+    ``prefix`` wins), so two sessions of one stream cannot collide."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prefix: str = Field(min_length=2)
+    decisions: tuple[tuple[int, int], ...]
+
+    _ranges = field_validator("decisions", mode="before")(as_ranges)
+
+
 class StreamSpec(BaseModel):
     """One stream's branch prefix and ID ranges."""
 
@@ -79,6 +91,9 @@ class StreamSpec(BaseModel):
     #: open to either stream, and those are decisions only.
     decisions: tuple[tuple[int, int], ...]
     pending: tuple[tuple[int, int], ...]
+    #: D-679: narrower decision ranges for families of the stream's branches; a branch that
+    #: matches none keeps ``decisions``
+    branch_decisions: tuple[BranchDecisions, ...] = ()
 
     _ranges = field_validator("decisions", "pending", mode="before")(as_ranges)
 
@@ -92,17 +107,38 @@ class StreamSpec(BaseModel):
             for lo, hi in ranges:
                 if lo > hi:
                     raise ValueError(f"{self.name}: {label} range ({lo}, {hi}) is inverted")
+        for bd in self.branch_decisions:
+            if not bd.prefix.startswith(self.branch_prefix):
+                raise ValueError(
+                    f"{self.name}: branch prefix {bd.prefix!r} is not a "
+                    f"{self.branch_prefix!r} branch"
+                )
+            for lo, hi in bd.decisions:
+                if lo > hi or not any(a <= lo and hi <= b for a, b in self.decisions):
+                    raise ValueError(
+                        f"{self.name}: {bd.prefix!r} range ({lo}, {hi}) is not inside its own"
+                    )
         return self
 
-    def ranges(self, kind: str) -> tuple[tuple[int, int], ...]:
-        return self.decisions if kind == "D" else self.pending
+    def branch_family(self, branch: str | None) -> BranchDecisions | None:
+        """The ``branch_decisions`` entry ``branch`` falls under (longest prefix), if any."""
+        if branch is None:
+            return None
+        hits = [bd for bd in self.branch_decisions if branch.startswith(bd.prefix)]
+        return max(hits, key=lambda bd: len(bd.prefix)) if hits else None
 
-    def covers(self, kind: str, number: int) -> bool:
-        return any(lo <= number <= hi for lo, hi in self.ranges(kind))
+    def ranges(self, kind: str, branch: str | None = None) -> tuple[tuple[int, int], ...]:
+        if kind != "D":
+            return self.pending
+        family = self.branch_family(branch)
+        return family.decisions if family is not None else self.decisions
 
-    def describe(self, kind: str) -> str:
-        """The stream's own ranges, for an error message."""
-        return describe(self.ranges(kind), kind)
+    def covers(self, kind: str, number: int, branch: str | None = None) -> bool:
+        return any(lo <= number <= hi for lo, hi in self.ranges(kind, branch))
+
+    def describe(self, kind: str, branch: str | None = None) -> str:
+        """The stream's own ranges (for ``branch``, D-679), for an error message."""
+        return describe(self.ranges(kind, branch), kind)
 
 
 class SupervisorRange(BaseModel):
@@ -257,8 +293,12 @@ def check_ids(
     existing_rows: Iterable[str],
     ownership: Ownership,
     removed_rows: Iterable[str] = (),
+    branch: str | None = None,
 ) -> list[str]:
     """Problems with the IDs a branch adds: duplicates, deletions, or outside its range.
+
+    With ``branch``, a stream's ``branch_decisions`` apply (D-679): a ``b/ui-`` branch adds
+    decisions only from its own sub-range, the other ``b/`` branches only from theirs.
 
     An id that is added **and** removed by the same branch is an **amendment in place**
     (D-369): the row replaces its own earlier version, so the log keeps exactly one row per
@@ -301,16 +341,24 @@ def check_ids(
                 problems.append(
                     f"{label}: the supervisor's range {sup.describe()} is written only by {who} "
                     f"(D-677); record a supervisor-settled decision in stream {stream}'s own "
-                    f"range {ownership.streams[stream].describe(kind)}, marked (supervisor)"
+                    f"range {ownership.streams[stream].describe(kind, branch)}, marked (supervisor)"
                 )
             continue  # a decision the supervisor dictated (D-355), carried by its writer
         spec = ownership.streams[stream]
-        if not spec.covers(kind, number):
+        if not spec.covers(kind, number, branch):
             extra = ""
             if ownership.supervisor is not None and kind == "D":
                 extra = f"; the supervisor's range is {ownership.supervisor.describe()}"
+            family = spec.branch_family(branch) if kind == "D" else None
+            if family is not None and spec.covers(kind, number):
+                problems.append(
+                    f"{label}: outside branch {branch}'s range {spec.describe(kind, branch)} "
+                    f"(D-679: {family.prefix}… branches of stream {stream} write only those)"
+                )
+                continue
             problems.append(
-                f"{label}: outside stream {stream}'s range {spec.describe(kind)} (D-355){extra}"
+                f"{label}: outside stream {stream}'s range {spec.describe(kind, branch)} "
+                f"(D-355){extra}"
             )
     return problems
 
@@ -364,7 +412,7 @@ def check_all(
     stream = ownership.stream_of_branch(branch)
     return {
         "paths": check_paths(stream, changed, ownership),
-        "ids": check_ids(stream, added_rows, existing_rows, ownership, removed_rows),
+        "ids": check_ids(stream, added_rows, existing_rows, ownership, removed_rows, branch),
         "alembic": check_single_head(migrations),
     }
 

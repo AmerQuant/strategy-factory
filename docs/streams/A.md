@@ -106,7 +106,7 @@ supervisor id D-672**. Everything through D-651 and D-807 is on `main` (#54, #55
 
 ## Status — 2026-09-30 (the T15a acceptance queue is paused)
 
-**Supervisor range (D-677, 2026-10-03): only stream A writes D-600 … D-699** (and the used-up D-355 … D-359); the guard refuses rows added or amended there on `b/` branches. **D-678:** `api/`, `ui/` and `B_ui.md` are stream B's (its UI session, `StrategyFactory_UI`, D-780 … D-799); FastAPI, uvicorn and `sse-starlette` (the user's choice) are dependencies. #62 merged D-676 (P-150 … P-199 to stream B; `scipy`). Next free supervisor id: **D-679** (D-675 waits for the T15a rebase).
+**Supervisor range (D-677, 2026-10-03): only stream A writes D-600 … D-699** (and the used-up D-355 … D-359); the guard refuses rows added or amended there on `b/` branches. **D-678:** `api/`, `ui/` and `B_ui.md` are stream B's (its UI session, `StrategyFactory_UI`, **D-760 … D-799**; D-678 amended); FastAPI, uvicorn and `sse-starlette` (the user's choice) are dependencies. #62 merged D-676 (P-150 … P-199 to stream B; `scipy`). **D-679:** within stream B, `b/ui-…` branches write D-760 … D-799 and the other `b/` branches D-700 … D-759 (enforced in CI). Next free supervisor id: **D-680** (D-675 waits for the T15a rebase).
 
 **T15a is paused mid-acceptance so the user can use the machine; this folder stays on
 `a/T15a-orchestrator`, untouched, until the resumed queue is done.** The implementation, the report

@@ -1039,3 +1039,95 @@ def test_F_X_9_d678_the_api_and_the_ui_are_stream_bs(rules: Ownership) -> None:
     # siblings stay shared
     for shared in ("src/strategy_factory/apis.py", "uinotes.md", "docs/ui/notes.md"):
         assert rules.owner_of(shared) is None, shared
+
+
+# -- D-679: within stream B, decisions by branch family -------------------------------------------
+UI = "b/ui-T17a-frontend"
+CORE = "b/T16-stats-library"
+
+
+def test_F_X_9_d679_ui_branches_write_only_d760_to_d799(rules: Ownership) -> None:
+    for number in (760, 788, 799):
+        assert check_ids("B", [f"| D-{number} | ui |"], [], rules, branch=UI) == [], number
+    for number in (700, 725, 759):
+        problems = check_ids("B", [f"| D-{number} | ui reaching |"], [], rules, branch=UI)
+        assert len(problems) == 1 and "D-679" in problems[0], number
+        assert "outside branch b/ui-T17a-frontend's range D-760 … D-799" in problems[0]
+    # beyond stream B altogether, the stream message applies
+    assert len(check_ids("B", ["| D-800 | stream A's |"], [], rules, branch=UI)) == 1
+
+
+def test_F_X_9_d679_other_b_branches_write_only_d700_to_d759(rules: Ownership) -> None:
+    for number in (700, 725, 759, 399):
+        assert check_ids("B", [f"| D-{number} | core |"], [], rules, branch=CORE) == [], number
+    for number in (760, 788, 799):
+        problems = check_ids("B", [f"| D-{number} | core reaching |"], [], rules, branch=CORE)
+        assert len(problems) == 1 and "D-679" in problems[0], number
+        assert "D-380 … D-399 and D-700 … D-759" in problems[0]
+
+
+def test_F_X_9_d679_amendments_across_the_line_are_refused_and_old_rows_stay(
+    rules: Ownership,
+) -> None:
+    existing = [f"| D-{n} | ui |" for n in range(760, 789)] + ["| D-725 | core |"]
+    # adding next to the other family's rows is fine: old rows are not re-checked
+    assert check_ids("B", ["| D-726 | core |"], existing, rules, branch=CORE) == []
+    assert check_ids("B", ["| D-789 | ui |"], existing, rules, branch=UI) == []
+    # amending a row of the other family is not
+    assert (
+        len(check_ids("B", ["| D-725 | x |"], existing, rules, ["| D-725 | core |"], branch=UI))
+        == 1
+    )
+    assert (
+        len(check_ids("B", ["| D-765 | x |"], existing, rules, ["| D-765 | ui |"], branch=CORE))
+        == 1
+    )
+    # pending ranges are shared by both families
+    for branch in (UI, CORE):
+        assert check_ids("B", ["| P-150 | either |"], [], rules, branch=branch) == []
+
+
+def test_F_X_9_d679_check_all_passes_the_branch(rules: Ownership) -> None:
+    out = check_all(UI, [], ["| D-725 | ui reaching |"], [], {}, rules)
+    assert len(out["ids"]) == 1 and "D-679" in out["ids"][0]
+    assert check_all(CORE, [], ["| D-725 | core |"], [], {}, rules)["ids"] == []
+
+
+def test_F_X_9_d679_the_repo_ownership_states_the_families(rules: Ownership) -> None:
+    b = rules.streams["B"]
+    assert {bd.prefix: bd.decisions for bd in b.branch_decisions} == {
+        "b/ui-": ((760, 799),),
+        "b/": ((380, 399), (700, 759)),
+    }
+    assert rules.streams["A"].branch_decisions == ()
+
+
+@pytest.mark.parametrize(
+    ("prefix", "ranges", "message"),
+    [
+        ("a/ui-", [[760, 799]], "is not a 'b/' branch"),
+        ("b/ui-", [[750, 820]], "is not inside its own"),
+    ],
+)
+def test_F_X_9_d679_an_invalid_family_is_refused(
+    tmp_path: Path, prefix: str, ranges: list[list[int]], message: str
+) -> None:
+    data: dict[str, Any] = {
+        "streams": {
+            "A": {"name": "a", "branch_prefix": "a/", "decisions": [1, 9], "pending": [1, 9]},
+            "B": {"name": "b", "branch_prefix": "b/", "decisions": [700, 799], "pending": [10, 19],
+                  "branch_decisions": [{"prefix": prefix, "decisions": ranges}]},
+        },
+        "owners": {},
+    }  # fmt: skip
+    target = tmp_path / "ownership.yaml"
+    target.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ConfigError, match=message):
+        load_ownership(target)
+
+
+def test_F_X_9_d679_protocol_and_log_state_it() -> None:
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "D-679" in protocol and "D-760 … D-799" in protocol and "D-700 … D-759" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    assert any(line.startswith("| D-679 |") for line in log.splitlines())

@@ -32,8 +32,11 @@ refused from both streams (`P-700`, or `P-85` from stream A).
 
 **Stream B's UI session (D-678).** It works in the worktree `StrategyFactory_UI` on `b/`
 branches, keeps its status in `docs/streams/B_ui.md`, writes decisions from the sub-range
-**D-780 … D-799** of stream B's `D-700 … D-799`, and owns, with stream B, the paths
-`src/strategy_factory/api/` and `ui/`.
+**D-760 … D-799** of stream B's `D-700 … D-799`, and owns, with stream B, the paths
+`src/strategy_factory/api/` and `ui/`. **D-679:** within stream B the guard splits the
+decision range by branch family -- `b/ui-…` branches add decisions only from **D-760 … D-799**,
+every other `b/` branch only from **D-700 … D-759** (and the used-up D-380 … D-399); it checks the
+rows a branch adds or amends, never those already in the log. Pending ranges are shared.
 
 ## 1. One worktree, one session (D-357 (1), amended 2026-09-21)
 
