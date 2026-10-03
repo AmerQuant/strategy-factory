@@ -1,0 +1,127 @@
+/* Global styles from UI_tokens.md (type, shape). Colours come from the --sf-* variables. */
+
+html,
+body {
+  background: var(--sf-bg);
+  color: var(--sf-text);
+  font-family: Manrope, system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono,
+.num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cap {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sf-text-muted);
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--sf-text-strong);
+  margin: 0;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--sf-text-strong);
+  margin: 0;
+}
+
+.sf-card {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.sf-inset {
+  background: var(--sf-surface-2);
+  border: 1px solid var(--sf-border-panel);
+  border-radius: 12px;
+}
+
+.sf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sf-primary {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 800;
+  background: var(--sf-accent);
+  color: var(--sf-on-accent);
+}
+
+a.sf-link,
+.sf-link {
+  color: var(--sf-link);
+  text-decoration: none;
+}
+a.sf-link:hover {
+  color: var(--sf-link-hover);
+}
+
+.sf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sf-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sf-text-muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sf-border);
+  white-space: nowrap;
+  user-select: none;
+}
+.sf-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sf-border);
+  color: var(--sf-text-body-2);
+  white-space: nowrap;
+}
+.sf-table tbody tr:hover td {
+  background: var(--sf-surface-hover);
+}
+.sf-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@keyframes sf-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.sf-pulse {
+  animation: sf-pulse 1.6s ease-in-out infinite;
+}
