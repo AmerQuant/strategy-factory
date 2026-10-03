@@ -1,0 +1,9 @@
+matrix,source,dev_years_median,cells_4_or_more,cells_1_to_3,cells_none
+1D A (D-150 centred),alpaca,4.41,1,8,16
+1D A (D-150 centred),dukascopy,11.07,24,1,0
+1D B (shorter),alpaca,4.41,8,12,5
+1D B (shorter),dukascopy,11.07,25,0,0
+1H A (D-150 centred),dukascopy,10.66,25,0,0
+1H A (D-150 centred),alpaca,8.42,25,0,0
+1H B (shorter),dukascopy,10.66,25,0,0
+1H B (shorter),alpaca,8.42,25,0,0

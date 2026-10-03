@@ -5,6 +5,17 @@ repository, created with `git worktree add ../StrategyFactory_B -b docs/batch3-d
 Governed by **D-355**. This file is stream B's status; it is **not** `HANDOFF.md` — stream A
 folds it into `HANDOFF.md` at merges.
 
+## T18 plan (2026-10-03) — stopped for "Plan approved"
+
+- **Branch `b/T18-plan`** (from `main` `2b846ff`): the task file (supervisor's, unchanged),
+  `docs/tasks/T18_plan.md`, `RUNBOOK_T18.md`, `scripts/analysis/T18_plan_measure.py` (light, ~30 s)
+  and its CSVs; **P-150 … P-159** open (the nine choices, picked by nobody, plus P-159).
+- **P-159, before the nine:** D-150's 1D walk-forward lengths (4 y / 1 y) fit **no** Alpaca daily
+  reference (median development window 4.4 y; 48 % would auto-shrink, 52 % fit no window).
+- **No code in `robustness/`** until stream A's ownership PR assigns it and `tests/**/test_F_6_*`
+  to stream B (task §6). T16 (`b/T16-stats-library`, its own copy of this file) waits for tonight's
+  measurements; this section is merged with that copy when both land.
+
 ## Resume here (2026-09-30) — the state a fresh session starts from
 
 Read this section and `HANDOFF.md`; everything below `## Scope` is background and history. The

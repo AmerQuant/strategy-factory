@@ -1,0 +1,22 @@
+world,quantity,sims,undefined_pct,median,p10,p90,gate_pass_pct
+edge everywhere,ret_pooled,400,0.0,0.686,0.295,1.107,69.8
+edge everywhere,ret_mean_of_ratios,400,0.0,0.747,0.354,1.201,75.5
+edge everywhere,ret_skip_nonpos,400,0.0,0.747,0.354,1.201,75.5
+edge everywhere,sharpe_pooled,400,0.0,0.681,0.29,1.112,68.0
+edge everywhere,share_profitable_oos,400,0.0,1.0,0.5,1.0,88.8
+edge everywhere,any_is_nonpos,400,0.0,0.0,0.0,0.0,
+edge everywhere,n_windows,400,0.0,4.0,4.0,4.0,
+edge in one variant,ret_pooled,400,1.2,0.955,0.441,1.991,85.2
+edge in one variant,ret_mean_of_ratios,400,0.0,1.097,0.264,2.516,86.5
+edge in one variant,ret_skip_nonpos,400,0.2,1.13,0.487,2.733,89.5
+edge in one variant,sharpe_pooled,400,1.2,0.955,0.445,2.02,84.8
+edge in one variant,share_profitable_oos,400,0.0,1.0,0.5,1.0,86.5
+edge in one variant,any_is_nonpos,400,0.0,0.0,0.0,0.0,
+edge in one variant,n_windows,400,0.0,4.0,4.0,4.0,
+pure noise,ret_pooled,400,10.8,0.081,-1.637,1.085,26.5
+pure noise,ret_mean_of_ratios,400,0.0,0.285,-3.139,3.451,41.5
+pure noise,ret_skip_nonpos,400,3.5,0.216,-3.443,2.707,38.0
+pure noise,sharpe_pooled,400,10.8,0.092,-1.604,1.1,27.0
+pure noise,share_profitable_oos,400,0.0,0.5,0.25,0.75,29.5
+pure noise,any_is_nonpos,400,0.0,0.0,0.0,1.0,
+pure noise,n_windows,400,0.0,4.0,4.0,4.0,

@@ -1,0 +1,5 @@
+source,timeframe,references,dev_years_p10,dev_years_median,dev_years_p90,windows_median,share_4_or_more,share_auto_shrink,share_none
+dukascopy,1H,9,5.11,10.66,13.19,17,0.889,0.0,0.111
+alpaca,1D,6708,-1.14,4.41,7.57,0,0.0,0.48,0.52
+alpaca,1H,805,2.94,8.42,8.42,12,0.876,0.034,0.091
+dukascopy,1D,8,7.34,11.07,12.34,6,0.75,0.125,0.125
