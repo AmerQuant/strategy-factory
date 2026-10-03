@@ -16,15 +16,27 @@ with your own status file, `docs/streams/A.md` or `docs/streams/B.md`.
 | `SFAC_RAW_ROOT` | read-only | read-only |
 
 The supervisor keeps **D-355 … D-359** (used up) and **D-600 … D-699**, decisions only.
+**Since D-677 (2026-10-03) only stream A writes them**: every other session records a
+decision the supervisor settled in **its own** range, marked *(supervisor)*. The CI guard
+refuses a supervisor-range row added or amended on a `b/` branch; rows already in the log
+are never re-checked (D-672 … D-674, written by stream B's T04j, stay valid).
 
 A range gets used up, so a stream can hold more than one: stream B's `D-380 … D-399` ran
 out at D-399 and the supervisor granted `D-700 … D-799` next to it (**D-372**). A second
 range is **still that stream's own** — the other stream is refused from it, exactly as
-from the first. Only the supervisor's ranges are open to either stream. Pending ranges work
+from the first. The supervisor's ranges are written by stream A alone (D-677). Pending ranges work
 the same way (**D-376**): stream B's `P-60 … P-79` ran out and `P-80 … P-99` was granted next to
 it, still its own. The supervisor has no pending range — a `P-` number always belongs to the
 stream that raised the question — so a `P-` number outside the adding stream's ranges is
 refused from both streams (`P-700`, or `P-85` from stream A).
+
+**Stream B's UI session (D-678).** It works in the worktree `StrategyFactory_UI` on `b/`
+branches, keeps its status in `docs/streams/B_ui.md`, writes decisions from the sub-range
+**D-760 … D-799** of stream B's `D-700 … D-799`, and owns, with stream B, the paths
+`src/strategy_factory/api/` and `ui/`. **D-679:** within stream B the guard splits the
+decision range by branch family -- `b/ui-…` branches add decisions only from **D-760 … D-799**,
+every other `b/` branch only from **D-700 … D-759** (and the used-up D-380 … D-399); it checks the
+rows a branch adds or amends, never those already in the log. Pending ranges are shared.
 
 ## 1. One worktree, one session (D-357 (1), amended 2026-09-21)
 
@@ -97,8 +109,8 @@ Everything not listed is **shared**: `docs/tasks/`, `docs/reviews/`, `docs/adr/`
 1. **Path ownership** — an `a/` or `b/` branch changes a path owned by the other stream.
 2. **ID discipline** — a `D-` or `P-` row added by this branch is a duplicate, or falls outside
    the adding stream's range. The **supervisor's ranges** (`D-355 … D-359`, used up, and
-   `D-600 … D-699`) are accepted from either stream, because the supervisor dictates those and
-   one of the streams has to write them down; they cover decisions only, so a `P-` number
+   `D-600 … D-699`) are written by **stream A only** (D-677): a row added or amended there on
+   a `b/` branch fails; they cover decisions only, so a `P-` number
    always belongs to the stream that raised the question.
    The guard also reads the rows a branch **removes** (**D-369**): an id that is added *and*
    removed is an **amendment in place**, which keeps one row per id and passes the same range
