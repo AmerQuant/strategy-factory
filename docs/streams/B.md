@@ -110,6 +110,14 @@ report the duplicate until then.
 
 ### IDs
 
+**Range rule (supervisor, 2026-10-03):** **D-760 … D-799 is reserved for the UI session**
+(`StrategyFactory_UI`); stream B's own decisions stay **below D-760** (D-700 … D-759). **Only
+stream A writes the supervisor range (D-6xx) now**: a decision the supervisor settles for stream B
+is recorded in stream B's own range, marked **(supervisor)** (as D-722 … D-725 already are).
+`docs/streams/ownership.yaml` on `main` still lists D-700 … D-799 for stream B, so the guard does
+not yet refuse D-760+ from here; narrowing it is stream A's file (D-357), so stream B keeps to the
+rule by hand until then.
+
 Next free: **D-722**, **P-97** (the last three: P-97 … P-99); supervisor: the next after D-674 goes to stream A's renumbered P-134 answer. D-715 … D-717, D-657, D-661, D-672, D-673
 (supervisor) and P-87, P-88, P-94, P-95, P-96 (answered), D-674 are on the T04j branch until it
 merges. D-662 … D-671 are stream A's T15a answers (on `main`).
