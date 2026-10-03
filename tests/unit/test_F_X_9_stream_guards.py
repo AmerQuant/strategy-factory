@@ -1047,7 +1047,7 @@ CORE = "b/T16-stats-library"
 
 
 def test_F_X_9_d679_ui_branches_write_only_d760_to_d799(rules: Ownership) -> None:
-    for number in (760, 788, 799):
+    for number in (760, 794, 799):  # #64 uses D-760 … D-794
         assert check_ids("B", [f"| D-{number} | ui |"], [], rules, branch=UI) == [], number
     for number in (700, 725, 759):
         problems = check_ids("B", [f"| D-{number} | ui reaching |"], [], rules, branch=UI)
