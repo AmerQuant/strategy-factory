@@ -22,7 +22,7 @@ A's prerequisites).
 - **Decision range corrected (supervisor, 2026-10-03):** this session's range is **D-760 … D-799**;
   only stream A writes the supervisor range D-600 … D-699 (stream A's PR #62 takes D-676). T17's
   decisions were renumbered D-676 … D-686 → **D-760 … D-770** (still marked supervisor), the library
-  choices and plan answers D-780 … D-797 → **D-771 … D-788**. Next free here: **D-794**. The branch's
+  choices and plan answers D-780 … D-797 → **D-771 … D-788**. Next free here: **D-795**. The branch's
   earlier commit messages keep the old numbers; the files carry the new ones.
 - **The three T17 task files were found in stream A's folder** (`StrategyFactory/docs/tasks/`,
   untracked), not in this worktree. They were **copied** here (identical to the user's Downloads
@@ -36,10 +36,9 @@ A's prerequisites).
 - **The updated task files were again found untracked in stream A's folder** (`StrategyFactory/docs/tasks/`:
   `T17a_ui_frontend.md`, `UI_tokens.md`, and the earlier `T17_admin_ui.md`, `UI_spec.md`); they were
   copied here (identical to the Downloads copies) and committed. The copies there should be removed.
-- **§3.4 (1) adds `queued` to a stage run's status** ("a stage run in the plan that has not
-  started"). The client's schema accepts it; the mock lists only started stage runs, as before. Open
-  for stream A: a queued entry has no `stage_run_id` yet, and §3.4 (5) does not list that field as
-  nullable — say whether queued entries appear in the summary, and with what id.
+- **§3.4 (1) adds `queued` to a stage run's status**; answered (D-794, user): a queued stage run's
+  `stage_run_id` is null, identified by `(stage_id, timeframe, arm)` as in `plan` — now in §3.4 (5).
+  The client's summary schema accepts it; the mock lists only started stage runs.
 - **The 2026-10-03 copy of `T17a_ui_frontend.md` still said "D-780 … D-799" in §6** (it predates the
   range correction); committed with **D-760 … D-799**. The same file is again untracked in stream A's
   folder (`StrategyFactory/docs/tasks/`).

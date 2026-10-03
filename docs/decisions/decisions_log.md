@@ -306,7 +306,7 @@ Settled with the user for T17 (`docs/tasks/T17_admin_ui.md` §2), marked *(super
 | D-769 | **(supervisor)** (T17 §2.10, 2026-09-30) **Costs, data derivation and parity are read-only domains:** shown in full, never editable in a profile; changing them is a data task (`docs/tasks/UI_spec.md` §8), because they decide how the stored data is built. | accepted |
 | D-770 | **(supervisor)** (T17 §2.11, 2026-09-30) **Themes: dark and light, switchable, both as drawn on the approved design canvas.** `docs/tasks/UI_spec.md` is the authority for content; the canvas for look; a disagreement is raised, not chosen. | accepted |
 
-### I-S6a. Stream B's UI session: T17a-FE plan answers and review rulings (D-771 … D-793)
+### I-S6a. Stream B's UI session: T17a-FE plan answers and review rulings (D-771 … D-794)
 Answers to `docs/tasks/T17a-FE_plan.md` (§3 library choices, §4 Q1-Q10), 2026-09-30, with "Plan approved". Renumbered on 2026-10-03 from D-780 … D-797 (supervisor's correction of the session's range). Library choices are the user's; contract answers the supervisor's (the contract text is `docs/tasks/T17a_ui_frontend.md` §3 as extended on 2026-09-30).
 
 | ID | Decision | Status |
@@ -334,6 +334,7 @@ Answers to `docs/tasks/T17a-FE_plan.md` (§3 library choices, §4 Q1-Q10), 2026-
 | D-791 | **(user)** (T17a-FE review §6, 2026-10-03) **Icons: `@tabler/icons-react`**, chosen over Lucide and Phosphor. | accepted |
 | D-792 | **(supervisor)** (2026-10-03) **No history rewrite for the renumbering** (D-676 … D-686 → D-760 … D-770, D-780 … D-797 → D-771 … D-788): the renumbering commit is enough; earlier commit messages on `b/ui-T17a-frontend` keep the old numbers. | accepted |
 | D-793 | **(supervisor)** (T17a-FE review §5 (19), 2026-10-03) **UI tests keep their task-id names (`T17a-FE …`)**; no feature ids for the UI for now. | accepted |
+| D-794 | **(user)** (2026-10-03, the open question of T17a-FE's approval) **A queued stage run's `stage_run_id` is null**; it is identified by `(stage_id, timeframe, arm)`, unique within a run as in `plan`. Added to `docs/tasks/T17a_ui_frontend.md` §3.4 (5); the client's summary schema accepts it. | accepted |
 
 ## F. Tooling (ADR-001 … ADR-011) and workflow
 | ID | Decision | Status |

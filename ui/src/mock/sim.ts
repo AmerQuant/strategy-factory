@@ -44,6 +44,9 @@ type EventBody = Record<string, unknown> & { type: string };
 /** A wire event: a known event or, for the forward-compatibility fixture, an unknown type. */
 export type WireEvent = KnownEvent | (EventBody & Omit<KnownEvent, 'type'>);
 
+/** A stage run the simulation has started: it always has an id (queued ones have none, D-794). */
+type StartedStageRun = StageRunSummary & { stage_run_id: string };
+
 export interface PendingFailure {
   /** Fail when the current stage reaches this fraction. */
   fraction: number;
@@ -69,7 +72,7 @@ export class SimRun {
   private slotElapsed = 0;
   private sinceProgress = 0;
   private attempts: number[];
-  private runs: (StageRunSummary | null)[];
+  private runs: (StartedStageRun | null)[];
   private failure: PendingFailure | null = null;
   private listeners = new Set<(e: WireEvent) => void>();
 
@@ -99,7 +102,7 @@ export class SimRun {
   }
 
   get stageRuns(): StageRunSummary[] {
-    return this.runs.filter((r): r is StageRunSummary => r !== null);
+    return this.runs.filter((r): r is StartedStageRun => r !== null);
   }
 
   get currentStageRunId(): string | null {

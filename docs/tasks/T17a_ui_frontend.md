@@ -115,7 +115,8 @@ each. Stream A and T17a-BE build exactly this:
 4. **The list's order**: newest `started_at` first (the UI sorts too).
 5. **Nullable**: `started_at`, `finished_at`, `elapsed_s` of a run (null until known); a stage run's
    `elapsed_s`, `n_in`, `n_passed` (null while running); `funnel_stopped.stage_run_id` (null when
-   stopped between stages).
+   stopped between stages); a **queued** stage run's `stage_run_id` (null until it starts — it is
+   identified by `(stage_id, timeframe, arm)`, unique within a run, as in `plan`; D-794).
 6. **`planted_ladder`**: an object or null; **stream A defines its fields** from T15a's planted
    config when it implements the contract, and the mock's fixture is updated to match. The UI shows
    it as given, so no UI change follows.

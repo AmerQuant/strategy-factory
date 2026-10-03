@@ -170,7 +170,8 @@ export const StageRunSummarySchema = z.object({
   stage_id: z.string(),
   timeframe: TimeframeSchema,
   arm: ArmSchema,
-  stage_run_id: z.string(),
+  /** Null for a queued stage run, identified by (stage_id, timeframe, arm) (§3.4 (5), D-794). */
+  stage_run_id: z.string().nullable(),
   status: StageRunStatusSchema,
   reused: z.boolean(),
   elapsed_s: z.number().nonnegative().nullable(),
