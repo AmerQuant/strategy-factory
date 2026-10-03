@@ -1,5 +1,9 @@
 """F-7.1: t-tests of "mean return = 0" (T16, D-660, D-723).
 
+* :func:`trade_t_test` -- the trades of a strategy are treated as independent draws: the one-sample
+  Student t-test, ``t = mean / (s / sqrt(n))`` with ``s`` the sample standard deviation (ddof 1)
+  and ``n - 1`` degrees of freedom; the p-value is two-sided from Student's t (``scipy``, D-676).
+  It equals ``statsmodels``' and ``scipy.stats.ttest_1samp``'s.
 * :func:`hac_t_test` -- daily returns are serially dependent, so the mean's standard error uses the
   Newey-West long-run variance with the Bartlett kernel ``w_j = 1 - j / (L + 1)`` and **the
   Newey-West (1994) lag rule** ``L = floor(4 (T / 100)^(2/9))`` (D-723). The p-value is two-sided
@@ -17,10 +21,27 @@ from statistics import NormalDist
 
 import numpy as np
 import numpy.typing as npt
+from scipy.stats import t as student_t  # type: ignore[import-untyped]  # no stubs; see B.md
 
 from strategy_factory.stats.results import TTestResult
 
 _N = NormalDist()
+
+
+def trade_t_test(returns: npt.ArrayLike) -> TTestResult:
+    """F-7.1: the Student t-test of "mean trade return = 0" (two-sided)."""
+    x = np.asarray(returns, dtype=np.float64).ravel()
+    n = int(x.size)
+    if n < 2 or np.isnan(x).any():
+        return TTestResult(
+            method="student_t", statistic=math.nan, p_value=math.nan,
+            mean=math.nan if n == 0 or np.isnan(x).any() else float(x.mean()), n=n, lags=0,
+        )  # fmt: skip
+    mean = float(x.mean())
+    sd = float(x.std(ddof=1))
+    stat = mean / (sd / math.sqrt(n)) if sd > 0 else math.nan
+    p = math.nan if math.isnan(stat) else float(2 * student_t.sf(abs(stat), df=n - 1))
+    return TTestResult(method="student_t", statistic=stat, p_value=p, mean=mean, n=n, lags=0)
 
 
 def newey_west_lags(n_obs: int) -> int:

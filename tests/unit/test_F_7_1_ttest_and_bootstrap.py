@@ -9,9 +9,10 @@ import math
 import numpy as np
 import pytest
 import statsmodels.api as sm
+from scipy.stats import ttest_1samp
 
 from strategy_factory.stats.bootstrap import automatic_block_length, bootstrap_interval
-from strategy_factory.stats.ttest import hac_t_test, newey_west_lags
+from strategy_factory.stats.ttest import hac_t_test, newey_west_lags, trade_t_test
 
 
 def _ar1(t: int, phi: float, rng: np.random.Generator, mu: float = 0.0) -> np.ndarray:
@@ -87,3 +88,29 @@ def test_F_7_1_D725_defaults_are_the_stationary_percentile_pair() -> None:
     x = _ar1(300, 0.2, np.random.default_rng(12), 0.05)
     r = bootstrap_interval(x, "expectancy", level=0.9, reps=99, seed=1)
     assert (r.scheme, r.method) == ("stationary", "percentile")
+
+
+def test_F_7_1_trade_t_test_by_hand() -> None:
+    """[1, 2, 3, 4, 5]: mean 3, s = sqrt(2.5), t = 3 / (sqrt(2.5) / sqrt(5)) = 3 sqrt(2) = 4.2426;
+    two-sided p with 4 degrees of freedom = 0.013236 (Student's t table)."""
+    r = trade_t_test([1.0, 2.0, 3.0, 4.0, 5.0])
+    assert (r.method, r.n, r.lags, r.mean) == ("student_t", 5, 0, 3.0)
+    assert r.statistic == pytest.approx(3 * math.sqrt(2), rel=1e-12)
+    assert round(r.p_value, 6) == 0.013236
+
+
+def test_F_7_1_trade_t_test_equals_statsmodels_and_scipy() -> None:
+    x = np.random.default_rng(13).standard_t(4, 300) * 0.01 + 0.002
+    ours = trade_t_test(x)
+    ols = sm.OLS(x, np.ones_like(x)).fit()
+    ref = ttest_1samp(x, 0.0)
+    assert ours.statistic == pytest.approx(float(ols.tvalues[0]), rel=1e-10)
+    assert ours.p_value == pytest.approx(float(ols.pvalues[0]), rel=1e-8)
+    assert ours.statistic == pytest.approx(float(ref.statistic), rel=1e-12)
+    assert ours.p_value == pytest.approx(float(ref.pvalue), rel=1e-10)
+
+
+def test_F_7_1_trade_t_test_degenerate_input_is_nan() -> None:
+    for x in ([1.0], [2.0, 2.0, 2.0], [1.0, math.nan, 3.0]):
+        r = trade_t_test(x)
+        assert math.isnan(r.statistic) and math.isnan(r.p_value)

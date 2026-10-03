@@ -25,14 +25,24 @@ on its first centre), so the guard changes nothing there; on trials identical up
 rounding (``corrcoef`` leaves distances near 1e-8) the guard does not fire and the method can
 return 2.
 
-``n_effective`` is the number of clusters. The default between this and hierarchical clustering
-with a correlation cut is the supervisor's choice from the comparison (D-722).
+**Hierarchical** -- average linkage on the same distance, cut where the linkage distance reaches
+``d(rho_cut) = sqrt((1 - rho_cut) / 2)``: two groups merge while their average correlation is at
+least ``rho_cut``. ``scipy``'s ``linkage(method="average")`` and ``fcluster(criterion="distance")``
+(D-676). The cut is a required argument: its value, like the choice between the two methods, is
+the supervisor's from the comparison (D-722).
+
+``n_effective`` is the number of clusters.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import numpy.typing as npt
+from scipy.cluster.hierarchy import (  # type: ignore[import-untyped]  # no stubs; see B.md
+    fcluster,
+    linkage,
+)
+from scipy.spatial.distance import squareform  # type: ignore[import-untyped]  # no stubs; see B.md
 
 from strategy_factory.stats.results import NeffResult
 
@@ -213,4 +223,32 @@ def onc(
         n_raw=n,
         n_effective=len(np.unique(labels)),
         labels=tuple(int(v) for v in labels),
+    )
+
+
+def hierarchical_labels(corr: FloatArray, rho_cut: float) -> IntArray:
+    """Average-linkage clusters of a correlation matrix cut at ``rho_cut``, numbered from 0 in the
+    order each cluster first appears."""
+    n = len(corr)
+    if n == 1:
+        return np.zeros(1, dtype=np.int64)
+    z = linkage(squareform(distance(corr), checks=False), method="average")
+    raw = np.asarray(fcluster(z, t=np.sqrt((1.0 - rho_cut) / 2.0), criterion="distance"))
+    _, first, inverse = np.unique(raw, return_index=True, return_inverse=True)
+    order = np.argsort(np.argsort(first))
+    return order[inverse].astype(np.int64)
+
+
+def hierarchical(returns: npt.ArrayLike, *, rho_cut: float) -> NeffResult:
+    """F-7.3 by hierarchical clustering: average linkage cut at the correlation ``rho_cut``."""
+    if not -1.0 < rho_cut < 1.0:
+        raise ValueError(f"rho_cut must be in (-1, 1), got {rho_cut}")
+    corr = correlation(returns)
+    labels = hierarchical_labels(corr, rho_cut)
+    return NeffResult(
+        method="hierarchical",
+        n_raw=len(corr),
+        n_effective=len(np.unique(labels)),
+        labels=tuple(int(v) for v in labels),
+        rho_cut=rho_cut,
     )

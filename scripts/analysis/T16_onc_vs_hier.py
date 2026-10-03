@@ -14,9 +14,9 @@ to ``docs/reviews/T16_onc_vs_hier_summary.csv``.
   k = 2 .. n - 1, 10 restarts, the recursive re-clustering), seed 0, **with** the identical-trials
   guard (the 54 cases imported from the interrupted run ran with it too). Wherever the guard
   fires, the case also runs **without** it (``onc_unguarded``), so both variants are in the table.
-* **Hierarchical** is average linkage on ``d = sqrt((1 - rho) / 2)`` cut where the linkage
-  distance reaches ``d(rho_cut)``, for rho_cut in 0.2, 0.3, 0.4, 0.5 (scipy's ``linkage`` and
-  ``fcluster``: the calls the library makes once scipy is declared).
+* **Hierarchical** is the library's ``stats.neff.hierarchical_labels``: average linkage on
+  ``d = sqrt((1 - rho) / 2)`` cut where the linkage distance reaches ``d(rho_cut)``, for rho_cut
+  in 0.2, 0.3, 0.4, 0.5; its seconds include the linkage, per cut.
 
 Per scenario and seed: N_eff, seconds, and SR_0 (the DSR's expected maximum Sharpe of N_eff null
 trials, in units of the trials' Sharpe standard deviation) -- what the choice does to the DSR bar.
@@ -36,11 +36,14 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
-from scipy.cluster.hierarchy import fcluster, linkage
-from scipy.spatial.distance import squareform
 
 from strategy_factory.cli import utf8_output
-from strategy_factory.stats.neff import correlation, distance, identical_guard_fires, onc
+from strategy_factory.stats.neff import (
+    correlation,
+    hierarchical_labels,
+    identical_guard_fires,
+    onc,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import T16_plan_neff as plan
@@ -86,16 +89,14 @@ def job(
     n = x.shape[0]
     rows: list[dict[str, object]] = []
     if need_hier:
-        t0 = time.perf_counter()
-        z = linkage(squareform(distance(correlation(x)), checks=False), method="average")
-        link_s = time.perf_counter() - t0
+        c = correlation(x)
         for cut in CUTS:
             t1 = time.perf_counter()
-            k = int(fcluster(z, t=np.sqrt((1 - cut) / 2), criterion="distance").max())
+            k = len(np.unique(hierarchical_labels(c, cut)))
             rows.append(
                 {"scenario": name, "truth": truth, "n_trials": n, "seed": seed,
                  "method": f"hier_{cut}", "n_eff": k,
-                 "seconds": round(link_s + time.perf_counter() - t1, 3),
+                 "seconds": round(time.perf_counter() - t1, 3),
                  "sr0": round(plan.sr0(k), 4), "note": ""}
             )  # fmt: skip
     if need_onc:

@@ -59,6 +59,7 @@ class NeffResult(_Result):
     n_raw: int
     n_effective: int
     labels: tuple[int, ...]  # the cluster of each trial, in input order
+    rho_cut: float | None = None  # hierarchical: the correlation level of the cut
 
 
 class DSRResult(_Result):

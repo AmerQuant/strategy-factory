@@ -43,9 +43,15 @@ The worktree is on `b/T16-stats-library`.
   the SPA block-length measurement (D-723 (4), amended in place: the block length is pending it).
 - **Then stop** with both tables together for the supervisor: F-7.3's default (ONC or a
   hierarchical cut) and the SPA block rule (`pw_max`, `pw_median`, `pw_best`, `cube_root`).
-- **Waiting on stream A:** `scipy` in `pyproject.toml` (then the Student-t trade test and
-  hierarchical clustering go into the library) and the pending range `P-150 … P-199` (stream B's
-  `P-80 … P-99` is used up; new questions go in the stop report until then).
+- **`scipy` is on `main` (#62, D-676), and so is `P-150 … P-199`.** The Student-t trade test
+  (`stats.ttest.trade_t_test`) and hierarchical clustering (`stats.neff.hierarchical`, the cut a
+  required argument) are built with their reference tests; the comparison script now calls the
+  library's `hierarchical_labels`.
+- **For stream A:** `scipy` ships no type stubs. The library's three `scipy` imports carry
+  `# type: ignore[import-untyped]`. The project's pattern is the `ignore_missing_imports` list in
+  `pyproject.toml` (yfinance, numba, openpyxl); adding `"scipy", "scipy.*"` there is stream A's
+  file, and **in the same change the three ignores (in `stats/ttest.py` and `stats/neff.py`)
+  must be removed**, or strict mypy reports them as unused.
 - The machine is the user's for light work until the overnight run; nothing heavy from here. **The user's Dukascopy download runs from this
 worktree's venv** (`sfac data download dukascopy`): do not run `uv sync` while it runs (it cannot
 replace `.venv/Scripts/sfac.exe`). #60's `arch` was installed at its locked 8.0.0 with `uv pip`.
