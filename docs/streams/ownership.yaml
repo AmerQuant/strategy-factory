@@ -9,14 +9,17 @@
 # `**/` any number of whole segments; D-658).
 # `shared` paths may be changed by either stream; everything not listed is shared.
 
-# The supervisor's own ranges (D-355). A decision the supervisor dictates may be written by
-# whichever stream carries it, so the id guard accepts these from any branch. Decisions only:
-# a P- number always belongs to the stream that raised the question.
-# D-355 … D-359 is used up (D-355, D-356, D-357, D-359), so D-600 … D-699 follows it.
+# The supervisor's own ranges (D-355). Decisions only: a P- number always belongs to the
+# stream that raised the question. D-355 … D-359 is used up (D-355, D-356, D-357, D-359), so
+# D-600 … D-699 follows it.
+# D-677 (2026-10-03): only stream A writes them; the other sessions record a supervisor-settled
+# decision in their own range, marked (supervisor). The guard checks the rows a branch adds or
+# amends, never the rows already in the log (D-672 … D-674, written by stream B, stay valid).
 supervisor:
   decisions:
     - [355, 359]
     - [600, 699]
+  writers: [A]
 
 streams:
   A:
@@ -70,6 +73,9 @@ owners:
   configs/universe/: B                # the symbol lists and symbol_changes.csv (D-394)
   docs/streams/B.md: B
   src/strategy_factory/stats/: B      # D-658: the stage-7 statistics library (T16)
+  src/strategy_factory/api/: B        # D-678: the admin UI's API (FastAPI)
+  ui/: B                              # D-678: the admin UI's front end
+  docs/streams/B_ui.md: B             # D-678: the UI session's status file
   tests/**/test_F_7_*: B              # D-658: its tests, in any test folder (a glob, see below)
 
 # Append-only for everyone, per the stream's own ID range (D-357 (2)); the ID guard checks the

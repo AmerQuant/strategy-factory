@@ -106,16 +106,19 @@ class StreamSpec(BaseModel):
 
 
 class SupervisorRange(BaseModel):
-    """The supervisor's own decision ranges (D-355): allowed from any branch.
+    """The supervisor's own decision ranges (D-355).
 
     There is more than one because a range can be used up: ``D-355 … D-359`` was, so
     ``D-600 … D-699`` was added next to it. Decisions only -- a ``P-`` number always belongs
-    to the stream that raised the question.
+    to the stream that raised the question. ``writers`` (D-677): the streams that may add or
+    amend a row in these ranges; empty means any stream. Rows already in the log are never
+    re-checked, so ids written before the rule stay valid.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     decisions: tuple[tuple[int, int], ...]
+    writers: tuple[str, ...] = ()
 
     _ranges = field_validator("decisions", mode="before")(as_ranges)
 
@@ -148,6 +151,10 @@ class Ownership(BaseModel):
 
     @model_validator(mode="after")
     def _known_owners(self) -> Ownership:
+        if self.supervisor is not None:
+            bad = sorted(w for w in self.supervisor.writers if w not in self.streams)
+            if bad:
+                raise ValueError(f"supervisor writers name unknown streams: {bad}")
         unknown = sorted({o for o in self.owners.values() if o not in self.streams})
         if unknown:
             raise ValueError(f"owners name unknown streams: {unknown}")
@@ -287,8 +294,16 @@ def check_ids(
                     "the owning stream's `a/` or `b/` branch (D-369)"
                 )
             continue
-        if ownership.supervisor is not None and ownership.supervisor.covers(kind, number):
-            continue  # a decision the supervisor dictated (D-355): any stream may carry it
+        sup = ownership.supervisor
+        if sup is not None and sup.covers(kind, number):
+            if sup.writers and stream not in sup.writers:
+                who = " and ".join(f"stream {w}" for w in sup.writers)
+                problems.append(
+                    f"{label}: the supervisor's range {sup.describe()} is written only by {who} "
+                    f"(D-677); record a supervisor-settled decision in stream {stream}'s own "
+                    f"range {ownership.streams[stream].describe(kind)}, marked (supervisor)"
+                )
+            continue  # a decision the supervisor dictated (D-355), carried by its writer
         spec = ownership.streams[stream]
         if not spec.covers(kind, number):
             extra = ""

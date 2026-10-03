@@ -285,12 +285,12 @@ def test_F_X_9_guard_ids_range_and_duplicates(rules: Ownership) -> None:
     assert check_ids(None, ["| D-356 | duplicate |"], existing, rules) != []
 
 
-def test_F_X_9_supervisor_decisions_are_allowed_from_any_stream(rules: Ownership) -> None:
-    """D-355 keeps its ranges for the supervisor; whichever stream carries one may add it."""
+def test_F_X_9_supervisor_decisions_are_written_by_stream_a(rules: Ownership) -> None:
+    """D-355 keeps its ranges for the supervisor; since D-677 only stream A writes them."""
     existing = ["| D-354 | x |"]
-    for stream in ("A", "B"):
-        for number in (355, 357, 359, 600, 650, 699):
-            assert check_ids(stream, [f"| D-{number} | supervisor |"], existing, rules) == []
+    for number in (355, 357, 359, 600, 650, 699):
+        assert check_ids("A", [f"| D-{number} | supervisor |"], existing, rules) == []
+        assert len(check_ids("B", [f"| D-{number} | supervisor |"], existing, rules)) == 1
     # the ranges are decisions only: P-357 is still judged against the stream's pending range
     assert check_ids("A", ["| P-357 | not a decision |"], existing, rules) != []
     assert check_ids("A", ["| P-600 | not a decision |"], existing, rules) != []
@@ -303,12 +303,13 @@ def test_F_X_9_supervisor_decisions_are_allowed_from_any_stream(rules: Ownership
     assert check_ids("A", ["| D-357 | dup |"], ["| D-357 | already |"], rules) != []
 
 
-def test_F_X_9_d600_range_accepts_from_either_stream_and_still_catches_duplicates(
+def test_F_X_9_d600_range_written_by_stream_a_and_still_catches_duplicates(
     rules: Ownership,
 ) -> None:
-    """The second supervisor range, added when D-355 … D-359 was used up."""
+    """The second supervisor range, added when D-355 … D-359 was used up; written by stream A
+    (D-677) -- and by an unprefixed branch, which the guard checks for duplicates only."""
     existing = ["| D-600 | already taken |"]
-    for stream in ("A", "B", None):
+    for stream in ("A", None):
         assert check_ids(stream, ["| D-601 | new supervisor decision |"], [], rules) == []
         dup = check_ids(stream, ["| D-600 | same id again |"], existing, rules)
         assert len(dup) == 1 and "duplicate id" in dup[0], stream
@@ -616,17 +617,16 @@ def test_F_X_9_d369_a_stream_may_not_amend_another_streams_row(rules: Ownership)
     )
 
 
-def test_F_X_9_d369_a_supervisor_row_may_be_amended_by_either_stream(rules: Ownership) -> None:
-    """What this branch does to D-357. The guard allows it; the supervisor's word authorises it.
-
-    Documented as a stated limit of D-369: the guard cannot tell an instructed amendment of a
-    supervisor row from an uninstructed one, exactly as it cannot for a newly added one.
-    """
-    for stream in ("A", "B"):
-        for number in (357, 600):
-            row_old = [f"| D-{number} | old |"]
-            row_new = [f"| D-{number} | amended |"]
-            assert check_ids(stream, row_new, row_old, rules, row_old) == [], (stream, number)
+def test_F_X_9_d369_a_supervisor_row_may_be_amended_by_stream_a_only(rules: Ownership) -> None:
+    """D-369 amendments pass the same check as a new row, so since D-677 only stream A amends
+    a supervisor row. The guard cannot tell an instructed amendment from an uninstructed one;
+    the supervisor's word authorises it."""
+    for number in (357, 600):
+        row_old = [f"| D-{number} | old |"]
+        row_new = [f"| D-{number} | amended |"]
+        assert check_ids("A", row_new, row_old, rules, row_old) == [], number
+        problems = check_ids("B", row_new, row_old, rules, row_old)
+        assert len(problems) == 1 and "D-677" in problems[0], number
 
 
 def test_F_X_9_d369_removed_rows_reads_real_git_output(
@@ -712,9 +712,9 @@ def test_F_X_9_d372_the_second_range_is_still_stream_bs_own(rules: Ownership) ->
         # the message names every range stream A holds, and the supervisor's for contrast
         assert "D-360 … D-379" in problems[0]
         assert "D-600 … D-699" in problems[0]
-    # ... while a supervisor number is still accepted from either stream
-    for stream in ("A", "B"):
-        assert check_ids(stream, ["| D-650 | supervisor |"], [], rules) == []
+    # ... while a supervisor number is accepted from stream A only (D-677)
+    assert check_ids("A", ["| D-650 | supervisor |"], [], rules) == []
+    assert len(check_ids("B", ["| D-650 | supervisor |"], [], rules)) == 1
 
 
 def test_F_X_9_d372_the_message_names_every_range_a_stream_holds(rules: Ownership) -> None:
@@ -962,3 +962,80 @@ def test_F_X_9_d676_protocol_and_log_state_it() -> None:
     assert "P-150 … P-199" in protocol and "D-676" in protocol
     log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
     assert any(line.startswith("| D-676 |") and "P-150" in line for line in log.splitlines())
+
+
+# -- D-677: only stream A writes the supervisor's ranges ----------------------------------------
+def test_F_X_9_d677_stream_b_is_refused_the_supervisor_range_at_its_edges(rules: Ownership) -> None:
+    for number in (600, 650, 699, 355, 359):
+        problems = check_ids("B", [f"| D-{number} | stream B writing |"], [], rules)
+        assert len(problems) == 1, number
+        assert "written only by stream A (D-677)" in problems[0]
+        assert "stream B's own range D-380 … D-399 and D-700 … D-799" in problems[0]
+        assert "marked (supervisor)" in problems[0]
+    # just outside: D-700 is stream B's own, D-599 is nobody's
+    assert check_ids("B", ["| D-700 | stream B's own |"], [], rules) == []
+    assert len(check_ids("B", ["| D-599 | nobody's |"], [], rules)) == 1
+    assert len(check_ids("A", ["| D-599 | nobody's |"], [], rules)) == 1
+
+
+def test_F_X_9_d677_stream_a_writes_the_supervisor_range_at_its_edges(rules: Ownership) -> None:
+    for number in (600, 699, 355, 359):
+        assert check_ids("A", [f"| D-{number} | stream A carrying |"], [], rules) == [], number
+    # just outside it, stream A's own ranges apply
+    assert len(check_ids("A", ["| D-700 | stream B's |"], [], rules)) == 1
+    assert check_ids("A", ["| D-800 | stream A's own |"], [], rules) == []
+
+
+def test_F_X_9_d677_rows_already_in_the_log_are_not_rechecked(rules: Ownership) -> None:
+    """D-672 … D-674 were written by stream B's T04j before the rule: they stay valid. A stream-B
+    branch that adds its own row next to them passes; only added or amended rows are checked."""
+    existing = ["| D-672 | stream B, T04j |", "| D-673 | stream B, T04j |", "| D-674 | T04j |"]
+    assert check_ids("B", ["| D-722 | stream B's next |"], existing, rules) == []
+    assert check_ids("B", ["| P-150 | stream B's next |"], existing, rules) == []
+    # touching one of them now is an amendment by stream B, and refused
+    problems = check_ids("B", ["| D-673 | amended |"], existing, rules, ["| D-673 | old |"])
+    assert len(problems) == 1 and "D-677" in problems[0]
+
+
+def test_F_X_9_d677_the_repo_ownership_names_stream_a_as_the_only_writer(rules: Ownership) -> None:
+    assert rules.supervisor is not None and rules.supervisor.writers == ("A",)
+
+
+def test_F_X_9_d677_an_unknown_writer_is_refused(tmp_path: Path) -> None:
+    data: dict[str, Any] = {
+        "supervisor": {"decisions": [[600, 699]], "writers": ["C"]},
+        "streams": {
+            "A": {"name": "a", "branch_prefix": "a/", "decisions": [1, 9], "pending": [1, 9]},
+            "B": {"name": "b", "branch_prefix": "b/", "decisions": [10, 19], "pending": [10, 19]},
+        },
+        "owners": {},
+    }
+    target = tmp_path / "ownership.yaml"
+    target.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ConfigError, match="supervisor writers name unknown streams"):
+        load_ownership(target)
+
+
+def test_F_X_9_d677_protocol_and_log_state_it() -> None:
+    protocol = (REPO / "docs" / "streams" / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "D-677" in protocol and "only stream A" in protocol
+    log = (REPO / "docs" / "decisions" / "decisions_log.md").read_text(encoding="utf-8")
+    assert any(line.startswith("| D-677 |") for line in log.splitlines())
+
+
+# -- D-678: the admin UI's paths are stream B's -------------------------------------------------
+def test_F_X_9_d678_the_api_and_the_ui_are_stream_bs(rules: Ownership) -> None:
+    paths = (
+        "src/strategy_factory/api/app.py",
+        "src/strategy_factory/api/routes/runs.py",
+        "ui/src/run/reducer.ts",
+        "ui/package.json",
+        "docs/streams/B_ui.md",
+    )
+    for path in paths:
+        assert rules.owner_of(path) == "B", path
+    assert check_paths("B", list(paths), rules) == []
+    assert len(check_paths("A", list(paths), rules)) == len(paths)
+    # siblings stay shared
+    for shared in ("src/strategy_factory/apis.py", "uinotes.md", "docs/ui/notes.md"):
+        assert rules.owner_of(shared) is None, shared
